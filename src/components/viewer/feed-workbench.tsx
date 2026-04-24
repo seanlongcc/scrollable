@@ -1530,8 +1530,8 @@ export function FeedWorkbench() {
         </Button>
       ) : (
         <header className="border-b border-border bg-surface/95 px-3 pt-2 pb-0 shadow-[0_1px_0_rgba(255,255,255,0.025)] backdrop-blur md:px-4">
-          <div className="grid gap-2 lg:grid-cols-[minmax(12rem,1fr)_auto_minmax(12rem,1fr)] lg:items-center">
-            <div className="flex min-w-0 items-center justify-start">
+          <div className="grid gap-2 min-[1360px]:grid-cols-[minmax(21rem,1fr)_auto_minmax(12rem,1fr)] min-[1360px]:items-center">
+            <div className="flex min-w-0 items-center justify-center min-[1360px]:justify-start">
               <SiteLogo />
             </div>
 
@@ -1629,9 +1629,6 @@ export function FeedWorkbench() {
                   Duplicate
                 </Button>
               ) : null}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
                 type="button"
                 size="icon"
@@ -1647,21 +1644,25 @@ export function FeedWorkbench() {
                 type="button"
                 size="icon"
                 variant="outline"
-                aria-label="Open layouts"
-                onClick={() => setIsLayoutsOpen(true)}
+                onClick={() => {
+                  setIsUiRevealVisible(true);
+                  setIsUiHidden(true);
+                }}
+                aria-label="Hide UI"
               >
-                <FolderOpen />
+                <EyeOff />
               </Button>
               <Button
                 type="button"
-                size="icon"
-                variant="outline"
-                aria-label={accountButtonLabel}
-                title={accountButtonTitle}
-                onClick={() => setIsAccountOpen(true)}
+                aria-label="Add source"
+                onClick={() => openSourcePanel()}
               >
-                <UserCircle />
+                <Plus />
+                Add source
               </Button>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 min-[1360px]:justify-end">
               <Button
                 type="button"
                 size="icon"
@@ -1685,21 +1686,20 @@ export function FeedWorkbench() {
                 type="button"
                 size="icon"
                 variant="outline"
-                onClick={() => {
-                  setIsUiRevealVisible(true);
-                  setIsUiHidden(true);
-                }}
-                aria-label="Hide UI"
+                aria-label="Open layouts"
+                onClick={() => setIsLayoutsOpen(true)}
               >
-                <EyeOff />
+                <FolderOpen />
               </Button>
               <Button
                 type="button"
-                aria-label="Add source"
-                onClick={() => openSourcePanel()}
+                size="icon"
+                variant="outline"
+                aria-label={accountButtonLabel}
+                title={accountButtonTitle}
+                onClick={() => setIsAccountOpen(true)}
               >
-                <Plus />
-                Add source
+                <UserCircle />
               </Button>
             </div>
           </div>
@@ -2020,10 +2020,6 @@ function LayoutDialog({
       <DialogContent className="max-h-[85dvh] w-[min(92vw,34rem)] overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Saved layouts</DialogTitle>
-          <DialogDescription>
-            Local layouts store tabs, slots, timers, and source config only.
-            Media loads at runtime.
-          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
           {sortedWorkspaces.length ? (
@@ -2095,10 +2091,6 @@ function SaveLayoutDialog({
       <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Save layout as</DialogTitle>
-          <DialogDescription>
-            Save layout controls and source config. Runtime media stays out of
-            storage.
-          </DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-3"
@@ -2185,10 +2177,6 @@ function AccountDialog({
       <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Account</DialogTitle>
-          <DialogDescription>
-            Sign in to sync layout metadata to your account. Runtime media stays
-            out of storage.
-          </DialogDescription>
         </DialogHeader>
         {account.status === "signed-in" ? (
           <div className="grid gap-3">
@@ -2273,9 +2261,6 @@ function SourceDialog({
       <DialogContent className="max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
-          <DialogDescription>
-            Runtime media only. Saved configs still store metadata, not media.
-          </DialogDescription>
         </DialogHeader>
         <div className="grid min-w-0 gap-5 md:grid-cols-2">
           <section className="grid min-h-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-surface p-3">
