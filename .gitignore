@@ -32,6 +32,9 @@ pnpm-debug.log*
 logs/
 *.log
 
+# Browser automation scratch profiles
+.browser-profile*/
+
 # Environment variables and secrets
 .env
 .env.*
@@ -66,6 +69,7 @@ Thumbs.db
 # AI/editor local state
 .claude/
 .cursor/
+.superpowers/
 
 # Serena local overrides are machine-specific. Keep project.yml and memories trackable.
 .serena/project.local.yml
