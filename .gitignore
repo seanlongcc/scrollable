@@ -71,8 +71,8 @@ Thumbs.db
 .cursor/
 .superpowers/
 
-# Serena local overrides are machine-specific. Keep project.yml and memories trackable.
-.serena/project.local.yml
+# Serena local state
+.serena/
 
 # Beads / Dolt local files
 .dolt/
