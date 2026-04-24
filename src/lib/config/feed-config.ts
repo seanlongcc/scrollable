@@ -10,6 +10,8 @@ export const redditTimeRangeSchema = z.enum([
   "all",
 ]);
 
+export const DEFAULT_FEED_TIMER_SECONDS = 10;
+
 export const feedConfigInputSchema = z
   .object({
     source: z.literal("reddit").default("reddit"),
@@ -25,7 +27,12 @@ export const feedConfigInputSchema = z
     timeRange: redditTimeRangeSchema.default("day"),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     skip: z.coerce.number().int().min(0).max(100).default(0),
-    timerSeconds: z.coerce.number().int().min(3).max(120).default(12),
+    timerSeconds: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(120)
+      .default(DEFAULT_FEED_TIMER_SECONDS),
     isNsfw: z.coerce.boolean().default(false),
     displayMode: z.enum(["single", "grid"]).default("single"),
   })

@@ -1,10 +1,11 @@
 begin;
 
-select plan(8);
+select plan(10);
 
 select has_table('public', 'feed_configs', 'feed_configs exists');
 select has_table('public', 'collections', 'collections exists');
 select has_table('public', 'share_links', 'share_links exists');
+select has_table('public', 'viewer_sessions', 'viewer_sessions exists');
 
 select policies_are(
   'public',
@@ -24,12 +25,19 @@ select policies_are(
   array['share links owner all', 'share links public read']
 );
 
+select policies_are(
+  'public',
+  'viewer_sessions',
+  array['viewer sessions owner all']
+);
+
 select isnt_empty(
   $$ select 1
      from pg_policy p
      join pg_class c on c.oid = p.polrelid
      where c.relname = 'share_links'
-       and pg_get_expr(p.polqual, p.polrelid) like '%not fc.is_nsfw or auth.uid() is not null%' $$,
+       and pg_get_expr(p.polqual, p.polrelid) ~* 'not[[:space:]]+fc[.]is_nsfw'
+       and pg_get_expr(p.polqual, p.polrelid) ~* 'auth[.]uid[(][)][[:space:]]+is[[:space:]]+not[[:space:]]+null' $$,
   'shared NSFW config metadata requires auth'
 );
 
@@ -38,7 +46,8 @@ select isnt_empty(
      from pg_policy p
      join pg_class c on c.oid = p.polrelid
      where c.relname = 'share_links'
-       and pg_get_expr(p.polqual, p.polrelid) like '%not c.is_nsfw or auth.uid() is not null%' $$,
+       and pg_get_expr(p.polqual, p.polrelid) ~* 'not[[:space:]]+c[.]is_nsfw'
+       and pg_get_expr(p.polqual, p.polrelid) ~* 'auth[.]uid[(][)][[:space:]]+is[[:space:]]+not[[:space:]]+null' $$,
   'shared NSFW collection metadata requires auth'
 );
 

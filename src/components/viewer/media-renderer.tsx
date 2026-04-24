@@ -6,7 +6,19 @@ import { useEffect, useRef } from "react";
 import type { RuntimeMedia } from "@/lib/feed/types";
 import { chooseVideoPlayback } from "@/lib/viewer/video";
 
-export function MediaRenderer({ media, title }: { media: RuntimeMedia; title: string }) {
+export function MediaRenderer({
+  media,
+  title,
+  showControls = true,
+  initialVideoTime = 0,
+  onVideoTimeChange,
+}: {
+  media: RuntimeMedia;
+  title: string;
+  showControls?: boolean;
+  initialVideoTime?: number;
+  onVideoTimeChange?: (seconds: number) => void;
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -37,6 +49,55 @@ export function MediaRenderer({ media, title }: { media: RuntimeMedia; title: st
     return () => hls.destroy();
   }, [media]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || media.type !== "video") return;
+    const videoElement = video;
+
+    function restorePosition() {
+      if (!Number.isFinite(initialVideoTime) || initialVideoTime <= 0) return;
+
+      try {
+        videoElement.currentTime = initialVideoTime;
+      } catch {
+        // Some streamed videos reject seeking before enough metadata is ready.
+      }
+    }
+
+    restorePosition();
+    videoElement.addEventListener("loadedmetadata", restorePosition);
+    videoElement.addEventListener("canplay", restorePosition, { once: true });
+
+    return () => {
+      videoElement.removeEventListener("loadedmetadata", restorePosition);
+      videoElement.removeEventListener("canplay", restorePosition);
+    };
+  }, [initialVideoTime, media]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || media.type !== "video" || !onVideoTimeChange) return;
+    const videoElement = video;
+    const handleTimeChange = onVideoTimeChange;
+
+    function reportPosition() {
+      if (Number.isFinite(videoElement.currentTime)) {
+        handleTimeChange(videoElement.currentTime);
+      }
+    }
+
+    videoElement.addEventListener("timeupdate", reportPosition);
+    videoElement.addEventListener("pause", reportPosition);
+    videoElement.addEventListener("seeked", reportPosition);
+
+    return () => {
+      reportPosition();
+      videoElement.removeEventListener("timeupdate", reportPosition);
+      videoElement.removeEventListener("pause", reportPosition);
+      videoElement.removeEventListener("seeked", reportPosition);
+    };
+  }, [media, onVideoTimeChange]);
+
   if (media.type === "image") {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -53,7 +114,8 @@ export function MediaRenderer({ media, title }: { media: RuntimeMedia; title: st
     <video
       ref={videoRef}
       className="h-full w-full object-contain"
-      controls
+      autoPlay
+      controls={showControls}
       playsInline
       muted
       loop

@@ -6,7 +6,7 @@ export type TimerState = {
   isPaused: boolean;
 };
 
-export type TimerMode = "own" | "master";
+export type TimerMode = "local" | "global";
 
 export type ViewTimerState = {
   mode: TimerMode;
@@ -96,7 +96,7 @@ export function createMultiTimerState(
   );
 }
 
-export function masterMoveTimerIndexes(
+export function globalMoveTimerIndexes(
   timers: MultiTimerState,
   direction: 1 | -1,
 ): MultiTimerState {
@@ -106,26 +106,26 @@ export function masterMoveTimerIndexes(
   }));
 }
 
-export function masterTogglePaused(timers: MultiTimerState): MultiTimerState {
+export function globalTogglePaused(timers: MultiTimerState): MultiTimerState {
   return mapMultiTimerState(timers, (viewTimer) => ({
     ...viewTimer,
     timer: togglePaused(viewTimer.timer),
   }));
 }
 
-export function masterRestartTimers(timers: MultiTimerState): MultiTimerState {
+export function globalRestartTimers(timers: MultiTimerState): MultiTimerState {
   return mapMultiTimerState(timers, (viewTimer) => ({
     ...viewTimer,
     timer: { ...viewTimer.timer, elapsedMs: 0 },
   }));
 }
 
-export function applyMasterDuration(
+export function applyGlobalDuration(
   timers: MultiTimerState,
   durationSeconds: number,
 ): MultiTimerState {
   return mapMultiTimerState(timers, (viewTimer) => {
-    if (viewTimer.mode !== "master") return viewTimer;
+    if (viewTimer.mode !== "global") return viewTimer;
 
     return {
       ...viewTimer,
@@ -136,6 +136,12 @@ export function applyMasterDuration(
       },
     };
   });
+}
+
+export function normalizeTimerMode(mode: unknown): TimerMode {
+  if (mode === "local" || mode === "own") return "local";
+  if (mode === "global" || mode === "master") return "global";
+  return "global";
 }
 
 function mapMultiTimerState(

@@ -24,3 +24,5 @@ npm run supabase:test
 ## Data Rule
 
 Do not persist, rehost, proxy-cache, or store third-party media, Reddit post payloads, thumbnails, media URLs, or fetched listing responses.
+
+Viewer layouts save tab, grid, timer, and source configuration metadata only. Local layouts open from the viewer's layouts overlay without login; signed-in users can also sync layout metadata to account data.

@@ -33,6 +33,7 @@ The home page should become a live multi-view workspace:
 - The main viewport is the live grid.
 - Source creation stays available through an add-source panel or modal rather than a permanently dominant setup sidebar.
 - Existing Reddit and local-upload source behavior remains runtime-only.
+- Reddit is a runtime content source only; account login uses email/password or Google, not Reddit OAuth.
 
 Each open source becomes a `FeedViewSession`:
 
@@ -190,7 +191,27 @@ Add focused tests for:
 - Default layout is fixed `2x1` side-by-side.
 - User can switch fixed grid dimensions up to `8x8`.
 - User can switch to free 8x8 layout and assign view rectangles.
+- Free-layout views can be selected, visually highlighted, dragged, and resized on the 8x8 canvas.
 - Each view has its own timer setting.
+- Default master/source timer is 10 seconds.
+- Per-view timer controls make the `own` versus `master` distinction explicit.
 - Master controls can control all views.
+- Master controls stay visually compact and aligned with other toolbar actions.
 - Any view can maximize into focus plus live satellite views.
+- Focus view uses the full available viewer area rather than collapsing media to the lower half.
+- Video media autoplays muted and inline.
+- A content-only mode hides chrome, progress, and media controls while keeping a visible recovery affordance.
+- The top logo is a clickable `scrollable.app` home link.
+- The top logo is visually prominent and uses the brassy theme.
+- The add-source panel avoids horizontal overflow.
+- Users can save layout/workspace metadata locally without storing runtime media URLs, media IDs, thumbnails, listing payloads, or normalized media items.
+- Users can open locally saved layouts from the viewer without login.
+- Signed-in users can also sync saved workspace metadata to Supabase user data.
+- Browser-like workspace tabs keep runtime items while the page is open, but local/account persistence remains metadata-only.
+- Browser-like workspace tabs can be closed from the tab strip.
+- Login and sign-up open as an overlay from the viewer.
+- Fixed-grid sessions keep their assigned cell when neighboring cells are removed.
+- Overflow sessions are not overlapped in a too-small fixed grid; they appear when the grid grows or remain listed as hidden.
+- A visible duplication/fill action can clone one runtime source into multiple cells with staggered active indexes.
+- Single-item feeds do not show a timer progress bar.
 - No third-party media, media URLs, thumbnails, Reddit post IDs, listing payloads, or normalized runtime items are persisted.

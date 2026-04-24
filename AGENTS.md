@@ -14,7 +14,7 @@ Current installed stack:
 - `@supabase/ssr` 0.10.x and `@supabase/supabase-js` 2.104.x
 - Supabase CLI 2.95.x
 - Vitest 4.x, Playwright 1.59.x, ESLint 9.x
-- Auth providers: email, Google, Reddit
+- Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
 - Vercel for deployment
 - Mobile-first user experience
 
@@ -67,10 +67,12 @@ Acceptable stored data:
 - User identity records from Supabase Auth.
 - User profile/preferences needed for the app.
 - Feed configurations.
+- Viewer workspace/session layout metadata in `viewer_sessions`, including tab names, layout mode, grid dimensions, source configuration metadata, timer settings, slots, and free-layout rectangles.
 - Collections of feed configurations.
 - Tags, NSFW flags, sharing settings, ownership, timestamps, and audit/security metadata.
 - Runtime logs or rate-limit records that do not contain third-party media payloads.
 - `display_options` may store display/config preferences only, not third-party media metadata.
+- `viewer_sessions.sessions` must remain metadata-only and must not contain Reddit post IDs, media URLs, thumbnails, listing payloads, normalized runtime items, or local upload object URLs.
 
 ## Architecture Direction
 
@@ -79,6 +81,7 @@ Prefer these boundaries when implementation starts:
 - `sources`: source adapters for Reddit and local uploads.
 - `normalization`: convert source responses into runtime feed items.
 - `viewer`: vertical reels feed, timer, keyboard/touch navigation, and horizontal media carousel.
+- `viewer/workspaces`: local/Supabase workspace tab and layout serialization. Keep this metadata-only.
 - `configurations`: saved feed configs and validation.
 - `collections`: grouping, sharing, tags, NSFW flags, and browse views.
 - `auth`: Supabase auth integration and provider setup.
@@ -133,12 +136,13 @@ Quick reference:
 
 ## Subagents
 
-Use subagents for code review and testing when those activities are requested or when a substantial implementation is nearing completion. If the active agent runtime requires explicit permission before spawning subagents, ask for that permission first.
+Use subagents for code review, testing, and continuous refactoring when those activities are requested or when a substantial implementation is in progress or nearing completion. If the active agent runtime requires explicit permission before spawning subagents, ask for that permission first.
 
 Recommended subagent usage:
 
 - Code review subagent: inspect changed files for bugs, regressions, data persistence violations, auth/RLS gaps, mobile UI regressions, and missing tests.
 - Testing subagent: run or design focused verification for unit tests, integration tests, browser flows, and mobile layouts.
+- Continuous refactoring subagent: while substantial feature work is underway, keep a parallel pass focused on small, behavior-preserving cleanup such as removing duplication, tightening types, improving names, simplifying component boundaries, and aligning code with existing project patterns.
 - AGENTS.md maintenance subagent: review and update this file when project rules, architecture, commands, MCP servers, skills, deployment setup, auth/data constraints, or testing workflow change.
 - Keep subagent tasks bounded and non-overlapping.
 - Do not ask subagents to modify the same files in parallel unless ownership boundaries are explicit.

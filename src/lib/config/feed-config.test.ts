@@ -13,7 +13,7 @@ describe("parseFeedConfigInput", () => {
       timeRange: "day",
       limit: 20,
       skip: 0,
-      timerSeconds: 12,
+      timerSeconds: 10,
       isNsfw: false,
     });
     expect(result).not.toHaveProperty("postIds");
@@ -28,5 +28,14 @@ describe("parseFeedConfigInput", () => {
     expect(() => parseFeedConfigInput({ subreddit: "pics", limit: 101 })).toThrow(
       /limit/i,
     );
+  });
+
+  it("accepts one-second timers and rejects zero-second timers", () => {
+    expect(
+      parseFeedConfigInput({ subreddit: "pics", timerSeconds: 1 }).timerSeconds,
+    ).toBe(1);
+    expect(() =>
+      parseFeedConfigInput({ subreddit: "pics", timerSeconds: 0 }),
+    ).toThrow(/timerSeconds/i);
   });
 });

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import {
   addConfigToCollection,
@@ -24,16 +23,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { DEFAULT_FEED_TIMER_SECONDS } from "@/lib/config/feed-config";
 import { getLibraryMetadata } from "@/lib/data/library";
 
 export const dynamic = "force-dynamic";
 
 export default async function LibraryPage() {
   const library = await getLibraryMetadata();
-
-  if (library.isConfigured && !library.user) {
-    redirect("/login?next=/library");
-  }
+  const canUseAccountLibrary = library.isConfigured && library.user;
 
   return (
     <main className="min-h-dvh bg-background px-4 py-5 text-foreground md:px-8">
@@ -61,6 +58,25 @@ export default async function LibraryPage() {
           </Card>
         ) : null}
 
+        {library.isConfigured && !library.user ? (
+          <Card className="rounded-lg border border-border/60">
+            <CardHeader>
+              <CardTitle>Account library locked</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm text-muted-foreground">
+              <p>
+                Local layouts are available from the viewer without login. Sign in from
+                the viewer overlay to sync layouts and edit account metadata here.
+              </p>
+              <Button asChild variant="outline">
+                <Link href="/">Open viewer layouts</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {canUseAccountLibrary ? (
+        <>
         <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
           <Card className="rounded-lg border border-border/60">
             <CardHeader>
@@ -76,7 +92,7 @@ export default async function LibraryPage() {
                   <Field
                     name="timerSeconds"
                     label="Timer"
-                    defaultValue="12"
+                    defaultValue={String(DEFAULT_FEED_TIMER_SECONDS)}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -304,6 +320,8 @@ export default async function LibraryPage() {
             </li>
           ))}
         </MetadataList>
+        </>
+        ) : null}
       </div>
     </main>
   );

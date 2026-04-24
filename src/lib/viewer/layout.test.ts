@@ -4,6 +4,7 @@ import {
   DEFAULT_FIXED_GRID,
   createFixedGrid,
   createFreeRect,
+  findAvailableFreeRect,
   freeRectsOverlap,
   validateFreeRects,
 } from "./layout";
@@ -54,5 +55,45 @@ describe("viewer layout", () => {
     expect(() => validateFreeRects([first, second])).toThrow(
       "Free layout views cannot overlap",
     );
+  });
+
+  it("places free views in the first open 2x2 block", () => {
+    expect(findAvailableFreeRect([])).toEqual({
+      column: 1,
+      row: 1,
+      columnSpan: 2,
+      rowSpan: 2,
+    });
+
+    expect(
+      findAvailableFreeRect([
+        { column: 1, row: 1, columnSpan: 2, rowSpan: 2 },
+      ]),
+    ).toEqual({
+      column: 3,
+      row: 1,
+      columnSpan: 2,
+      rowSpan: 2,
+    });
+  });
+
+  it("falls back to a 1x1 free slot when no 2x2 block fits", () => {
+    const occupied = [
+      { column: 1, row: 1, columnSpan: 7, rowSpan: 8 },
+      { column: 8, row: 1, columnSpan: 1, rowSpan: 7 },
+    ];
+
+    expect(findAvailableFreeRect(occupied)).toEqual({
+      column: 8,
+      row: 8,
+      columnSpan: 1,
+      rowSpan: 1,
+    });
+  });
+
+  it("returns null when the free layout has no space left", () => {
+    expect(
+      findAvailableFreeRect([{ column: 1, row: 1, columnSpan: 8, rowSpan: 8 }]),
+    ).toBeNull();
   });
 });

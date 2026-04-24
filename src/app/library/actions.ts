@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { parseFeedConfigInput } from "@/lib/config/feed-config";
+import {
+  DEFAULT_FEED_TIMER_SECONDS,
+  parseFeedConfigInput,
+} from "@/lib/config/feed-config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 async function requireUser() {
@@ -32,7 +35,9 @@ export async function createFeedConfig(formData: FormData) {
       | "all",
     limit: String(formData.get("limit") || "20"),
     skip: String(formData.get("skip") || "0"),
-    timerSeconds: String(formData.get("timerSeconds") || "12"),
+    timerSeconds: String(
+      formData.get("timerSeconds") || DEFAULT_FEED_TIMER_SECONDS,
+    ),
     isNsfw: formData.get("isNsfw") === "on",
   });
 
@@ -81,7 +86,9 @@ export async function updateFeedConfig(formData: FormData) {
       | "all",
     limit: String(formData.get("limit") || "20"),
     skip: String(formData.get("skip") || "0"),
-    timerSeconds: String(formData.get("timerSeconds") || "12"),
+    timerSeconds: String(
+      formData.get("timerSeconds") || DEFAULT_FEED_TIMER_SECONDS,
+    ),
     isNsfw: formData.get("isNsfw") === "on",
   });
 

@@ -72,3 +72,29 @@ export function validateFreeRects(rects: FreeRect[]): FreeRect[] {
 
   return validRects;
 }
+
+export function findAvailableFreeRect(rects: FreeRect[]): FreeRect | null {
+  const occupied = rects.map(createFreeRect);
+  const spans = [2, 1] as const;
+
+  for (const span of spans) {
+    for (let row = 1; row <= FREE_LAYOUT_SIZE - span + 1; row += 1) {
+      for (let column = 1; column <= FREE_LAYOUT_SIZE - span + 1; column += 1) {
+        const candidate = createFreeRect({
+          column,
+          row,
+          columnSpan: span,
+          rowSpan: span,
+        });
+
+        if (
+          occupied.every((occupiedRect) => !freeRectsOverlap(candidate, occupiedRect))
+        ) {
+          return candidate;
+        }
+      }
+    }
+  }
+
+  return null;
+}

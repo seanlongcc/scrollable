@@ -160,6 +160,32 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["share_links"]["Insert"]>;
         Relationships: [];
       };
+      viewer_sessions: {
+        Row: {
+          id: string;
+          owner_id: string;
+          name: string;
+          layout_mode: "fixed" | "free";
+          fixed_columns: number;
+          fixed_rows: number;
+          sessions: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id?: string;
+          name: string;
+          layout_mode?: "fixed" | "free";
+          fixed_columns?: number;
+          fixed_rows?: number;
+          sessions?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["viewer_sessions"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
