@@ -1,35 +1,23 @@
 import { z } from "zod";
 
-export const redditSortSchema = z.enum(["top", "hot", "new"]);
-export const redditTimeRangeSchema = z.enum([
-  "hour",
-  "day",
-  "week",
-  "month",
-  "year",
-  "all",
-]);
-
 export const DEFAULT_FEED_TIMER_SECONDS = 10;
+
+const redditPostUrlSchema = z
+  .string()
+  .trim()
+  .refine((value) => normalizeRedditPostUrl(value) !== null, {
+    message: "Use Reddit post URLs from comments pages",
+  })
+  .transform((value) => normalizeRedditPostUrl(value) ?? value);
 
 export const feedConfigInputSchema = z
   .object({
     source: z.literal("reddit").default("reddit"),
     name: z.string().trim().min(1).max(80).optional(),
-    subreddit: z
-      .string()
-      .trim()
-      .min(1, "Subreddit is required")
-      .max(80)
-      .regex(
-        /^(r\/)?[A-Za-z0-9_]+$/,
-        "Use a subreddit name like pics or r/pics",
-      )
-      .transform((value) => value.replace(/^r\//i, "")),
-    sort: redditSortSchema.default("top"),
-    timeRange: redditTimeRangeSchema.default("day"),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-    skip: z.coerce.number().int().min(0).max(100).default(0),
+    postUrls: z.preprocess(
+      splitUrlInput,
+      z.array(redditPostUrlSchema).min(1).max(50),
+    ),
     timerSeconds: z.coerce
       .number()
       .int()
@@ -51,4 +39,49 @@ export type SavedFeedConfig = z.output<typeof feedConfigInputSchema> & {
 
 export function parseFeedConfigInput(input: FeedConfigInput): SavedFeedConfig {
   return feedConfigInputSchema.parse(input);
+}
+
+function splitUrlInput(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => splitUrlInput(entry) as string[]);
+  }
+
+  if (typeof value !== "string") return value;
+
+  return value
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function normalizeRedditPostUrl(value: string) {
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host === "redd.it") {
+    const id = url.pathname.split("/").filter(Boolean)[0];
+    return id ? `https://www.reddit.com/comments/${id}/` : null;
+  }
+
+  if (
+    host !== "reddit.com" &&
+    host !== "old.reddit.com" &&
+    host !== "new.reddit.com"
+  ) {
+    return null;
+  }
+
+  const segments = url.pathname.split("/").filter(Boolean);
+  const commentsIndex = segments.indexOf("comments");
+  if (commentsIndex === -1 || !segments[commentsIndex + 1]) {
+    return null;
+  }
+
+  return `https://www.reddit.com/${segments.slice(0, commentsIndex + 3).join("/")}/`;
 }

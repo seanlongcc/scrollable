@@ -1,32 +1,32 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { fetchRedditRuntimeListing } from "@/lib/reddit/client";
+import { fetchRedditRuntimePostLinks } from "@/lib/reddit/client";
 
 export const dynamic = "force-dynamic";
 
 const querySchema = z.object({
-  subreddit: z.string(),
-  sort: z.enum(["top", "hot", "new"]).optional(),
-  timeRange: z.enum(["hour", "day", "week", "month", "year", "all"]).optional(),
-  limit: z.string().optional(),
-  skip: z.string().optional(),
+  urls: z.array(z.string()).or(z.string()),
   allowNsfw: z.string().optional(),
 });
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
+  const urlParams = url.searchParams.getAll("urls");
+  const parsed = querySchema.safeParse({
+    urls: urlParams.length > 1 ? urlParams : url.searchParams.get("urls"),
+    allowNsfw: url.searchParams.get("allowNsfw") ?? undefined,
+  });
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "invalid_reddit_listing_request" },
+      { error: "invalid_reddit_post_links_request" },
       { status: 400 },
     );
   }
 
   try {
-    const result = await fetchRedditRuntimeListing(parsed.data);
+    const result = await fetchRedditRuntimePostLinks(parsed.data);
     return NextResponse.json(result, {
       headers: {
         "Cache-Control": "no-store",
@@ -34,7 +34,14 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "reddit_error";
-    const status = message === "subreddit_not_found" ? 404 : 502;
+    const status =
+      message === "invalid_reddit_post_url"
+        ? 400
+        : message === "reddit_post_not_found"
+          ? 404
+          : message === "reddit_post_has_no_supported_media"
+            ? 422
+            : 502;
 
     return NextResponse.json({ error: message }, { status });
   }

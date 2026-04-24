@@ -5,6 +5,7 @@ import {
   applyGlobalDuration,
   createMultiTimerState,
   createTimerState,
+  getTimerProgressPercent,
   globalMoveTimerIndexes,
   globalRestartTimers,
   globalTogglePaused,
@@ -40,6 +41,21 @@ describe("timer state", () => {
 
     expect(next.activeIndex).toBe(2);
     expect(next.elapsedMs).toBe(500);
+  });
+
+  it("targets full progress during the final visual transition window", () => {
+    const nearlyComplete = {
+      ...createTimerState({ durationSeconds: 10, itemCount: 2 }),
+      elapsedMs: 9750,
+    };
+
+    expect(getTimerProgressPercent(nearlyComplete, 250)).toBe(100);
+  });
+
+  it("starts visual progress from zero", () => {
+    const initial = createTimerState({ durationSeconds: 10, itemCount: 2 });
+
+    expect(getTimerProgressPercent(initial, 250)).toBe(0);
   });
 
   it("moves manually in both directions and handles empty feeds", () => {

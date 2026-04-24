@@ -1,6 +1,6 @@
 # Scrollable
 
-Mobile-first reels-style runtime feed viewer for Reddit image/video posts and local uploads.
+Mobile-first reels-style runtime feed viewer for user-provided Reddit post links and local uploads.
 
 ## Commands
 
@@ -23,7 +23,7 @@ npm run supabase:test
 
 ## Data Rule
 
-Do not persist, rehost, proxy-cache, or store third-party media, Reddit post payloads, thumbnails, media URLs, or fetched listing responses.
+Do not persist, rehost, proxy-cache, or store third-party media, Reddit post payloads, thumbnails, media URLs, or fetched Reddit JSON responses. User-pasted Reddit post permalinks are allowed as saved configuration because the user intentionally provides them.
 
 Viewer layouts save tab, grid, timer, and source configuration metadata only. Local layouts open from the viewer's layouts overlay without login; signed-in users can also sync layout metadata to account data.
 

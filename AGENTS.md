@@ -37,8 +37,8 @@ Build a reels-like scrollable image/video feed viewer.
 
 Planned capabilities:
 
-- Accept a subreddit name and fetch a configurable number of top posts, defaulting around 20.
-- Fetch Reddit listing data through Reddit API/OAuth when available.
+- Accept user-provided Reddit post permalinks and fetch media metadata for those posts at runtime.
+- Do not require Reddit API/OAuth keys for runtime Reddit post-link fetching.
 - Provide a configurable timer for feed advancement.
 - Provide a slice/filter input for excluding items from the initial listing, since sticky posts count in listing limits.
 - Support posts with multiple images by presenting those images as a horizontal left-to-right sequence inside the vertical feed.
@@ -56,7 +56,8 @@ These rules are core product constraints.
 - Never persist third-party media from Reddit or any other site.
 - Never rehost third-party media.
 - Never proxy-cache third-party media as application-owned content.
-- Never persist Reddit post IDs, third-party media URLs, thumbnails, cached listing responses, normalized runtime feed/media items, or local upload object URLs.
+- Never persist third-party media URLs, thumbnails, cached Reddit JSON responses, normalized runtime feed/media items, or local upload object URLs.
+- User-pasted Reddit post permalinks are allowed as saved configuration data because the user intentionally provides them.
 - Never persist absolute local filesystem paths.
 - Store only user-created configuration data and operational records needed for the app.
 - Fetch third-party media metadata at runtime through approved APIs where possible.
@@ -67,7 +68,7 @@ Acceptable stored data:
 
 - User identity records from Supabase Auth.
 - User profile/preferences needed for the app.
-- Feed configurations.
+- Feed configurations, including user-pasted Reddit post permalinks.
 - Viewer workspace/session layout metadata in `viewer_sessions`, including tab names, layout mode, grid dimensions, source configuration metadata, timer settings, slots, and free-layout rectangles.
 - Collections of feed configurations.
 - Tags, NSFW flags, sharing settings, ownership, timestamps, and audit/security metadata.
@@ -350,18 +351,18 @@ Creation, assets, and utility skills:
 
 When implementing Reddit integration:
 
-- Use OAuth/API access where available.
-- Respect Reddit API terms, rate limits, and content restrictions.
+- Fetch only user-provided Reddit post links through public post JSON endpoints unless product direction changes.
+- Respect Reddit API/public endpoint terms, rate limits, and content restrictions.
 - Treat Reddit responses as runtime source data, not application-owned content.
-- Avoid saving third-party post/media payloads beyond what is strictly needed as user-authored configuration.
-- Make failure states explicit: private subreddit, banned subreddit, not found, auth expired, rate limited, empty listing, unsupported media, and network error.
+- Avoid saving third-party post/media payloads beyond user-pasted post permalinks.
+- Make failure states explicit: invalid post URL, private/deleted/not found post, rate limited, unsupported media, and network error.
 
 ## Testing Priorities
 
 High-value test areas:
 
 - Feed config validation.
-- Reddit listing normalization.
+- Reddit post-link parsing and normalization.
 - Sticky-post filtering and list slicing.
 - Runtime media item construction without persistence.
 - Multi-image carousel ordering.

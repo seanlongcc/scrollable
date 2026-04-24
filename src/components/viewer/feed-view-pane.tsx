@@ -14,12 +14,16 @@ import {
   SkipForward,
   X,
 } from "lucide-react";
-import { type ReactNode, type WheelEvent, useCallback, useMemo } from "react";
+import { type ReactNode, type WheelEvent, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { cn } from "@/lib/utils";
-import type { TimerMode, TimerState } from "@/lib/viewer/timer";
+import {
+  getTimerProgressPercent,
+  type TimerMode,
+  type TimerState,
+} from "@/lib/viewer/timer";
 import { MediaRenderer } from "./media-renderer";
 
 export function FeedViewPane({
@@ -89,13 +93,7 @@ export function FeedViewPane({
     },
     [onVideoPositionChange, videoPositionKey],
   );
-  const progress = useMemo(() => {
-    if (timer.durationSeconds <= 0) return 0;
-    return Math.min(
-      100,
-      (timer.elapsedMs / (timer.durationSeconds * 1000)) * 100,
-    );
-  }, [timer.durationSeconds, timer.elapsedMs]);
+  const progress = getTimerProgressPercent(timer);
 
   const showProgress = !hideUi && timer.itemCount > 1;
   const sourceChromeClass = cn(
@@ -138,8 +136,9 @@ export function FeedViewPane({
           aria-label={`${title} timer progress`}
         >
           <div
-            className="h-full bg-primary transition-[width]"
-            style={{ width: `${progress}%` }}
+            key={timer.activeIndex}
+            className="h-full origin-left bg-primary transition-transform duration-[250ms] ease-linear will-change-transform"
+            style={{ transform: `scaleX(${progress / 100})` }}
           />
         </div>
       ) : null}

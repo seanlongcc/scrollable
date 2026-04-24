@@ -108,7 +108,10 @@ test("keyboard and wheel move through runtime feed items", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("button", { name: "Add source", exact: true }).click();
-  await page.getByRole("button", { name: "Open Reddit source" }).click();
+  await page
+    .getByLabel("Paste Reddit post links, one per line")
+    .fill("https://www.reddit.com/r/pics/comments/abc123/runtime_image/");
+  await page.getByRole("button", { name: "Open Reddit links" }).click();
 
   await expect(page.getByText("Runtime image 1")).toBeVisible();
 

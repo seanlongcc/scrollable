@@ -1,8 +1,5 @@
 create extension if not exists "pgcrypto";
 
-create type public.reddit_sort as enum ('top', 'hot', 'new');
-create type public.reddit_time_range as enum ('hour', 'day', 'week', 'month', 'year', 'all');
-
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
@@ -14,11 +11,7 @@ create table public.feed_configs (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
   name text not null check (char_length(name) between 1 and 80),
-  subreddit text not null check (subreddit ~ '^[A-Za-z0-9_]{1,80}$'),
-  sort public.reddit_sort not null default 'top',
-  time_range public.reddit_time_range not null default 'day',
-  limit_count integer not null default 20 check (limit_count between 1 and 100),
-  skip_count integer not null default 0 check (skip_count between 0 and 100),
+  post_urls text[] not null check (array_length(post_urls, 1) between 1 and 50),
   timer_seconds integer not null default 12 check (timer_seconds between 3 and 120),
   display_options jsonb not null default '{}'::jsonb,
   is_nsfw boolean not null default false,

@@ -26,11 +26,9 @@ describe("viewer workspaces", () => {
           freeRect: { column: 1, row: 1, columnSpan: 2, rowSpan: 2 },
           sourceConfig: {
             kind: "reddit",
-            subreddit: "pics",
-            sort: "top",
-            timeRange: "day",
-            limit: 20,
-            skip: 0,
+            urls: [
+              "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+            ],
             allowNsfw: true,
           },
           runtimeItems: [
@@ -52,7 +50,9 @@ describe("viewer workspaces", () => {
 
     const encoded = JSON.stringify(snapshot);
 
-    expect(encoded).toContain("pics");
+    expect(encoded).toContain(
+      "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+    );
     expect(encoded).not.toContain("https://cdn.test/runtime-image.jpg");
     expect(encoded).not.toContain("runtime-1");
     expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");

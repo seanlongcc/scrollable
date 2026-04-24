@@ -4,15 +4,16 @@ import { parseFeedConfigInput } from "./feed-config";
 
 describe("parseFeedConfigInput", () => {
   it("applies Reddit feed defaults without storing runtime media fields", () => {
-    const result = parseFeedConfigInput({ subreddit: "pics" });
+    const result = parseFeedConfigInput({
+      postUrls:
+        "https://www.reddit.com/r/kpop/comments/1sui8xh/nmixx_the_5th_ep_heavy_serenade_concept_photo/",
+    });
 
     expect(result).toMatchObject({
       source: "reddit",
-      subreddit: "pics",
-      sort: "top",
-      timeRange: "day",
-      limit: 20,
-      skip: 0,
+      postUrls: [
+        "https://www.reddit.com/r/kpop/comments/1sui8xh/nmixx_the_5th_ep_heavy_serenade_concept_photo/",
+      ],
       timerSeconds: 10,
       isNsfw: false,
     });
@@ -21,21 +22,29 @@ describe("parseFeedConfigInput", () => {
     expect(result).not.toHaveProperty("thumbnails");
   });
 
-  it("normalizes subreddit names and rejects unsafe limits", () => {
+  it("normalizes direct Reddit post links and rejects listing URLs", () => {
     expect(
-      parseFeedConfigInput({ subreddit: "r/aww", limit: 7 }).subreddit,
-    ).toBe("aww");
+      parseFeedConfigInput({
+        postUrls: "https://old.reddit.com/r/aww/comments/abc123/title",
+      }).postUrls,
+    ).toEqual(["https://www.reddit.com/r/aww/comments/abc123/title/"]);
     expect(() =>
-      parseFeedConfigInput({ subreddit: "pics", limit: 101 }),
-    ).toThrow(/limit/i);
+      parseFeedConfigInput({ postUrls: "https://www.reddit.com/r/pics/" }),
+    ).toThrow(/postUrls/i);
   });
 
   it("accepts one-second timers and rejects zero-second timers", () => {
     expect(
-      parseFeedConfigInput({ subreddit: "pics", timerSeconds: 1 }).timerSeconds,
+      parseFeedConfigInput({
+        postUrls: "https://www.reddit.com/r/pics/comments/abc123/title/",
+        timerSeconds: 1,
+      }).timerSeconds,
     ).toBe(1);
     expect(() =>
-      parseFeedConfigInput({ subreddit: "pics", timerSeconds: 0 }),
+      parseFeedConfigInput({
+        postUrls: "https://www.reddit.com/r/pics/comments/abc123/title/",
+        timerSeconds: 0,
+      }),
     ).toThrow(/timerSeconds/i);
   });
 });

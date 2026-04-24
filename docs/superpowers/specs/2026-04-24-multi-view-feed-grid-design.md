@@ -112,8 +112,8 @@ The timer state should stay pure and testable. Existing timer helpers can be ext
 
 Reddit sources:
 
-1. User configures subreddit, sort, range, limit, skip, timer, and NSFW runtime setting.
-2. App fetches Reddit listing data at runtime.
+1. User configures one or more direct Reddit post links, timer, and NSFW runtime setting.
+2. App fetches Reddit post JSON at runtime.
 3. App normalizes returned posts into runtime feed items.
 4. Runtime items stay in memory only.
 5. Opening/saving/sharing configurations stores user-created config only, not Reddit post IDs, media URLs, thumbnails, listing payloads, or normalized runtime media.

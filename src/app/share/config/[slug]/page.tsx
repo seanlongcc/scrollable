@@ -32,14 +32,10 @@ export default async function SharedConfigPage({
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
               <div className="text-muted-foreground">
-                r/{shared.config.subreddit} · {shared.config.sort}/
-                {shared.config.time_range}
+                {shared.config.post_urls.length} Reddit post{" "}
+                {shared.config.post_urls.length === 1 ? "link" : "links"}
               </div>
-              <div>
-                limit {shared.config.limit_count} · skip{" "}
-                {shared.config.skip_count} · timer {shared.config.timer_seconds}
-                s
-              </div>
+              <div>timer {shared.config.timer_seconds}s</div>
               {shared.config.is_nsfw ? (
                 <Badge variant="outline" className="w-fit">
                   NSFW

@@ -33,11 +33,7 @@ export type Database = {
           id: string;
           owner_id: string;
           name: string;
-          subreddit: string;
-          sort: "top" | "hot" | "new";
-          time_range: "hour" | "day" | "week" | "month" | "year" | "all";
-          limit_count: number;
-          skip_count: number;
+          post_urls: string[];
           timer_seconds: number;
           display_options: Json;
           is_nsfw: boolean;
@@ -48,11 +44,7 @@ export type Database = {
           id?: string;
           owner_id?: string;
           name: string;
-          subreddit: string;
-          sort?: "top" | "hot" | "new";
-          time_range?: "hour" | "day" | "week" | "month" | "year" | "all";
-          limit_count?: number;
-          skip_count?: number;
+          post_urls: string[];
           timer_seconds?: number;
           display_options?: Json;
           is_nsfw?: boolean;

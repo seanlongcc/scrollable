@@ -8,11 +8,7 @@ export type WorkspaceLayoutMode = "fixed" | "free";
 
 export type RedditSourceConfig = {
   kind: "reddit";
-  subreddit: string;
-  sort: "top" | "hot" | "new";
-  timeRange: "hour" | "day" | "week" | "month" | "year" | "all";
-  limit: number;
-  skip: number;
+  urls: string[];
   allowNsfw: boolean;
 };
 

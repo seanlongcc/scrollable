@@ -55,9 +55,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { FeedViewPane } from "@/components/viewer/feed-view-pane";
-import { parseFeedConfigInput } from "@/lib/config/feed-config";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import {
   isLocalFileCacheSupported,
@@ -133,6 +132,7 @@ type AccountState =
   | { status: "signed-in"; email: string };
 
 const DEFAULT_TIMER_SECONDS = 10;
+const MAX_LAYOUT_NAME_LENGTH = 32;
 
 type FreeDragState = {
   id: string;
@@ -193,16 +193,8 @@ export function FeedWorkbench() {
     initialWorkspace.id,
   );
 
-  const [subreddit, setSubreddit] = useState("pics");
-  const [sort, setSort] = useState<"top" | "hot" | "new">("top");
-  const [timeRange, setTimeRange] = useState<
-    "hour" | "day" | "week" | "month" | "year" | "all"
-  >("day");
-  const [limit, setLimit] = useState(20);
-  const [skip, setSkip] = useState(0);
-  const [timerSeconds, setTimerSeconds] = useState(DEFAULT_TIMER_SECONDS);
+  const [redditUrls, setRedditUrls] = useState("");
   const [globalSeconds, setGlobalSeconds] = useState(DEFAULT_TIMER_SECONDS);
-  const [allowNsfw, setAllowNsfw] = useState(true);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
   const [sessions, setSessions] = useState<FeedSession[]>([]);
@@ -523,22 +515,13 @@ export function FeedWorkbench() {
   async function fetchRedditFeed() {
     setIsLoading(true);
     try {
-      const config = parseFeedConfigInput({
-        subreddit,
-        sort,
-        timeRange,
-        limit,
-        skip,
-        timerSeconds,
-      });
       const params = new URLSearchParams({
-        subreddit: config.subreddit,
-        sort: config.sort,
-        timeRange: config.timeRange,
-        limit: String(config.limit),
-        skip: String(config.skip),
-        allowNsfw: String(allowNsfw),
+        allowNsfw: "true",
       });
+      const urls = splitRedditUrls(redditUrls);
+      for (const url of urls) {
+        params.append("urls", url);
+      }
       const response = await fetch(`/api/reddit/listing?${params}`, {
         cache: "no-store",
       });
@@ -549,15 +532,11 @@ export function FeedWorkbench() {
       }
 
       addSession({
-        title: `r/${config.subreddit}`,
+        title: redditLinksTitle(urls, payload.items as RuntimeFeedItem[]),
         sourceConfig: {
           kind: "reddit",
-          subreddit: config.subreddit,
-          sort: config.sort,
-          timeRange: config.timeRange,
-          limit: config.limit,
-          skip: config.skip,
-          allowNsfw,
+          urls,
+          allowNsfw: true,
         },
         items: payload.items as RuntimeFeedItem[],
       });
@@ -1061,7 +1040,7 @@ export function FeedWorkbench() {
   }
 
   function openSaveDialog() {
-    setSaveName(workspaceName);
+    setSaveName(limitLayoutName(workspaceName));
     setSaveError(null);
     setIsSaveOpen(true);
   }
@@ -1071,6 +1050,13 @@ export function FeedWorkbench() {
 
     if (!nextName) {
       setSaveError("Layout name is required");
+      return;
+    }
+
+    if (nextName.length > MAX_LAYOUT_NAME_LENGTH) {
+      setSaveError(
+        `Layout name must be ${MAX_LAYOUT_NAME_LENGTH} characters or fewer`,
+      );
       return;
     }
 
@@ -1228,13 +1214,13 @@ export function FeedWorkbench() {
 
   function beginWorkspaceRename(tab: WorkspaceTab) {
     setEditingWorkspaceId(tab.id);
-    setEditingWorkspaceName(tab.name);
+    setEditingWorkspaceName(limitLayoutName(tab.name));
   }
 
   function commitWorkspaceRename() {
     if (!editingWorkspaceId) return;
 
-    const nextName = editingWorkspaceName.trim();
+    const nextName = limitLayoutName(editingWorkspaceName).trim();
     if (!nextName) {
       setEditingWorkspaceId(null);
       return;
@@ -1275,15 +1261,8 @@ export function FeedWorkbench() {
       [current.id]: current,
       [editingWorkspaceId]: renamedWorkspace,
     };
-    const nextSaved = { ...savedWorkspaces };
-
-    if (nextSaved[editingWorkspaceId]) {
-      nextSaved[editingWorkspaceId] = serializeWorkspace(renamedWorkspace);
-    }
-
     setWorkspaceTabs(nextTabs);
     setWorkspaceStates(nextStates);
-    writeWorkspaceStore(nextSaved, activeWorkspaceId);
     setEditingWorkspaceId(null);
   }
 
@@ -1471,13 +1450,11 @@ export function FeedWorkbench() {
     if (sourceConfig.kind !== "reddit") return [];
 
     const params = new URLSearchParams({
-      subreddit: sourceConfig.subreddit,
-      sort: sourceConfig.sort,
-      timeRange: sourceConfig.timeRange,
-      limit: String(sourceConfig.limit),
-      skip: String(sourceConfig.skip),
       allowNsfw: String(sourceConfig.allowNsfw),
     });
+    for (const url of sourceConfig.urls) {
+      params.append("urls", url);
+    }
     const response = await fetch(`/api/reddit/listing?${params}`, {
       cache: "no-store",
     });
@@ -1667,6 +1644,15 @@ export function FeedWorkbench() {
                 type="button"
                 size="icon"
                 variant="outline"
+                aria-label="Open layouts"
+                onClick={() => setIsLayoutsOpen(true)}
+              >
+                <FolderOpen />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
                 onClick={openSaveDialog}
                 aria-label="Save layout"
               >
@@ -1681,15 +1667,6 @@ export function FeedWorkbench() {
                 disabled={!sessions.length}
               >
                 <Trash2 />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                aria-label="Open layouts"
-                onClick={() => setIsLayoutsOpen(true)}
-              >
-                <FolderOpen />
               </Button>
               <Button
                 type="button"
@@ -1721,8 +1698,11 @@ export function FeedWorkbench() {
                     value={editingWorkspaceName}
                     autoFocus
                     onChange={(event) =>
-                      setEditingWorkspaceName(event.target.value)
+                      setEditingWorkspaceName(
+                        limitLayoutName(event.target.value),
+                      )
                     }
+                    maxLength={MAX_LAYOUT_NAME_LENGTH}
                     onBlur={commitWorkspaceRename}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") commitWorkspaceRename();
@@ -1769,22 +1749,10 @@ export function FeedWorkbench() {
       <SourceDialog
         open={isSourceOpen}
         onOpenChange={setIsSourceOpen}
-        subreddit={subreddit}
-        sort={sort}
-        timeRange={timeRange}
-        limit={limit}
-        skip={skip}
-        timerSeconds={timerSeconds}
-        allowNsfw={allowNsfw}
+        redditUrls={redditUrls}
         isLoading={isLoading}
         localUploadMode={localUploadMode}
-        setSubreddit={setSubreddit}
-        setSort={setSort}
-        setTimeRange={setTimeRange}
-        setLimit={setLimit}
-        setSkip={setSkip}
-        setTimerSeconds={setTimerSeconds}
-        setAllowNsfw={setAllowNsfw}
+        setRedditUrls={setRedditUrls}
         setLocalUploadMode={setLocalUploadMode}
         fetchRedditFeed={fetchRedditFeed}
         addLocalFiles={addLocalFiles}
@@ -2017,7 +1985,7 @@ function LayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85dvh] w-[min(92vw,34rem)] overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="max-h-[85dvh] w-[min(92vw,34rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Saved layouts</DialogTitle>
           <DialogDescription className="sr-only">
@@ -2029,11 +1997,13 @@ function LayoutDialog({
             sortedWorkspaces.map((workspace) => (
               <div
                 key={workspace.id}
-                className="grid gap-2 rounded-lg border border-border bg-surface p-3"
+                className="grid min-w-0 gap-2 rounded-lg border border-border bg-surface p-3"
               >
-                <div>
-                  <div className="font-medium">{workspace.name}</div>
-                  <div className="text-xs text-muted-foreground">
+                <div className="min-w-0">
+                  <div className="break-words font-medium">
+                    {workspace.name}
+                  </div>
+                  <div className="break-words text-xs text-muted-foreground">
                     {workspace.layoutMode} · {workspace.sessions.length} source
                     {workspace.sessions.length === 1 ? "" : "s"} ·{" "}
                     {workspaceLocalFileCount(workspace)} file
@@ -2041,15 +2011,18 @@ function LayoutDialog({
                     saved locally
                   </div>
                 </div>
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => onOpenWorkspace(workspace.id)}
                     title={`Open ${workspace.name}`}
+                    className="h-auto min-w-0 justify-start whitespace-normal text-left break-words"
                   >
                     <FolderOpen />
-                    Open {workspace.name}
+                    <span className="min-w-0 break-words">
+                      Open {workspace.name}
+                    </span>
                   </Button>
                   <Button
                     type="button"
@@ -2109,7 +2082,10 @@ function SaveLayoutDialog({
             Layout name
             <Input
               value={name}
-              onChange={(event) => onNameChange(event.target.value)}
+              onChange={(event) =>
+                onNameChange(limitLayoutName(event.target.value))
+              }
+              maxLength={MAX_LAYOUT_NAME_LENGTH}
               aria-invalid={error ? true : undefined}
             />
           </Label>
@@ -2217,22 +2193,10 @@ function AccountDialog({
 function SourceDialog({
   open,
   onOpenChange,
-  subreddit,
-  sort,
-  timeRange,
-  limit,
-  skip,
-  timerSeconds,
-  allowNsfw,
+  redditUrls,
   isLoading,
   localUploadMode,
-  setSubreddit,
-  setSort,
-  setTimeRange,
-  setLimit,
-  setSkip,
-  setTimerSeconds,
-  setAllowNsfw,
+  setRedditUrls,
   setLocalUploadMode,
   fetchRedditFeed,
   addLocalFiles,
@@ -2241,24 +2205,10 @@ function SourceDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  subreddit: string;
-  sort: "top" | "hot" | "new";
-  timeRange: "hour" | "day" | "week" | "month" | "year" | "all";
-  limit: number;
-  skip: number;
-  timerSeconds: number;
-  allowNsfw: boolean;
+  redditUrls: string;
   isLoading: boolean;
   localUploadMode: "stacked" | "separate";
-  setSubreddit: (value: string) => void;
-  setSort: (value: "top" | "hot" | "new") => void;
-  setTimeRange: (
-    value: "hour" | "day" | "week" | "month" | "year" | "all",
-  ) => void;
-  setLimit: (value: number) => void;
-  setSkip: (value: number) => void;
-  setTimerSeconds: (value: number) => void;
-  setAllowNsfw: (value: boolean) => void;
+  setRedditUrls: (value: string) => void;
   setLocalUploadMode: (value: "stacked" | "separate") => void;
   fetchRedditFeed: () => void;
   addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -2267,18 +2217,19 @@ function SourceDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
+      <DialogContent className="grid-rows-[auto_minmax(0,1fr)] min-h-[min(86dvh,36rem)] max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
-            Choose local files or Reddit source settings for the viewer.
+            Choose local files or paste one or more Reddit post links for the
+            viewer.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-w-0 gap-5 md:grid-cols-2">
+        <div className="grid min-h-0 min-w-0 gap-5 md:grid-cols-2">
           <section className="grid min-h-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-surface p-3">
             <h2 className="text-sm font-medium">Local source</h2>
             <div
-              className="grid h-full min-h-64 grid-rows-[auto_minmax(0,1fr)] gap-3 text-sm text-muted-foreground"
+              className="grid h-full min-h-72 grid-rows-[auto_minmax(0,1fr)] gap-3 text-sm text-muted-foreground"
               role="group"
               aria-label="Local upload picker"
             >
@@ -2370,90 +2321,26 @@ function SourceDialog({
             </div>
           </section>
 
-          <section className="grid min-w-0 content-start gap-3 rounded-lg border border-border bg-surface p-3">
-            <h2 className="text-sm font-medium">Reddit source</h2>
-            <Label className="grid min-w-0 gap-1 text-sm">
-              Subreddit
-              <Input
-                value={subreddit}
-                onChange={(event) => setSubreddit(event.target.value)}
-                className="w-full"
-              />
-            </Label>
-            <div className="grid min-w-0 grid-cols-2 gap-2">
-              <Label className="grid min-w-0 gap-1 text-sm">
-                Sort
-                <select
-                  value={sort}
-                  onChange={(event) =>
-                    setSort(event.target.value as "top" | "hot" | "new")
-                  }
-                  className="h-8 w-full rounded-lg border border-input bg-background/70 px-2 text-sm"
-                >
-                  <option value="top">top</option>
-                  <option value="hot">hot</option>
-                  <option value="new">new</option>
-                </select>
-              </Label>
-              <Label className="grid min-w-0 gap-1 text-sm">
-                Range
-                <select
-                  value={timeRange}
-                  onChange={(event) =>
-                    setTimeRange(
-                      event.target.value as
-                        | "hour"
-                        | "day"
-                        | "week"
-                        | "month"
-                        | "year"
-                        | "all",
-                    )
-                  }
-                  className="h-8 w-full rounded-lg border border-input bg-background/70 px-2 text-sm"
-                >
-                  <option value="hour">hour</option>
-                  <option value="day">day</option>
-                  <option value="week">week</option>
-                  <option value="month">month</option>
-                  <option value="year">year</option>
-                  <option value="all">all</option>
-                </select>
-              </Label>
-            </div>
-            <NumberField
-              label="Limit"
-              value={limit}
-              min={1}
-              max={100}
-              onChange={setLimit}
+          <section className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-surface p-3">
+            <h2 className="text-sm font-medium">Reddit post links</h2>
+            <Textarea
+              aria-label="Paste Reddit post links, one per line"
+              value={redditUrls}
+              onChange={(event) => setRedditUrls(event.target.value)}
+              placeholder={`One link per line:
+https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/
+https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/`}
+              className="h-full min-h-0 resize-none font-mono text-xs leading-5"
             />
-            <NumberField
-              label="Skip"
-              value={skip}
-              min={0}
-              max={100}
-              onChange={setSkip}
-            />
-            <NumberField
-              label="View timer seconds"
-              value={timerSeconds}
-              min={1}
-              max={120}
-              onChange={setTimerSeconds}
-            />
-            <label className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-sm">
-              NSFW runtime
-              <Switch checked={allowNsfw} onCheckedChange={setAllowNsfw} />
-            </label>
             <Button
               type="button"
               onClick={fetchRedditFeed}
               disabled={isLoading}
-              aria-label="Open Reddit source"
+              aria-label="Open Reddit links"
+              className="self-end"
             >
               {isLoading ? <Loader2 className="animate-spin" /> : <Grid2X2 />}
-              Open Reddit source
+              Open Reddit links
             </Button>
           </section>
         </div>
@@ -2531,10 +2418,10 @@ function FixedGridView({
             key={slot}
             data-testid={`fixed-cell-${slot}`}
             className={cn(
-              "min-h-0 rounded-xl outline outline-1 outline-transparent transition",
+              "min-h-0 rounded-xl outline outline-1 outline-offset-0 outline-transparent transition",
               !hideUi &&
                 session?.id === selectedId &&
-                "outline-primary ring-2 ring-primary/30",
+                "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/20",
             )}
             onClick={(event) => {
               if (!session) return;
@@ -2680,10 +2567,10 @@ function FreeGridView({
               key={session.id}
               data-testid={`free-cell-${session.id}`}
               className={cn(
-                "group/free relative min-h-0 rounded-xl outline outline-1 outline-transparent transition",
+                "group/free relative min-h-0 rounded-xl outline outline-1 outline-offset-0 outline-transparent transition",
                 !hideUi &&
                   session.id === selectedId &&
-                  "outline-primary ring-2 ring-primary/30 shadow-[0_0_20px_rgba(143,239,225,0.08)]",
+                  "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/20 shadow-[0_0_20px_rgba(143,239,225,0.08)]",
                 freeDrag?.id === session.id && "z-40 scale-[1.01]",
               )}
               style={{
@@ -3139,6 +3026,46 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function splitRedditUrls(value: string) {
+  return value
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function redditLinksTitle(urls: string[], items: RuntimeFeedItem[]) {
+  const subredditFromUrl = subredditFromRedditUrl(urls[0]);
+  if (subredditFromUrl) return `r/${subredditFromUrl}`;
+
+  const subredditFromItem = items.find((item) => item.subreddit)?.subreddit;
+  if (subredditFromItem) return `r/${subredditFromItem}`;
+
+  return urls.length === 1 ? "Reddit post" : "Reddit links";
+}
+
+function subredditFromRedditUrl(value: string | undefined) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const subredditIndex = segments.indexOf("r");
+    const commentsIndex = segments.indexOf("comments");
+
+    if (
+      subredditIndex !== -1 &&
+      commentsIndex !== -1 &&
+      commentsIndex > subredditIndex + 1
+    ) {
+      return segments[subredditIndex + 1];
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function keyMoveDirection(key: string): 1 | -1 | null {
   if (key === "ArrowDown" || key === "ArrowRight") return 1;
   if (key === "ArrowUp" || key === "ArrowLeft") return -1;
@@ -3212,6 +3139,10 @@ function workspaceLocalFileCount(workspace: SerializedWorkspace) {
 
 function normalizeLayoutName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+function limitLayoutName(name: string) {
+  return name.slice(0, MAX_LAYOUT_NAME_LENGTH);
 }
 
 function normalizeLegacyLayoutName(name: string) {

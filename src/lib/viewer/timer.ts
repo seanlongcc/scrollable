@@ -15,6 +15,8 @@ export type ViewTimerState = {
 
 export type MultiTimerState = Record<string, ViewTimerState>;
 
+export const TIMER_PROGRESS_TRANSITION_MS = 250;
+
 export function createTimerState({
   durationSeconds,
   itemCount,
@@ -75,6 +77,20 @@ export function advanceTimerState(
     activeIndex: (state.activeIndex + steps) % state.itemCount,
     elapsedMs: elapsedMs % durationMs,
   };
+}
+
+export function getTimerProgressPercent(
+  timer: TimerState,
+  transitionLeadMs = TIMER_PROGRESS_TRANSITION_MS,
+): number {
+  if (timer.durationSeconds <= 0) return 0;
+  if (timer.elapsedMs <= 0) return 0;
+
+  const durationMs = timer.durationSeconds * 1000;
+  return Math.min(
+    100,
+    ((timer.elapsedMs + transitionLeadMs) / durationMs) * 100,
+  );
 }
 
 export function createMultiTimerState(

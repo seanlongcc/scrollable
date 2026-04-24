@@ -47,8 +47,8 @@ export default async function SharedCollectionPage({
                   >
                     <div className="font-medium">{item.config?.name}</div>
                     <div className="text-muted-foreground">
-                      r/{item.config?.subreddit} · {item.config?.sort}/
-                      {item.config?.time_range}
+                      {item.config?.post_urls.length ?? 0} Reddit post{" "}
+                      {item.config?.post_urls.length === 1 ? "link" : "links"}
                     </div>
                   </li>
                 ))}

@@ -92,9 +92,7 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByRole("button", { name: "Remove r/pics" });
     expect(screen.getByLabelText("Free column")).toHaveValue(1);
@@ -103,7 +101,7 @@ describe("FeedWorkbench", () => {
     expect(screen.getByLabelText("Row span")).toHaveValue(4);
   });
 
-  it("defaults global and source timers to 10 seconds", async () => {
+  it("defaults global timer to 10 seconds and omits duplicate source timer controls", async () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
@@ -115,11 +113,43 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
 
-    expect(screen.getByLabelText("View timer seconds")).toHaveValue(10);
-    expect(screen.getByLabelText("View timer seconds")).toHaveAttribute(
-      "min",
-      "1",
+    expect(
+      screen.queryByLabelText("View timer seconds"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Show NSFW Reddit posts"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sends pasted Reddit post links to the runtime endpoint", async () => {
+    const fetchMock = stubRuntimeFetch();
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.type(
+      screen.getByLabelText("Paste Reddit post links, one per line"),
+      [
+        "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+        "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
+      ].join("\n"),
     );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByRole("button", { name: "Remove r/pics" });
+    const requestUrl = String(
+      (
+        fetchMock.mock.calls as unknown as Array<
+          [RequestInfo | URL, RequestInit?]
+        >
+      )[0]?.[0],
+    );
+    expect(requestUrl).toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fpics",
+    );
+    expect(requestUrl).toContain("urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Faww");
+    expect(requestUrl).toContain("allowNsfw=true");
   });
 
   it("closes workspace layout tabs", async () => {
@@ -174,9 +204,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Maximize r/pics" }),
@@ -201,9 +229,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     expect(
       await screen.findByRole("button", { name: "r/pics uses global timer" }),
@@ -235,9 +261,7 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await user.click(
       await screen.findByRole("button", { name: "r/pics uses global timer" }),
     );
@@ -278,9 +302,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByLabelText("r/pics timer progress");
 
     await user.click(screen.getByRole("button", { name: "Hide UI" }));
@@ -360,9 +382,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     expect(await screen.findByText("Runtime image 1")).toBeInTheDocument();
 
@@ -410,9 +430,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     const activeTitle = await screen.findByText("Runtime image 1");
     const pane = activeTitle.closest("article");
@@ -457,9 +475,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByRole("button", { name: "Maximize r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
@@ -905,6 +921,40 @@ describe("FeedWorkbench", () => {
     ).toBeInTheDocument();
   });
 
+  it("limits saved layout names to 32 characters", async () => {
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    const nameInput = screen.getByLabelText("Layout name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "a".repeat(80));
+
+    expect(nameInput).toHaveValue("a".repeat(32));
+  });
+
+  it("does not rename the saved layout snapshot when renaming an open tab", async () => {
+    stubRandomUuids(["workspace-1"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    await user.dblClick(screen.getByRole("button", { name: "Layout 1" }));
+    const renameInput = screen.getByLabelText("Rename Layout 1");
+    await user.clear(renameInput);
+    await user.type(renameInput, "Movie Wall{Enter}");
+    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+
+    expect(
+      screen.getByRole("button", { name: "Open Layout 1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open Movie Wall" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("rejects duplicate save-as layout names", async () => {
     stubRandomUuids(["workspace-1", "workspace-2"]);
 
@@ -941,9 +991,7 @@ describe("FeedWorkbench", () => {
     const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByRole("button", { name: "Maximize r/pics" });
     await user.click(screen.getByRole("button", { name: "Save layout" }));
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
@@ -993,11 +1041,9 @@ describe("FeedWorkbench", () => {
                 freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
                 sourceConfig: {
                   kind: "reddit",
-                  subreddit: "pics",
-                  sort: "top",
-                  timeRange: "day",
-                  limit: 20,
-                  skip: 0,
+                  urls: [
+                    "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+                  ],
                   allowNsfw: true,
                 },
               },
@@ -1057,11 +1103,9 @@ describe("FeedWorkbench", () => {
                 freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
                 sourceConfig: {
                   kind: "reddit",
-                  subreddit: "pics",
-                  sort: "top",
-                  timeRange: "day",
-                  limit: 20,
-                  skip: 0,
+                  urls: [
+                    "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+                  ],
                   allowNsfw: true,
                 },
               },
@@ -1108,9 +1152,7 @@ describe("FeedWorkbench", () => {
     const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByAltText("Runtime image");
 
     await user.click(screen.getByRole("button", { name: "New layout" }));
@@ -1130,17 +1172,18 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.clear(screen.getByLabelText("Subreddit"));
-    await user.type(screen.getByLabelText("Subreddit"), "aww");
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
+    await user.clear(
+      screen.getByLabelText("Paste Reddit post links, one per line"),
     );
+    await user.type(
+      screen.getByLabelText("Paste Reddit post links, one per line"),
+      "https://www.reddit.com/r/aww/comments/abc123/runtime_image/",
+    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByRole("button", { name: "Remove r/aww" });
 
     await user.click(screen.getByRole("button", { name: "Remove r/pics" }));
@@ -1167,17 +1210,18 @@ describe("FeedWorkbench", () => {
       target: { value: "1" },
     });
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.clear(screen.getByLabelText("Subreddit"));
-    await user.type(screen.getByLabelText("Subreddit"), "aww");
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
+    await user.clear(
+      screen.getByLabelText("Paste Reddit post links, one per line"),
     );
+    await user.type(
+      screen.getByLabelText("Paste Reddit post links, one per line"),
+      "https://www.reddit.com/r/aww/comments/abc123/runtime_image/",
+    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     expect(screen.getByText("1 hidden source")).toBeInTheDocument();
     expect(screen.queryByText("r/aww")).not.toBeInTheDocument();
@@ -1225,9 +1269,7 @@ describe("FeedWorkbench", () => {
     });
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByRole("button", { name: "Remove r/pics" });
     fireEvent.change(screen.getByLabelText("Column span"), {
       target: { value: "8" },
@@ -1288,9 +1330,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByText(/1\/2/);
     await user.click(
       screen.getByRole("button", { name: "Next item for r/pics" }),
@@ -1342,9 +1382,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", { name: "Open Reddit source" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await screen.findByText("1 source active · Fixed layout");
 
     await user.click(screen.getByRole("button", { name: "Clear layout" }));
@@ -1380,13 +1418,13 @@ function stubRuntimeFetch(
     },
   ],
 ) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => ({
-      ok: true,
-      json: async () => ({ items }),
-    })),
-  );
+  const fetchMock = vi.fn(async () => ({
+    ok: true,
+    json: async () => ({ items }),
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  return fetchMock;
 }
 
 function deferredFetch(items: Parameters<typeof stubRuntimeFetch>[0]) {
