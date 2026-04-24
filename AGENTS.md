@@ -4,16 +4,32 @@ Guidance for AI coding agents working in this repository.
 
 ## Project State
 
-This is a new repository for a planned web app. Do not scaffold or implement the application until the user explicitly asks for implementation. The immediate source of truth is this file plus future specs/plans committed in the repo.
+This repository now contains the initial Scrollable web app implementation. The immediate source of truth is this file, `README.md`, `docs/media-persistence.md`, Supabase migrations, and future specs/plans committed in the repo.
 
-Current intended stack:
+Current installed stack:
 
-- Next.js, React, TypeScript
-- Tailwind CSS and shadcn/ui
-- Supabase for auth and database
+- Next.js 16.2.4 App Router, React 19.2.4, TypeScript 5.x
+- Tailwind CSS v4 and shadcn 4.4.0
+- Supabase for auth and database through `@supabase/ssr`
+- `@supabase/ssr` 0.10.x and `@supabase/supabase-js` 2.104.x
+- Supabase CLI 2.95.x
+- Vitest 4.x, Playwright 1.59.x, ESLint 9.x
 - Auth providers: email, Google, Reddit
 - Vercel for deployment
 - Mobile-first user experience
+
+Current package/runtime defaults:
+
+- Use Node 24 via `nvm use 24`.
+- Use npm and the checked-in `package-lock.json`.
+- The default shell may still expose system Node 18. Always run `nvm use 24` before npm commands; Next.js 16 will not run on Node 18.
+- Main scripts: `npm run dev`, `npm run build`, `npm start`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:watch`, `npm run e2e`.
+- Supabase local scripts: `npm run supabase:start`, `npm run supabase:stop`, `npm run supabase:reset`, `npm run supabase:test`.
+- `npm test` runs Vitest/jsdom unit tests. It excludes `tests/e2e`.
+- `npm run e2e` runs Playwright desktop Chrome and Pixel 7 mobile projects and starts the dev server through `nvm use 24`.
+- Prettier is not configured yet. Do not report formatting checks unless a formatter is added later.
+- Browser tests require Linux browser dependencies in WSL; if Chromium cannot launch, report the missing shared library and do not claim browser verification passed.
+- Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
 
 ## Product Intent
 
@@ -40,10 +56,11 @@ These rules are core product constraints.
 - Never persist third-party media from Reddit or any other site.
 - Never rehost third-party media.
 - Never proxy-cache third-party media as application-owned content.
+- Never persist Reddit post IDs, third-party media URLs, thumbnails, cached listing responses, normalized runtime feed/media items, or local upload object URLs.
 - Store only user-created configuration data and operational records needed for the app.
 - Fetch third-party media metadata at runtime through approved APIs where possible.
 - Do not display images or videos when browsing saved or shared collections. Collections should show configuration metadata only until a runtime feed is opened.
-- Treat NSFW metadata carefully. NSFW collections are visible only to authenticated users.
+- Treat NSFW metadata carefully. Shared NSFW feed configs and collections are visible only to authenticated users.
 
 Acceptable stored data:
 
@@ -53,6 +70,7 @@ Acceptable stored data:
 - Collections of feed configurations.
 - Tags, NSFW flags, sharing settings, ownership, timestamps, and audit/security metadata.
 - Runtime logs or rate-limit records that do not contain third-party media payloads.
+- `display_options` may store display/config preferences only, not third-party media metadata.
 
 ## Architecture Direction
 
@@ -73,7 +91,7 @@ Keep data fetching, normalization, persistence, and UI rendering separate enough
 
 Before implementation:
 
-1. Write or update a short product/design spec.
+1. Write or update a short product/design spec for new major features.
 2. Confirm the data persistence rules above.
 3. Create an implementation plan before touching app code.
 
@@ -85,13 +103,33 @@ During implementation:
 4. Keep mobile behavior first-class, not a final pass.
 5. Add focused tests around feed normalization, sticky filtering/slicing, timer behavior, carousel behavior, sharing rules, and NSFW access.
 
+Git workflow:
+
+1. Use Conventional Commits for commit messages, for example `feat: add feed timer` or `fix: prevent media persistence`.
+2. Do not create branches with the `codex/` prefix. Use descriptive feature branches without that prefix.
+
 Before completion:
 
 1. Run lint, typecheck, tests, and build when available.
-2. Run browser verification for UI changes, including mobile viewport checks.
-3. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases.
-4. Check `git status --short --branch`.
-5. Summarize changed files and any checks that could not be run.
+2. Ensure the lint pass includes ESLint, and run the configured Prettier check when available, such as `npm run format:check` or `npm run prettier:check`.
+3. If ESLint or Prettier check scripts do not exist yet, add them as part of project setup work or clearly note that they could not be run.
+4. Run browser verification for UI changes, including mobile viewport checks.
+5. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases.
+6. Check `git status --short --branch`.
+7. Summarize changed files and any checks that could not be run.
+
+## Issue Tracking
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` for current workflow context, or install hooks with `bd hooks install` when hook-based workflow injection is wanted.
+
+Quick reference:
+
+- `bd ready` - Find unblocked work.
+- `bd create "Title" --type task --priority 2` - Create an issue.
+- `bd show <id>` - Show issue details.
+- `bd update <id> --claim` - Claim work.
+- `bd close <id>` - Complete work.
+- `bd dolt push` - Push beads to the configured remote.
 
 ## Subagents
 
@@ -101,8 +139,17 @@ Recommended subagent usage:
 
 - Code review subagent: inspect changed files for bugs, regressions, data persistence violations, auth/RLS gaps, mobile UI regressions, and missing tests.
 - Testing subagent: run or design focused verification for unit tests, integration tests, browser flows, and mobile layouts.
+- AGENTS.md maintenance subagent: review and update this file when project rules, architecture, commands, MCP servers, skills, deployment setup, auth/data constraints, or testing workflow change.
 - Keep subagent tasks bounded and non-overlapping.
 - Do not ask subagents to modify the same files in parallel unless ownership boundaries are explicit.
+
+Use the AGENTS.md maintenance subagent after substantial setup or workflow changes, including:
+
+- New package scripts, test commands, ESLint/Prettier commands, lint/typecheck/build commands, or dev server commands.
+- New MCP servers, tools, plugins, or required skills.
+- Changes to Supabase schema, RLS policy strategy, auth providers, or stored data rules.
+- Changes to Vercel deployment, environment variables, or runtime architecture.
+- New product constraints that future agents must preserve.
 
 ## MCP And Tool Servers
 
@@ -111,10 +158,9 @@ Use MCP/tool servers according to the task. Prefer official or local project sou
 | Server or tool family | Use in this repo |
 | --- | --- |
 | `serena` | Project activation, onboarding memories, semantic code navigation, symbol-aware edits, and project guidance. Activate this repo before code work and check onboarding. |
-| `tool_search` | Discover deferred MCP tools for GitHub, Vercel, Netlify, shadcn, Playwright/browser, context7, and other available servers. Use this before assuming a server is unavailable. |
+| `tool_search` | Discover deferred MCP tools for GitHub, Vercel, shadcn, Playwright/browser, context7, and other available servers. Use this before assuming a server is unavailable. |
 | `github` | Use for issues, pull requests, branch metadata, and repository collaboration when GitHub tasks are requested. |
 | `vercel` / `codex_apps__vercel` | Use for Vercel docs, deployments, deployment logs, domains, env vars, and project management when deployment work is requested. |
-| `netlify` / `codex_apps__netlify` | Not planned for this project. Use only if the user changes deployment target or asks for Netlify-specific work. |
 | `context7` | Use for current library documentation when available, especially Next.js, Supabase, shadcn/ui, Tailwind, or testing libraries. |
 | `shadcn` | Use for shadcn/ui component discovery, installation guidance, and registry/component patterns. |
 | `playwright` / browser tools | Use for end-to-end and visual verification of the app, especially feed scrolling, carousel navigation, auth flows, and mobile layouts. |
@@ -254,4 +300,3 @@ High-value test areas:
 - NSFW collection visibility for signed-out vs signed-in users.
 - Supabase RLS policies.
 - Mobile viewport layout and touch gestures.
-
