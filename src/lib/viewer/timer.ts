@@ -6,6 +6,15 @@ export type TimerState = {
   isPaused: boolean;
 };
 
+export type TimerMode = "own" | "master";
+
+export type ViewTimerState = {
+  mode: TimerMode;
+  timer: TimerState;
+};
+
+export type MultiTimerState = Record<string, ViewTimerState>;
+
 export function createTimerState({
   durationSeconds,
   itemCount,
@@ -63,4 +72,77 @@ export function advanceTimerState(
     activeIndex: (state.activeIndex + steps) % state.itemCount,
     elapsedMs: elapsedMs % durationMs,
   };
+}
+
+export function createMultiTimerState(
+  views: Array<{
+    id: string;
+    durationSeconds: number;
+    itemCount: number;
+    mode: TimerMode;
+  }>,
+): MultiTimerState {
+  return Object.fromEntries(
+    views.map((view) => [
+      view.id,
+      {
+        mode: view.mode,
+        timer: createTimerState({
+          durationSeconds: view.durationSeconds,
+          itemCount: view.itemCount,
+        }),
+      },
+    ]),
+  );
+}
+
+export function masterMoveTimerIndexes(
+  timers: MultiTimerState,
+  direction: 1 | -1,
+): MultiTimerState {
+  return mapMultiTimerState(timers, (viewTimer) => ({
+    ...viewTimer,
+    timer: moveTimerIndex(viewTimer.timer, direction),
+  }));
+}
+
+export function masterTogglePaused(timers: MultiTimerState): MultiTimerState {
+  return mapMultiTimerState(timers, (viewTimer) => ({
+    ...viewTimer,
+    timer: togglePaused(viewTimer.timer),
+  }));
+}
+
+export function masterRestartTimers(timers: MultiTimerState): MultiTimerState {
+  return mapMultiTimerState(timers, (viewTimer) => ({
+    ...viewTimer,
+    timer: { ...viewTimer.timer, elapsedMs: 0 },
+  }));
+}
+
+export function applyMasterDuration(
+  timers: MultiTimerState,
+  durationSeconds: number,
+): MultiTimerState {
+  return mapMultiTimerState(timers, (viewTimer) => {
+    if (viewTimer.mode !== "master") return viewTimer;
+
+    return {
+      ...viewTimer,
+      timer: {
+        ...viewTimer.timer,
+        durationSeconds,
+        elapsedMs: 0,
+      },
+    };
+  });
+}
+
+function mapMultiTimerState(
+  timers: MultiTimerState,
+  mapper: (viewTimer: ViewTimerState, id: string) => ViewTimerState,
+): MultiTimerState {
+  return Object.fromEntries(
+    Object.entries(timers).map(([id, viewTimer]) => [id, mapper(viewTimer, id)]),
+  );
 }

@@ -1,12 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-test("home renders feed console without media previews", async ({ page }) => {
+test("home renders multi-view wall without media previews", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Feed console" })).toBeVisible();
-  await expect(page.getByLabel("Subreddit")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open" })).toBeVisible();
-  await expect(page.getByText("Feed grid")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Multi-view wall" })).toBeVisible();
+  await expect(page.getByLabel("Fixed columns")).toHaveValue("2");
+  await expect(page.getByLabel("Fixed rows")).toHaveValue("1");
+  await expect(page.getByRole("button", { name: "Master next" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add source", exact: true }),
+  ).toBeVisible();
   await expect(page.locator("img, video")).toHaveCount(0);
 });
 
