@@ -152,6 +152,114 @@ describe("FeedWorkbench", () => {
     expect(requestUrl).toContain("allowNsfw=true");
   });
 
+  it("can add Reddit post links as separate sources", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const requestUrl = new URL(String(input), "http://localhost");
+      const sourceUrl = requestUrl.searchParams.get("urls") ?? "";
+      const subreddit = sourceUrl.includes("/r/aww/") ? "aww" : "pics";
+
+      return {
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              id: `runtime-${subreddit}`,
+              source: "reddit",
+              title: `Runtime ${subreddit}`,
+              subreddit,
+              isNsfw: false,
+              createdAt: "2026-04-24T00:00:00.000Z",
+              media: [
+                {
+                  type: "image",
+                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                },
+              ],
+            },
+          ],
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add Reddit links as separate sources",
+      }),
+    );
+    await user.type(
+      screen.getByLabelText("Paste Reddit post links, one per line"),
+      [
+        "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+        "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
+      ].join("\n"),
+    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByRole("button", { name: "Remove r/pics" });
+    await screen.findByRole("button", { name: "Remove r/aww" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fpics",
+    );
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Faww",
+    );
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Faww",
+    );
+  });
+
+  it("treats Reddit gallery media like local feed items for timers and scrolling", async () => {
+    stubRuntimeFetch([
+      {
+        id: "reddit:gallery",
+        source: "reddit" as const,
+        title: "Runtime gallery",
+        subreddit: "pics",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image" as const,
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+          {
+            type: "image" as const,
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.type(
+      screen.getByLabelText("Paste Reddit post links, one per line"),
+      "https://www.reddit.com/r/pics/comments/abc123/runtime_gallery/",
+    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByLabelText("r/pics timer progress");
+    expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next media for r/pics" }),
+    ).not.toBeInTheDocument();
+
+    const activeTitle = screen.getByText("Runtime gallery");
+    const pane = activeTitle.closest("article");
+    if (!pane) throw new Error("Feed pane not found");
+    fireEvent.wheel(pane, { deltaY: 500 });
+
+    expect(await screen.findByText(/2\/2/)).toBeInTheDocument();
+  });
+
   it("closes workspace layout tabs", async () => {
     stubRandomUuids(["workspace-1", "workspace-2"]);
 
@@ -955,6 +1063,94 @@ describe("FeedWorkbench", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps global timer seconds per layout and saves them", async () => {
+    stubRandomUuids(["workspace-1", "workspace-2"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    fireEvent.change(screen.getByLabelText("Global timer seconds"), {
+      target: { value: "17" },
+    });
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+
+    await user.click(screen.getByRole("button", { name: "New layout" }));
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(10);
+
+    await user.click(screen.getByRole("button", { name: "Layout 1" }));
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+
+    const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
+    expect(saved).toContain('"globalTimerSeconds":17');
+  });
+
+  it("updates the global timer control when opening a saved layout", async () => {
+    stubRandomUuids(["workspace-1", "workspace-2"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    fireEvent.change(screen.getByLabelText("Global timer seconds"), {
+      target: { value: "17" },
+    });
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    await user.click(screen.getByRole("button", { name: "New layout" }));
+    fireEvent.change(screen.getByLabelText("Global timer seconds"), {
+      target: { value: "5" },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Open Layout 1" }));
+
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+  });
+
+  it("derives the global timer from legacy saved global sessions", async () => {
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "workspace-1",
+        workspaces: [
+          {
+            id: "workspace-1",
+            name: "Legacy saved",
+            layoutMode: "fixed",
+            fixedGrid: { columns: 2, rows: 1 },
+            updatedAt: "2026-04-24T00:00:00.000Z",
+            sessions: [
+              {
+                id: "session-1",
+                title: "r/pics",
+                timerMode: "global",
+                timerSeconds: 17,
+                fixedSlot: 0,
+                freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+                sourceConfig: {
+                  kind: "reddit",
+                  urls: [
+                    "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+                  ],
+                  allowNsfw: true,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Legacy saved" }),
+    );
+
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+  });
+
   it("rejects duplicate save-as layout names", async () => {
     stubRandomUuids(["workspace-1", "workspace-2"]);
 
@@ -1062,6 +1258,74 @@ describe("FeedWorkbench", () => {
 
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
+  });
+
+  it("refetches saved Reddit galleries as scrollable feed items", async () => {
+    stubRuntimeFetch([
+      {
+        id: "reddit:gallery",
+        source: "reddit" as const,
+        title: "Runtime gallery",
+        subreddit: "pics",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image" as const,
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+          {
+            type: "image" as const,
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "workspace-1",
+        workspaces: [
+          {
+            id: "workspace-1",
+            name: "Saved reddit",
+            layoutMode: "fixed",
+            fixedGrid: { columns: 2, rows: 1 },
+            globalTimerSeconds: 17,
+            updatedAt: "2026-04-24T00:00:00.000Z",
+            sessions: [
+              {
+                id: "session-1",
+                title: "r/pics",
+                timerMode: "global",
+                timerSeconds: 17,
+                timerActiveIndex: 0,
+                fixedSlot: 0,
+                freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+                sourceConfig: {
+                  kind: "reddit",
+                  urls: [
+                    "https://www.reddit.com/r/pics/comments/abc123/runtime_gallery/",
+                  ],
+                  allowNsfw: true,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Saved reddit" }),
+    );
+
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+    expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
+    await screen.findByLabelText("r/pics timer progress");
   });
 
   it("shows loading instead of no-runtime-media while a saved Reddit source hydrates", async () => {

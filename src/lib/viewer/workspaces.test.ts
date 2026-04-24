@@ -16,6 +16,7 @@ describe("viewer workspaces", () => {
 
     const snapshot = serializeWorkspace({
       ...workspace,
+      globalTimerSeconds: 17,
       sessions: [
         {
           id: "session-1",
@@ -55,6 +56,7 @@ describe("viewer workspaces", () => {
     );
     expect(encoded).not.toContain("https://cdn.test/runtime-image.jpg");
     expect(encoded).not.toContain("runtime-1");
+    expect(snapshot.globalTimerSeconds).toBe(17);
     expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");
   });
 });

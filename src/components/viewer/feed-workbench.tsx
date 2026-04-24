@@ -86,6 +86,7 @@ import {
   type SerializedWorkspace,
   type WorkspaceSessionInput,
   createEmptyWorkspace,
+  DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
   parseWorkspaceStore,
   serializeWorkspace,
 } from "@/lib/viewer/workspaces";
@@ -131,7 +132,9 @@ type AccountState =
   | { status: "unconfigured" | "loading" | "signed-out" }
   | { status: "signed-in"; email: string };
 
-const DEFAULT_TIMER_SECONDS = 10;
+type SourceGroupingMode = "stacked" | "separate";
+
+const DEFAULT_TIMER_SECONDS = DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS;
 const MAX_LAYOUT_NAME_LENGTH = 32;
 
 type FreeDragState = {
@@ -225,9 +228,10 @@ export function FeedWorkbench() {
   const [isUiHidden, setIsUiHidden] = useState(false);
   const [isUiRevealVisible, setIsUiRevealVisible] = useState(true);
   const [showAllInfo, setShowAllInfo] = useState(false);
-  const [localUploadMode, setLocalUploadMode] = useState<
-    "stacked" | "separate"
-  >("stacked");
+  const [localUploadMode, setLocalUploadMode] =
+    useState<SourceGroupingMode>("stacked");
+  const [redditLinksMode, setRedditLinksMode] =
+    useState<SourceGroupingMode>("stacked");
   const [freeDrag, setFreeDrag] = useState<FreeDragState | null>(null);
   const [canCacheLocalFiles, setCanCacheLocalFiles] = useState(false);
   const registryRef = useRef<LocalObjectUrlRegistry | null>(null);
@@ -515,31 +519,51 @@ export function FeedWorkbench() {
   async function fetchRedditFeed() {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({
-        allowNsfw: "true",
-      });
       const urls = splitRedditUrls(redditUrls);
-      for (const url of urls) {
-        params.append("urls", url);
-      }
-      const response = await fetch(`/api/reddit/listing?${params}`, {
-        cache: "no-store",
-      });
-      const payload = await response.json();
 
-      if (!response.ok) {
-        throw new Error(payload.error ?? "reddit_error");
+      if (
+        redditLinksMode === "separate" &&
+        urls.length > availableSeparateSourceSlots
+      ) {
+        toast.error(
+          `Only ${availableSeparateSourceSlots} source slot${
+            availableSeparateSourceSlots === 1 ? "" : "s"
+          } available`,
+        );
+        return;
       }
 
-      addSession({
-        title: redditLinksTitle(urls, payload.items as RuntimeFeedItem[]),
-        sourceConfig: {
-          kind: "reddit",
-          urls,
-          allowNsfw: true,
-        },
-        items: payload.items as RuntimeFeedItem[],
-      });
+      if (redditLinksMode === "separate") {
+        const sources = await Promise.all(
+          urls.map(async (url) => {
+            const items = await fetchRedditRuntimeItems([url]);
+
+            return {
+              title: redditLinksTitle([url], items),
+              sourceConfig: {
+                kind: "reddit" as const,
+                urls: [url],
+                allowNsfw: true,
+              },
+              items,
+            };
+          }),
+        );
+
+        addSessions(sources);
+      } else {
+        const items = await fetchRedditRuntimeItems(urls);
+
+        addSession({
+          title: redditLinksTitle(urls, items),
+          sourceConfig: {
+            kind: "reddit",
+            urls,
+            allowNsfw: true,
+          },
+          items,
+        });
+      }
       setIsSourceOpen(false);
     } catch (error) {
       toast.error(
@@ -1094,6 +1118,7 @@ export function FeedWorkbench() {
               layout_mode: workspace.layoutMode,
               fixed_columns: workspace.fixedGrid.columns,
               fixed_rows: workspace.fixedGrid.rows,
+              global_timer_seconds: workspace.globalTimerSeconds,
               sessions: workspace.sessions as unknown as Json,
               updated_at: new Date().toISOString(),
             })),
@@ -1139,6 +1164,7 @@ export function FeedWorkbench() {
       name: nameOverride,
       layoutMode,
       fixedGrid,
+      globalTimerSeconds: globalSeconds,
       updatedAt: new Date().toISOString(),
       sessions: sessions.map((session) => ({
         id: session.id,
@@ -1353,6 +1379,7 @@ export function FeedWorkbench() {
   ) {
     setLayoutMode(snapshot.layoutMode);
     setFixedGrid(snapshot.fixedGrid);
+    setGlobalSeconds(resolveWorkspaceGlobalSeconds(snapshot));
     const nextSessions = snapshot.sessions.map((session) => {
       const items =
         "runtimeItems" in session ? (session.runtimeItems ?? []) : [];
@@ -1464,7 +1491,7 @@ export function FeedWorkbench() {
       throw new Error(payload.error ?? "reddit_error");
     }
 
-    return payload.items as RuntimeFeedItem[];
+    return flattenRuntimeMediaItems(payload.items as RuntimeFeedItem[]);
   }
 
   async function fetchLocalRuntimeItemsForSource(
@@ -1752,8 +1779,10 @@ export function FeedWorkbench() {
         redditUrls={redditUrls}
         isLoading={isLoading}
         localUploadMode={localUploadMode}
+        redditLinksMode={redditLinksMode}
         setRedditUrls={setRedditUrls}
         setLocalUploadMode={setLocalUploadMode}
+        setRedditLinksMode={setRedditLinksMode}
         fetchRedditFeed={fetchRedditFeed}
         addLocalFiles={addLocalFiles}
         addDroppedLocalFiles={addDroppedLocalFiles}
@@ -2196,8 +2225,10 @@ function SourceDialog({
   redditUrls,
   isLoading,
   localUploadMode,
+  redditLinksMode,
   setRedditUrls,
   setLocalUploadMode,
+  setRedditLinksMode,
   fetchRedditFeed,
   addLocalFiles,
   addDroppedLocalFiles,
@@ -2207,9 +2238,11 @@ function SourceDialog({
   onOpenChange: (open: boolean) => void;
   redditUrls: string;
   isLoading: boolean;
-  localUploadMode: "stacked" | "separate";
+  localUploadMode: SourceGroupingMode;
+  redditLinksMode: SourceGroupingMode;
   setRedditUrls: (value: string) => void;
-  setLocalUploadMode: (value: "stacked" | "separate") => void;
+  setLocalUploadMode: (value: SourceGroupingMode) => void;
+  setRedditLinksMode: (value: SourceGroupingMode) => void;
   fetchRedditFeed: () => void;
   addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
@@ -2321,8 +2354,32 @@ function SourceDialog({
             </div>
           </section>
 
-          <section className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-surface p-3">
+          <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-surface p-3">
             <h2 className="text-sm font-medium">Reddit post links</h2>
+            <div
+              className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
+              role="group"
+              aria-label="Reddit links grouping"
+            >
+              <Button
+                type="button"
+                size="sm"
+                variant={redditLinksMode === "stacked" ? "default" : "ghost"}
+                onClick={() => setRedditLinksMode("stacked")}
+                aria-label="Add Reddit links as one stacked source"
+              >
+                Stacked
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={redditLinksMode === "separate" ? "default" : "ghost"}
+                onClick={() => setRedditLinksMode("separate")}
+                aria-label="Add Reddit links as separate sources"
+              >
+                Separate
+              </Button>
+            </div>
             <Textarea
               aria-label="Paste Reddit post links, one per line"
               value={redditUrls}
@@ -2976,6 +3033,7 @@ function nextFixedSlot(sessions: FeedSession[], preferredSlot: number | null) {
 function toRuntimeWorkspace(workspace: SerializedWorkspace): RuntimeWorkspace {
   return {
     ...workspace,
+    globalTimerSeconds: resolveWorkspaceGlobalSeconds(workspace),
     sessions: workspace.sessions.map((session) => ({
       ...session,
       timerMode: normalizeTimerMode(session.timerMode),
@@ -2999,6 +3057,7 @@ function toRuntimeWorkspaceWithLocalRuntime(
 
   return {
     ...workspace,
+    globalTimerSeconds: resolveWorkspaceGlobalSeconds(workspace),
     sessions: workspace.sessions.map((session) => ({
       ...session,
       timerMode: normalizeTimerMode(session.timerMode),
@@ -3031,6 +3090,52 @@ function splitRedditUrls(value: string) {
     .split(/[\n,]+/)
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+async function fetchRedditRuntimeItems(urls: string[]) {
+  const params = new URLSearchParams({
+    allowNsfw: "true",
+  });
+  for (const url of urls) {
+    params.append("urls", url);
+  }
+  const response = await fetch(`/api/reddit/listing?${params}`, {
+    cache: "no-store",
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? "reddit_error");
+  }
+
+  return flattenRuntimeMediaItems(payload.items as RuntimeFeedItem[]);
+}
+
+function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
+  return items.flatMap((item) => {
+    if (item.media.length <= 1) return [item];
+
+    return item.media.map((media, index) => ({
+      ...item,
+      id: `${item.id}:media:${index}`,
+      media: [media],
+    }));
+  });
+}
+
+function resolveWorkspaceGlobalSeconds(
+  workspace: Pick<SerializedWorkspace, "globalTimerSeconds" | "sessions">,
+) {
+  const stored = workspace.globalTimerSeconds;
+  const legacyGlobalSessionSeconds = workspace.sessions.find(
+    (session) => normalizeTimerMode(session.timerMode) === "global",
+  )?.timerSeconds;
+  const seconds =
+    stored ??
+    legacyGlobalSessionSeconds ??
+    DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS;
+
+  return clamp(seconds, 1, 120);
 }
 
 function redditLinksTitle(urls: string[], items: RuntimeFeedItem[]) {

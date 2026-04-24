@@ -3,6 +3,7 @@ import { DEFAULT_FIXED_GRID, type FixedGrid, type FreeRect } from "./layout";
 import type { TimerMode } from "./timer";
 
 export const WORKSPACE_STORAGE_KEY = "scrollable.workspaces.v1";
+export const DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS = 10;
 
 export type WorkspaceLayoutMode = "fixed" | "free";
 
@@ -42,6 +43,7 @@ export type SerializedWorkspace = {
   name: string;
   layoutMode: WorkspaceLayoutMode;
   fixedGrid: FixedGrid;
+  globalTimerSeconds: number;
   sessions: SerializedWorkspaceSession[];
   updatedAt: string;
 };
@@ -60,6 +62,7 @@ export function createEmptyWorkspace(
     name,
     layoutMode: "fixed",
     fixedGrid: DEFAULT_FIXED_GRID,
+    globalTimerSeconds: DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
     sessions: [],
     updatedAt: new Date().toISOString(),
   };
@@ -70,6 +73,7 @@ export function serializeWorkspace(workspace: {
   name: string;
   layoutMode: WorkspaceLayoutMode;
   fixedGrid: FixedGrid;
+  globalTimerSeconds?: number;
   sessions: WorkspaceSessionInput[];
 }): SerializedWorkspace {
   return {
@@ -77,6 +81,8 @@ export function serializeWorkspace(workspace: {
     name: workspace.name,
     layoutMode: workspace.layoutMode,
     fixedGrid: workspace.fixedGrid,
+    globalTimerSeconds:
+      workspace.globalTimerSeconds ?? DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
     sessions: workspace.sessions.map(
       ({
         id,

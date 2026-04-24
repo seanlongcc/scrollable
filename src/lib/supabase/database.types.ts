@@ -160,6 +160,7 @@ export type Database = {
           layout_mode: "fixed" | "free";
           fixed_columns: number;
           fixed_rows: number;
+          global_timer_seconds: number;
           sessions: Json;
           created_at: string;
           updated_at: string;
@@ -171,6 +172,7 @@ export type Database = {
           layout_mode?: "fixed" | "free";
           fixed_columns?: number;
           fixed_rows?: number;
+          global_timer_seconds?: number;
           sessions?: Json;
           created_at?: string;
           updated_at?: string;
