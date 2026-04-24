@@ -21,7 +21,10 @@ export const feedConfigInputSchema = z
       .trim()
       .min(1, "Subreddit is required")
       .max(80)
-      .regex(/^(r\/)?[A-Za-z0-9_]+$/, "Use a subreddit name like pics or r/pics")
+      .regex(
+        /^(r\/)?[A-Za-z0-9_]+$/,
+        "Use a subreddit name like pics or r/pics",
+      )
       .transform((value) => value.replace(/^r\//i, "")),
     sort: redditSortSchema.default("top"),
     timeRange: redditTimeRangeSchema.default("day"),

@@ -22,12 +22,12 @@ describe("parseFeedConfigInput", () => {
   });
 
   it("normalizes subreddit names and rejects unsafe limits", () => {
-    expect(parseFeedConfigInput({ subreddit: "r/aww", limit: 7 }).subreddit).toBe(
-      "aww",
-    );
-    expect(() => parseFeedConfigInput({ subreddit: "pics", limit: 101 })).toThrow(
-      /limit/i,
-    );
+    expect(
+      parseFeedConfigInput({ subreddit: "r/aww", limit: 7 }).subreddit,
+    ).toBe("aww");
+    expect(() =>
+      parseFeedConfigInput({ subreddit: "pics", limit: 101 }),
+    ).toThrow(/limit/i);
   });
 
   it("accepts one-second timers and rejects zero-second timers", () => {

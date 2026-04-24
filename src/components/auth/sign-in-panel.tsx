@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, Lock, Mail, UserPlus } from "lucide-react";
+import { Globe, Mail, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -10,11 +10,12 @@ import { Label } from "@/components/ui/label";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
-export function SignInPanel({ next = "/library" }: { next?: string }) {
+export function SignInPanel({ next = "/" }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const isConfigured = Boolean(getSupabaseEnv());
-  const canUseEmailPassword = isConfigured && email.length > 0 && password.length >= 6;
+  const canUseEmailPassword =
+    isConfigured && email.length > 0 && password.length >= 8;
 
   async function signInWithEmailPassword() {
     const supabase = createSupabaseBrowserClient();
@@ -91,15 +92,12 @@ export function SignInPanel({ next = "/library" }: { next?: string }) {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="Minimum 6 characters"
+          placeholder="Minimum 8 characters"
           disabled={!isConfigured}
         />
       </Label>
       <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="submit"
-          disabled={!canUseEmailPassword}
-        >
+        <Button type="submit" disabled={!canUseEmailPassword}>
           <Mail />
           Sign in
         </Button>
@@ -124,10 +122,6 @@ export function SignInPanel({ next = "/library" }: { next?: string }) {
           Google
         </Button>
       </div>
-      <p className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Lock className="size-3" />
-        Reddit stays a runtime source only, not a login provider.
-      </p>
     </form>
   );
 }

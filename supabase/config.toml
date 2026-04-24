@@ -17,3 +17,9 @@ enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/auth/callback"]
 enable_signup = true
+
+[auth.external.google]
+enabled = true
+client_id = "994784137574-rs0vfc1qg4dlpc7g8ddjrui7ok0at2g3.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)"
+skip_nonce_check = false

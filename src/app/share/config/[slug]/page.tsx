@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { SiteLogo } from "@/components/site-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +19,12 @@ export default async function SharedConfigPage({
   return (
     <main className="min-h-dvh bg-background px-4 py-5 text-foreground">
       <div className="mx-auto grid w-full max-w-xl gap-4">
-        <Button asChild variant="outline" className="w-fit">
-          <Link href="/">Viewer</Link>
-        </Button>
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <SiteLogo className="-ml-2.5" />
+          <Button asChild variant="outline" className="w-fit">
+            <Link href="/">Viewer</Link>
+          </Button>
+        </header>
         {shared.status === "ok" ? (
           <Card className="rounded-lg border border-border/60">
             <CardHeader>
@@ -33,8 +37,8 @@ export default async function SharedConfigPage({
               </div>
               <div>
                 limit {shared.config.limit_count} · skip{" "}
-                {shared.config.skip_count} · timer{" "}
-                {shared.config.timer_seconds}s
+                {shared.config.skip_count} · timer {shared.config.timer_seconds}
+                s
               </div>
               {shared.config.is_nsfw ? (
                 <Badge variant="outline" className="w-fit">
@@ -51,12 +55,18 @@ export default async function SharedConfigPage({
   );
 }
 
-function GateState({ status }: { status: "unconfigured" | "sign-in-required" }) {
+function GateState({
+  status,
+}: {
+  status: "unconfigured" | "sign-in-required";
+}) {
   return (
     <Card className="rounded-lg border border-border/60">
       <CardHeader>
         <CardTitle>
-          {status === "unconfigured" ? "Supabase env missing" : "Sign-in required"}
+          {status === "unconfigured"
+            ? "Supabase env missing"
+            : "Sign-in required"}
         </CardTitle>
       </CardHeader>
       <CardContent className="text-sm text-muted-foreground">

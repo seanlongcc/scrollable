@@ -183,7 +183,9 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["viewer_sessions"]["Insert"]>;
+        Update: Partial<
+          Database["public"]["Tables"]["viewer_sessions"]["Insert"]
+        >;
         Relationships: [];
       };
     };

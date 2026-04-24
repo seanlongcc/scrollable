@@ -8,9 +8,7 @@ export const dynamic = "force-dynamic";
 const querySchema = z.object({
   subreddit: z.string(),
   sort: z.enum(["top", "hot", "new"]).optional(),
-  timeRange: z
-    .enum(["hour", "day", "week", "month", "year", "all"])
-    .optional(),
+  timeRange: z.enum(["hour", "day", "week", "month", "year", "all"]).optional(),
   limit: z.string().optional(),
   skip: z.string().optional(),
   allowNsfw: z.string().optional(),

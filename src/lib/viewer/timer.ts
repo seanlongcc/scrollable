@@ -39,7 +39,10 @@ export function togglePaused(state: TimerState): TimerState {
   };
 }
 
-export function moveTimerIndex(state: TimerState, direction: 1 | -1): TimerState {
+export function moveTimerIndex(
+  state: TimerState,
+  direction: 1 | -1,
+): TimerState {
   if (state.itemCount <= 0) return { ...state, activeIndex: 0, elapsedMs: 0 };
 
   return {
@@ -138,6 +141,19 @@ export function applyGlobalDuration(
   });
 }
 
+export function syncTimerToGlobal(
+  timer: TimerState,
+  globalTimer: TimerState | null | undefined,
+  durationSeconds: number,
+): TimerState {
+  return {
+    ...timer,
+    durationSeconds,
+    elapsedMs: globalTimer?.elapsedMs ?? 0,
+    isPaused: globalTimer?.isPaused ?? false,
+  };
+}
+
 export function normalizeTimerMode(mode: unknown): TimerMode {
   if (mode === "local" || mode === "own") return "local";
   if (mode === "global" || mode === "master") return "global";
@@ -149,6 +165,9 @@ function mapMultiTimerState(
   mapper: (viewTimer: ViewTimerState, id: string) => ViewTimerState,
 ): MultiTimerState {
   return Object.fromEntries(
-    Object.entries(timers).map(([id, viewTimer]) => [id, mapper(viewTimer, id)]),
+    Object.entries(timers).map(([id, viewTimer]) => [
+      id,
+      mapper(viewTimer, id),
+    ]),
   );
 }

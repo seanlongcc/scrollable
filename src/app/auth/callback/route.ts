@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
 function safeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/library";
+    return "/";
   }
 
   return value;

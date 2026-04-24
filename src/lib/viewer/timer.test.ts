@@ -10,6 +10,7 @@ import {
   globalTogglePaused,
   moveTimerIndex,
   normalizeTimerMode,
+  syncTimerToGlobal,
   togglePaused,
 } from "./timer";
 
@@ -109,5 +110,28 @@ describe("timer state", () => {
     expect(normalizeTimerMode("master")).toBe("global");
     expect(normalizeTimerMode("local")).toBe("local");
     expect(normalizeTimerMode("global")).toBe("global");
+  });
+
+  it("syncs a local timer onto the current global clock when mode changes", () => {
+    const local = {
+      ...createTimerState({ durationSeconds: 20, itemCount: 5 }),
+      activeIndex: 3,
+      elapsedMs: 7500,
+      isPaused: true,
+    };
+    const global = {
+      ...createTimerState({ durationSeconds: 10, itemCount: 2 }),
+      activeIndex: 1,
+      elapsedMs: 2500,
+      isPaused: false,
+    };
+
+    expect(syncTimerToGlobal(local, global, 10)).toEqual({
+      durationSeconds: 10,
+      itemCount: 5,
+      activeIndex: 3,
+      elapsedMs: 2500,
+      isPaused: false,
+    });
   });
 });

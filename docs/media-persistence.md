@@ -3,6 +3,7 @@
 Scrollable stores user-authored configuration metadata only.
 
 Forbidden:
+
 - Reddit or third-party media files
 - Reddit post payloads
 - Media URLs and thumbnails
@@ -10,6 +11,7 @@ Forbidden:
 - Proxy-cached third-party media
 
 Allowed:
+
 - Supabase Auth user identity
 - User profile/preferences
 - Reddit feed configuration settings

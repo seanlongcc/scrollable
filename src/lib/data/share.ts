@@ -13,7 +13,8 @@ export async function getSharedConfigMetadata(slug: string) {
     .not("feed_config_id", "is", null)
     .maybeSingle();
 
-  if (!shareLink?.feed_config_id) return { status: "sign-in-required" as const };
+  if (!shareLink?.feed_config_id)
+    return { status: "sign-in-required" as const };
 
   const { data: config } = await supabase
     .from("feed_configs")
@@ -69,7 +70,9 @@ export async function getSharedCollectionMetadata(slug: string) {
     collection,
     items: (items ?? []).map((item) => ({
       ...item,
-      config: (configs ?? []).find((config) => config.id === item.feed_config_id),
+      config: (configs ?? []).find(
+        (config) => config.id === item.feed_config_id,
+      ),
     })),
   };
 }

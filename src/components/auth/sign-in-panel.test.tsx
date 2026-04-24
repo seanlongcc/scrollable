@@ -11,7 +11,17 @@ describe("SignInPanel", () => {
     expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Minimum 8 characters"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Google" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Reddit" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Reddit" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Reddit stays a runtime source only, not a login provider.",
+      ),
+    ).not.toBeInTheDocument();
   });
 });

@@ -41,7 +41,9 @@ describe("viewer workspaces", () => {
               subreddit: "pics",
               isNsfw: false,
               createdAt: "2026-04-24T00:00:00.000Z",
-              media: [{ type: "image", url: "https://cdn.test/runtime-image.jpg" }],
+              media: [
+                { type: "image", url: "https://cdn.test/runtime-image.jpg" },
+              ],
             },
           ],
         },

@@ -112,7 +112,8 @@ function extractMedia(post: RedditPost): RuntimeMedia[] {
     return extractGalleryMedia(post);
   }
 
-  const video = post.secure_media?.reddit_video ?? post.preview?.reddit_video_preview;
+  const video =
+    post.secure_media?.reddit_video ?? post.preview?.reddit_video_preview;
   if (video?.hls_url || video?.fallback_url) {
     const url = decodeRedditUrl(video.hls_url ?? video.fallback_url ?? "");
 

@@ -25,6 +25,7 @@
 ## Task 1: Layout Helpers
 
 **Files:**
+
 - Create: `src/lib/viewer/layout.ts`
 - Test: `src/lib/viewer/layout.test.ts`
 
@@ -57,19 +58,36 @@ describe("viewer layout", () => {
   });
 
   it("rejects free rectangles outside the 8x8 canvas", () => {
-    expect(() => createFreeRect({ column: 8, row: 1, columnSpan: 2, rowSpan: 1 })).toThrow(
-      "Free layout rectangle must fit inside the 8x8 canvas",
-    );
+    expect(() =>
+      createFreeRect({ column: 8, row: 1, columnSpan: 2, rowSpan: 1 }),
+    ).toThrow("Free layout rectangle must fit inside the 8x8 canvas");
   });
 
   it("detects free layout collisions", () => {
-    const first = createFreeRect({ column: 1, row: 1, columnSpan: 3, rowSpan: 3 });
-    const second = createFreeRect({ column: 3, row: 3, columnSpan: 2, rowSpan: 2 });
-    const third = createFreeRect({ column: 4, row: 1, columnSpan: 2, rowSpan: 2 });
+    const first = createFreeRect({
+      column: 1,
+      row: 1,
+      columnSpan: 3,
+      rowSpan: 3,
+    });
+    const second = createFreeRect({
+      column: 3,
+      row: 3,
+      columnSpan: 2,
+      rowSpan: 2,
+    });
+    const third = createFreeRect({
+      column: 4,
+      row: 1,
+      columnSpan: 2,
+      rowSpan: 2,
+    });
 
     expect(freeRectsOverlap(first, second)).toBe(true);
     expect(freeRectsOverlap(first, third)).toBe(false);
-    expect(() => validateFreeRects([first, second])).toThrow("Free layout views cannot overlap");
+    expect(() => validateFreeRects([first, second])).toThrow(
+      "Free layout views cannot overlap",
+    );
   });
 });
 ```
@@ -93,6 +111,7 @@ Expected: PASS.
 ## Task 2: Multi-Timer Helpers
 
 **Files:**
+
 - Modify: `src/lib/viewer/timer.ts`
 - Test: `src/lib/viewer/timer.test.ts`
 
@@ -182,6 +201,7 @@ Expected: PASS.
 ## Task 3: Multi-View UI
 
 **Files:**
+
 - Create: `src/components/viewer/feed-view-pane.tsx`
 - Modify: `src/components/viewer/feed-viewer.tsx`
 - Modify: `src/components/viewer/feed-workbench.tsx`
@@ -192,7 +212,9 @@ Expected: PASS.
 Add tests asserting:
 
 ```ts
-expect(screen.getByRole("heading", { name: "Multi-view wall" })).toBeInTheDocument();
+expect(
+  screen.getByRole("heading", { name: "Multi-view wall" }),
+).toBeInTheDocument();
 expect(screen.getByLabelText("Fixed columns")).toHaveValue("2");
 expect(screen.getByLabelText("Fixed rows")).toHaveValue("1");
 expect(screen.getByRole("button", { name: "Master next" })).toBeInTheDocument();
@@ -237,6 +259,7 @@ Expected: PASS.
 ## Task 4: E2E And Final Verification
 
 **Files:**
+
 - Modify: `tests/e2e/home.spec.ts`
 
 - [ ] **Step 1: Update E2E expectations**

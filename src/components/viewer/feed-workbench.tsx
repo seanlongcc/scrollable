@@ -8,10 +8,14 @@ import {
   Globe,
   GripHorizontal,
   Grid2X2,
+  Info,
   LayoutGrid,
   Loader2,
+  LogOut,
   Maximize2,
   Move,
+  MoveHorizontal,
+  MoveVertical,
   Pause,
   Play,
   Plus,
@@ -19,14 +23,16 @@ import {
   Save,
   SkipForward,
   Trash2,
+  UnfoldHorizontal,
+  UnfoldVertical,
   Upload,
   UserCircle,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import {
   ChangeEvent,
   PointerEvent as ReactPointerEvent,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -36,7 +42,7 @@ import {
 import { toast } from "sonner";
 
 import { SignInPanel } from "@/components/auth/sign-in-panel";
-import { FeedViewPane } from "@/components/viewer/feed-view-pane";
+import { SiteLogo } from "@/components/site-logo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,6 +54,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { FeedViewPane } from "@/components/viewer/feed-view-pane";
 import { parseFeedConfigInput } from "@/lib/config/feed-config";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
@@ -57,11 +64,14 @@ import type { Json } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_FIXED_GRID,
+  FREE_LAYOUT_SIZE,
   type FixedGrid,
   type FreeRect,
+  countAvailableFreeUnitRects,
   createFixedGrid,
   createFreeRect,
-  findAvailableFreeRect,
+  findAvailableFreeRectsBySize,
+  findBestAvailableFreeRects,
   validateFreeRects,
 } from "@/lib/viewer/layout";
 import {
@@ -82,6 +92,7 @@ import {
   globalTogglePaused,
   moveTimerIndex,
   normalizeTimerMode,
+  syncTimerToGlobal,
   togglePaused,
   type TimerMode,
   type TimerState,
@@ -97,6 +108,7 @@ type FeedSession = {
   fixedSlot: number;
   freeRect: FreeRect;
   items: RuntimeFeedItem[];
+  isRuntimeLoading?: boolean;
   sourceConfig: PersistedSourceConfig;
 };
 
@@ -108,6 +120,10 @@ type WorkspaceTab = {
 type RuntimeWorkspace = Omit<SerializedWorkspace, "sessions"> & {
   sessions: WorkspaceSessionInput[];
 };
+
+type AccountState =
+  | { status: "unconfigured" | "loading" | "signed-out" }
+  | { status: "signed-in"; email: string };
 
 const DEFAULT_TIMER_SECONDS = 10;
 
@@ -136,7 +152,9 @@ export function FeedWorkbench() {
   const [savedWorkspaces, setSavedWorkspaces] = useState<
     Record<string, SerializedWorkspace>
   >({});
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(initialWorkspace.id);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(
+    initialWorkspace.id,
+  );
 
   const [subreddit, setSubreddit] = useState("pics");
   const [sort, setSort] = useState<"top" | "hot" | "new">("top");
@@ -151,31 +169,43 @@ export function FeedWorkbench() {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
   const [sessions, setSessions] = useState<FeedSession[]>([]);
-  const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>({});
-  const [videoPositions, setVideoPositions] = useState<Record<string, number>>({});
+  const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>(
+    {},
+  );
+  const [videoPositions, setVideoPositions] = useState<Record<string, number>>(
+    {},
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
   const [pendingFixedSlot, setPendingFixedSlot] = useState<number | null>(null);
   const [isSourceOpen, setIsSourceOpen] = useState(false);
   const [isLayoutsOpen, setIsLayoutsOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [account, setAccount] = useState<AccountState>(() =>
+    getSupabaseEnv() ? { status: "loading" } : { status: "unconfigured" },
+  );
   const [isSaveOpen, setIsSaveOpen] = useState(false);
+  const [isClearOpen, setIsClearOpen] = useState(false);
   const [saveName, setSaveName] = useState(initialWorkspace.name);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
+  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(
+    null,
+  );
   const [editingWorkspaceName, setEditingWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUiHidden, setIsUiHidden] = useState(false);
   const [isUiRevealVisible, setIsUiRevealVisible] = useState(true);
-  const [localUploadMode, setLocalUploadMode] = useState<"stacked" | "separate">(
-    "stacked",
-  );
+  const [showAllInfo, setShowAllInfo] = useState(false);
+  const [localUploadMode, setLocalUploadMode] = useState<
+    "stacked" | "separate"
+  >("stacked");
   const [freeDrag, setFreeDrag] = useState<FreeDragState | null>(null);
   const registryRef = useRef<LocalObjectUrlRegistry | null>(null);
   const freeGridRef = useRef<HTMLDivElement | null>(null);
 
   const workspaceName =
-    workspaceTabs.find((tab) => tab.id === activeWorkspaceId)?.name ?? "Layout 1";
+    workspaceTabs.find((tab) => tab.id === activeWorkspaceId)?.name ??
+    "Layout 1";
   const visibleFixedCells = fixedGrid.columns * fixedGrid.rows;
   const selected = useMemo(
     () => sessions.find((session) => session.id === selectedId) ?? sessions[0],
@@ -194,10 +224,24 @@ export function FeedWorkbench() {
   );
   const visibleEmptySlots = useMemo(() => {
     const occupied = new Set(sessions.map((session) => session.fixedSlot));
-    return Array.from({ length: visibleFixedCells }, (_, index) => index).filter(
-      (slot) => !occupied.has(slot),
-    );
+    return Array.from(
+      { length: visibleFixedCells },
+      (_, index) => index,
+    ).filter((slot) => !occupied.has(slot));
   }, [sessions, visibleFixedCells]);
+  const availableSeparateSourceSlots = useMemo(
+    () =>
+      layoutMode === "fixed"
+        ? visibleEmptySlots.length
+        : countAvailableFreeUnitRects(
+            sessions.map((session) => session.freeRect),
+          ),
+    [layoutMode, sessions, visibleEmptySlots],
+  );
+  const accountButtonLabel =
+    account.status === "signed-in" ? "Account" : "Sign in";
+  const accountButtonTitle =
+    account.status === "signed-in" ? account.email : accountButtonLabel;
   const rememberVideoPosition = useCallback((key: string, seconds: number) => {
     setVideoPositions((current) => {
       if (current[key] === seconds) return current;
@@ -210,16 +254,47 @@ export function FeedWorkbench() {
   }, []);
 
   useEffect(() => {
+    if (!getSupabaseEnv()) {
+      return;
+    }
+
+    let isMounted = true;
+    const supabase = createSupabaseBrowserClient();
+
+    supabase.auth
+      .getUser()
+      .then(({ data: { user } }) => {
+        if (isMounted) setAccount(accountStateFromUser(user));
+      })
+      .catch(() => {
+        if (isMounted) setAccount({ status: "signed-out" });
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) setAccount(accountStateFromUser(session?.user ?? null));
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const stored = parseWorkspaceStore(
         window.localStorage.getItem(WORKSPACE_STORAGE_KEY),
       );
       if (!stored?.workspaces.length) return;
 
-      const normalizedWorkspaces = stored.workspaces.map((workspace) => ({
-        ...workspace,
-        name: normalizeLegacyLayoutName(workspace.name),
-      }));
+      const normalizedWorkspaces = normalizeStoredLayoutNames(
+        stored.workspaces.map((workspace) => ({
+          ...workspace,
+          name: normalizeLegacyLayoutName(workspace.name),
+        })),
+      );
       const tabs = normalizedWorkspaces.map(({ id, name }) => ({ id, name }));
       const nextSaved = Object.fromEntries(
         normalizedWorkspaces.map((workspace) => [workspace.id, workspace]),
@@ -244,6 +319,8 @@ export function FeedWorkbench() {
     });
 
     return () => window.cancelAnimationFrame(frame);
+    // localStorage workspace bootstrap is intentionally one-shot on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -264,8 +341,12 @@ export function FeedWorkbench() {
     const drag = freeDrag;
 
     function onPointerMove(event: PointerEvent) {
-      const deltaColumns = Math.round((event.clientX - drag.startX) / drag.cellWidth);
-      const deltaRows = Math.round((event.clientY - drag.startY) / drag.cellHeight);
+      const deltaColumns = Math.round(
+        (event.clientX - drag.startX) / drag.cellWidth,
+      );
+      const deltaRows = Math.round(
+        (event.clientY - drag.startY) / drag.cellHeight,
+      );
       const nextRect =
         drag.mode === "move"
           ? {
@@ -273,12 +354,12 @@ export function FeedWorkbench() {
               column: clamp(
                 drag.startRect.column + deltaColumns,
                 1,
-                9 - drag.startRect.columnSpan,
+                FREE_LAYOUT_SIZE + 1 - drag.startRect.columnSpan,
               ),
               row: clamp(
                 drag.startRect.row + deltaRows,
                 1,
-                9 - drag.startRect.rowSpan,
+                FREE_LAYOUT_SIZE + 1 - drag.startRect.rowSpan,
               ),
             }
           : {
@@ -286,17 +367,19 @@ export function FeedWorkbench() {
               columnSpan: clamp(
                 drag.startRect.columnSpan + deltaColumns,
                 1,
-                9 - drag.startRect.column,
+                FREE_LAYOUT_SIZE + 1 - drag.startRect.column,
               ),
               rowSpan: clamp(
                 drag.startRect.rowSpan + deltaRows,
                 1,
-                9 - drag.startRect.row,
+                FREE_LAYOUT_SIZE + 1 - drag.startRect.row,
               ),
             };
 
       setFreeDrag((current) =>
-        current && current.id === drag.id ? { ...current, currentRect: nextRect } : current,
+        current && current.id === drag.id
+          ? { ...current, currentRect: nextRect }
+          : current,
       );
     }
 
@@ -396,7 +479,9 @@ export function FeedWorkbench() {
       });
       setIsSourceOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Reddit fetch failed");
+      toast.error(
+        error instanceof Error ? error.message : "Reddit fetch failed",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -410,9 +495,25 @@ export function FeedWorkbench() {
     const registry = registryRef.current;
     if (!files.length || !registry) return;
 
-    const items = files
-      .filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"))
-      .map((file) => registry.add(file));
+    const uploadableFiles = files.filter(
+      (file) =>
+        file.type.startsWith("image/") || file.type.startsWith("video/"),
+    );
+
+    if (
+      localUploadMode === "separate" &&
+      uploadableFiles.length > availableSeparateSourceSlots
+    ) {
+      toast.error(
+        `Only ${availableSeparateSourceSlots} source slot${
+          availableSeparateSourceSlots === 1 ? "" : "s"
+        } available`,
+      );
+      event.target.value = "";
+      return;
+    }
+
+    const items = uploadableFiles.map((file) => registry.add(file));
 
     if (!items.length) return;
 
@@ -456,12 +557,15 @@ export function FeedWorkbench() {
   ) {
     setSessions((current) => {
       const next = [...current];
-      const occupiedFreeRects = next.map((session) => session.freeRect);
+      const freeRects = findBestAvailableFreeRects(
+        next.map((session) => session.freeRect),
+        sources.length,
+      );
       let preferredSlot = pendingFixedSlot;
       let selectedSessionId: string | null = null;
 
-      for (const source of sources) {
-        const freeRect = findAvailableFreeRect(occupiedFreeRects);
+      for (const [index, source] of sources.entries()) {
+        const freeRect = freeRects[index];
 
         if (!freeRect) {
           toast.error("No space left in free layout");
@@ -471,7 +575,6 @@ export function FeedWorkbench() {
         const id = createId();
         const fixedSlot = nextFixedSlot(next, preferredSlot);
         preferredSlot = null;
-        occupiedFreeRects.push(freeRect);
         selectedSessionId = id;
         next.push({
           id,
@@ -505,7 +608,10 @@ export function FeedWorkbench() {
   function updateFixedGrid(next: Partial<FixedGrid>) {
     try {
       setFixedGrid((current) =>
-        createFixedGrid(next.columns ?? current.columns, next.rows ?? current.rows),
+        createFixedGrid(
+          next.columns ?? current.columns,
+          next.rows ?? current.rows,
+        ),
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Invalid grid");
@@ -517,7 +623,9 @@ export function FeedWorkbench() {
     updater: (session: FeedSession) => FeedSession,
   ) {
     setSessions((current) =>
-      current.map((session) => (session.id === id ? updater(session) : session)),
+      current.map((session) =>
+        session.id === id ? updater(session) : session,
+      ),
     );
   }
 
@@ -561,7 +669,9 @@ export function FeedWorkbench() {
         );
       } catch (error) {
         if (showError) {
-          toast.error(error instanceof Error ? error.message : "Invalid free layout");
+          toast.error(
+            error instanceof Error ? error.message : "Invalid free layout",
+          );
         }
         return current;
       }
@@ -584,8 +694,8 @@ export function FeedWorkbench() {
       mode,
       startX: event.clientX,
       startY: event.clientY,
-      cellWidth: bounds.width / 8,
-      cellHeight: bounds.height / 8,
+      cellWidth: bounds.width / FREE_LAYOUT_SIZE,
+      cellHeight: bounds.height / FREE_LAYOUT_SIZE,
       startRect: session.freeRect,
       currentRect: session.freeRect,
     });
@@ -599,7 +709,8 @@ export function FeedWorkbench() {
 
     setGalleryIndexes((state) => {
       const current = state[itemId] ?? 0;
-      const next = (current + direction + item.media.length) % item.media.length;
+      const next =
+        (current + direction + item.media.length) % item.media.length;
       return { ...state, [itemId]: next };
     });
   }
@@ -607,7 +718,10 @@ export function FeedWorkbench() {
   function setGlobalTimerSeconds(value: number) {
     const durationSeconds = clamp(value, 1, 120);
     setGlobalSeconds(durationSeconds);
-    const timers = applyGlobalDuration(toMultiTimerState(sessions), durationSeconds);
+    const timers = applyGlobalDuration(
+      toMultiTimerState(sessions),
+      durationSeconds,
+    );
     setSessions((current) =>
       current.map((session) => ({
         ...session,
@@ -625,6 +739,22 @@ export function FeedWorkbench() {
         durationSeconds: clamp(value, 1, 120),
         elapsedMs: 0,
       },
+    }));
+  }
+
+  function setViewTimerMode(id: string, mode: TimerMode) {
+    const globalTimer =
+      sessions.find(
+        (session) => session.id !== id && session.timerMode === "global",
+      )?.timer ?? null;
+
+    updateSession(id, (session) => ({
+      ...session,
+      timerMode: mode,
+      timer:
+        mode === "global"
+          ? syncTimerToGlobal(session.timer, globalTimer, globalSeconds)
+          : session.timer,
     }));
   }
 
@@ -646,33 +776,52 @@ export function FeedWorkbench() {
   }
 
   function fillVisibleCells() {
-    if (!selected || !visibleEmptySlots.length || !selected.items.length) return;
+    if (!selected || !visibleEmptySlots.length || !selected.items.length)
+      return;
 
     setSessions((current) => {
+      const sourceSession = current.find(
+        (session) => session.id === selected.id,
+      );
+      if (!sourceSession?.items.length) return current;
+
       let cloneIndex = 0;
-      const occupiedFreeRects = current.map((session) => session.freeRect);
-      const clones = visibleEmptySlots.flatMap((fixedSlot) => {
-        const freeRect = findAvailableFreeRect(occupiedFreeRects);
+      const emptySlots = Array.from(
+        { length: visibleFixedCells },
+        (_, index) => index,
+      ).filter(
+        (slot) => !current.some((session) => session.fixedSlot === slot),
+      );
+      const freeRects = findAvailableFreeRectsBySize(
+        current.map((session) => session.freeRect),
+        emptySlots.length,
+        {
+          columnSpan: sourceSession.freeRect.columnSpan,
+          rowSpan: sourceSession.freeRect.rowSpan,
+        },
+      );
+      const clones = emptySlots.flatMap((fixedSlot, index) => {
+        const freeRect = freeRects[index];
         if (!freeRect) return [];
 
-        occupiedFreeRects.push(freeRect);
         cloneIndex += 1;
         const id = createId();
         const timer = createTimerState({
-          durationSeconds: selected.timer.durationSeconds,
-          itemCount: selected.items.length,
+          durationSeconds: sourceSession.timer.durationSeconds,
+          itemCount: sourceSession.items.length,
         });
 
         return {
-          ...selected,
+          ...sourceSession,
           id,
           fixedSlot,
           freeRect,
           timer: {
             ...timer,
             activeIndex:
-              selected.items.length > 0
-                ? (selected.timer.activeIndex + cloneIndex) % selected.items.length
+              sourceSession.items.length > 0
+                ? (sourceSession.timer.activeIndex + cloneIndex) %
+                  sourceSession.items.length
                 : 0,
           },
         };
@@ -682,6 +831,35 @@ export function FeedWorkbench() {
         (first, second) => first.fixedSlot - second.fixedSlot,
       );
     });
+  }
+
+  function clearCurrentLayout() {
+    setSessions([]);
+    setGalleryIndexes({});
+    setVideoPositions({});
+    setSelectedId(null);
+    setMaximizedId(null);
+    setPendingFixedSlot(null);
+    setIsClearOpen(false);
+  }
+
+  async function signOut() {
+    if (!getSupabaseEnv()) {
+      setAccount({ status: "unconfigured" });
+      return;
+    }
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.auth.signOut();
+
+      if (error) throw error;
+
+      setAccount({ status: "signed-out" });
+      toast.success("Signed out");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Sign out failed");
+    }
   }
 
   function openSaveDialog() {
@@ -698,7 +876,14 @@ export function FeedWorkbench() {
       return;
     }
 
-    if (hasDuplicateLayoutName(nextName, activeWorkspaceId, workspaceTabs, savedWorkspaces)) {
+    if (
+      hasDuplicateLayoutName(
+        nextName,
+        activeWorkspaceId,
+        workspaceTabs,
+        savedWorkspaces,
+      )
+    ) {
       setSaveError("Layout names must be unique");
       return;
     }
@@ -734,12 +919,16 @@ export function FeedWorkbench() {
           syncedToAccount = true;
         }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Account sync failed");
+        toast.error(
+          error instanceof Error ? error.message : "Account sync failed",
+        );
       }
     }
 
     toast.success(
-      syncedToAccount ? "Layout saved locally and to account" : "Layout saved locally",
+      syncedToAccount
+        ? "Layout saved locally and to account"
+        : "Layout saved locally",
     );
     setIsSaveOpen(false);
   }
@@ -758,7 +947,9 @@ export function FeedWorkbench() {
     return { snapshot, store };
   }
 
-  function currentWorkspaceState(nameOverride = workspaceName): RuntimeWorkspace {
+  function currentWorkspaceState(
+    nameOverride = workspaceName,
+  ): RuntimeWorkspace {
     return {
       id: activeWorkspaceId,
       name: nameOverride,
@@ -770,6 +961,7 @@ export function FeedWorkbench() {
         title: session.title,
         timerMode: normalizeTimerMode(session.timerMode),
         timerSeconds: session.timer.durationSeconds,
+        timerActiveIndex: session.timer.activeIndex,
         fixedSlot: session.fixedSlot,
         freeRect: session.freeRect,
         sourceConfig: session.sourceConfig,
@@ -824,7 +1016,11 @@ export function FeedWorkbench() {
             workspaceTabs.find((tab) => tab.id === id)?.name ?? "Layout",
           ),
       );
-    const nextStates = { ...workspaceStates, [current.id]: current, [id]: snapshot };
+    const nextStates = {
+      ...workspaceStates,
+      [current.id]: current,
+      [id]: snapshot,
+    };
 
     setWorkspaceStates(nextStates);
     setActiveWorkspaceId(id);
@@ -847,7 +1043,12 @@ export function FeedWorkbench() {
     }
 
     if (
-      hasDuplicateLayoutName(nextName, editingWorkspaceId, workspaceTabs, savedWorkspaces)
+      hasDuplicateLayoutName(
+        nextName,
+        editingWorkspaceId,
+        workspaceTabs,
+        savedWorkspaces,
+      )
     ) {
       toast.error("Layout names must be unique");
       setEditingWorkspaceId(null);
@@ -895,7 +1096,9 @@ export function FeedWorkbench() {
     if (workspaceTabs.length <= 1) {
       const nextId = createId();
       const nextTab = { id: nextId, name: "Layout 1" };
-      const empty = toRuntimeWorkspace(createEmptyWorkspace(nextId, nextTab.name));
+      const empty = toRuntimeWorkspace(
+        createEmptyWorkspace(nextId, nextTab.name),
+      );
       const nextStates = { [nextId]: empty };
 
       setWorkspaceTabs([nextTab]);
@@ -910,10 +1113,12 @@ export function FeedWorkbench() {
     const nextTabs = workspaceTabs.filter((tab) => tab.id !== id);
     const nextActiveId =
       id === activeWorkspaceId
-        ? nextTabs[Math.max(0, closingIndex - 1)]?.id ?? nextTabs[0].id
+        ? (nextTabs[Math.max(0, closingIndex - 1)]?.id ?? nextTabs[0].id)
         : activeWorkspaceId;
     const nextStates = { ...statesWithCurrent };
-    delete nextStates[id];
+    if (!savedWorkspaces[id]) {
+      delete nextStates[id];
+    }
     const nextSnapshot =
       nextStates[nextActiveId] ??
       toRuntimeWorkspace(
@@ -936,13 +1141,16 @@ export function FeedWorkbench() {
     if (!snapshot) return;
 
     const current = currentWorkspaceState();
-    const runtimeSnapshot = toRuntimeWorkspace(snapshot);
+    const currentAwareStates = { ...workspaceStates, [current.id]: current };
+    const runtimeSnapshot = toRuntimeWorkspaceWithLocalRuntime(
+      snapshot,
+      currentAwareStates[snapshot.id],
+    );
     const nextTabs = workspaceTabs.some((tab) => tab.id === id)
       ? workspaceTabs
       : [...workspaceTabs, { id: snapshot.id, name: snapshot.name }];
     const nextStates = {
-      ...workspaceStates,
-      [current.id]: current,
+      ...currentAwareStates,
       [snapshot.id]: runtimeSnapshot,
     };
 
@@ -963,37 +1171,124 @@ export function FeedWorkbench() {
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
 
-  function applyWorkspaceSnapshot(snapshot: SerializedWorkspace | RuntimeWorkspace) {
+  function applyWorkspaceSnapshot(
+    snapshot: SerializedWorkspace | RuntimeWorkspace,
+  ) {
     setLayoutMode(snapshot.layoutMode);
     setFixedGrid(snapshot.fixedGrid);
-    setSessions(
-      snapshot.sessions.map((session) => {
-        const items = "runtimeItems" in session ? (session.runtimeItems ?? []) : [];
-        return {
-          id: session.id,
-          title: session.title,
-          timerMode: normalizeTimerMode(session.timerMode),
-          timer: createTimerState({
-            durationSeconds: session.timerSeconds,
-            itemCount: items.length,
-          }),
-          fixedSlot: session.fixedSlot,
-          freeRect: session.freeRect,
-          items,
-          sourceConfig: session.sourceConfig,
-        };
-      }),
-    );
+    const nextSessions = snapshot.sessions.map((session) => {
+      const items =
+        "runtimeItems" in session ? (session.runtimeItems ?? []) : [];
+      const activeIndex =
+        items.length > 0
+          ? clamp(session.timerActiveIndex ?? 0, 0, items.length - 1)
+          : 0;
+      const timer = createTimerState({
+        durationSeconds: session.timerSeconds,
+        itemCount: items.length,
+      });
+
+      return {
+        id: session.id,
+        title: session.title,
+        timerMode: normalizeTimerMode(session.timerMode),
+        timer: { ...timer, activeIndex },
+        fixedSlot: session.fixedSlot,
+        freeRect: session.freeRect,
+        items,
+        isRuntimeLoading:
+          session.sourceConfig.kind === "reddit" && items.length === 0,
+        sourceConfig: session.sourceConfig,
+      };
+    });
+
+    setSessions(nextSessions);
     setGalleryIndexes({});
     setSelectedId(snapshot.sessions[0]?.id ?? null);
     setMaximizedId(null);
+    void hydrateRuntimeItems(nextSessions);
+  }
+
+  async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
+    const sessionsToHydrate = nextSessions.filter(
+      (session) =>
+        session.sourceConfig.kind === "reddit" && session.items.length === 0,
+    );
+
+    if (!sessionsToHydrate.length) return;
+
+    const hydrated = await Promise.all(
+      sessionsToHydrate.map(async (session) => {
+        try {
+          const items = await fetchRuntimeItemsForSource(session.sourceConfig);
+          return { id: session.id, items };
+        } catch (error) {
+          toast.error(
+            error instanceof Error
+              ? `Could not load ${session.title}: ${error.message}`
+              : `Could not load ${session.title}`,
+          );
+          return { id: session.id, items: [] as RuntimeFeedItem[] };
+        }
+      }),
+    );
+    const itemsBySession = new Map(
+      hydrated.map(({ id, items }) => [id, items]),
+    );
+
+    setSessions((current) =>
+      current.map((session) => {
+        const items = itemsBySession.get(session.id);
+        if (!items) return session;
+
+        return {
+          ...session,
+          items,
+          isRuntimeLoading: false,
+          timer: {
+            ...session.timer,
+            itemCount: items.length,
+            activeIndex:
+              items.length > 0
+                ? clamp(session.timer.activeIndex, 0, items.length - 1)
+                : 0,
+          },
+        };
+      }),
+    );
+  }
+
+  async function fetchRuntimeItemsForSource(
+    sourceConfig: PersistedSourceConfig,
+  ) {
+    if (sourceConfig.kind !== "reddit") return [];
+
+    const params = new URLSearchParams({
+      subreddit: sourceConfig.subreddit,
+      sort: sourceConfig.sort,
+      timeRange: sourceConfig.timeRange,
+      limit: String(sourceConfig.limit),
+      skip: String(sourceConfig.skip),
+      allowNsfw: String(sourceConfig.allowNsfw),
+    });
+    const response = await fetch(`/api/reddit/listing?${params}`, {
+      cache: "no-store",
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? "reddit_error");
+    }
+
+    return payload.items as RuntimeFeedItem[];
   }
 
   return (
     <main
       className={cn(
-        "grid h-dvh overflow-hidden bg-[#050505] text-white",
+        "grid h-dvh overflow-hidden bg-background text-foreground",
         isUiHidden ? "grid-rows-[1fr]" : "grid-rows-[auto_1fr]",
+        (isUiHidden || maximizedId) && "select-none",
       )}
     >
       {isUiHidden ? (
@@ -1002,7 +1297,7 @@ export function FeedWorkbench() {
           size="sm"
           variant="outline"
           className={cn(
-            "fixed right-3 top-3 z-50 border-[#b68b3d]/45 bg-black/85 text-[#f7ddb0] shadow-[0_0_28px_rgba(182,139,61,0.22)] backdrop-blur transition-opacity duration-300",
+            "fixed right-3 top-3 z-50 border-border bg-background/95 text-foreground shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur transition-opacity duration-300",
             !isUiRevealVisible && "pointer-events-none opacity-0",
           )}
           onClick={() => {
@@ -1016,165 +1311,190 @@ export function FeedWorkbench() {
           Show UI
         </Button>
       ) : (
-        <header className="border-b border-[#b68b3d]/20 bg-[#070707]/95 px-3 py-2 shadow-[0_1px_0_rgba(182,139,61,0.18)] backdrop-blur md:px-4">
-          <div className="grid gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Link
-                href="/"
-                className="rounded-md font-mono text-lg font-semibold tracking-normal text-[#d8b86a] outline-none hover:text-[#f5d58b] focus-visible:ring-2 focus-visible:ring-[#d8b86a]"
-              >
-                scrollable.app
-              </Link>
-
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  aria-label="Open layouts"
-                  onClick={() => setIsLayoutsOpen(true)}
-                >
-                  <FolderOpen />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  aria-label="Sign in"
-                  onClick={() => setIsAccountOpen(true)}
-                >
-                  <UserCircle />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={openSaveDialog}
-                  aria-label="Save layout"
-                >
-                  <Save />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => {
-                    setIsUiRevealVisible(true);
-                    setIsUiHidden(true);
-                  }}
-                  aria-label="Hide UI"
-                >
-                  <EyeOff />
-                </Button>
-                <Button
-                  type="button"
-                  aria-label="Add source"
-                  onClick={() => openSourcePanel()}
-                >
-                  <Plus />
-                  Add source
-                </Button>
-              </div>
+        <header className="border-b border-border bg-surface/95 px-3 pt-2 pb-0 shadow-[0_1px_0_rgba(255,255,255,0.025)] backdrop-blur md:px-4">
+          <div className="grid gap-2 lg:grid-cols-[minmax(12rem,1fr)_auto_minmax(12rem,1fr)] lg:items-center">
+            <div className="flex min-w-0 items-center justify-start">
+              <SiteLogo />
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                type="button"
+                size="icon"
+                variant={layoutMode === "fixed" ? "default" : "outline"}
+                onClick={() => setLayoutMode("fixed")}
+                aria-label="Fixed layout mode"
+              >
+                <Grid2X2 />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant={layoutMode === "free" ? "default" : "outline"}
+                onClick={() => setLayoutMode("free")}
+                aria-label="Free layout mode"
+              >
+                <LayoutGrid />
+              </Button>
+
+              <NumberField
+                label="Fixed columns"
+                icon={<UnfoldHorizontal className="size-3.5" />}
+                value={fixedGrid.columns}
+                min={1}
+                max={16}
+                onChange={(value) => updateFixedGrid({ columns: value })}
+              />
+              <NumberField
+                label="Fixed rows"
+                icon={<UnfoldVertical className="size-3.5" />}
+                value={fixedGrid.rows}
+                min={1}
+                max={16}
+                onChange={(value) => updateFixedGrid({ rows: value })}
+              />
+
+              <div className="flex h-8 items-center gap-1 rounded-lg border border-border/70 bg-surface-elevated/70 px-1">
+                <Globe className="size-3.5 text-primary" />
+                <input
+                  type="number"
+                  value={globalSeconds}
+                  min={1}
+                  max={120}
+                  onChange={(event) =>
+                    setGlobalTimerSeconds(Number(event.target.value))
+                  }
+                  aria-label="Global timer seconds"
+                  className="h-6 w-11 rounded-md border border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground outline-none focus-visible:border-primary"
+                />
                 <Button
                   type="button"
-                  size="icon"
-                  variant={layoutMode === "fixed" ? "default" : "outline"}
-                  onClick={() => setLayoutMode("fixed")}
-                  aria-label="Fixed layout mode"
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => runGlobalAction("pause")}
+                  aria-label="Global pause"
                 >
-                  <Grid2X2 />
+                  {sessions.some((session) => !session.timer.isPaused) ? (
+                    <Pause />
+                  ) : (
+                    <Play />
+                  )}
                 </Button>
                 <Button
                   type="button"
-                  size="icon"
-                  variant={layoutMode === "free" ? "default" : "outline"}
-                  onClick={() => setLayoutMode("free")}
-                  aria-label="Free layout mode"
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => runGlobalAction("next")}
+                  aria-label="Global next"
                 >
-                  <LayoutGrid />
+                  <SkipForward />
                 </Button>
-
-                <NumberField
-                  label="Fixed columns"
-                  value={fixedGrid.columns}
-                  min={1}
-                  max={8}
-                  onChange={(value) => updateFixedGrid({ columns: value })}
-                />
-                <NumberField
-                  label="Fixed rows"
-                  value={fixedGrid.rows}
-                  min={1}
-                  max={8}
-                  onChange={(value) => updateFixedGrid({ rows: value })}
-                />
-
-                <div className="flex h-8 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.05] px-1">
-                  <Globe className="size-3.5 text-[#d8b86a]" />
-                  <input
-                    type="number"
-                    value={globalSeconds}
-                    min={1}
-                    max={120}
-                    onChange={(event) => setGlobalTimerSeconds(Number(event.target.value))}
-                    aria-label="Global timer seconds"
-                    className="h-6 w-11 rounded-md border border-white/10 bg-black/35 px-1 text-center font-mono text-[11px] text-white outline-none focus-visible:border-[#d8b86a]"
-                  />
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => runGlobalAction("pause")}
-                    aria-label="Global pause"
-                  >
-                    {sessions.some((session) => !session.timer.isPaused) ? <Pause /> : <Play />}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => runGlobalAction("next")}
-                    aria-label="Global next"
-                  >
-                    <SkipForward />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => runGlobalAction("restart")}
-                    aria-label="Global restart"
-                  >
-                    <RotateCcw />
-                  </Button>
-                </div>
-
-                {selected && visibleEmptySlots.length ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={fillVisibleCells}
-                    aria-label="Fill visible cells"
-                  >
-                    <Copy />
-                    Fill
-                  </Button>
-                ) : null}
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => runGlobalAction("restart")}
+                  aria-label="Global restart"
+                >
+                  <RotateCcw />
+                </Button>
               </div>
+
+              {selected && visibleEmptySlots.length ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={fillVisibleCells}
+                  aria-label="Duplicate selected source into empty cells"
+                >
+                  <Copy />
+                  Duplicate
+                </Button>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                size="icon"
+                variant={showAllInfo ? "default" : "outline"}
+                aria-label={
+                  showAllInfo ? "Hide source info" : "Show source info"
+                }
+                onClick={() => setShowAllInfo((current) => !current)}
+              >
+                <Info />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                aria-label="Open layouts"
+                onClick={() => setIsLayoutsOpen(true)}
+              >
+                <FolderOpen />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                aria-label={accountButtonLabel}
+                title={accountButtonTitle}
+                onClick={() => setIsAccountOpen(true)}
+              >
+                <UserCircle />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={openSaveDialog}
+                aria-label="Save layout"
+              >
+                <Save />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => setIsClearOpen(true)}
+                aria-label="Clear layout"
+                disabled={!sessions.length}
+              >
+                <Trash2 />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => {
+                  setIsUiRevealVisible(true);
+                  setIsUiHidden(true);
+                }}
+                aria-label="Hide UI"
+              >
+                <EyeOff />
+              </Button>
+              <Button
+                type="button"
+                aria-label="Add source"
+                onClick={() => openSourcePanel()}
+              >
+                <Plus />
+                Add source
+              </Button>
+            </div>
           </div>
 
-          <div className="mt-2 flex items-center gap-1 overflow-x-auto overflow-y-hidden pb-1">
+          <div className="-mb-px mt-4 flex items-center gap-1 overflow-x-auto overflow-y-hidden pb-0">
             {workspaceTabs.map((tab) => (
               <div
                 key={tab.id}
                 className={cn(
-                  "flex h-7 min-w-28 overflow-hidden rounded-t-lg border border-white/10 text-white/65 transition",
+                  "flex h-7 min-w-28 overflow-hidden rounded-t-lg border border-border/70 text-muted-foreground transition",
                   tab.id === activeWorkspaceId
-                    ? "border-[#b68b3d]/55 bg-[#b68b3d]/15 text-[#f1d18a]"
-                    : "bg-white/[0.04] hover:bg-white/[0.08]",
+                    ? "border-primary/50 bg-surface-elevated text-primary"
+                    : "bg-surface-elevated/50 hover:bg-surface-elevated",
                 )}
               >
                 {editingWorkspaceId === tab.id ? (
@@ -1182,13 +1502,15 @@ export function FeedWorkbench() {
                     aria-label={`Rename ${tab.name}`}
                     value={editingWorkspaceName}
                     autoFocus
-                    onChange={(event) => setEditingWorkspaceName(event.target.value)}
+                    onChange={(event) =>
+                      setEditingWorkspaceName(event.target.value)
+                    }
                     onBlur={commitWorkspaceRename}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") commitWorkspaceRename();
                       if (event.key === "Escape") setEditingWorkspaceId(null);
                     }}
-                    className="h-full min-w-0 flex-1 bg-black/40 px-2 text-left text-xs text-white outline-none"
+                    className="h-full min-w-0 flex-1 bg-background/70 px-2 text-left text-xs text-foreground outline-none"
                   />
                 ) : (
                   <button
@@ -1206,7 +1528,7 @@ export function FeedWorkbench() {
                   onClick={() => closeWorkspaceTab(tab.id)}
                   aria-label={`Close ${tab.name}`}
                   title={`Close ${tab.name}`}
-                  className="grid h-full w-7 cursor-pointer place-items-center border-l border-white/10 text-white/55 transition hover:bg-white/10 hover:text-[#f5d58b]"
+                  className="grid h-full w-7 cursor-pointer place-items-center border-l border-border/70 text-muted-foreground transition hover:bg-surface-elevated hover:text-primary-hover"
                 >
                   <X className="size-3" />
                 </button>
@@ -1266,7 +1588,17 @@ export function FeedWorkbench() {
         }}
         onSave={saveLayoutAs}
       />
-      <AccountDialog open={isAccountOpen} onOpenChange={setIsAccountOpen} />
+      <ClearLayoutDialog
+        open={isClearOpen}
+        onOpenChange={setIsClearOpen}
+        onConfirm={clearCurrentLayout}
+      />
+      <AccountDialog
+        open={isAccountOpen}
+        onOpenChange={setIsAccountOpen}
+        account={account}
+        onSignOut={signOut}
+      />
 
       {maximized ? (
         <FocusLayout
@@ -1275,6 +1607,7 @@ export function FeedWorkbench() {
           galleryIndexes={galleryIndexes}
           videoPositions={videoPositions}
           hideUi={isUiHidden}
+          showInfo={showAllInfo}
           onRestore={() => setMaximizedId(null)}
           onFocus={setMaximizedId}
           onGalleryChange={changeGallery}
@@ -1297,16 +1630,7 @@ export function FeedWorkbench() {
               timer: { ...session.timer, elapsedMs: 0 },
             }))
           }
-          onTimerModeChange={(id, mode) =>
-            updateSession(id, (session) => ({
-              ...session,
-              timerMode: mode,
-              timer:
-                mode === "global"
-                  ? { ...session.timer, durationSeconds: globalSeconds }
-                  : session.timer,
-            }))
-          }
+          onTimerModeChange={setViewTimerMode}
           onTimerSecondsChange={setViewTimerSeconds}
         />
       ) : (
@@ -1317,48 +1641,65 @@ export function FeedWorkbench() {
           )}
         >
           {!isUiHidden ? (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm text-white/65">
-                {sessions.length} source{sessions.length === 1 ? "" : "s"} active ·{" "}
-                {layoutMode === "fixed" ? "Fixed" : "Free"} layout
+            <div
+              data-testid="layout-status-row"
+              className="grid min-h-8 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+            >
+              <div className="text-sm text-muted-foreground md:justify-self-start">
+                {sessions.length} source{sessions.length === 1 ? "" : "s"}{" "}
+                active · {layoutMode === "fixed" ? "Fixed" : "Free"} layout
                 {hiddenFixedSessions.length ? (
-                  <span className="ml-2 rounded-full border border-[#b68b3d]/40 bg-[#b68b3d]/15 px-2 py-0.5 text-xs text-[#f1d18a]">
+                  <span className="ml-2 rounded-full border border-primary/35 bg-surface-elevated px-2 py-0.5 text-xs text-primary">
                     {hiddenFixedSessions.length} hidden source
                     {hiddenFixedSessions.length === 1 ? "" : "s"}
                   </span>
                 ) : null}
               </div>
               {selected && layoutMode === "free" ? (
-                <div className="flex flex-wrap gap-2 rounded-lg border border-[#b68b3d]/25 bg-white/[0.06] p-2">
+                <div
+                  role="group"
+                  aria-label="Selected free layout controls"
+                  className="flex flex-wrap justify-center gap-2 justify-self-center md:col-start-2"
+                >
                   <NumberField
                     label="Free column"
+                    icon={<MoveVertical className="size-3.5" />}
                     value={selected.freeRect.column}
                     min={1}
-                    max={8}
-                    onChange={(value) => updateFreeRect(selected.id, { column: value })}
+                    max={16}
+                    onChange={(value) =>
+                      updateFreeRect(selected.id, { column: value })
+                    }
                   />
                   <NumberField
                     label="Free row"
+                    icon={<MoveHorizontal className="size-3.5" />}
                     value={selected.freeRect.row}
                     min={1}
-                    max={8}
-                    onChange={(value) => updateFreeRect(selected.id, { row: value })}
+                    max={16}
+                    onChange={(value) =>
+                      updateFreeRect(selected.id, { row: value })
+                    }
                   />
                   <NumberField
                     label="Column span"
+                    icon={<UnfoldHorizontal className="size-3.5" />}
                     value={selected.freeRect.columnSpan}
                     min={1}
-                    max={8}
+                    max={16}
                     onChange={(value) =>
                       updateFreeRect(selected.id, { columnSpan: value })
                     }
                   />
                   <NumberField
                     label="Row span"
+                    icon={<UnfoldVertical className="size-3.5" />}
                     value={selected.freeRect.rowSpan}
                     min={1}
-                    max={8}
-                    onChange={(value) => updateFreeRect(selected.id, { rowSpan: value })}
+                    max={16}
+                    onChange={(value) =>
+                      updateFreeRect(selected.id, { rowSpan: value })
+                    }
                   />
                 </div>
               ) : null}
@@ -1367,9 +1708,11 @@ export function FeedWorkbench() {
 
           <div
             className={cn(
-              "h-full min-h-0 overflow-auto border-white/10 bg-[#050505] bg-[linear-gradient(rgba(216,184,106,.055)_1px,transparent_1px),linear-gradient(90deg,rgba(216,184,106,.045)_1px,transparent_1px)]",
-              isUiHidden ? "rounded-none border-0 p-0" : "rounded-lg border p-2",
-              layoutMode === "free" && "bg-[size:12.5%_12.5%]",
+              "h-full min-h-0 overflow-auto border-border/70 bg-background bg-[linear-gradient(rgba(255,255,255,.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.008)_1px,transparent_1px)]",
+              isUiHidden
+                ? "rounded-none border-0 p-0"
+                : "rounded-lg border p-2",
+              layoutMode === "free" && "bg-[size:6.25%_6.25%]",
             )}
           >
             {layoutMode === "fixed" ? (
@@ -1381,6 +1724,7 @@ export function FeedWorkbench() {
                 videoPositions={videoPositions}
                 selectedId={selectedId}
                 hideUi={isUiHidden}
+                showInfo={showAllInfo}
                 openSourcePanel={openSourcePanel}
                 setSelectedId={setSelectedId}
                 setMaximizedId={setMaximizedId}
@@ -1388,8 +1732,8 @@ export function FeedWorkbench() {
                 removeSession={removeSession}
                 changeGallery={changeGallery}
                 onVideoPositionChange={rememberVideoPosition}
+                setViewTimerMode={setViewTimerMode}
                 setViewTimerSeconds={setViewTimerSeconds}
-                globalSeconds={globalSeconds}
               />
             ) : (
               <FreeGridView
@@ -1398,6 +1742,7 @@ export function FeedWorkbench() {
                 videoPositions={videoPositions}
                 selectedId={selectedId}
                 hideUi={isUiHidden}
+                showInfo={showAllInfo}
                 gridRef={freeGridRef}
                 freeDrag={freeDrag}
                 setSelectedId={setSelectedId}
@@ -1406,9 +1751,9 @@ export function FeedWorkbench() {
                 removeSession={removeSession}
                 changeGallery={changeGallery}
                 onVideoPositionChange={rememberVideoPosition}
+                setViewTimerMode={setViewTimerMode}
                 setViewTimerSeconds={setViewTimerSeconds}
                 beginFreeDrag={beginFreeDrag}
-                globalSeconds={globalSeconds}
               />
             )}
           </div>
@@ -1416,6 +1761,17 @@ export function FeedWorkbench() {
       )}
     </main>
   );
+}
+
+function accountStateFromUser(
+  user: { email?: string | null } | null,
+): AccountState {
+  if (!user) return { status: "signed-out" };
+
+  return {
+    status: "signed-in",
+    email: user.email ?? "Signed-in account",
+  };
 }
 
 function LayoutDialog({
@@ -1437,12 +1793,12 @@ function LayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85dvh] w-[min(92vw,34rem)] overflow-y-auto border border-[#b68b3d]/25 bg-[#0b0906] text-[#f7ddb0] shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="max-h-[85dvh] w-[min(92vw,34rem)] overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Saved layouts</DialogTitle>
           <DialogDescription>
-            Local layouts store tabs, slots, timers, and source config only. Media loads at
-            runtime.
+            Local layouts store tabs, slots, timers, and source config only.
+            Media loads at runtime.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
@@ -1450,7 +1806,7 @@ function LayoutDialog({
             sortedWorkspaces.map((workspace) => (
               <div
                 key={workspace.id}
-                className="grid gap-2 rounded-lg border border-[#b68b3d]/20 bg-white/[0.04] p-3"
+                className="grid gap-2 rounded-lg border border-border bg-surface p-3"
               >
                 <div>
                   <div className="font-medium">{workspace.name}</div>
@@ -1458,7 +1814,8 @@ function LayoutDialog({
                     {workspace.layoutMode} · {workspace.sessions.length} source
                     {workspace.sessions.length === 1 ? "" : "s"} ·{" "}
                     {workspaceLocalFileCount(workspace)} file
-                    {workspaceLocalFileCount(workspace) === 1 ? "" : "s"} · saved locally
+                    {workspaceLocalFileCount(workspace) === 1 ? "" : "s"} ·
+                    saved locally
                   </div>
                 </div>
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
@@ -1484,14 +1841,11 @@ function LayoutDialog({
               </div>
             ))
           ) : (
-            <div className="rounded-lg border border-dashed border-[#b68b3d]/25 p-4 text-sm text-muted-foreground">
+            <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
               No saved layouts yet. Use Save layout first.
             </div>
           )}
         </div>
-        <Button asChild variant="outline" title="Open account library">
-          <Link href="/library">Account library</Link>
-        </Button>
       </DialogContent>
     </Dialog>
   );
@@ -1514,11 +1868,12 @@ function SaveLayoutDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(92vw,24rem)] border border-[#b68b3d]/25 bg-[#0b0906] text-[#f7ddb0] shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Save layout as</DialogTitle>
           <DialogDescription>
-            Save layout controls and source config. Runtime media stays out of storage.
+            Save layout controls and source config. Runtime media stays out of
+            storage.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -1536,7 +1891,9 @@ function SaveLayoutDialog({
               aria-invalid={error ? true : undefined}
             />
           </Label>
-          {error ? <div className="text-xs text-destructive">{error}</div> : null}
+          {error ? (
+            <div className="text-xs text-destructive">{error}</div>
+          ) : null}
           <Button type="submit" title="Save as layout">
             <Save />
             Save as layout
@@ -1547,24 +1904,90 @@ function SaveLayoutDialog({
   );
 }
 
-function AccountDialog({
+function ClearLayoutDialog({
   open,
   onOpenChange,
+  onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(92vw,24rem)] border border-[#b68b3d]/25 bg-[#0b0906] text-[#f7ddb0] shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+        <DialogHeader>
+          <DialogTitle>Clear layout?</DialogTitle>
+          <DialogDescription>
+            Remove all sources from the current layout.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={onConfirm}
+            aria-label="Confirm clear layout"
+          >
+            <Trash2 />
+            Clear
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AccountDialog({
+  open,
+  onOpenChange,
+  account,
+  onSignOut,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  account: AccountState;
+  onSignOut: () => Promise<void> | void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Account</DialogTitle>
           <DialogDescription>
-            Sign in to sync layout metadata to your account. Runtime media stays out of
-            storage.
+            Sign in to sync layout metadata to your account. Runtime media stays
+            out of storage.
           </DialogDescription>
         </DialogHeader>
-        <SignInPanel next="/" />
+        {account.status === "signed-in" ? (
+          <div className="grid gap-3">
+            <div className="grid gap-1 rounded-lg border border-border bg-surface p-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                Signed in
+              </p>
+              <p className="break-all text-sm font-medium">{account.email}</p>
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void onSignOut()}
+            >
+              <LogOut />
+              Log out
+            </Button>
+          </div>
+        ) : account.status === "loading" ? (
+          <p className="text-sm text-muted-foreground">Checking account...</p>
+        ) : (
+          <SignInPanel next="/" />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -1606,7 +2029,9 @@ function SourceDialog({
   localUploadMode: "stacked" | "separate";
   setSubreddit: (value: string) => void;
   setSort: (value: "top" | "hot" | "new") => void;
-  setTimeRange: (value: "hour" | "day" | "week" | "month" | "year" | "all") => void;
+  setTimeRange: (
+    value: "hour" | "day" | "week" | "month" | "year" | "all",
+  ) => void;
   setLimit: (value: number) => void;
   setSkip: (value: number) => void;
   setTimerSeconds: (value: number) => void;
@@ -1617,7 +2042,7 @@ function SourceDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-[#b68b3d]/25 bg-[#0b0906] text-[#f7ddb0] shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
+      <DialogContent className="max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription>
@@ -1625,85 +2050,10 @@ function SourceDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid min-w-0 gap-5 md:grid-cols-2">
-          <section className="grid min-w-0 content-start gap-3 rounded-lg border border-[#b68b3d]/20 bg-white/[0.03] p-3">
-            <h2 className="text-sm font-medium">Reddit source</h2>
-            <Label className="grid min-w-0 gap-1 text-sm">
-              Subreddit
-              <Input
-                value={subreddit}
-                onChange={(event) => setSubreddit(event.target.value)}
-                className="w-full"
-              />
-            </Label>
-            <div className="grid min-w-0 grid-cols-2 gap-2">
-              <Label className="grid min-w-0 gap-1 text-sm">
-                Sort
-                <select
-                  value={sort}
-                  onChange={(event) =>
-                    setSort(event.target.value as "top" | "hot" | "new")
-                  }
-                  className="h-8 w-full rounded-lg border border-input bg-black/30 px-2 text-sm"
-                >
-                  <option value="top">top</option>
-                  <option value="hot">hot</option>
-                  <option value="new">new</option>
-                </select>
-              </Label>
-              <Label className="grid min-w-0 gap-1 text-sm">
-                Range
-                <select
-                  value={timeRange}
-                  onChange={(event) =>
-                    setTimeRange(
-                      event.target.value as
-                        | "hour"
-                        | "day"
-                        | "week"
-                        | "month"
-                        | "year"
-                        | "all",
-                    )
-                  }
-                  className="h-8 w-full rounded-lg border border-input bg-black/30 px-2 text-sm"
-                >
-                  <option value="hour">hour</option>
-                  <option value="day">day</option>
-                  <option value="week">week</option>
-                  <option value="month">month</option>
-                  <option value="year">year</option>
-                  <option value="all">all</option>
-                </select>
-              </Label>
-            </div>
-            <NumberField label="Limit" value={limit} min={1} max={100} onChange={setLimit} />
-            <NumberField label="Skip" value={skip} min={0} max={100} onChange={setSkip} />
-            <NumberField
-              label="View timer seconds"
-              value={timerSeconds}
-              min={1}
-              max={120}
-              onChange={setTimerSeconds}
-            />
-            <label className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-sm">
-              NSFW runtime
-              <Switch checked={allowNsfw} onCheckedChange={setAllowNsfw} />
-            </label>
-            <Button
-              type="button"
-              onClick={fetchRedditFeed}
-              disabled={isLoading}
-              aria-label="Open Reddit source"
-            >
-              {isLoading ? <Loader2 className="animate-spin" /> : <Grid2X2 />}
-              Open Reddit source
-            </Button>
-          </section>
-
-          <section className="grid min-w-0 content-start gap-3 rounded-lg border border-[#b68b3d]/20 bg-white/[0.03] p-3">
+          <section className="grid min-w-0 content-start gap-3 rounded-lg border border-border bg-surface p-3">
             <h2 className="text-sm font-medium">Local source</h2>
             <div
-              className="grid grid-cols-2 gap-1 rounded-lg border border-[#b68b3d]/20 bg-black/25 p-1"
+              className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1"
               role="group"
               aria-label="Local upload grouping"
             >
@@ -1738,6 +2088,93 @@ function SourceDialog({
               />
             </Label>
           </section>
+
+          <section className="grid min-w-0 content-start gap-3 rounded-lg border border-border bg-surface p-3">
+            <h2 className="text-sm font-medium">Reddit source</h2>
+            <Label className="grid min-w-0 gap-1 text-sm">
+              Subreddit
+              <Input
+                value={subreddit}
+                onChange={(event) => setSubreddit(event.target.value)}
+                className="w-full"
+              />
+            </Label>
+            <div className="grid min-w-0 grid-cols-2 gap-2">
+              <Label className="grid min-w-0 gap-1 text-sm">
+                Sort
+                <select
+                  value={sort}
+                  onChange={(event) =>
+                    setSort(event.target.value as "top" | "hot" | "new")
+                  }
+                  className="h-8 w-full rounded-lg border border-input bg-background/70 px-2 text-sm"
+                >
+                  <option value="top">top</option>
+                  <option value="hot">hot</option>
+                  <option value="new">new</option>
+                </select>
+              </Label>
+              <Label className="grid min-w-0 gap-1 text-sm">
+                Range
+                <select
+                  value={timeRange}
+                  onChange={(event) =>
+                    setTimeRange(
+                      event.target.value as
+                        | "hour"
+                        | "day"
+                        | "week"
+                        | "month"
+                        | "year"
+                        | "all",
+                    )
+                  }
+                  className="h-8 w-full rounded-lg border border-input bg-background/70 px-2 text-sm"
+                >
+                  <option value="hour">hour</option>
+                  <option value="day">day</option>
+                  <option value="week">week</option>
+                  <option value="month">month</option>
+                  <option value="year">year</option>
+                  <option value="all">all</option>
+                </select>
+              </Label>
+            </div>
+            <NumberField
+              label="Limit"
+              value={limit}
+              min={1}
+              max={100}
+              onChange={setLimit}
+            />
+            <NumberField
+              label="Skip"
+              value={skip}
+              min={0}
+              max={100}
+              onChange={setSkip}
+            />
+            <NumberField
+              label="View timer seconds"
+              value={timerSeconds}
+              min={1}
+              max={120}
+              onChange={setTimerSeconds}
+            />
+            <label className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-sm">
+              NSFW runtime
+              <Switch checked={allowNsfw} onCheckedChange={setAllowNsfw} />
+            </label>
+            <Button
+              type="button"
+              onClick={fetchRedditFeed}
+              disabled={isLoading}
+              aria-label="Open Reddit source"
+            >
+              {isLoading ? <Loader2 className="animate-spin" /> : <Grid2X2 />}
+              Open Reddit source
+            </Button>
+          </section>
         </div>
       </DialogContent>
     </Dialog>
@@ -1752,6 +2189,7 @@ function FixedGridView({
   videoPositions,
   selectedId,
   hideUi,
+  showInfo,
   openSourcePanel,
   setSelectedId,
   setMaximizedId,
@@ -1759,8 +2197,8 @@ function FixedGridView({
   removeSession,
   changeGallery,
   onVideoPositionChange,
+  setViewTimerMode,
   setViewTimerSeconds,
-  globalSeconds,
 }: {
   sessions: FeedSession[];
   visibleCells: number;
@@ -1769,17 +2207,23 @@ function FixedGridView({
   videoPositions: Record<string, number>;
   selectedId: string | null;
   hideUi: boolean;
+  showInfo: boolean;
   openSourcePanel: (slot: number | null) => void;
-  setSelectedId: (id: string) => void;
+  setSelectedId: (id: string | null) => void;
   setMaximizedId: (id: string) => void;
-  updateSession: (id: string, updater: (session: FeedSession) => FeedSession) => void;
+  updateSession: (
+    id: string,
+    updater: (session: FeedSession) => FeedSession,
+  ) => void;
   removeSession: (id: string) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
+  setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
-  globalSeconds: number;
 }) {
-  const sessionsBySlot = new Map(sessions.map((session) => [session.fixedSlot, session]));
+  const sessionsBySlot = new Map(
+    sessions.map((session) => [session.fixedSlot, session]),
+  );
 
   return (
     <div
@@ -1802,11 +2246,17 @@ function FixedGridView({
             data-testid={`fixed-cell-${slot}`}
             className={cn(
               "min-h-0 rounded-xl outline outline-1 outline-transparent transition",
-              session?.id === selectedId &&
-                "outline-[#d8b86a] ring-2 ring-[#d8b86a]/30",
+              !hideUi &&
+                session?.id === selectedId &&
+                "outline-primary ring-2 ring-primary/30",
             )}
-            onFocus={() => session && setSelectedId(session.id)}
-            onClick={() => session && setSelectedId(session.id)}
+            onClick={(event) => {
+              if (!session) return;
+              if ((event.target as HTMLElement).closest("button,a,input")) {
+                return;
+              }
+              setSelectedId(session.id === selectedId ? null : session.id);
+            }}
           >
             {session ? (
               <SessionPane
@@ -1815,7 +2265,9 @@ function FixedGridView({
                 videoPositions={videoPositions}
                 compact={fixedGrid.columns * fixedGrid.rows > 4}
                 isFocused={session.id === selectedId}
+                forceInfoVisible={showInfo}
                 hideUi={hideUi}
+                isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}
                 onMove={(direction) =>
@@ -1838,17 +2290,10 @@ function FixedGridView({
                 }
                 onMaximize={() => setMaximizedId(session.id)}
                 onRemove={() => removeSession(session.id)}
-                onTimerModeChange={(mode) =>
-                  updateSession(session.id, (current) => ({
-                    ...current,
-                    timerMode: mode,
-                    timer:
-                      mode === "global"
-                        ? { ...current.timer, durationSeconds: globalSeconds }
-                        : current.timer,
-                  }))
+                onTimerModeChange={(mode) => setViewTimerMode(session.id, mode)}
+                onTimerSecondsChange={(value) =>
+                  setViewTimerSeconds(session.id, value)
                 }
-                onTimerSecondsChange={(value) => setViewTimerSeconds(session.id, value)}
               />
             ) : (
               <button
@@ -1856,7 +2301,7 @@ function FixedGridView({
                 onClick={() => openSourcePanel(slot)}
                 aria-label="Add source to empty cell"
                 title="Add source to empty cell"
-                className="grid size-full min-h-0 cursor-pointer place-items-center rounded-lg border border-dashed border-white/20 bg-white/[0.03] text-sm text-white/40 transition hover:border-[#b68b3d]/70 hover:text-[#f1d18a]"
+                className="grid size-full min-h-0 cursor-pointer place-items-center rounded-lg border border-dashed border-border/70 bg-surface/40 text-sm text-muted-foreground transition hover:border-primary/70 hover:text-primary"
               >
                 <span className="inline-flex items-center gap-2">
                   <Plus className="size-4" />
@@ -1877,6 +2322,7 @@ function FreeGridView({
   videoPositions,
   selectedId,
   hideUi,
+  showInfo,
   gridRef,
   freeDrag,
   setSelectedId,
@@ -1885,137 +2331,160 @@ function FreeGridView({
   removeSession,
   changeGallery,
   onVideoPositionChange,
+  setViewTimerMode,
   setViewTimerSeconds,
   beginFreeDrag,
-  globalSeconds,
 }: {
   sessions: FeedSession[];
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
   selectedId: string | null;
   hideUi: boolean;
+  showInfo: boolean;
   gridRef: React.RefObject<HTMLDivElement | null>;
   freeDrag: FreeDragState | null;
-  setSelectedId: (id: string) => void;
+  setSelectedId: (id: string | null) => void;
   setMaximizedId: (id: string) => void;
-  updateSession: (id: string, updater: (session: FeedSession) => FeedSession) => void;
+  updateSession: (
+    id: string,
+    updater: (session: FeedSession) => FeedSession,
+  ) => void;
   removeSession: (id: string) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
+  setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
   beginFreeDrag: (
     event: ReactPointerEvent<HTMLButtonElement>,
     session: FeedSession,
     mode: "move" | "resize",
   ) => void;
-  globalSeconds: number;
 }) {
   return (
     <div
       ref={gridRef}
       className={cn(
-        "grid grid-cols-8 grid-rows-8",
+        "grid",
         hideUi
           ? "h-dvh min-h-0 min-w-0 gap-0"
           : "h-full min-h-[360px] min-w-0 gap-2 md:min-w-[720px]",
       )}
+      style={{
+        gridTemplateColumns: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,
+      }}
     >
       {sessions.length ? (
         sessions.map((session) => {
           const dragRect =
-            freeDrag?.id === session.id ? freeDrag.currentRect : session.freeRect;
+            freeDrag?.id === session.id
+              ? freeDrag.currentRect
+              : session.freeRect;
 
           return (
-          <div
-            key={session.id}
-            data-testid={`free-cell-${session.id}`}
-            className={cn(
-              "group/free relative min-h-0 rounded-xl outline outline-1 outline-transparent transition",
-              session.id === selectedId &&
-                "outline-[#d8b86a] ring-2 ring-[#d8b86a]/40 shadow-[0_0_28px_rgba(182,139,61,0.2)]",
-              freeDrag?.id === session.id && "z-40 scale-[1.01]",
-            )}
-            style={{
-              gridColumn: `${dragRect.column} / span ${dragRect.columnSpan}`,
-              gridRow: `${dragRect.row} / span ${dragRect.rowSpan}`,
-            }}
-            onFocus={() => setSelectedId(session.id)}
-            onClick={() => setSelectedId(session.id)}
-          >
-            {!hideUi ? (
-              <div
-                className={cn(
-                  "absolute bottom-2 right-2 z-30 flex flex-col gap-1 transition-opacity duration-200",
-                  session.id !== selectedId &&
-                    "opacity-0 group-hover/free:opacity-100 group-focus-within/free:opacity-100",
-                )}
-              >
-                <button
-                  type="button"
-                  aria-label={`Move ${session.title}`}
-                  title={`Move ${session.title}`}
-                  onPointerDown={(event) => beginFreeDrag(event, session, "move")}
-                  className="grid size-8 cursor-grab place-items-center rounded-lg border border-[#b68b3d]/50 bg-black/65 text-[#f1d18a] backdrop-blur active:cursor-grabbing"
+            <div
+              key={session.id}
+              data-testid={`free-cell-${session.id}`}
+              className={cn(
+                "group/free relative min-h-0 rounded-xl outline outline-1 outline-transparent transition",
+                !hideUi &&
+                  session.id === selectedId &&
+                  "outline-primary ring-2 ring-primary/30 shadow-[0_0_20px_rgba(143,239,225,0.08)]",
+                freeDrag?.id === session.id && "z-40 scale-[1.01]",
+              )}
+              style={{
+                gridColumn: `${dragRect.column} / span ${dragRect.columnSpan}`,
+                gridRow: `${dragRect.row} / span ${dragRect.rowSpan}`,
+              }}
+              onClick={(event) => {
+                if ((event.target as HTMLElement).closest("button,a,input")) {
+                  return;
+                }
+                setSelectedId(session.id === selectedId ? null : session.id);
+              }}
+            >
+              {!hideUi ? (
+                <div
+                  className={cn(
+                    "absolute bottom-2 right-2 z-30 flex flex-col gap-1 transition-opacity duration-200",
+                    session.id !== selectedId &&
+                      "opacity-0 group-hover/free:opacity-100 group-focus-within/free:opacity-100",
+                  )}
                 >
-                  <Move className="size-3" />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Resize ${session.title}`}
-                  title={`Resize ${session.title}`}
-                  onPointerDown={(event) => beginFreeDrag(event, session, "resize")}
-                  className="grid size-8 cursor-se-resize place-items-center rounded-lg border border-[#b68b3d]/50 bg-black/65 text-[#f1d18a] backdrop-blur"
-                >
-                  <GripHorizontal className="size-4 rotate-45" />
-                </button>
-              </div>
-            ) : null}
-            <SessionPane
-              session={session}
-              galleryIndexes={galleryIndexes}
-              videoPositions={videoPositions}
-              compact={session.freeRect.columnSpan < 3 || session.freeRect.rowSpan < 3}
-              isFocused={session.id === selectedId}
-              hideUi={hideUi}
-              onGalleryChange={changeGallery}
-              onVideoPositionChange={onVideoPositionChange}
-              onMove={(direction) =>
-                updateSession(session.id, (current) => ({
-                  ...current,
-                  timer: moveTimerIndex(current.timer, direction),
-                }))
-              }
-              onTogglePaused={() =>
-                updateSession(session.id, (current) => ({
-                  ...current,
-                  timer: togglePaused(current.timer),
-                }))
-              }
-              onRestart={() =>
-                updateSession(session.id, (current) => ({
-                  ...current,
-                  timer: { ...current.timer, elapsedMs: 0 },
-                }))
-              }
-              onMaximize={() => setMaximizedId(session.id)}
-              onRemove={() => removeSession(session.id)}
-              onTimerModeChange={(mode) =>
-                updateSession(session.id, (current) => ({
-                  ...current,
-                  timerMode: mode,
-                  timer:
-                    mode === "global"
-                      ? { ...current.timer, durationSeconds: globalSeconds }
-                      : current.timer,
-                }))
-              }
-              onTimerSecondsChange={(value) => setViewTimerSeconds(session.id, value)}
-            />
-          </div>
-        );
+                  <button
+                    type="button"
+                    aria-label={`Move ${session.title}`}
+                    title={`Move ${session.title}`}
+                    onPointerDown={(event) =>
+                      beginFreeDrag(event, session, "move")
+                    }
+                    className="grid size-8 cursor-grab place-items-center rounded-lg border border-primary/50 bg-background/80 text-primary backdrop-blur active:cursor-grabbing"
+                  >
+                    <Move className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Resize ${session.title}`}
+                    title={`Resize ${session.title}`}
+                    onPointerDown={(event) =>
+                      beginFreeDrag(event, session, "resize")
+                    }
+                    className="grid size-8 cursor-se-resize place-items-center rounded-lg border border-primary/50 bg-background/80 text-primary backdrop-blur"
+                  >
+                    <GripHorizontal className="size-4 rotate-45" />
+                  </button>
+                </div>
+              ) : null}
+              <SessionPane
+                session={session}
+                galleryIndexes={galleryIndexes}
+                videoPositions={videoPositions}
+                compact={
+                  session.freeRect.columnSpan < 3 ||
+                  session.freeRect.rowSpan < 3
+                }
+                isFocused={session.id === selectedId}
+                forceInfoVisible={showInfo}
+                hideUi={hideUi}
+                isRuntimeLoading={session.isRuntimeLoading}
+                onGalleryChange={changeGallery}
+                onVideoPositionChange={onVideoPositionChange}
+                onMove={(direction) =>
+                  updateSession(session.id, (current) => ({
+                    ...current,
+                    timer: moveTimerIndex(current.timer, direction),
+                  }))
+                }
+                onTogglePaused={() =>
+                  updateSession(session.id, (current) => ({
+                    ...current,
+                    timer: togglePaused(current.timer),
+                  }))
+                }
+                onRestart={() =>
+                  updateSession(session.id, (current) => ({
+                    ...current,
+                    timer: { ...current.timer, elapsedMs: 0 },
+                  }))
+                }
+                onMaximize={() => setMaximizedId(session.id)}
+                onRemove={() => removeSession(session.id)}
+                onTimerModeChange={(mode) => setViewTimerMode(session.id, mode)}
+                onTimerSecondsChange={(value) =>
+                  setViewTimerSeconds(session.id, value)
+                }
+              />
+            </div>
+          );
         })
       ) : (
-        <div className="col-span-8 row-span-8 grid place-items-center rounded-lg border border-dashed border-white/15 text-sm text-white/45">
+        <div
+          className="grid place-items-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground"
+          style={{
+            gridColumn: `1 / span ${FREE_LAYOUT_SIZE}`,
+            gridRow: `1 / span ${FREE_LAYOUT_SIZE}`,
+          }}
+        >
           Add a source, then drag and resize it here.
         </div>
       )}
@@ -2029,7 +2498,9 @@ function SessionPane({
   videoPositions,
   compact,
   isFocused,
+  forceInfoVisible,
   hideUi,
+  isRuntimeLoading,
   onGalleryChange,
   onVideoPositionChange,
   onMove,
@@ -2045,7 +2516,9 @@ function SessionPane({
   videoPositions: Record<string, number>;
   compact?: boolean;
   isFocused?: boolean;
+  forceInfoVisible?: boolean;
   hideUi?: boolean;
+  isRuntimeLoading?: boolean;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
   onMove: (direction: 1 | -1) => void;
@@ -2067,7 +2540,9 @@ function SessionPane({
       videoPositions={videoPositions}
       compact={compact}
       isFocused={isFocused}
+      forceInfoVisible={forceInfoVisible}
       hideUi={hideUi}
+      isRuntimeLoading={isRuntimeLoading}
       onGalleryChange={onGalleryChange}
       onVideoPositionChange={onVideoPositionChange}
       onMove={onMove}
@@ -2087,6 +2562,7 @@ function FocusLayout({
   galleryIndexes,
   videoPositions,
   hideUi,
+  showInfo,
   onRestore,
   onFocus,
   onGalleryChange,
@@ -2102,6 +2578,7 @@ function FocusLayout({
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
   hideUi: boolean;
+  showInfo: boolean;
   onRestore: () => void;
   onFocus: (id: string) => void;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
@@ -2118,45 +2595,40 @@ function FocusLayout({
     <section
       className={cn(
         "grid min-h-0 gap-3",
-        hideUi
-          ? "h-dvh p-0"
-          : "h-full p-3 lg:grid-cols-[minmax(0,1fr)_220px]",
+        hideUi ? "h-dvh p-0" : "h-full p-3 lg:grid-cols-[minmax(0,1fr)_220px]",
       )}
     >
-      <div
-        className={cn(
-          "grid min-h-0",
-          hideUi ? "grid-rows-[minmax(0,1fr)]" : "grid-rows-[auto_minmax(0,1fr)] gap-2",
-        )}
-      >
-        {!hideUi ? (
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-[#f1d18a]">Focus view</h2>
-            <Button type="button" variant="outline" onClick={onRestore}>
-              <Maximize2 />
-              Restore grid
-            </Button>
-          </div>
-        ) : null}
+      <div className={cn("grid min-h-0 grid-rows-[minmax(0,1fr)]")}>
         <SessionPane
           session={focused}
           galleryIndexes={galleryIndexes}
           videoPositions={videoPositions}
-          isFocused
+          forceInfoVisible={showInfo}
           hideUi={hideUi}
+          isRuntimeLoading={focused.isRuntimeLoading}
           onGalleryChange={onGalleryChange}
           onVideoPositionChange={onVideoPositionChange}
           onMove={(direction) => onMove(focused.id, direction)}
           onTogglePaused={() => onTogglePaused(focused.id)}
           onRestart={() => onRestart(focused.id)}
           onTimerModeChange={(mode) => onTimerModeChange(focused.id, mode)}
-          onTimerSecondsChange={(value) => onTimerSecondsChange(focused.id, value)}
+          onTimerSecondsChange={(value) =>
+            onTimerSecondsChange(focused.id, value)
+          }
         />
       </div>
 
       {!hideUi ? (
         <aside className="grid min-h-0 content-start gap-2">
-          <h2 className="text-sm font-medium text-white/70">Satellite views</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              Satellite VIew
+            </h2>
+            <Button type="button" variant="outline" onClick={onRestore}>
+              <Maximize2 />
+              Restore grid
+            </Button>
+          </div>
           {satellites.length ? (
             satellites.map((session) => (
               <button
@@ -2171,18 +2643,24 @@ function FocusLayout({
                   galleryIndexes={galleryIndexes}
                   videoPositions={videoPositions}
                   compact
+                  forceInfoVisible={showInfo}
+                  isRuntimeLoading={session.isRuntimeLoading}
                   onGalleryChange={onGalleryChange}
                   onVideoPositionChange={onVideoPositionChange}
                   onMove={(direction) => onMove(session.id, direction)}
                   onTogglePaused={() => onTogglePaused(session.id)}
                   onRestart={() => onRestart(session.id)}
-                  onTimerModeChange={(mode) => onTimerModeChange(session.id, mode)}
-                  onTimerSecondsChange={(value) => onTimerSecondsChange(session.id, value)}
+                  onTimerModeChange={(mode) =>
+                    onTimerModeChange(session.id, mode)
+                  }
+                  onTimerSecondsChange={(value) =>
+                    onTimerSecondsChange(session.id, value)
+                  }
                 />
               </button>
             ))
           ) : (
-            <div className="rounded-lg border border-dashed border-white/15 p-4 text-sm text-white/45">
+            <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
               No satellite views
             </div>
           )}
@@ -2197,16 +2675,43 @@ function NumberField({
   value,
   min,
   max,
+  icon,
   onChange,
 }: {
   label: string;
   value: number;
   min: number;
   max: number;
+  icon?: ReactNode;
   onChange: (value: number) => void;
 }) {
+  if (icon) {
+    return (
+      <Label className="flex h-8 min-w-20 items-center gap-1 rounded-lg border border-border/70 bg-surface-elevated/70 px-1 text-[11px] text-muted-foreground">
+        <span
+          aria-hidden="true"
+          className="flex size-6 items-center justify-center text-muted-foreground"
+        >
+          {icon}
+        </span>
+        <Input
+          aria-label={label}
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            if (Number.isFinite(next)) onChange(next);
+          }}
+          className="h-6 w-11 border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground"
+        />
+      </Label>
+    );
+  }
+
   return (
-    <Label className="grid min-w-20 gap-1 text-[11px] text-white/60">
+    <Label className="grid min-w-20 gap-1 text-[11px] text-muted-foreground">
       {label}
       <Input
         type="number"
@@ -2217,7 +2722,7 @@ function NumberField({
           const next = Number(event.target.value);
           if (Number.isFinite(next)) onChange(next);
         }}
-        className="h-7 w-20 bg-white/[0.06] text-white"
+        className="h-7 w-20 bg-surface-elevated text-foreground"
       />
     </Label>
   );
@@ -2240,6 +2745,33 @@ function toRuntimeWorkspace(workspace: SerializedWorkspace): RuntimeWorkspace {
     sessions: workspace.sessions.map((session) => ({
       ...session,
       timerMode: normalizeTimerMode(session.timerMode),
+    })),
+  };
+}
+
+function toRuntimeWorkspaceWithLocalRuntime(
+  workspace: SerializedWorkspace,
+  runtimeWorkspace?: RuntimeWorkspace,
+): RuntimeWorkspace {
+  const localItemsBySessionId = new Map(
+    runtimeWorkspace?.sessions
+      .filter(
+        (session) =>
+          session.sourceConfig.kind === "local" &&
+          (session.runtimeItems?.length ?? 0) > 0,
+      )
+      .map((session) => [session.id, session.runtimeItems ?? []]),
+  );
+
+  return {
+    ...workspace,
+    sessions: workspace.sessions.map((session) => ({
+      ...session,
+      timerMode: normalizeTimerMode(session.timerMode),
+      runtimeItems:
+        session.sourceConfig.kind === "local"
+          ? localItemsBySessionId.get(session.id)
+          : undefined,
     })),
   };
 }
@@ -2297,11 +2829,13 @@ function hasDuplicateLayoutName(
 
   return (
     tabs.some(
-      (tab) => tab.id !== currentId && normalizeLayoutName(tab.name) === normalized,
+      (tab) =>
+        tab.id !== currentId && normalizeLayoutName(tab.name) === normalized,
     ) ||
     Object.values(savedWorkspaces).some(
       (workspace) =>
-        workspace.id !== currentId && normalizeLayoutName(workspace.name) === normalized,
+        workspace.id !== currentId &&
+        normalizeLayoutName(workspace.name) === normalized,
     )
   );
 }
@@ -2319,4 +2853,17 @@ function normalizeLayoutName(name: string) {
 
 function normalizeLegacyLayoutName(name: string) {
   return name.replace(/^Session(\s+\d+)$/i, "Layout$1");
+}
+
+function normalizeStoredLayoutNames(workspaces: SerializedWorkspace[]) {
+  const allDefaultNames = workspaces.every((workspace) =>
+    /^Layout\s+\d+$/i.test(workspace.name.trim()),
+  );
+
+  if (!allDefaultNames) return workspaces;
+
+  return workspaces.map((workspace, index) => ({
+    ...workspace,
+    name: `Layout ${index + 1}`,
+  }));
 }

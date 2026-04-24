@@ -25,9 +25,14 @@ export function FeedViewer({
   onBackToGrid?: () => void;
 }) {
   const [timer, setTimer] = useState(() =>
-    createTimerState({ durationSeconds: timerSeconds, itemCount: items.length }),
+    createTimerState({
+      durationSeconds: timerSeconds,
+      itemCount: items.length,
+    }),
   );
-  const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>({});
+  const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>(
+    {},
+  );
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -61,13 +66,14 @@ export function FeedViewer({
 
     setGalleryIndexes((state) => {
       const current = state[itemId] ?? 0;
-      const next = (current + direction + item.media.length) % item.media.length;
+      const next =
+        (current + direction + item.media.length) % item.media.length;
       return { ...state, [itemId]: next };
     });
   }
 
   return (
-    <section className="relative h-dvh overflow-hidden bg-black text-white">
+    <section className="relative h-dvh overflow-hidden bg-background text-foreground">
       <FeedViewPane
         title={title}
         items={items}
@@ -75,7 +81,9 @@ export function FeedViewer({
         galleryIndexes={galleryIndexes}
         isFocused
         onGalleryChange={changeGallery}
-        onMove={(direction) => setTimer((state) => moveTimerIndex(state, direction))}
+        onMove={(direction) =>
+          setTimer((state) => moveTimerIndex(state, direction))
+        }
         onTogglePaused={() => setTimer(togglePaused)}
         onRestart={() => setTimer((state) => ({ ...state, elapsedMs: 0 }))}
       />
@@ -84,7 +92,7 @@ export function FeedViewer({
           type="button"
           size="icon"
           variant="outline"
-          className="absolute right-3 top-3 z-30 border-white/25 bg-black/45 text-white"
+          className="absolute right-3 top-3 z-30 border-border bg-background/75 text-foreground"
           onClick={onBackToGrid}
           aria-label="Grid"
         >

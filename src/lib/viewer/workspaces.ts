@@ -28,6 +28,7 @@ export type WorkspaceSessionInput = {
   title: string;
   timerMode: TimerMode;
   timerSeconds: number;
+  timerActiveIndex?: number;
   fixedSlot: number;
   freeRect: FreeRect;
   sourceConfig: PersistedSourceConfig;
@@ -85,6 +86,7 @@ export function serializeWorkspace(workspace: {
         title,
         timerMode,
         timerSeconds,
+        timerActiveIndex,
         fixedSlot,
         freeRect,
         sourceConfig,
@@ -93,6 +95,7 @@ export function serializeWorkspace(workspace: {
         title,
         timerMode,
         timerSeconds,
+        timerActiveIndex,
         fixedSlot,
         freeRect,
         sourceConfig,
@@ -102,7 +105,9 @@ export function serializeWorkspace(workspace: {
   };
 }
 
-export function parseWorkspaceStore(value: string | null): WorkspaceStore | null {
+export function parseWorkspaceStore(
+  value: string | null,
+): WorkspaceStore | null {
   if (!value) return null;
 
   try {

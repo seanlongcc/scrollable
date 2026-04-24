@@ -26,7 +26,9 @@ const redditListingInputSchema = z.object({
 });
 
 export type RedditListingInput = z.input<typeof redditListingInputSchema>;
-export type ParsedRedditListingInput = z.output<typeof redditListingInputSchema>;
+export type ParsedRedditListingInput = z.output<
+  typeof redditListingInputSchema
+>;
 
 type RedditToken = {
   accessToken: string;
