@@ -57,6 +57,7 @@ These rules are core product constraints.
 - Never rehost third-party media.
 - Never proxy-cache third-party media as application-owned content.
 - Never persist Reddit post IDs, third-party media URLs, thumbnails, cached listing responses, normalized runtime feed/media items, or local upload object URLs.
+- Never persist absolute local filesystem paths.
 - Store only user-created configuration data and operational records needed for the app.
 - Fetch third-party media metadata at runtime through approved APIs where possible.
 - Do not display images or videos when browsing saved or shared collections. Collections should show configuration metadata only until a runtime feed is opened.
@@ -71,6 +72,7 @@ Acceptable stored data:
 - Collections of feed configurations.
 - Tags, NSFW flags, sharing settings, ownership, timestamps, and audit/security metadata.
 - Runtime logs or rate-limit records that do not contain third-party media payloads.
+- User-selected local file byte copies in browser IndexedDB for saved local layouts, plus metadata-only local `cacheSetId` references in saved layouts.
 - `display_options` may store display/config preferences only, not third-party media metadata.
 - `viewer_sessions.sessions` must remain metadata-only and must not contain Reddit post IDs, media URLs, thumbnails, listing payloads, normalized runtime items, or local upload object URLs.
 
@@ -82,6 +84,7 @@ Prefer these boundaries when implementation starts:
 - `normalization`: convert source responses into runtime feed items.
 - `viewer`: vertical reels feed, timer, keyboard/touch navigation, and horizontal media carousel.
 - `viewer/workspaces`: local/Supabase workspace tab and layout serialization. Keep this metadata-only.
+- `local-uploads`: object URL lifecycle and browser IndexedDB Blob cache for user-selected local files. Do not store local paths.
 - `configurations`: saved feed configs and validation.
 - `collections`: grouping, sharing, tags, NSFW flags, and browse views.
 - `auth`: Supabase auth integration and provider setup.

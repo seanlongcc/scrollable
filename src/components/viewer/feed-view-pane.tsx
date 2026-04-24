@@ -14,7 +14,7 @@ import {
   SkipForward,
   X,
 } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { type ReactNode, type WheelEvent, useCallback, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -34,6 +34,8 @@ export function FeedViewPane({
   isFocused = false,
   forceInfoVisible = false,
   isRuntimeLoading = false,
+  emptyMessage = "No runtime media",
+  emptyAction,
   hideUi = false,
   onGalleryChange,
   onVideoPositionChange,
@@ -56,6 +58,8 @@ export function FeedViewPane({
   isFocused?: boolean;
   forceInfoVisible?: boolean;
   isRuntimeLoading?: boolean;
+  emptyMessage?: string;
+  emptyAction?: ReactNode;
   hideUi?: boolean;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange?: (key: string, seconds: number) => void;
@@ -100,9 +104,34 @@ export function FeedViewPane({
       !forceInfoVisible &&
       "opacity-0 group-hover/source:opacity-100 group-focus-within/source:opacity-100",
   );
+  const handleWheel = useCallback(
+    (event: WheelEvent<HTMLElement>) => {
+      const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+      const delta = horizontal ? event.deltaX : event.deltaY;
+      if (Math.abs(delta) < 24) return;
+
+      event.preventDefault();
+      const direction = delta > 0 ? 1 : -1;
+
+      if (
+        horizontal &&
+        activeItem?.media.length &&
+        activeItem.media.length > 1
+      ) {
+        onGalleryChange(activeItem.id, direction);
+        return;
+      }
+
+      onMove(direction);
+    },
+    [activeItem, onGalleryChange, onMove],
+  );
 
   return (
-    <article className="group/source relative grid size-full min-h-0 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]">
+    <article
+      className="group/source relative grid size-full min-h-0 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]"
+      onWheel={handleWheel}
+    >
       {showProgress ? (
         <div
           className="absolute inset-x-0 top-0 z-20 h-1 bg-surface-elevated"
@@ -130,7 +159,12 @@ export function FeedViewPane({
           />
         ) : (
           <div className="grid size-full place-items-center bg-background text-xs text-muted-foreground">
-            {isRuntimeLoading ? "Loading runtime media" : "No runtime media"}
+            <div className="grid justify-items-center gap-3 px-4 text-center">
+              <span>
+                {isRuntimeLoading ? "Loading runtime media" : emptyMessage}
+              </span>
+              {!isRuntimeLoading ? emptyAction : null}
+            </div>
           </div>
         )}
       </div>

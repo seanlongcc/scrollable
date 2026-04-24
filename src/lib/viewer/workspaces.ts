@@ -19,6 +19,7 @@ export type RedditSourceConfig = {
 export type LocalSourceConfig = {
   kind: "local";
   fileCount: number;
+  cacheSetId?: string;
 };
 
 export type PersistedSourceConfig = RedditSourceConfig | LocalSourceConfig;

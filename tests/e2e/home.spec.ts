@@ -36,3 +36,92 @@ test("home renders multi-view wall without media previews", async ({
   await expect(page.getByRole("button", { name: "Sign up" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reddit" })).toHaveCount(0);
 });
+
+test("local upload layouts restore cached files after refresh", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page.getByLabel("Image/video files").setInputFiles("test.webp");
+  await expect(page.getByAltText("test.webp")).toBeVisible();
+
+  await page.getByRole("button", { name: "Save layout" }).click();
+  await page.getByRole("button", { name: "Save as layout" }).click();
+
+  await page.reload();
+
+  await expect(
+    page.getByRole("button", { name: "Layout 2", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("0 sources active · Fixed layout")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Layout 1", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("No runtime media")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Layout 1", exact: true }).click();
+  await expect(page.getByAltText("test.webp")).toBeVisible();
+  await expect(page.getByText("Local files need reload")).toHaveCount(0);
+  await expect(page.getByText("No runtime media")).toHaveCount(0);
+});
+
+test("keyboard and wheel move through runtime feed items", async ({ page }) => {
+  await page.route("**/api/reddit/listing?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "runtime-1",
+            source: "reddit",
+            title: "Runtime image 1",
+            subreddit: "pics",
+            isNsfw: false,
+            createdAt: "2026-04-24T00:00:00.000Z",
+            media: [
+              {
+                type: "image",
+                url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+              },
+            ],
+          },
+          {
+            id: "runtime-2",
+            source: "reddit",
+            title: "Runtime image 2",
+            subreddit: "pics",
+            isNsfw: false,
+            createdAt: "2026-04-24T00:00:00.000Z",
+            media: [
+              {
+                type: "image",
+                url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+              },
+            ],
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page.getByRole("button", { name: "Open Reddit source" }).click();
+
+  await expect(page.getByText("Runtime image 1")).toBeVisible();
+
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByText("Runtime image 2")).toBeVisible();
+
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByText("Runtime image 1")).toBeVisible();
+
+  await page.locator("article").filter({ hasText: "Runtime image 1" }).hover();
+  await page.mouse.wheel(0, 500);
+  await expect(page.getByText("Runtime image 2")).toBeVisible();
+
+  await page.mouse.wheel(0, -500);
+  await expect(page.getByText("Runtime image 1")).toBeVisible();
+});

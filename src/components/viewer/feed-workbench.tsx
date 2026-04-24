@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import {
   ChangeEvent,
+  ComponentProps,
+  DragEvent as ReactDragEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
   useCallback,
@@ -57,6 +59,11 @@ import { Switch } from "@/components/ui/switch";
 import { FeedViewPane } from "@/components/viewer/feed-view-pane";
 import { parseFeedConfigInput } from "@/lib/config/feed-config";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import {
+  isLocalFileCacheSupported,
+  loadLocalFiles,
+  saveLocalFiles,
+} from "@/lib/local-uploads/file-cache";
 import { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
@@ -138,6 +145,36 @@ type FreeDragState = {
   currentRect: FreeRect;
 };
 
+type DirectoryInputProps = ComponentProps<typeof Input> & {
+  directory?: string;
+  webkitdirectory?: string;
+};
+
+type FileSystemEntryLike = {
+  isFile: boolean;
+  isDirectory: boolean;
+};
+
+type FileSystemFileEntryLike = FileSystemEntryLike & {
+  file: (
+    successCallback: (file: File) => void,
+    errorCallback?: (error: DOMException) => void,
+  ) => void;
+};
+
+type FileSystemDirectoryEntryLike = FileSystemEntryLike & {
+  createReader: () => {
+    readEntries: (
+      successCallback: (entries: FileSystemEntryLike[]) => void,
+      errorCallback?: (error: DOMException) => void,
+    ) => void;
+  };
+};
+
+type DataTransferItemWithEntry = DataTransferItem & {
+  webkitGetAsEntry?: () => FileSystemEntryLike | null;
+};
+
 export function FeedWorkbench() {
   const initialWorkspace = useMemo(
     () => ({ id: createId(), name: "Layout 1" }),
@@ -200,6 +237,7 @@ export function FeedWorkbench() {
     "stacked" | "separate"
   >("stacked");
   const [freeDrag, setFreeDrag] = useState<FreeDragState | null>(null);
+  const [canCacheLocalFiles, setCanCacheLocalFiles] = useState(false);
   const registryRef = useRef<LocalObjectUrlRegistry | null>(null);
   const freeGridRef = useRef<HTMLDivElement | null>(null);
 
@@ -254,6 +292,14 @@ export function FeedWorkbench() {
   }, []);
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setCanCacheLocalFiles(isLocalFileCacheSupported());
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     if (!getSupabaseEnv()) {
       return;
     }
@@ -295,27 +341,34 @@ export function FeedWorkbench() {
           name: normalizeLegacyLayoutName(workspace.name),
         })),
       );
-      const tabs = normalizedWorkspaces.map(({ id, name }) => ({ id, name }));
       const nextSaved = Object.fromEntries(
         normalizedWorkspaces.map((workspace) => [workspace.id, workspace]),
       );
-      const active =
-        normalizedWorkspaces.find(
-          (workspace) => workspace.id === stored.activeWorkspaceId,
-        ) ?? normalizedWorkspaces[0];
+      const blankTab = {
+        id: initialWorkspace.id,
+        name: nextLayoutName([], nextSaved),
+      };
+      const blankWorkspace = toRuntimeWorkspace(
+        createEmptyWorkspace(blankTab.id, blankTab.name),
+      );
+      const tabs = [
+        blankTab,
+        ...normalizedWorkspaces.map(({ id, name }) => ({ id, name })),
+      ];
 
       setWorkspaceTabs(tabs);
       setSavedWorkspaces(nextSaved);
-      setWorkspaceStates(
-        Object.fromEntries(
+      setWorkspaceStates({
+        [blankWorkspace.id]: blankWorkspace,
+        ...Object.fromEntries(
           normalizedWorkspaces.map((workspace) => [
             workspace.id,
             toRuntimeWorkspace(workspace),
           ]),
         ),
-      );
-      setActiveWorkspaceId(active.id);
-      applyWorkspaceSnapshot(active);
+      });
+      setActiveWorkspaceId(blankWorkspace.id);
+      applyWorkspaceSnapshot(blankWorkspace);
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -410,6 +463,37 @@ export function FeedWorkbench() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isUiHidden]);
 
+  const activeKeyboardSessionId = maximizedId ?? selected?.id ?? null;
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const direction = keyMoveDirection(event.key);
+      if (
+        !direction ||
+        !activeKeyboardSessionId ||
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isKeyboardEditingTarget(event.target)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      setSessions((current) =>
+        current.map((session) =>
+          session.id === activeKeyboardSessionId
+            ? { ...session, timer: moveTimerIndex(session.timer, direction) }
+            : session,
+        ),
+      );
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeKeyboardSessionId]);
+
   useEffect(() => {
     if (!isUiHidden) return;
 
@@ -487,18 +571,28 @@ export function FeedWorkbench() {
     }
   }
 
-  function addLocalFiles(event: ChangeEvent<HTMLInputElement>) {
+  async function addLocalFiles(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
     const files = Array.from(event.target.files ?? []);
-    if (registryRef.current === null) {
-      registryRef.current = new LocalObjectUrlRegistry();
-    }
-    const registry = registryRef.current;
-    if (!files.length || !registry) return;
+    await addLocalFileList(files, () => {
+      input.value = "";
+    });
+  }
 
-    const uploadableFiles = files.filter(
-      (file) =>
-        file.type.startsWith("image/") || file.type.startsWith("video/"),
-    );
+  async function addDroppedLocalFiles(event: ReactDragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    await addLocalFileList(await filesFromDataTransfer(event.dataTransfer));
+  }
+
+  function allowLocalFileDrop(event: ReactDragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  async function addLocalFileList(files: File[], onSettled?: () => void) {
+    const uploadableFiles = getUploadableFiles(files);
 
     if (
       localUploadMode === "separate" &&
@@ -509,31 +603,135 @@ export function FeedWorkbench() {
           availableSeparateSourceSlots === 1 ? "" : "s"
         } available`,
       );
-      event.target.value = "";
+      onSettled?.();
       return;
     }
 
-    const items = uploadableFiles.map((file) => registry.add(file));
+    const items = createLocalRuntimeItems(uploadableFiles);
+
+    if (!items.length) {
+      onSettled?.();
+      return;
+    }
+
+    try {
+      if (localUploadMode === "separate") {
+        const sources = await Promise.all(
+          uploadableFiles.map(async (file, index) => {
+            const cacheSetId = await cacheLocalFiles([file]);
+
+            return {
+              title: items[index].title,
+              sourceConfig: {
+                kind: "local" as const,
+                fileCount: 1,
+                ...(cacheSetId ? { cacheSetId } : {}),
+              },
+              items: [items[index]],
+            };
+          }),
+        );
+
+        addSessions(sources);
+      } else {
+        const cacheSetId = await cacheLocalFiles(uploadableFiles);
+
+        addSession({
+          title: "Local upload",
+          sourceConfig: {
+            kind: "local",
+            fileCount: items.length,
+            ...(cacheSetId ? { cacheSetId } : {}),
+          },
+          items,
+        });
+      }
+
+      setIsSourceOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Local file cache failed",
+      );
+    } finally {
+      onSettled?.();
+    }
+  }
+
+  async function replaceLocalSessionFiles(
+    id: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const input = event.target;
+    const files = getUploadableFiles(Array.from(event.target.files ?? []));
+    const items = createLocalRuntimeItems(files);
+    input.value = "";
 
     if (!items.length) return;
 
-    if (localUploadMode === "separate") {
-      addSessions(
-        items.map((item) => ({
-          title: item.title,
-          sourceConfig: { kind: "local", fileCount: 1 },
-          items: [item],
-        })),
+    try {
+      applyLocalRuntimeItems(id, items, await cacheLocalFiles(files));
+    } catch (error) {
+      updateSession(id, (current) => ({ ...current, isRuntimeLoading: false }));
+      toast.error(
+        error instanceof Error ? error.message : "Local file cache failed",
       );
-    } else {
-      addSession({
-        title: "Local upload",
-        sourceConfig: { kind: "local", fileCount: items.length },
-        items,
-      });
     }
-    setIsSourceOpen(false);
-    event.target.value = "";
+  }
+
+  async function cacheLocalFiles(files: File[]) {
+    if (!canCacheLocalFiles || !files.length) return undefined;
+
+    const cacheSetId = createId();
+    await saveLocalFiles(cacheSetId, files);
+    return cacheSetId;
+  }
+
+  function applyLocalRuntimeItems(
+    id: string,
+    items: RuntimeFeedItem[],
+    cacheSetId?: string,
+  ) {
+    if (!items.length) {
+      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
+      return;
+    }
+
+    updateSession(id, (session) => {
+      const timer = createTimerState({
+        durationSeconds: session.timer.durationSeconds,
+        itemCount: items.length,
+      });
+
+      return {
+        ...session,
+        title:
+          session.sourceConfig.kind === "local" &&
+          session.sourceConfig.fileCount === 1 &&
+          items.length === 1
+            ? items[0].title
+            : session.title,
+        items,
+        isRuntimeLoading: false,
+        sourceConfig: {
+          kind: "local",
+          fileCount: items.length,
+          ...(cacheSetId ? { cacheSetId } : {}),
+        },
+        timer: {
+          ...timer,
+          isPaused: session.timer.isPaused,
+        },
+      };
+    });
+  }
+
+  function createLocalRuntimeItems(files: File[]) {
+    if (!files.length) return [];
+    if (registryRef.current === null) {
+      registryRef.current = new LocalObjectUrlRegistry();
+    }
+
+    return files.map((file) => registryRef.current!.add(file));
   }
 
   function addSession({
@@ -1197,7 +1395,10 @@ export function FeedWorkbench() {
         freeRect: session.freeRect,
         items,
         isRuntimeLoading:
-          session.sourceConfig.kind === "reddit" && items.length === 0,
+          (session.sourceConfig.kind === "reddit" ||
+            (session.sourceConfig.kind === "local" &&
+              Boolean(session.sourceConfig.cacheSetId))) &&
+          items.length === 0,
         sourceConfig: session.sourceConfig,
       };
     });
@@ -1212,7 +1413,10 @@ export function FeedWorkbench() {
   async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
     const sessionsToHydrate = nextSessions.filter(
       (session) =>
-        session.sourceConfig.kind === "reddit" && session.items.length === 0,
+        session.items.length === 0 &&
+        (session.sourceConfig.kind === "reddit" ||
+          (session.sourceConfig.kind === "local" &&
+            Boolean(session.sourceConfig.cacheSetId))),
     );
 
     if (!sessionsToHydrate.length) return;
@@ -1220,7 +1424,10 @@ export function FeedWorkbench() {
     const hydrated = await Promise.all(
       sessionsToHydrate.map(async (session) => {
         try {
-          const items = await fetchRuntimeItemsForSource(session.sourceConfig);
+          const items =
+            session.sourceConfig.kind === "reddit"
+              ? await fetchRuntimeItemsForSource(session.sourceConfig)
+              : await fetchLocalRuntimeItemsForSource(session.sourceConfig);
           return { id: session.id, items };
         } catch (error) {
           toast.error(
@@ -1281,6 +1488,17 @@ export function FeedWorkbench() {
     }
 
     return payload.items as RuntimeFeedItem[];
+  }
+
+  async function fetchLocalRuntimeItemsForSource(
+    sourceConfig: PersistedSourceConfig,
+  ) {
+    if (sourceConfig.kind !== "local" || !sourceConfig.cacheSetId) return [];
+
+    const result = await loadLocalFiles(sourceConfig.cacheSetId);
+    if (result.status !== "loaded") return [];
+
+    return createLocalRuntimeItems(getUploadableFiles(result.files));
   }
 
   return (
@@ -1536,8 +1754,9 @@ export function FeedWorkbench() {
             ))}
             <Button
               type="button"
-              size="icon-sm"
+              size="icon-xs"
               variant="outline"
+              className="mb-1 self-start rounded-md border-border/70 bg-background/80 shadow-[0_4px_14px_rgba(0,0,0,0.28)]"
               onClick={createWorkspaceTab}
               aria-label="New layout"
             >
@@ -1569,6 +1788,8 @@ export function FeedWorkbench() {
         setLocalUploadMode={setLocalUploadMode}
         fetchRedditFeed={fetchRedditFeed}
         addLocalFiles={addLocalFiles}
+        addDroppedLocalFiles={addDroppedLocalFiles}
+        allowLocalFileDrop={allowLocalFileDrop}
       />
       <LayoutDialog
         open={isLayoutsOpen}
@@ -1632,6 +1853,7 @@ export function FeedWorkbench() {
           }
           onTimerModeChange={setViewTimerMode}
           onTimerSecondsChange={setViewTimerSeconds}
+          onLocalFilesSelected={replaceLocalSessionFiles}
         />
       ) : (
         <section
@@ -1734,6 +1956,7 @@ export function FeedWorkbench() {
                 onVideoPositionChange={rememberVideoPosition}
                 setViewTimerMode={setViewTimerMode}
                 setViewTimerSeconds={setViewTimerSeconds}
+                onLocalFilesSelected={replaceLocalSessionFiles}
               />
             ) : (
               <FreeGridView
@@ -1754,6 +1977,7 @@ export function FeedWorkbench() {
                 setViewTimerMode={setViewTimerMode}
                 setViewTimerSeconds={setViewTimerSeconds}
                 beginFreeDrag={beginFreeDrag}
+                onLocalFilesSelected={replaceLocalSessionFiles}
               />
             )}
           </div>
@@ -2015,6 +2239,8 @@ function SourceDialog({
   setLocalUploadMode,
   fetchRedditFeed,
   addLocalFiles,
+  addDroppedLocalFiles,
+  allowLocalFileDrop,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -2039,6 +2265,8 @@ function SourceDialog({
   setLocalUploadMode: (value: "stacked" | "separate") => void;
   fetchRedditFeed: () => void;
   addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
+  addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
+  allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2050,43 +2278,99 @@ function SourceDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid min-w-0 gap-5 md:grid-cols-2">
-          <section className="grid min-w-0 content-start gap-3 rounded-lg border border-border bg-surface p-3">
+          <section className="grid min-h-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-surface p-3">
             <h2 className="text-sm font-medium">Local source</h2>
             <div
-              className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/50 p-1"
+              className="grid h-full min-h-64 grid-rows-[auto_minmax(0,1fr)] gap-3 text-sm text-muted-foreground"
               role="group"
-              aria-label="Local upload grouping"
+              aria-label="Local upload picker"
             >
-              <Button
-                type="button"
-                size="sm"
-                variant={localUploadMode === "stacked" ? "default" : "ghost"}
-                onClick={() => setLocalUploadMode("stacked")}
-                aria-label="Add local files as one stacked source"
+              <div
+                className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
+                role="group"
+                aria-label="Local upload grouping"
               >
-                Stacked
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={localUploadMode === "separate" ? "default" : "ghost"}
-                onClick={() => setLocalUploadMode("separate")}
-                aria-label="Add local files as separate sources"
-              >
-                Separate
-              </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={localUploadMode === "stacked" ? "default" : "ghost"}
+                  onClick={() => setLocalUploadMode("stacked")}
+                  aria-label="Add local files as one stacked source"
+                >
+                  Stacked
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={localUploadMode === "separate" ? "default" : "ghost"}
+                  onClick={() => setLocalUploadMode("separate")}
+                  aria-label="Add local files as separate sources"
+                >
+                  Separate
+                </Button>
+              </div>
+
+              <div className="grid min-h-0 grid-rows-2 gap-2">
+                <Label
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Drop files"
+                  onDragOver={allowLocalFileDrop}
+                  onDragEnter={allowLocalFileDrop}
+                  onDrop={addDroppedLocalFiles}
+                  className="grid size-full min-h-0 cursor-pointer place-items-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                >
+                  <Upload className="size-6 text-primary" />
+                  <span className="grid gap-1">
+                    <span className="text-sm font-medium text-foreground">
+                      Files
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Drop files here or click to select
+                    </span>
+                  </span>
+                  <span className="sr-only">Image/video files</span>
+                  <Input
+                    type="file"
+                    accept="image/*,video/*"
+                    multiple
+                    className="sr-only"
+                    aria-label="Image/video files"
+                    onChange={addLocalFiles}
+                  />
+                </Label>
+                <Label
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Drop folder"
+                  onDragOver={allowLocalFileDrop}
+                  onDragEnter={allowLocalFileDrop}
+                  onDrop={addDroppedLocalFiles}
+                  className="grid size-full min-h-0 cursor-pointer place-items-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                >
+                  <FolderOpen className="size-6 text-primary" />
+                  <span className="grid gap-1">
+                    <span className="text-sm font-medium text-foreground">
+                      Folder
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Drop a folder here or click to select
+                    </span>
+                  </span>
+                  <span className="sr-only">Image/video folder</span>
+                  <DirectoryInput
+                    type="file"
+                    accept="image/*,video/*"
+                    multiple
+                    directory=""
+                    webkitdirectory=""
+                    className="sr-only"
+                    aria-label="Image/video folder"
+                    onChange={addLocalFiles}
+                  />
+                </Label>
+              </div>
             </div>
-            <Label className="flex h-32 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/70 text-sm text-muted-foreground">
-              <Upload className="mr-2 size-4" />
-              <span>Image/video files</span>
-              <Input
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                className="sr-only"
-                onChange={addLocalFiles}
-              />
-            </Label>
           </section>
 
           <section className="grid min-w-0 content-start gap-3 rounded-lg border border-border bg-surface p-3">
@@ -2199,6 +2483,7 @@ function FixedGridView({
   onVideoPositionChange,
   setViewTimerMode,
   setViewTimerSeconds,
+  onLocalFilesSelected,
 }: {
   sessions: FeedSession[];
   visibleCells: number;
@@ -2220,6 +2505,10 @@ function FixedGridView({
   onVideoPositionChange: (key: string, seconds: number) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
+  onLocalFilesSelected: (
+    id: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => void;
 }) {
   const sessionsBySlot = new Map(
     sessions.map((session) => [session.fixedSlot, session]),
@@ -2294,6 +2583,9 @@ function FixedGridView({
                 onTimerSecondsChange={(value) =>
                   setViewTimerSeconds(session.id, value)
                 }
+                onLocalFilesSelected={(event) =>
+                  onLocalFilesSelected(session.id, event)
+                }
               />
             ) : (
               <button
@@ -2334,6 +2626,7 @@ function FreeGridView({
   setViewTimerMode,
   setViewTimerSeconds,
   beginFreeDrag,
+  onLocalFilesSelected,
 }: {
   sessions: FeedSession[];
   galleryIndexes: Record<string, number>;
@@ -2358,6 +2651,10 @@ function FreeGridView({
     event: ReactPointerEvent<HTMLButtonElement>,
     session: FeedSession,
     mode: "move" | "resize",
+  ) => void;
+  onLocalFilesSelected: (
+    id: string,
+    event: ChangeEvent<HTMLInputElement>,
   ) => void;
 }) {
   return (
@@ -2473,6 +2770,9 @@ function FreeGridView({
                 onTimerSecondsChange={(value) =>
                   setViewTimerSeconds(session.id, value)
                 }
+                onLocalFilesSelected={(event) =>
+                  onLocalFilesSelected(session.id, event)
+                }
               />
             </div>
           );
@@ -2510,6 +2810,7 @@ function SessionPane({
   onRemove,
   onTimerModeChange,
   onTimerSecondsChange,
+  onLocalFilesSelected,
 }: {
   session: FeedSession;
   galleryIndexes: Record<string, number>;
@@ -2528,7 +2829,16 @@ function SessionPane({
   onRemove?: () => void;
   onTimerModeChange: (mode: TimerMode) => void;
   onTimerSecondsChange: (seconds: number) => void;
+  onLocalFilesSelected?: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const localSourceConfig =
+    session.sourceConfig.kind === "local" ? session.sourceConfig : null;
+  const needsLocalReload = Boolean(
+    localSourceConfig && session.items.length === 0,
+  );
+  const hasCachedLocalFiles =
+    needsLocalReload && Boolean(localSourceConfig?.cacheSetId);
+
   return (
     <FeedViewPane
       viewId={session.id}
@@ -2543,6 +2853,34 @@ function SessionPane({
       forceInfoVisible={forceInfoVisible}
       hideUi={hideUi}
       isRuntimeLoading={isRuntimeLoading}
+      emptyMessage={
+        hasCachedLocalFiles
+          ? "Cached files unavailable"
+          : needsLocalReload
+            ? "Local files need reload"
+            : undefined
+      }
+      emptyAction={
+        needsLocalReload && onLocalFilesSelected && !hideUi ? (
+          <div className="flex flex-wrap justify-center gap-2">
+            <Label
+              className="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:bg-muted"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Upload className="size-3.5" />
+              Select files
+              <Input
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="sr-only"
+                aria-label={`Reload files for ${session.title}`}
+                onChange={onLocalFilesSelected}
+              />
+            </Label>
+          </div>
+        ) : undefined
+      }
       onGalleryChange={onGalleryChange}
       onVideoPositionChange={onVideoPositionChange}
       onMove={onMove}
@@ -2572,6 +2910,7 @@ function FocusLayout({
   onRestart,
   onTimerModeChange,
   onTimerSecondsChange,
+  onLocalFilesSelected,
 }: {
   focused: FeedSession;
   sessions: FeedSession[];
@@ -2588,6 +2927,10 @@ function FocusLayout({
   onRestart: (id: string) => void;
   onTimerModeChange: (id: string, mode: TimerMode) => void;
   onTimerSecondsChange: (id: string, value: number) => void;
+  onLocalFilesSelected: (
+    id: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => void;
 }) {
   const satellites = sessions.filter((session) => session.id !== focused.id);
 
@@ -2615,6 +2958,9 @@ function FocusLayout({
           onTimerSecondsChange={(value) =>
             onTimerSecondsChange(focused.id, value)
           }
+          onLocalFilesSelected={(event) =>
+            onLocalFilesSelected(focused.id, event)
+          }
         />
       </div>
 
@@ -2622,7 +2968,7 @@ function FocusLayout({
         <aside className="grid min-h-0 content-start gap-2">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-muted-foreground">
-              Satellite VIew
+              Satellite View
             </h2>
             <Button type="button" variant="outline" onClick={onRestore}>
               <Maximize2 />
@@ -2728,6 +3074,10 @@ function NumberField({
   );
 }
 
+function DirectoryInput(props: DirectoryInputProps) {
+  return <Input {...props} />;
+}
+
 function nextFixedSlot(sessions: FeedSession[], preferredSlot: number | null) {
   const occupied = new Set(sessions.map((session) => session.fixedSlot));
   if (preferredSlot !== null && !occupied.has(preferredSlot)) {
@@ -2790,6 +3140,22 @@ function toMultiTimerState(sessions: FeedSession[]) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function keyMoveDirection(key: string): 1 | -1 | null {
+  if (key === "ArrowDown" || key === "ArrowRight") return 1;
+  if (key === "ArrowUp" || key === "ArrowLeft") return -1;
+  return null;
+}
+
+function isKeyboardEditingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+
+  return Boolean(
+    target.closest(
+      "input, textarea, select, button, a, [contenteditable=true]",
+    ),
+  );
 }
 
 function createId() {
@@ -2855,7 +3221,10 @@ function normalizeLegacyLayoutName(name: string) {
   return name.replace(/^Session(\s+\d+)$/i, "Layout$1");
 }
 
-function normalizeStoredLayoutNames(workspaces: SerializedWorkspace[]) {
+function normalizeStoredLayoutNames(
+  workspaces: SerializedWorkspace[],
+  startIndex = 1,
+) {
   const allDefaultNames = workspaces.every((workspace) =>
     /^Layout\s+\d+$/i.test(workspace.name.trim()),
   );
@@ -2864,6 +3233,70 @@ function normalizeStoredLayoutNames(workspaces: SerializedWorkspace[]) {
 
   return workspaces.map((workspace, index) => ({
     ...workspace,
-    name: `Layout ${index + 1}`,
+    name: `Layout ${index + startIndex}`,
   }));
+}
+
+function getUploadableFiles(files: File[]) {
+  return files.filter(isUploadableFile);
+}
+
+function isUploadableFile(file: File) {
+  return file.type.startsWith("image/") || file.type.startsWith("video/");
+}
+
+async function filesFromDataTransfer(dataTransfer: DataTransfer) {
+  const entries: FileSystemEntryLike[] = [];
+  for (const item of Array.from(dataTransfer.items ?? [])) {
+    const entry = (item as DataTransferItemWithEntry).webkitGetAsEntry?.() as
+      | FileSystemEntryLike
+      | null
+      | undefined;
+    if (entry) entries.push(entry);
+  }
+
+  if (entries.length) {
+    return (await Promise.all(entries.map(filesFromFileSystemEntry))).flat();
+  }
+
+  return Array.from(dataTransfer.files ?? []);
+}
+
+async function filesFromFileSystemEntry(
+  entry: FileSystemEntryLike,
+): Promise<File[]> {
+  if (entry.isFile) {
+    return [await fileFromFileSystemEntry(entry as FileSystemFileEntryLike)];
+  }
+
+  if (entry.isDirectory) {
+    const children = await entriesFromDirectoryEntry(
+      entry as FileSystemDirectoryEntryLike,
+    );
+    return (await Promise.all(children.map(filesFromFileSystemEntry))).flat();
+  }
+
+  return [];
+}
+
+function fileFromFileSystemEntry(entry: FileSystemFileEntryLike) {
+  return new Promise<File>((resolve, reject) => {
+    entry.file(resolve, reject);
+  });
+}
+
+async function entriesFromDirectoryEntry(entry: FileSystemDirectoryEntryLike) {
+  const reader = entry.createReader();
+  const entries: FileSystemEntryLike[] = [];
+
+  while (true) {
+    const batch = await new Promise<FileSystemEntryLike[]>(
+      (resolve, reject) => {
+        reader.readEntries(resolve, reject);
+      },
+    );
+
+    if (!batch.length) return entries;
+    entries.push(...batch);
+  }
 }
