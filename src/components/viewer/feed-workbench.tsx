@@ -2020,6 +2020,9 @@ function LayoutDialog({
       <DialogContent className="max-h-[85dvh] w-[min(92vw,34rem)] overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Saved layouts</DialogTitle>
+          <DialogDescription className="sr-only">
+            Browse saved metadata-only layouts.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
           {sortedWorkspaces.length ? (
@@ -2091,6 +2094,9 @@ function SaveLayoutDialog({
       <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Save layout as</DialogTitle>
+          <DialogDescription className="sr-only">
+            Name the current layout and save its configuration metadata.
+          </DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-3"
@@ -2177,6 +2183,9 @@ function AccountDialog({
       <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Account</DialogTitle>
+          <DialogDescription className="sr-only">
+            View account status and sign-in actions.
+          </DialogDescription>
         </DialogHeader>
         {account.status === "signed-in" ? (
           <div className="grid gap-3">
@@ -2261,6 +2270,9 @@ function SourceDialog({
       <DialogContent className="max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
+          <DialogDescription className="sr-only">
+            Choose local files or Reddit source settings for the viewer.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid min-w-0 gap-5 md:grid-cols-2">
           <section className="grid min-h-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-surface p-3">
