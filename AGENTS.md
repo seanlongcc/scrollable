@@ -161,7 +161,8 @@ For visual-only or presentational UI changes:
 2. Run `npm run lint` when source files changed.
 3. Run `npm run format:check` to verify formatting; use `npm run format` when intentionally fixing formatting.
 4. Use browser/mobile viewport verification when the change affects layout, responsiveness, or interaction.
-5. Do not create new tests unless behavior changed.
+5. During browser/mobile verification, explicitly inspect for unnecessary empty space: stretched grid rows, oversized wrappers, excessive padding/margins, large blank areas below compact controls, and content that should shrink to fit its actual height.
+6. Do not create new tests unless behavior changed.
 
 In the completion summary, state one of:
 

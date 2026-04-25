@@ -123,6 +123,41 @@ describe("FeedWorkbench", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("uses one shared old-style grouping control in the add-source dialog", async () => {
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    const dialog = screen.getByRole("dialog", { name: "Add source" });
+
+    expect(
+      within(dialog).queryByText("Source grouping"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("group", { name: "Source mode" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Add sources as one stacked source",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Add sources as separate sources",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Add local files as separate sources",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Add Reddit links as separate sources",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("sends pasted Reddit post links to the runtime endpoint", async () => {
     const fetchMock = stubRuntimeFetch();
 
@@ -236,11 +271,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", {
-        name: "Add Reddit links as separate sources",
-      }),
-    );
+    await selectSourceGrouping(user, "Separate sources");
     await user.type(
       screen.getByLabelText(
         "Paste Reddit post or subreddit links, one per line",
@@ -1033,11 +1064,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", {
-        name: "Add local files as separate sources",
-      }),
-    );
+    await selectSourceGrouping(user, "Separate sources");
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
       new File(["b"], "b.mp4", { type: "video/mp4" }),
@@ -1975,11 +2002,7 @@ describe("FeedWorkbench", () => {
       target: { value: "1" },
     });
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(
-      screen.getByRole("button", {
-        name: "Add local files as separate sources",
-      }),
-    );
+    await selectSourceGrouping(user, "Separate sources");
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
       new File(["b"], "b.mp4", { type: "video/mp4" }),
@@ -2098,6 +2121,20 @@ async function openSavedLayouts(
 
   await user.click(
     within(dialog).getByRole("button", { name: "Open selected layouts" }),
+  );
+}
+
+async function selectSourceGrouping(
+  user: ReturnType<typeof userEvent.setup>,
+  option: "One stacked source" | "Separate sources",
+) {
+  await user.click(
+    screen.getByRole("button", {
+      name:
+        option === "One stacked source"
+          ? "Add sources as one stacked source"
+          : "Add sources as separate sources",
+    }),
   );
 }
 

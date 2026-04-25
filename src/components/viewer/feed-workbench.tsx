@@ -252,9 +252,7 @@ export function FeedWorkbench({
   const [isUiHidden, setIsUiHidden] = useState(false);
   const [isUiRevealVisible, setIsUiRevealVisible] = useState(true);
   const [showAllInfo, setShowAllInfo] = useState(false);
-  const [localUploadMode, setLocalUploadMode] =
-    useState<SourceGroupingMode>("stacked");
-  const [redditLinksMode, setRedditLinksMode] =
+  const [sourceGroupingMode, setSourceGroupingMode] =
     useState<SourceGroupingMode>("stacked");
   const [freeDrag, setFreeDrag] = useState<FreeDragState | null>(null);
   const [canCacheLocalFiles, setCanCacheLocalFiles] = useState(false);
@@ -589,7 +587,7 @@ export function FeedWorkbench({
       const selectedRedditLimit = normalizeRedditLimit(redditLimit);
 
       if (
-        redditLinksMode === "separate" &&
+        sourceGroupingMode === "separate" &&
         urls.length > availableSeparateSourceSlots
       ) {
         toast.error(
@@ -600,7 +598,7 @@ export function FeedWorkbench({
         return;
       }
 
-      if (redditLinksMode === "separate") {
+      if (sourceGroupingMode === "separate") {
         const sources = await Promise.all(
           urls.map(async (url) => {
             const items = await fetchRedditRuntimeItems(
@@ -670,7 +668,7 @@ export function FeedWorkbench({
     const uploadableFiles = getUploadableFiles(files);
 
     if (
-      localUploadMode === "separate" &&
+      sourceGroupingMode === "separate" &&
       uploadableFiles.length > availableSeparateSourceSlots
     ) {
       toast.error(
@@ -690,7 +688,7 @@ export function FeedWorkbench({
     }
 
     try {
-      if (localUploadMode === "separate") {
+      if (sourceGroupingMode === "separate") {
         const sources = await Promise.all(
           uploadableFiles.map(async (file, index) => {
             const cacheSetId = await cacheLocalFiles([file]);
@@ -1963,12 +1961,10 @@ export function FeedWorkbench({
         redditUrls={redditUrls}
         redditLimit={redditLimit}
         isLoading={isLoading}
-        localUploadMode={localUploadMode}
-        redditLinksMode={redditLinksMode}
+        sourceGroupingMode={sourceGroupingMode}
         setRedditUrls={setRedditUrls}
         setRedditLimit={setRedditLimit}
-        setLocalUploadMode={setLocalUploadMode}
-        setRedditLinksMode={setRedditLinksMode}
+        setSourceGroupingMode={setSourceGroupingMode}
         fetchRedditFeed={fetchRedditFeed}
         addLocalFiles={addLocalFiles}
         addDroppedLocalFiles={addDroppedLocalFiles}
@@ -2570,12 +2566,10 @@ function SourceDialog({
   redditUrls,
   redditLimit,
   isLoading,
-  localUploadMode,
-  redditLinksMode,
+  sourceGroupingMode,
   setRedditUrls,
   setRedditLimit,
-  setLocalUploadMode,
-  setRedditLinksMode,
+  setSourceGroupingMode,
   fetchRedditFeed,
   addLocalFiles,
   addDroppedLocalFiles,
@@ -2586,12 +2580,10 @@ function SourceDialog({
   redditUrls: string;
   redditLimit: number;
   isLoading: boolean;
-  localUploadMode: SourceGroupingMode;
-  redditLinksMode: SourceGroupingMode;
+  sourceGroupingMode: SourceGroupingMode;
   setRedditUrls: (value: string) => void;
   setRedditLimit: (value: number) => void;
-  setLocalUploadMode: (value: SourceGroupingMode) => void;
-  setRedditLinksMode: (value: SourceGroupingMode) => void;
+  setSourceGroupingMode: (value: SourceGroupingMode) => void;
   fetchRedditFeed: () => void;
   addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
@@ -2599,7 +2591,7 @@ function SourceDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid-rows-[auto_minmax(0,1fr)] min-h-[min(86dvh,36rem)] max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
+      <DialogContent className="max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
@@ -2607,172 +2599,149 @@ function SourceDialog({
             links for the viewer.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-h-0 min-w-0 gap-5 md:grid-cols-2">
-          <section className="grid min-h-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-surface p-3">
-            <h2 className="text-sm font-medium">Local source</h2>
-            <div
-              className="grid h-full min-h-72 grid-rows-[auto_minmax(0,1fr)] gap-3 text-sm text-muted-foreground"
-              role="group"
-              aria-label="Local upload picker"
-            >
-              <div
-                className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
-                role="group"
-                aria-label="Local upload grouping"
-              >
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={localUploadMode === "stacked" ? "default" : "ghost"}
-                  onClick={() => setLocalUploadMode("stacked")}
-                  aria-label="Add local files as one stacked source"
-                >
-                  Stacked
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={localUploadMode === "separate" ? "default" : "ghost"}
-                  onClick={() => setLocalUploadMode("separate")}
-                  aria-label="Add local files as separate sources"
-                >
-                  Separate
-                </Button>
-              </div>
-
-              <div className="grid min-h-0 grid-rows-2 gap-2">
-                <Label
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Drop files"
-                  onDragOver={allowLocalFileDrop}
-                  onDragEnter={allowLocalFileDrop}
-                  onDrop={addDroppedLocalFiles}
-                  className="grid size-full min-h-0 cursor-pointer place-items-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                >
-                  <Upload className="size-6 text-primary" />
-                  <span className="grid gap-1">
-                    <span className="text-sm font-medium text-foreground">
-                      Files
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Drop files here or click to select
-                    </span>
-                  </span>
-                  <span className="sr-only">Image/video files</span>
-                  <Input
-                    type="file"
-                    accept="image/*,video/*,audio/*"
-                    multiple
-                    className="sr-only"
-                    aria-label="Image/video files"
-                    onChange={addLocalFiles}
-                  />
-                </Label>
-                <Label
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Drop folder"
-                  onDragOver={allowLocalFileDrop}
-                  onDragEnter={allowLocalFileDrop}
-                  onDrop={addDroppedLocalFiles}
-                  className="grid size-full min-h-0 cursor-pointer place-items-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                >
-                  <FolderOpen className="size-6 text-primary" />
-                  <span className="grid gap-1">
-                    <span className="text-sm font-medium text-foreground">
-                      Folder
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Drop a folder here or click to select
-                    </span>
-                  </span>
-                  <span className="sr-only">Image/video folder</span>
-                  <DirectoryInput
-                    type="file"
-                    accept="image/*,video/*,audio/*"
-                    multiple
-                    directory=""
-                    webkitdirectory=""
-                    className="sr-only"
-                    aria-label="Image/video folder"
-                    onChange={addLocalFiles}
-                  />
-                </Label>
-              </div>
-            </div>
-          </section>
-
-          <section className="grid min-w-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-surface p-3">
-            <h2 className="text-sm font-medium">Reddit links</h2>
-            <div
-              className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
-              role="group"
-              aria-label="Reddit links grouping"
-            >
-              <Button
-                type="button"
-                size="sm"
-                variant={redditLinksMode === "stacked" ? "default" : "ghost"}
-                onClick={() => setRedditLinksMode("stacked")}
-                aria-label="Add Reddit links as one stacked source"
-              >
-                Stacked
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={redditLinksMode === "separate" ? "default" : "ghost"}
-                onClick={() => setRedditLinksMode("separate")}
-                aria-label="Add Reddit links as separate sources"
-              >
-                Separate
-              </Button>
-            </div>
-            <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
-              Reddit media count
-              <Input
-                type="number"
-                min={1}
-                max={MAX_REDDIT_MEDIA_LIMIT}
-                value={redditLimit || ""}
-                onChange={(event) => {
-                  if (event.target.value === "") {
-                    setRedditLimit(0);
-                    return;
-                  }
-
-                  setRedditLimit(
-                    clamp(
-                      Number(event.target.value),
-                      1,
-                      MAX_REDDIT_MEDIA_LIMIT,
-                    ),
-                  );
-                }}
-                className="h-9"
-              />
-            </Label>
-            <Textarea
-              aria-label="Paste Reddit post or subreddit links, one per line"
-              value={redditUrls}
-              onChange={(event) => setRedditUrls(event.target.value)}
-              placeholder={`One link per line:
-https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/
-https://www.reddit.com/r/<community>/top/?t=week`}
-              className="h-full min-h-0 resize-none font-mono text-xs leading-5"
-            />
+        <div className="grid min-h-0 min-w-0 content-start gap-4">
+          <div
+            className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
+            role="group"
+            aria-label="Source mode"
+          >
             <Button
               type="button"
-              onClick={fetchRedditFeed}
-              disabled={isLoading}
-              aria-label="Open Reddit links"
-              className="self-end"
+              size="sm"
+              variant={sourceGroupingMode === "stacked" ? "default" : "ghost"}
+              onClick={() => setSourceGroupingMode("stacked")}
+              aria-label="Add sources as one stacked source"
             >
-              {isLoading ? <Loader2 className="animate-spin" /> : <Grid2X2 />}
-              Open Reddit links
+              Stacked
             </Button>
-          </section>
+            <Button
+              type="button"
+              size="sm"
+              variant={sourceGroupingMode === "separate" ? "default" : "ghost"}
+              onClick={() => setSourceGroupingMode("separate")}
+              aria-label="Add sources as separate sources"
+            >
+              Separate
+            </Button>
+          </div>
+          <div className="grid min-h-0 min-w-0 gap-5 md:grid-cols-2">
+            <section className="grid min-w-0 gap-3 rounded-lg border border-border bg-surface p-3">
+              <h2 className="text-sm font-medium">Local source</h2>
+              <div
+                className="grid gap-3 text-sm text-muted-foreground"
+                role="group"
+                aria-label="Local upload picker"
+              >
+                <div className="grid min-h-80 grid-rows-2 gap-2">
+                  <Label
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Drop files"
+                    onDragOver={allowLocalFileDrop}
+                    onDragEnter={allowLocalFileDrop}
+                    onDrop={addDroppedLocalFiles}
+                    className="grid size-full min-h-0 cursor-pointer place-items-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
+                    <Upload className="size-6 text-primary" />
+                    <span className="grid gap-1">
+                      <span className="text-sm font-medium text-foreground">
+                        Files
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Drop files here or click to select
+                      </span>
+                    </span>
+                    <span className="sr-only">Image/video files</span>
+                    <Input
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      multiple
+                      className="sr-only"
+                      aria-label="Image/video files"
+                      onChange={addLocalFiles}
+                    />
+                  </Label>
+                  <Label
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Drop folder"
+                    onDragOver={allowLocalFileDrop}
+                    onDragEnter={allowLocalFileDrop}
+                    onDrop={addDroppedLocalFiles}
+                    className="grid size-full min-h-0 cursor-pointer place-items-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
+                    <FolderOpen className="size-6 text-primary" />
+                    <span className="grid gap-1">
+                      <span className="text-sm font-medium text-foreground">
+                        Folder
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Drop a folder here or click to select
+                      </span>
+                    </span>
+                    <span className="sr-only">Image/video folder</span>
+                    <DirectoryInput
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      multiple
+                      directory=""
+                      webkitdirectory=""
+                      className="sr-only"
+                      aria-label="Image/video folder"
+                      onChange={addLocalFiles}
+                    />
+                  </Label>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-surface p-3">
+              <h2 className="text-sm font-medium">Reddit links</h2>
+              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                Reddit media count
+                <Input
+                  type="number"
+                  min={1}
+                  max={MAX_REDDIT_MEDIA_LIMIT}
+                  value={redditLimit || ""}
+                  onChange={(event) => {
+                    if (event.target.value === "") {
+                      setRedditLimit(0);
+                      return;
+                    }
+
+                    setRedditLimit(
+                      clamp(
+                        Number(event.target.value),
+                        1,
+                        MAX_REDDIT_MEDIA_LIMIT,
+                      ),
+                    );
+                  }}
+                  className="h-9"
+                />
+              </Label>
+              <Textarea
+                aria-label="Paste Reddit post or subreddit links, one per line"
+                value={redditUrls}
+                onChange={(event) => setRedditUrls(event.target.value)}
+                placeholder={`One link per line:
+https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/
+https://www.reddit.com/r/<community>/top/?t=week`}
+                className="h-full min-h-0 resize-none font-mono text-xs leading-5"
+              />
+              <Button
+                type="button"
+                onClick={fetchRedditFeed}
+                disabled={isLoading}
+                aria-label="Open Reddit links"
+                className="self-end"
+              >
+                {isLoading ? <Loader2 className="animate-spin" /> : <Grid2X2 />}
+                Open Reddit links
+              </Button>
+            </section>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
