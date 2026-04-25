@@ -52,9 +52,8 @@ import type { RuntimeFeedItem } from "@/lib/feed/types";
 import {
   isLocalFileCacheSupported,
   loadLocalFiles,
-  saveLocalFiles,
 } from "@/lib/local-uploads/file-cache";
-import { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
+import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import type { Json } from "@/lib/supabase/database.types";
@@ -130,10 +129,8 @@ import {
   clamp,
   createId,
   fetchRedditRuntimeItems,
-  filesFromDataTransfer,
   filterHiddenRedditItems,
   flattenRuntimeMediaItems,
-  getUploadableFiles,
   hasDuplicateLayoutName,
   hasDuplicateTemplateName,
   hashRedditItemId,
@@ -159,6 +156,14 @@ import {
   workspaceFromTemplate,
   writeWorkspaceSessionStore,
 } from "./workbench/helpers";
+import {
+  applyLocalRuntimeItemsToSession,
+  cacheLocalFiles as cacheLocalFilesForWorkbench,
+  createLocalRuntimeItems as createLocalRuntimeItemsForWorkbench,
+  createLocalSessionSources,
+  filesFromDataTransfer,
+  getUploadableFiles,
+} from "./workbench/local-sources";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -354,7 +359,8 @@ export function FeedWorkbench({
   }, []);
 
   useEffect(() => {
-    return () => registryRef.current?.revokeAll();
+    const registry = registryRef;
+    return () => registry.current?.revokeAll();
   }, []);
 
   useEffect(() => {
@@ -780,39 +786,14 @@ export function FeedWorkbench({
     setIsLoading(true);
 
     try {
-      if (sourceGroupingMode === "separate") {
-        const sources = await Promise.all(
-          uploadableFiles.map(async (file, index) => {
-            const cacheSetId = await cacheLocalFiles([file]);
+      const sources = await createLocalSessionSources({
+        files: uploadableFiles,
+        items,
+        sourceGroupingMode,
+        cacheFiles: cacheLocalFiles,
+      });
 
-            return {
-              title: items[index].title,
-              localFiles: [file],
-              sourceConfig: {
-                kind: "local" as const,
-                fileCount: 1,
-                ...(cacheSetId ? { cacheSetId } : {}),
-              },
-              items: [items[index]],
-            };
-          }),
-        );
-
-        addSessions(sources);
-      } else {
-        const cacheSetId = await cacheLocalFiles(uploadableFiles);
-
-        addSession({
-          title: "Local upload",
-          sourceConfig: {
-            kind: "local",
-            fileCount: items.length,
-            ...(cacheSetId ? { cacheSetId } : {}),
-          },
-          items,
-          localFiles: uploadableFiles,
-        });
-      }
+      addSessions(sources);
 
       setIsSourceOpen(false);
     } catch (error) {
@@ -847,16 +828,13 @@ export function FeedWorkbench({
   }
 
   async function cacheLocalFiles(files: File[]) {
-    if (!canCacheLocalFiles || !files.length) return undefined;
-
-    const cacheSetId = createId();
-    try {
-      await saveLocalFiles(cacheSetId, files);
-      return cacheSetId;
-    } catch {
-      toast.warning("Local files will need reload after refresh");
-      return undefined;
-    }
+    return cacheLocalFilesForWorkbench({
+      files,
+      canCacheLocalFiles,
+      createCacheSetId: createId,
+      onCacheRejected: () =>
+        toast.warning("Local files will need reload after refresh"),
+    });
   }
 
   function applyLocalRuntimeItems(
@@ -865,48 +843,13 @@ export function FeedWorkbench({
     cacheSetId?: string,
     files?: File[],
   ) {
-    if (!items.length) {
-      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
-      return;
-    }
-
-    updateSession(id, (session) => {
-      const timer = createTimerState({
-        durationSeconds: session.timer.durationSeconds,
-        itemCount: items.length,
-      });
-
-      return {
-        ...session,
-        title:
-          session.sourceConfig.kind === "local" &&
-          session.sourceConfig.fileCount === 1 &&
-          items.length === 1
-            ? items[0].title
-            : session.title,
-        items,
-        localFiles: files,
-        isRuntimeLoading: false,
-        sourceConfig: {
-          kind: "local",
-          fileCount: items.length,
-          ...(cacheSetId ? { cacheSetId } : {}),
-        },
-        timer: {
-          ...timer,
-          isPaused: session.timer.isPaused,
-        },
-      };
-    });
+    updateSession(id, (session) =>
+      applyLocalRuntimeItemsToSession({ session, items, cacheSetId, files }),
+    );
   }
 
   function createLocalRuntimeItems(files: File[]) {
-    if (!files.length) return [];
-    if (registryRef.current === null) {
-      registryRef.current = new LocalObjectUrlRegistry();
-    }
-
-    return files.map((file) => registryRef.current!.add(file));
+    return createLocalRuntimeItemsForWorkbench(files, registryRef);
   }
 
   function addSession({

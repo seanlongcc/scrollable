@@ -8,11 +8,7 @@ import {
   type SerializedWorkspaceTemplate,
 } from "@/lib/viewer/workspaces";
 import type {
-  DataTransferItemWithEntry,
   FeedSession,
-  FileSystemDirectoryEntryLike,
-  FileSystemEntryLike,
-  FileSystemFileEntryLike,
   PersistedSourceConfig,
   RedditListingSort,
   RedditTimeRange,
@@ -698,74 +694,4 @@ export function normalizeStoredLayoutNames(
     ...workspace,
     name: `Layout ${index + startIndex}`,
   }));
-}
-
-export function getUploadableFiles(files: File[]) {
-  return files.filter(isUploadableFile);
-}
-
-export function isUploadableFile(file: File) {
-  return (
-    file.type.startsWith("image/") ||
-    file.type.startsWith("video/") ||
-    file.type.startsWith("audio/")
-  );
-}
-
-export async function filesFromDataTransfer(dataTransfer: DataTransfer) {
-  const entries: FileSystemEntryLike[] = [];
-  for (const item of Array.from(dataTransfer.items ?? [])) {
-    const entry = (item as DataTransferItemWithEntry).webkitGetAsEntry?.() as
-      | FileSystemEntryLike
-      | null
-      | undefined;
-    if (entry) entries.push(entry);
-  }
-
-  if (entries.length) {
-    return (await Promise.all(entries.map(filesFromFileSystemEntry))).flat();
-  }
-
-  return Array.from(dataTransfer.files ?? []);
-}
-
-export async function filesFromFileSystemEntry(
-  entry: FileSystemEntryLike,
-): Promise<File[]> {
-  if (entry.isFile) {
-    return [await fileFromFileSystemEntry(entry as FileSystemFileEntryLike)];
-  }
-
-  if (entry.isDirectory) {
-    const children = await entriesFromDirectoryEntry(
-      entry as FileSystemDirectoryEntryLike,
-    );
-    return (await Promise.all(children.map(filesFromFileSystemEntry))).flat();
-  }
-
-  return [];
-}
-
-export function fileFromFileSystemEntry(entry: FileSystemFileEntryLike) {
-  return new Promise<File>((resolve, reject) => {
-    entry.file(resolve, reject);
-  });
-}
-
-export async function entriesFromDirectoryEntry(
-  entry: FileSystemDirectoryEntryLike,
-) {
-  const reader = entry.createReader();
-  const entries: FileSystemEntryLike[] = [];
-
-  while (true) {
-    const batch = await new Promise<FileSystemEntryLike[]>(
-      (resolve, reject) => {
-        reader.readEntries(resolve, reject);
-      },
-    );
-
-    if (!batch.length) return entries;
-    entries.push(...batch);
-  }
 }
