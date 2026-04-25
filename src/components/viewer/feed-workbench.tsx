@@ -49,17 +49,12 @@ import {
 import { EditSourceDialog, SourceDialog } from "./workbench/source-dialogs";
 import { FixedGridView, FocusLayout, FreeGridView } from "./workbench/views";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
-import {
-  isLocalFileCacheSupported,
-  loadLocalFiles,
-  saveLocalFiles,
-} from "@/lib/local-uploads/file-cache";
-import { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
+import { isLocalFileCacheSupported } from "@/lib/local-uploads/file-cache";
+import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import type { Json } from "@/lib/supabase/database.types";
 import type {
-  UrlResolverHint,
   UrlRuntimeResolution,
   UrlSourceConfig,
 } from "@/lib/url-source/types";
@@ -77,15 +72,9 @@ import {
   validateFreeRects,
 } from "@/lib/viewer/layout";
 import {
-  WORKSPACE_TEMPLATE_STORAGE_KEY,
-  WORKSPACE_STORAGE_KEY,
   createEmptyWorkspace,
   MAX_WORKSPACE_LAYERS,
-  parseWorkspaceStore,
-  parseWorkspaceTemplateStore,
   normalizeWorkspaceLayers,
-  serializeWorkspaceTemplate,
-  serializeWorkspace,
 } from "@/lib/viewer/workspaces";
 import {
   advanceTimerState,
@@ -95,7 +84,6 @@ import {
   globalRestartTimers,
   globalTogglePaused,
   moveTimerIndex,
-  normalizeTimerMode,
   syncTimerToGlobal,
   togglePaused,
   type TimerMode,
@@ -123,17 +111,11 @@ import {
   DEFAULT_TIMER_SECONDS,
   FALLBACK_INITIAL_WORKSPACE_ID,
   MAX_LAYOUT_NAME_LENGTH,
-  WORKSPACE_SESSION_STORAGE_KEY,
 } from "./workbench/types";
 import {
   buildSubredditListingUrls,
   clamp,
   createId,
-  fetchRedditRuntimeItems,
-  filesFromDataTransfer,
-  filterHiddenRedditItems,
-  flattenRuntimeMediaItems,
-  getUploadableFiles,
   hasDuplicateLayoutName,
   hasDuplicateTemplateName,
   hashRedditItemId,
@@ -142,23 +124,44 @@ import {
   limitLayoutName,
   nextFixedSlot,
   nextLayoutName,
-  normalizeLegacyLayoutName,
   normalizeRedditLimit,
-  normalizeStoredLayoutNames,
-  parseWorkspaceSessionStore,
   redditHiddenItemHashes,
   redditLinksTitle,
-  resolveWorkspaceGlobalSeconds,
   sessionFileCount,
   splitRedditUrls,
   toMultiTimerState,
   toRuntimeWorkspace,
   toRuntimeWorkspaceWithLocalRuntime,
   uniqueWorkspaceName,
-  urlHostLabel,
   workspaceFromTemplate,
-  writeWorkspaceSessionStore,
 } from "./workbench/helpers";
+import {
+  applyLocalRuntimeItemsToSession,
+  cacheLocalFiles as cacheLocalFilesForWorkbench,
+  createLocalRuntimeItems as createLocalRuntimeItemsForWorkbench,
+  createLocalSessionSources,
+  filesFromDataTransfer,
+  getUploadableFiles,
+} from "./workbench/local-sources";
+import {
+  applyRuntimeHydrationResults,
+  createRedditSessionSources,
+  fetchRedditRuntimeItems,
+  fetchUrlRuntimeItemsForSource,
+  filterHiddenRedditItems,
+  hydrateRuntimeSources,
+  runtimeHydrationCandidates,
+} from "./workbench/runtime-sources";
+import {
+  createCurrentWorkspaceState,
+  persistTemplateSnapshot,
+  persistWorkspaceSnapshot,
+  restoreWorkspaceBootstrap,
+  workspaceSnapshotToState,
+  writeWorkspaceSessionStore,
+  writeWorkspaceStore,
+  writeWorkspaceTemplateStore,
+} from "./workbench/workspace-state";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -354,7 +357,8 @@ export function FeedWorkbench({
   }, []);
 
   useEffect(() => {
-    return () => registryRef.current?.revokeAll();
+    const registry = registryRef;
+    return () => registry.current?.revokeAll();
   }, []);
 
   useEffect(() => {
@@ -396,70 +400,28 @@ export function FeedWorkbench({
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const stored = parseWorkspaceStore(
-        window.localStorage.getItem(WORKSPACE_STORAGE_KEY),
-      );
-      const templateStore = parseWorkspaceTemplateStore(
-        window.localStorage.getItem(WORKSPACE_TEMPLATE_STORAGE_KEY),
-      );
-      const nextTemplates = Object.fromEntries(
-        (templateStore?.templates ?? []).map((template) => [
-          template.id,
-          template,
-        ]),
-      );
-      setSavedTemplates(nextTemplates);
-      if (!stored?.workspaces.length) return;
+      const bootstrap = restoreWorkspaceBootstrap(initialWorkspace);
 
-      const normalizedWorkspaces = normalizeStoredLayoutNames(
-        stored.workspaces.map((workspace) => ({
-          ...workspace,
-          name: normalizeLegacyLayoutName(workspace.name),
-        })),
-      );
-      const nextSaved = Object.fromEntries(
-        normalizedWorkspaces.map((workspace) => [workspace.id, workspace]),
-      );
-      const sessionStore = parseWorkspaceSessionStore(
-        window.sessionStorage.getItem(WORKSPACE_SESSION_STORAGE_KEY),
-      );
-      const openSavedWorkspaces = normalizedWorkspaces.filter((workspace) =>
-        sessionStore?.openWorkspaceIds.includes(workspace.id),
-      );
-      const blankTab = {
-        id: initialWorkspace.id,
-        name: nextLayoutName([], nextSaved),
-      };
-      const blankWorkspace = toRuntimeWorkspace(
-        createEmptyWorkspace(blankTab.id, blankTab.name),
-      );
-      const restoredTabs = openSavedWorkspaces.map(({ id, name }) => ({
-        id,
-        name,
-      }));
-      const tabs = restoredTabs.length ? restoredTabs : [blankTab];
-      const activeId = tabs.some(
-        (tab) => tab.id === sessionStore?.activeWorkspaceId,
-      )
-        ? sessionStore!.activeWorkspaceId
-        : tabs[0]!.id;
-      const nextStates = {
-        ...(restoredTabs.length ? {} : { [blankWorkspace.id]: blankWorkspace }),
-        ...Object.fromEntries(
-          openSavedWorkspaces.map((workspace) => [
-            workspace.id,
-            toRuntimeWorkspace(workspace),
-          ]),
-        ),
-      };
-      const activeWorkspace = nextStates[activeId] ?? blankWorkspace;
+      setSavedTemplates(bootstrap.savedTemplates);
+      if (
+        !bootstrap.savedWorkspaces ||
+        !bootstrap.workspaceTabs ||
+        !bootstrap.workspaceStates ||
+        !bootstrap.activeWorkspace
+      ) {
+        return;
+      }
 
-      setWorkspaceTabs(tabs);
-      setSavedWorkspaces(nextSaved);
-      setWorkspaceStates(nextStates);
-      setActiveWorkspaceId(activeWorkspace.id);
-      applyWorkspaceSnapshot(activeWorkspace);
-      writeWorkspaceSessionStore(tabs, activeWorkspace.id, nextSaved);
+      setWorkspaceTabs(bootstrap.workspaceTabs);
+      setSavedWorkspaces(bootstrap.savedWorkspaces);
+      setWorkspaceStates(bootstrap.workspaceStates);
+      setActiveWorkspaceId(bootstrap.activeWorkspace.id);
+      applyWorkspaceSnapshot(bootstrap.activeWorkspace);
+      writeWorkspaceSessionStore(
+        bootstrap.workspaceTabs,
+        bootstrap.activeWorkspace.id,
+        bootstrap.savedWorkspaces,
+      );
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -661,44 +623,13 @@ export function FeedWorkbench({
         return;
       }
 
-      if (sourceGroupingMode === "separate") {
-        const sources = await Promise.all(
-          urls.map(async (url) => {
-            const items = await fetchRedditRuntimeItems(
-              [url],
-              selectedRedditLimit,
-            );
+      const sources = await createRedditSessionSources({
+        urls,
+        limit: selectedRedditLimit,
+        sourceGroupingMode,
+      });
 
-            return {
-              title: redditLinksTitle([url], items),
-              sourceConfig: {
-                kind: "reddit" as const,
-                urls: [url],
-                limit: selectedRedditLimit,
-                allowNsfw: true,
-              },
-              items,
-              allItems: items,
-            };
-          }),
-        );
-
-        addSessions(sources);
-      } else {
-        const items = await fetchRedditRuntimeItems(urls, selectedRedditLimit);
-
-        addSession({
-          title: redditLinksTitle(urls, items),
-          sourceConfig: {
-            kind: "reddit",
-            urls,
-            limit: selectedRedditLimit,
-            allowNsfw: true,
-          },
-          items,
-          allItems: items,
-        });
-      }
+      addSessions(sources);
       setIsSourceOpen(false);
     } catch (error) {
       toast.error(
@@ -780,39 +711,14 @@ export function FeedWorkbench({
     setIsLoading(true);
 
     try {
-      if (sourceGroupingMode === "separate") {
-        const sources = await Promise.all(
-          uploadableFiles.map(async (file, index) => {
-            const cacheSetId = await cacheLocalFiles([file]);
+      const sources = await createLocalSessionSources({
+        files: uploadableFiles,
+        items,
+        sourceGroupingMode,
+        cacheFiles: cacheLocalFiles,
+      });
 
-            return {
-              title: items[index].title,
-              localFiles: [file],
-              sourceConfig: {
-                kind: "local" as const,
-                fileCount: 1,
-                ...(cacheSetId ? { cacheSetId } : {}),
-              },
-              items: [items[index]],
-            };
-          }),
-        );
-
-        addSessions(sources);
-      } else {
-        const cacheSetId = await cacheLocalFiles(uploadableFiles);
-
-        addSession({
-          title: "Local upload",
-          sourceConfig: {
-            kind: "local",
-            fileCount: items.length,
-            ...(cacheSetId ? { cacheSetId } : {}),
-          },
-          items,
-          localFiles: uploadableFiles,
-        });
-      }
+      addSessions(sources);
 
       setIsSourceOpen(false);
     } catch (error) {
@@ -847,16 +753,13 @@ export function FeedWorkbench({
   }
 
   async function cacheLocalFiles(files: File[]) {
-    if (!canCacheLocalFiles || !files.length) return undefined;
-
-    const cacheSetId = createId();
-    try {
-      await saveLocalFiles(cacheSetId, files);
-      return cacheSetId;
-    } catch {
-      toast.warning("Local files will need reload after refresh");
-      return undefined;
-    }
+    return cacheLocalFilesForWorkbench({
+      files,
+      canCacheLocalFiles,
+      createCacheSetId: createId,
+      onCacheRejected: () =>
+        toast.warning("Local files will need reload after refresh"),
+    });
   }
 
   function applyLocalRuntimeItems(
@@ -865,48 +768,13 @@ export function FeedWorkbench({
     cacheSetId?: string,
     files?: File[],
   ) {
-    if (!items.length) {
-      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
-      return;
-    }
-
-    updateSession(id, (session) => {
-      const timer = createTimerState({
-        durationSeconds: session.timer.durationSeconds,
-        itemCount: items.length,
-      });
-
-      return {
-        ...session,
-        title:
-          session.sourceConfig.kind === "local" &&
-          session.sourceConfig.fileCount === 1 &&
-          items.length === 1
-            ? items[0].title
-            : session.title,
-        items,
-        localFiles: files,
-        isRuntimeLoading: false,
-        sourceConfig: {
-          kind: "local",
-          fileCount: items.length,
-          ...(cacheSetId ? { cacheSetId } : {}),
-        },
-        timer: {
-          ...timer,
-          isPaused: session.timer.isPaused,
-        },
-      };
-    });
+    updateSession(id, (session) =>
+      applyLocalRuntimeItemsToSession({ session, items, cacheSetId, files }),
+    );
   }
 
   function createLocalRuntimeItems(files: File[]) {
-    if (!files.length) return [];
-    if (registryRef.current === null) {
-      registryRef.current = new LocalObjectUrlRegistry();
-    }
-
-    return files.map((file) => registryRef.current!.add(file));
+    return createLocalRuntimeItemsForWorkbench(files, registryRef);
   }
 
   function addSession({
@@ -1759,87 +1627,45 @@ export function FeedWorkbench({
     tabsOverride = workspaceTabs,
   ) {
     const current = currentWorkspaceState(nameOverride);
-    const snapshot = serializeWorkspace(current);
+    const { snapshot, nextSaved, store } = persistWorkspaceSnapshot(
+      current,
+      savedWorkspaces,
+    );
     const nextStates = { ...workspaceStates, [current.id]: current };
-    const nextSaved = { ...savedWorkspaces, [snapshot.id]: snapshot };
-    const store = writeWorkspaceStore(nextSaved, current.id);
     setWorkspaceTabs(tabsOverride);
     setWorkspaceStates(nextStates);
+    setSavedWorkspaces(nextSaved);
     writeWorkspaceSessionStore(tabsOverride, current.id, nextSaved);
     return { snapshot, store };
   }
 
   function persistCurrentTemplate(nameOverride = workspaceName) {
     const current = currentWorkspaceState(nameOverride);
-    const snapshot = serializeWorkspaceTemplate({
-      ...current,
+    const { snapshot, nextTemplates, store } = persistTemplateSnapshot(
+      current,
+      savedTemplates,
       templateSlots,
-    });
+    );
     const nextStates = { ...workspaceStates, [current.id]: current };
-    const nextTemplates = { ...savedTemplates, [snapshot.id]: snapshot };
-    const store = writeWorkspaceTemplateStore(nextTemplates);
     setWorkspaceStates(nextStates);
+    setSavedTemplates(nextTemplates);
     return { snapshot, store };
   }
 
   function currentWorkspaceState(
     nameOverride = workspaceName,
   ): RuntimeWorkspace {
-    return {
-      id: activeWorkspaceId,
+    return createCurrentWorkspaceState({
+      activeWorkspaceId,
       name: nameOverride,
       layers,
       activeLayerId,
       layoutMode,
       fixedGrid,
-      globalTimerSeconds: globalSeconds,
-      updatedAt: new Date().toISOString(),
-      sessions: sessions.map((session) => ({
-        id: session.id,
-        title: session.title,
-        layerId: session.layerId,
-        timerMode: normalizeTimerMode(session.timerMode),
-        timerSeconds: session.timer.durationSeconds,
-        timerActiveIndex: session.timer.activeIndex,
-        fixedSlot: session.fixedSlot,
-        freeRect: session.freeRect,
-        sourceConfig: session.sourceConfig,
-        runtimeItems: session.items,
-        allRuntimeItems: session.allItems,
-        urlResolution: session.urlResolution,
-        localFiles: session.localFiles,
-      })),
+      globalSeconds,
+      sessions,
       templateSlots,
-    };
-  }
-
-  function writeWorkspaceStore(
-    workspaces: Record<string, SerializedWorkspace>,
-    activeId: string,
-  ) {
-    const store = {
-      activeWorkspaceId: activeId,
-      workspaces: Object.values(workspaces),
-    };
-
-    setSavedWorkspaces(workspaces);
-    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(store));
-    return store;
-  }
-
-  function writeWorkspaceTemplateStore(
-    templates: Record<string, SerializedWorkspaceTemplate>,
-  ) {
-    const store = {
-      templates: Object.values(templates),
-    };
-
-    setSavedTemplates(templates);
-    window.localStorage.setItem(
-      WORKSPACE_TEMPLATE_STORAGE_KEY,
-      JSON.stringify(store),
-    );
-    return store;
+    });
   }
 
   function createWorkspaceTab() {
@@ -2071,6 +1897,7 @@ export function FeedWorkbench({
     delete nextSaved[id];
 
     writeWorkspaceStore(nextSaved, activeWorkspaceId);
+    setSavedWorkspaces(nextSaved);
     writeWorkspaceSessionStore(workspaceTabs, activeWorkspaceId, nextSaved);
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
@@ -2081,162 +1908,49 @@ export function FeedWorkbench({
     delete nextTemplates[id];
 
     writeWorkspaceTemplateStore(nextTemplates);
+    setSavedTemplates(nextTemplates);
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
 
   function applyWorkspaceSnapshot(
     snapshot: SerializedWorkspace | RuntimeWorkspace,
   ) {
-    const snapshotLayers = normalizeWorkspaceLayers(snapshot.layers);
-    const snapshotActiveLayerId = snapshotLayers.some(
-      (layer) => layer.id === snapshot.activeLayerId,
-    )
-      ? snapshot.activeLayerId
-      : snapshotLayers[0].id;
+    const nextState = workspaceSnapshotToState(snapshot);
 
-    setLayers(snapshotLayers);
-    setActiveLayerId(snapshotActiveLayerId);
-    setLayoutMode(snapshot.layoutMode);
-    setFixedGrid(snapshot.fixedGrid);
-    setGlobalSeconds(resolveWorkspaceGlobalSeconds(snapshot));
-    setTemplateSlots("templateSlots" in snapshot ? snapshot.templateSlots : []);
-    const nextSessions = snapshot.sessions.map((session) => {
-      const items =
-        "runtimeItems" in session ? (session.runtimeItems ?? []) : [];
-      const allItems =
-        "allRuntimeItems" in session
-          ? (session.allRuntimeItems ?? items)
-          : items;
-      const urlResolution =
-        "urlResolution" in session ? session.urlResolution : undefined;
-      const activeIndex =
-        items.length > 0
-          ? clamp(session.timerActiveIndex ?? 0, 0, items.length - 1)
-          : 0;
-      const timer = createTimerState({
-        durationSeconds: session.timerSeconds,
-        itemCount: items.length,
-      });
-
-      return {
-        id: session.id,
-        title: session.title,
-        layerId: session.layerId ?? snapshotActiveLayerId,
-        timerMode: normalizeTimerMode(session.timerMode),
-        timer: { ...timer, activeIndex },
-        fixedSlot: session.fixedSlot,
-        freeRect: session.freeRect,
-        items,
-        allItems,
-        urlResolution,
-        localFiles: "localFiles" in session ? session.localFiles : undefined,
-        isRuntimeLoading:
-          (session.sourceConfig.kind === "reddit" ||
-            (session.sourceConfig.kind === "url" && !urlResolution) ||
-            (session.sourceConfig.kind === "local" &&
-              Boolean(session.sourceConfig.cacheSetId))) &&
-          items.length === 0,
-        sourceConfig: session.sourceConfig,
-      };
-    });
-
-    setSessions(nextSessions);
+    setLayers(nextState.layers);
+    setActiveLayerId(nextState.activeLayerId);
+    setLayoutMode(nextState.layoutMode);
+    setFixedGrid(nextState.fixedGrid);
+    setGlobalSeconds(nextState.globalSeconds);
+    setTemplateSlots(nextState.templateSlots);
+    setSessions(nextState.sessions);
     setGalleryIndexes({});
-    setSelectedId(
-      snapshot.sessions.find(
-        (session) =>
-          (session.layerId ?? snapshotActiveLayerId) === snapshotActiveLayerId,
-      )?.id ?? null,
-    );
+    setSelectedId(nextState.selectedId);
     setMaximizedId(null);
     setPendingTemplateSlotId(null);
-    void hydrateRuntimeItems(nextSessions);
+    void hydrateRuntimeItems(nextState.sessions);
   }
 
   async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
-    const sessionsToHydrate = nextSessions.filter(
-      (session) =>
-        session.items.length === 0 &&
-        (session.sourceConfig.kind === "reddit" ||
-          (session.sourceConfig.kind === "url" &&
-            !session.urlResolution &&
-            isSessionVisibleForUrlHydration(session)) ||
-          (session.sourceConfig.kind === "local" &&
-            Boolean(session.sourceConfig.cacheSetId))),
+    const sessionsToHydrate = runtimeHydrationCandidates(
+      nextSessions,
+      isSessionVisibleForUrlHydration,
     );
 
     if (!sessionsToHydrate.length) return;
 
-    const hydrated = await Promise.all(
-      sessionsToHydrate.map(async (session) => {
-        try {
-          const result =
-            session.sourceConfig.kind === "reddit"
-              ? {
-                  ...(await fetchRuntimeItemsForSource(session.sourceConfig)),
-                  localFiles: undefined,
-                }
-              : session.sourceConfig.kind === "url"
-                ? {
-                    ...(await fetchUrlRuntimeItemsForSource(
-                      session.sourceConfig,
-                    )),
-                    localFiles: undefined,
-                  }
-                : await fetchLocalRuntimeItemsForSource(session.sourceConfig);
-          return { id: session.id, ...result };
-        } catch (error) {
-          toast.error(
-            error instanceof Error
-              ? `Could not load ${session.title}: ${error.message}`
-              : `Could not load ${session.title}`,
-          );
-          return {
-            id: session.id,
-            items: [] as RuntimeFeedItem[],
-            allItems: undefined,
-            urlResolution: undefined,
-            localFiles: undefined,
-          };
-        }
-      }),
-    );
-    const hydratedBySession = new Map(
-      hydrated.map((result) => [result.id, result]),
-    );
+    const hydrated = await hydrateRuntimeSources({
+      sessions: sessionsToHydrate,
+      createLocalRuntimeItems,
+      onError: (session, error) =>
+        toast.error(
+          error instanceof Error
+            ? `Could not load ${session.title}: ${error.message}`
+            : `Could not load ${session.title}`,
+        ),
+    });
 
-    setSessions((current) =>
-      current.map((session) => {
-        const hydratedSession = hydratedBySession.get(session.id);
-        if (!hydratedSession) return session;
-        const { items, allItems, localFiles, urlResolution } = hydratedSession;
-        const sourceConfig =
-          "sourceConfig" in hydratedSession
-            ? hydratedSession.sourceConfig
-            : undefined;
-        const title =
-          "title" in hydratedSession ? hydratedSession.title : undefined;
-
-        return {
-          ...session,
-          title: title ?? session.title,
-          items,
-          allItems,
-          urlResolution,
-          localFiles,
-          isRuntimeLoading: false,
-          sourceConfig: sourceConfig ?? session.sourceConfig,
-          timer: {
-            ...session.timer,
-            itemCount: items.length,
-            activeIndex:
-              items.length > 0
-                ? clamp(session.timer.activeIndex, 0, items.length - 1)
-                : 0,
-          },
-        };
-      }),
-    );
+    setSessions((current) => applyRuntimeHydrationResults(current, hydrated));
   }
 
   function isSessionVisibleForUrlHydration(session: FeedSession) {
@@ -2245,104 +1959,6 @@ export function FeedWorkbench({
     if (layoutMode !== "fixed") return true;
 
     return session.fixedSlot < visibleFixedCells;
-  }
-
-  async function fetchRuntimeItemsForSource(
-    sourceConfig: PersistedSourceConfig,
-  ) {
-    if (sourceConfig.kind !== "reddit") {
-      return { items: [], allItems: undefined };
-    }
-
-    const params = new URLSearchParams({
-      allowNsfw: String(sourceConfig.allowNsfw),
-      limit: String(sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT),
-    });
-    for (const url of sourceConfig.urls) {
-      params.append("urls", url);
-    }
-    const response = await fetch(`/api/reddit/listing?${params}`, {
-      cache: "no-store",
-    });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error ?? "reddit_error");
-    }
-
-    const allItems = flattenRuntimeMediaItems(
-      payload.items as RuntimeFeedItem[],
-    );
-
-    return {
-      items: await filterHiddenRedditItems(
-        allItems,
-        redditHiddenItemHashes(sourceConfig),
-      ),
-      allItems,
-    };
-  }
-
-  async function fetchUrlRuntimeItemsForSource(sourceConfig: UrlSourceConfig) {
-    const params = new URLSearchParams({ url: sourceConfig.url });
-    if (sourceConfig.resolverHint) {
-      params.set("hint", sourceConfig.resolverHint);
-    }
-
-    const response = await fetch(`/api/url/resolve?${params}`, {
-      cache: "no-store",
-    });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error ?? "url_source_error");
-    }
-
-    const resolution = payload.resolution as UrlRuntimeResolution;
-    const nextResolverHint = payload.nextResolverHint as
-      | UrlResolverHint
-      | undefined;
-    const items =
-      resolution.status === "resolved" && "items" in resolution
-        ? flattenRuntimeMediaItems(resolution.items as RuntimeFeedItem[])
-        : [];
-    const title =
-      sourceConfig.title ??
-      ("title" in resolution ? resolution.title : undefined) ??
-      urlHostLabel(sourceConfig.url);
-
-    return {
-      title,
-      items,
-      allItems: items,
-      urlResolution: resolution,
-      sourceConfig: {
-        ...sourceConfig,
-        url: sourceConfig.url,
-        title: sourceConfig.title,
-        ...(nextResolverHint ? { resolverHint: nextResolverHint } : {}),
-      } satisfies UrlSourceConfig,
-    };
-  }
-
-  async function fetchLocalRuntimeItemsForSource(
-    sourceConfig: PersistedSourceConfig,
-  ) {
-    if (sourceConfig.kind !== "local" || !sourceConfig.cacheSetId) {
-      return { items: [], allItems: undefined, localFiles: undefined };
-    }
-
-    const result = await loadLocalFiles(sourceConfig.cacheSetId);
-    if (result.status !== "loaded") {
-      return { items: [], allItems: undefined, localFiles: undefined };
-    }
-
-    const localFiles = getUploadableFiles(result.files);
-    return {
-      items: createLocalRuntimeItems(localFiles),
-      allItems: undefined,
-      localFiles,
-    };
   }
 
   return (

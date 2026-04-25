@@ -8,25 +8,19 @@ import {
   type SerializedWorkspaceTemplate,
 } from "@/lib/viewer/workspaces";
 import type {
-  DataTransferItemWithEntry,
   FeedSession,
-  FileSystemDirectoryEntryLike,
-  FileSystemEntryLike,
-  FileSystemFileEntryLike,
   PersistedSourceConfig,
   RedditListingSort,
   RedditTimeRange,
   RuntimeWorkspace,
   SerializedWorkspace,
   WorkspaceSessionInput,
-  WorkspaceSessionStore,
   WorkspaceTab,
 } from "./types";
 import {
   DEFAULT_REDDIT_MEDIA_LIMIT,
   MAX_LAYOUT_NAME_LENGTH,
   MAX_REDDIT_MEDIA_LIMIT,
-  WORKSPACE_SESSION_STORAGE_KEY,
 } from "./types";
 
 export function nextFixedSlot(
@@ -237,63 +231,6 @@ export function normalizeSubredditName(value: string) {
   return /^[A-Za-z0-9_]{2,21}$/.test(withoutSlashes) ? withoutSlashes : null;
 }
 
-export async function fetchRedditRuntimeItems(
-  urls: string[],
-  limit = DEFAULT_REDDIT_MEDIA_LIMIT,
-) {
-  const params = new URLSearchParams({
-    allowNsfw: "true",
-    limit: String(limit),
-  });
-  for (const url of urls) {
-    params.append("urls", url);
-  }
-  const response = await fetch(`/api/reddit/listing?${params}`, {
-    cache: "no-store",
-  });
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "reddit_error");
-  }
-
-  return flattenRuntimeMediaItems(payload.items as RuntimeFeedItem[]);
-}
-
-export function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
-  return items.flatMap((item) => {
-    if (item.media.length <= 1) return [item];
-
-    return item.media.map((media, index) => ({
-      ...item,
-      id: `${item.id}:media:${index}`,
-      media: [media],
-    }));
-  });
-}
-
-export async function filterHiddenRedditItems(
-  items: RuntimeFeedItem[],
-  hiddenItemIdHashes: string[] = [],
-) {
-  if (!hiddenItemIdHashes.length) return items;
-
-  const hidden = new Set(hiddenItemIdHashes);
-  const hashPairs = await Promise.all(
-    items.map(async (item) => {
-      return {
-        item,
-        hashes:
-          item.source === "reddit" ? await redditHashesForItemId(item.id) : [],
-      };
-    }),
-  );
-
-  return hashPairs
-    .filter(({ hashes }) => hashes.every((hash) => !hidden.has(hash)))
-    .map(({ item }) => item);
-}
-
 export async function redditHashesForItemId(itemId: string) {
   const itemHashInput = redditItemHashInput(itemId);
   const parentHashInput = redditParentPostHashInput(itemId);
@@ -442,49 +379,6 @@ export function createId() {
   }
 
   return `id-${Math.random().toString(36).slice(2)}`;
-}
-
-export function parseWorkspaceSessionStore(
-  value: string | null,
-): WorkspaceSessionStore | null {
-  if (!value) return null;
-
-  try {
-    const parsed = JSON.parse(value) as WorkspaceSessionStore;
-    if (
-      !Array.isArray(parsed.openWorkspaceIds) ||
-      typeof parsed.activeWorkspaceId !== "string"
-    ) {
-      return null;
-    }
-
-    return {
-      openWorkspaceIds: parsed.openWorkspaceIds.filter(
-        (id): id is string => typeof id === "string",
-      ),
-      activeWorkspaceId: parsed.activeWorkspaceId,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function writeWorkspaceSessionStore(
-  tabs: WorkspaceTab[],
-  activeWorkspaceId: string,
-  savedWorkspaces: Record<string, SerializedWorkspace>,
-) {
-  const openWorkspaceIds = tabs
-    .map((tab) => tab.id)
-    .filter((id) => Boolean(savedWorkspaces[id]));
-  const sessionActiveId = openWorkspaceIds.includes(activeWorkspaceId)
-    ? activeWorkspaceId
-    : "";
-
-  window.sessionStorage.setItem(
-    WORKSPACE_SESSION_STORAGE_KEY,
-    JSON.stringify({ openWorkspaceIds, activeWorkspaceId: sessionActiveId }),
-  );
 }
 
 export function nextLayoutName(
@@ -698,74 +592,4 @@ export function normalizeStoredLayoutNames(
     ...workspace,
     name: `Layout ${index + startIndex}`,
   }));
-}
-
-export function getUploadableFiles(files: File[]) {
-  return files.filter(isUploadableFile);
-}
-
-export function isUploadableFile(file: File) {
-  return (
-    file.type.startsWith("image/") ||
-    file.type.startsWith("video/") ||
-    file.type.startsWith("audio/")
-  );
-}
-
-export async function filesFromDataTransfer(dataTransfer: DataTransfer) {
-  const entries: FileSystemEntryLike[] = [];
-  for (const item of Array.from(dataTransfer.items ?? [])) {
-    const entry = (item as DataTransferItemWithEntry).webkitGetAsEntry?.() as
-      | FileSystemEntryLike
-      | null
-      | undefined;
-    if (entry) entries.push(entry);
-  }
-
-  if (entries.length) {
-    return (await Promise.all(entries.map(filesFromFileSystemEntry))).flat();
-  }
-
-  return Array.from(dataTransfer.files ?? []);
-}
-
-export async function filesFromFileSystemEntry(
-  entry: FileSystemEntryLike,
-): Promise<File[]> {
-  if (entry.isFile) {
-    return [await fileFromFileSystemEntry(entry as FileSystemFileEntryLike)];
-  }
-
-  if (entry.isDirectory) {
-    const children = await entriesFromDirectoryEntry(
-      entry as FileSystemDirectoryEntryLike,
-    );
-    return (await Promise.all(children.map(filesFromFileSystemEntry))).flat();
-  }
-
-  return [];
-}
-
-export function fileFromFileSystemEntry(entry: FileSystemFileEntryLike) {
-  return new Promise<File>((resolve, reject) => {
-    entry.file(resolve, reject);
-  });
-}
-
-export async function entriesFromDirectoryEntry(
-  entry: FileSystemDirectoryEntryLike,
-) {
-  const reader = entry.createReader();
-  const entries: FileSystemEntryLike[] = [];
-
-  while (true) {
-    const batch = await new Promise<FileSystemEntryLike[]>(
-      (resolve, reject) => {
-        reader.readEntries(resolve, reject);
-      },
-    );
-
-    if (!batch.length) return entries;
-    entries.push(...batch);
-  }
 }
