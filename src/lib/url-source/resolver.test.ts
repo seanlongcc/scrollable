@@ -472,7 +472,7 @@ describe("resolveUrlSource", () => {
     );
   });
 
-  it("uses yt-dlp media for TikTok before the social embed fallback", async () => {
+  it("uses the TikTok embed before yt-dlp direct media", async () => {
     const ytDlpResolver = vi.fn(async () => [
       {
         id: "url:ytdlp:tiktok",
@@ -500,23 +500,12 @@ describe("resolveUrlSource", () => {
     expect(result.resolution).toMatchObject({
       status: "resolved",
       mode: "provider",
-      hint: "provider:yt-dlp",
-      provider: "yt-dlp",
-      title: "TikTok direct video",
-      items: [
-        {
-          media: [
-            {
-              type: "video",
-              url: "https://v16-webapp-prime.us.tiktok.com/video.mp4",
-            },
-          ],
-        },
-      ],
+      hint: "provider:tiktok",
+      provider: "tiktok",
+      title: "TikTok video",
+      iframeUrl: "https://www.tiktok.com/embed/v2/7611467568305540365",
     });
-    expect(ytDlpResolver).toHaveBeenCalledWith(
-      "https://www.tiktok.com/@gogo.cosplaylife/video/7611467568305540365?is_from_webapp=1&sender_device=pc",
-    );
+    expect(ytDlpResolver).not.toHaveBeenCalled();
   });
 
   it("uses the TikTok embed when yt-dlp exposes no direct media", async () => {

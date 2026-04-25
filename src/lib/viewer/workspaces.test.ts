@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  WORKSPACE_TEMPLATE_STORAGE_KEY,
   WORKSPACE_STORAGE_KEY,
   createEmptyWorkspace,
+  parseWorkspaceTemplateStore,
+  serializeWorkspaceTemplate,
   serializeWorkspace,
 } from "./workspaces";
 
@@ -206,5 +209,120 @@ describe("viewer workspaces", () => {
       layers: [{ id: "layer-1", name: "Layer 1" }],
       activeLayerId: "layer-1",
     });
+  });
+
+  it("serializes free layout templates as empty boxes without source metadata", () => {
+    const workspace = createEmptyWorkspace("workspace-1", "Layout 1");
+
+    const template = serializeWorkspaceTemplate({
+      ...workspace,
+      layoutMode: "free",
+      globalTimerSeconds: 17,
+      templateSlots: [
+        {
+          id: "slot-1",
+          layerId: "layer-1",
+          freeRect: { column: 5, row: 5, columnSpan: 4, rowSpan: 4 },
+        },
+      ],
+      sessions: [
+        {
+          id: "session-1",
+          title: "Runtime source",
+          layerId: "layer-1",
+          timerMode: "global",
+          timerSeconds: 10,
+          fixedSlot: 0,
+          freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+          sourceConfig: {
+            kind: "url",
+            url: "https://example.com/gallery",
+            resolverHint: "provider:gallery",
+          },
+          runtimeItems: [
+            {
+              id: "runtime-1",
+              source: "url",
+              title: "Runtime image",
+              isNsfw: false,
+              createdAt: "2026-04-25T00:00:00.000Z",
+              media: [{ type: "image", url: "https://cdn.test/image.jpg" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const encoded = JSON.stringify(template);
+
+    expect(WORKSPACE_TEMPLATE_STORAGE_KEY).toBe(
+      "scrollable.workspace-templates.v1",
+    );
+    expect(template.slots).toEqual([
+      {
+        id: "slot-1",
+        layerId: "layer-1",
+        freeRect: { column: 5, row: 5, columnSpan: 4, rowSpan: 4 },
+      },
+      {
+        id: "session-1",
+        layerId: "layer-1",
+        freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+      },
+    ]);
+    expect(template.globalTimerSeconds).toBe(17);
+    expect(encoded).not.toContain("sourceConfig");
+    expect(encoded).not.toContain("https://example.com/gallery");
+    expect(encoded).not.toContain("https://cdn.test/image.jpg");
+    expect(encoded).not.toContain("runtime-1");
+  });
+
+  it("parses template stores with valid free boxes and rejects malformed stores", () => {
+    const encoded = JSON.stringify({
+      templates: [
+        {
+          id: "template-1",
+          name: "Poster wall",
+          layers: [{ id: "layer-1", name: "Layer 1" }],
+          activeLayerId: "layer-1",
+          globalTimerSeconds: 11,
+          slots: [
+            {
+              id: "slot-1",
+              layerId: "layer-1",
+              freeRect: { column: 1, row: 2, columnSpan: 3, rowSpan: 4 },
+            },
+          ],
+          updatedAt: "2026-04-25T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(parseWorkspaceTemplateStore(encoded)).toEqual({
+      templates: [
+        {
+          id: "template-1",
+          name: "Poster wall",
+          layers: [{ id: "layer-1", name: "Layer 1" }],
+          activeLayerId: "layer-1",
+          globalTimerSeconds: 11,
+          slots: [
+            {
+              id: "slot-1",
+              layerId: "layer-1",
+              freeRect: { column: 1, row: 2, columnSpan: 3, rowSpan: 4 },
+            },
+          ],
+          updatedAt: "2026-04-25T00:00:00.000Z",
+        },
+      ],
+    });
+    expect(parseWorkspaceTemplateStore(null)).toBeNull();
+    expect(parseWorkspaceTemplateStore('{"templates":{}}')).toBeNull();
+    expect(
+      parseWorkspaceTemplateStore(
+        '{"templates":[{"id":"bad","name":"Bad","slots":[{"id":"slot","freeRect":{"column":0,"row":1,"columnSpan":1,"rowSpan":1}}]}]}',
+      ),
+    ).toBeNull();
   });
 });

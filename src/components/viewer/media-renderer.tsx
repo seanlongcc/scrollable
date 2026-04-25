@@ -1,7 +1,7 @@
 "use client";
 
 import Hls from "hls.js";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { RuntimeMedia } from "@/lib/feed/types";
 import { appendHlsSegmentQuery, chooseVideoPlayback } from "@/lib/viewer/video";
@@ -22,10 +22,14 @@ export function MediaRenderer({
   onVideoTimeChange?: (seconds: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [failedMediaKey, setFailedMediaKey] = useState<string | null>(null);
+  const mediaKey = `${media.type}:${media.url}`;
+  const hasLoadError = failedMediaKey === mediaKey;
+  const mediaHost = hostFromUrl(media.url);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || media.type !== "video") return;
+    if (!video || media.type !== "video" || hasLoadError) return;
 
     if (!shouldPlay) {
       unloadVideo(video);
@@ -78,11 +82,13 @@ export function MediaRenderer({
       hls.destroy();
       unloadVideo(video);
     };
-  }, [media, shouldPlay]);
+  }, [hasLoadError, media, shouldPlay]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || media.type !== "video" || !shouldPlay) return;
+    if (!video || media.type !== "video" || !shouldPlay || hasLoadError) {
+      return;
+    }
     const videoElement = video;
 
     function restorePosition() {
@@ -103,11 +109,17 @@ export function MediaRenderer({
       videoElement.removeEventListener("loadedmetadata", restorePosition);
       videoElement.removeEventListener("canplay", restorePosition);
     };
-  }, [initialVideoTime, media, shouldPlay]);
+  }, [hasLoadError, initialVideoTime, media, shouldPlay]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || media.type !== "video" || !onVideoTimeChange || !shouldPlay) {
+    if (
+      !video ||
+      media.type !== "video" ||
+      !onVideoTimeChange ||
+      !shouldPlay ||
+      hasLoadError
+    ) {
       return;
     }
     const videoElement = video;
@@ -129,7 +141,29 @@ export function MediaRenderer({
       videoElement.removeEventListener("pause", reportPosition);
       videoElement.removeEventListener("seeked", reportPosition);
     };
-  }, [media, onVideoTimeChange, shouldPlay]);
+  }, [hasLoadError, media, onVideoTimeChange, shouldPlay]);
+
+  function handleMediaError() {
+    setFailedMediaKey(mediaKey);
+  }
+
+  if (hasLoadError) {
+    return (
+      <div
+        role="alert"
+        className="grid size-full place-items-center bg-background p-4 text-center"
+      >
+        <div className="grid max-w-sm gap-2">
+          <h3 className="text-sm font-medium text-foreground">
+            Media failed to load
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {mediaHost} refused this media request or blocked direct playback.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (media.type === "image") {
     return (
@@ -139,6 +173,7 @@ export function MediaRenderer({
         alt={title}
         className="h-full w-full object-contain"
         draggable={false}
+        onError={handleMediaError}
       />
     );
   }
@@ -154,6 +189,7 @@ export function MediaRenderer({
           preload={shouldPlay ? "auto" : "metadata"}
           controls={showControls}
           loop
+          onError={handleMediaError}
         />
       </div>
     );
@@ -170,8 +206,17 @@ export function MediaRenderer({
       muted
       preload={shouldPlay ? "auto" : "metadata"}
       loop
+      onError={handleMediaError}
     />
   );
+}
+
+function hostFromUrl(value: string) {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return "Media host";
+  }
 }
 
 function unloadVideo(video: HTMLVideoElement) {

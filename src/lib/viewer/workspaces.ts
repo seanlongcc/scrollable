@@ -3,10 +3,17 @@ import type {
   UrlRuntimeResolution,
   UrlSourceConfig,
 } from "@/lib/url-source/types";
-import { DEFAULT_FIXED_GRID, type FixedGrid, type FreeRect } from "./layout";
+import {
+  DEFAULT_FIXED_GRID,
+  createFreeRect,
+  type FixedGrid,
+  type FreeRect,
+} from "./layout";
 import type { TimerMode } from "./timer";
 
 export const WORKSPACE_STORAGE_KEY = "scrollable.workspaces.v1";
+export const WORKSPACE_TEMPLATE_STORAGE_KEY =
+  "scrollable.workspace-templates.v1";
 export const DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS = 10;
 export const MAX_WORKSPACE_LAYERS = 3;
 
@@ -79,6 +86,26 @@ export type WorkspaceStore = {
   workspaces: SerializedWorkspace[];
 };
 
+export type WorkspaceTemplateSlot = {
+  id: string;
+  layerId?: string;
+  freeRect: FreeRect;
+};
+
+export type SerializedWorkspaceTemplate = {
+  id: string;
+  name: string;
+  layers: WorkspaceLayer[];
+  activeLayerId: string;
+  globalTimerSeconds: number;
+  slots: Array<WorkspaceTemplateSlot & { layerId: string }>;
+  updatedAt: string;
+};
+
+export type WorkspaceTemplateStore = {
+  templates: SerializedWorkspaceTemplate[];
+};
+
 export function createEmptyWorkspace(
   id: string,
   name: string,
@@ -149,6 +176,48 @@ export function serializeWorkspace(workspace: {
   };
 }
 
+export function serializeWorkspaceTemplate(workspace: {
+  id: string;
+  name: string;
+  layoutMode?: WorkspaceLayoutMode;
+  globalTimerSeconds?: number;
+  layers?: WorkspaceLayer[];
+  activeLayerId?: string;
+  templateSlots?: WorkspaceTemplateSlot[];
+  sessions?: WorkspaceSessionInput[];
+}): SerializedWorkspaceTemplate {
+  const layers = normalizeWorkspaceLayers(workspace.layers);
+  const activeLayerId = layers.some(
+    (layer) => layer.id === workspace.activeLayerId,
+  )
+    ? workspace.activeLayerId!
+    : layers[0].id;
+
+  const slots = [
+    ...(workspace.templateSlots ?? []),
+    ...(workspace.sessions ?? []).map((session) => ({
+      id: session.id,
+      layerId: session.layerId,
+      freeRect: session.freeRect,
+    })),
+  ].map((slot) => ({
+    id: slot.id,
+    layerId: slot.layerId ?? activeLayerId,
+    freeRect: createFreeRect(slot.freeRect),
+  }));
+
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    layers,
+    activeLayerId,
+    globalTimerSeconds:
+      workspace.globalTimerSeconds ?? DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
+    slots,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function normalizeWorkspaceLayers(layers?: WorkspaceLayer[]) {
   const normalized =
     layers
@@ -174,6 +243,70 @@ export function parseWorkspaceStore(
     }
 
     return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function parseWorkspaceTemplateStore(
+  value: string | null,
+): WorkspaceTemplateStore | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as WorkspaceTemplateStore;
+    if (!Array.isArray(parsed.templates)) return null;
+
+    return {
+      templates: parsed.templates.map((template) => {
+        if (
+          typeof template.id !== "string" ||
+          !template.id.trim() ||
+          typeof template.name !== "string" ||
+          !template.name.trim() ||
+          !Array.isArray(template.slots)
+        ) {
+          throw new Error("Invalid template");
+        }
+
+        const layers = normalizeWorkspaceLayers(template.layers);
+        const activeLayerId = layers.some(
+          (layer) => layer.id === template.activeLayerId,
+        )
+          ? template.activeLayerId
+          : layers[0].id;
+        const slots = template.slots.map((slot) => {
+          if (typeof slot.id !== "string" || !slot.id.trim()) {
+            throw new Error("Invalid template slot");
+          }
+
+          return {
+            id: slot.id,
+            layerId:
+              typeof slot.layerId === "string" && slot.layerId.trim()
+                ? slot.layerId
+                : activeLayerId,
+            freeRect: createFreeRect(slot.freeRect),
+          };
+        });
+
+        return {
+          id: template.id,
+          name: template.name,
+          layers,
+          activeLayerId,
+          globalTimerSeconds:
+            typeof template.globalTimerSeconds === "number"
+              ? template.globalTimerSeconds
+              : DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
+          slots,
+          updatedAt:
+            typeof template.updatedAt === "string"
+              ? template.updatedAt
+              : new Date().toISOString(),
+        };
+      }),
+    };
   } catch {
     return null;
   }

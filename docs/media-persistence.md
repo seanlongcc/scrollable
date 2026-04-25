@@ -21,9 +21,12 @@ Allowed:
 - Runtime logs/rate-limit records that do not contain third-party media payloads
 - User-selected local file byte copies in browser IndexedDB for saved local layouts
 - Layout layer metadata, including layer IDs, names, active layer, and source membership
+- Free-layout template metadata, including empty box rectangles, layer IDs, active layer, and timer settings
 - Opaque SHA-256 hashes of Reddit runtime item IDs that the user explicitly hides from a saved source
 
 Runtime URL feeds resolve source metadata on demand from user-provided links. Resolution may use the pasted URL directly as media, a known provider adapter/embed such as Reddit or YouTube, runtime-only direct gallery image extraction, a Hitomi page iframe because its CDN image URLs require a `hitomi.la` browser referrer, runtime-only `yt-dlp` extraction, runtime-only page metadata, or a static iframe fallback. Gallery image URLs, API keys, runtime request headers, and `yt-dlp` HLS segment query parameters are runtime-only and must not be saved. Local image, video, and audio uploads use browser object URLs for the current session only and are revoked on cleanup.
+
+Saved free-layout templates are source-empty. They may store reusable box geometry and layer metadata, but must not store source configs, pasted third-party URLs, local cache set IDs, runtime media URLs, thumbnails, provider payloads, local object URLs, or normalized runtime items.
 
 Do not store local upload object URLs or absolute filesystem paths. Browser file paths are not reusable access grants. Saved local layouts may store copied user-selected file bytes as Blob data in browser IndexedDB, plus a metadata-only `cacheSetId` in saved layouts. On refresh, the app rebuilds fresh object URLs from that browser cache. If cached bytes are missing, ask the user to re-upload.
 

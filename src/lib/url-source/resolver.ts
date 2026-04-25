@@ -291,6 +291,8 @@ async function resolveProvider(
     };
   }
 
+  if (isTikTokUrl(source.url)) return resolveTikTokEmbedProvider(source);
+
   const ytDlp = await resolveYtDlpProvider(source, options);
   if (ytDlp) return ytDlp;
 
@@ -386,6 +388,23 @@ async function resolveYtDlpProvider(
   return null;
 }
 
+function resolveTikTokEmbedProvider(
+  source: UrlSourceConfig,
+): UrlResolvedRuntimeResolution | null {
+  const tiktok = tiktokEmbedUrl(source.url);
+  if (!tiktok) return null;
+
+  return {
+    status: "resolved",
+    mode: "provider",
+    hint: "provider:tiktok",
+    provider: "tiktok",
+    title: source.title ?? "TikTok video",
+    externalUrl: source.url,
+    iframeUrl: tiktok,
+  };
+}
+
 function resolveBrowserRequiredSocialEmbed(
   source: UrlSourceConfig,
 ): UrlResolvedRuntimeResolution | null {
@@ -402,18 +421,8 @@ function resolveBrowserRequiredSocialEmbed(
     };
   }
 
-  const tiktok = tiktokEmbedUrl(source.url);
-  if (tiktok) {
-    return {
-      status: "resolved",
-      mode: "provider",
-      hint: "provider:tiktok",
-      provider: "tiktok",
-      title: source.title ?? "TikTok video",
-      externalUrl: source.url,
-      iframeUrl: tiktok,
-    };
-  }
+  const tiktok = resolveTikTokEmbedProvider(source);
+  if (tiktok) return tiktok;
 
   return null;
 }
@@ -592,6 +601,11 @@ function isSocialProviderUrl(value: string) {
     host === "twitter.com" ||
     host.endsWith(".twitter.com")
   );
+}
+
+function isTikTokUrl(value: string) {
+  const host = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+  return host === "tiktok.com" || host.endsWith(".tiktok.com");
 }
 
 function isYoutubeUrl(value: string) {

@@ -32,6 +32,7 @@ Current package/runtime defaults:
 - Prettier 3.x is configured. Use `npm run format` to write formatting and `npm run format:check` for verification.
 - Browser tests require Linux browser dependencies in WSL; if Chromium cannot launch, report the missing shared library and do not claim browser verification passed.
 - Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
+- Saved free-layout templates use `viewer_templates` in Supabase and `scrollable.workspace-templates.v1` in localStorage.
 
 ## Product Intent
 
@@ -81,6 +82,7 @@ Acceptable stored data:
 - `display_options` may store display/config preferences only, not third-party media metadata.
 - `viewer_sessions.sessions` must remain metadata-only and must not contain raw Reddit item/post IDs, media URLs, thumbnails, listing payloads, normalized runtime items, or local upload object URLs. Opaque `sha256:` Reddit hidden-item hashes are allowed.
 - Layout layers may store layer IDs, layer names, active layer IDs, and per-source layer membership only.
+- Free-layout templates may store empty box rectangles, layer IDs, active layer IDs, and timer settings only. They must not store source configs, pasted third-party URLs, local cache set IDs, runtime media URLs, thumbnails, provider payloads, local object URLs, or normalized runtime items.
 - URL resolver hints may include `provider:gallery`, `provider:hitomi`, and `provider:yt-dlp`, but extracted gallery image URLs, stream URLs, HLS segment query parameters, thumbnails, cookies, headers, API keys, raw gallery HTML/JSON, and raw `yt-dlp` output remain runtime-only.
 
 ## Architecture Direction
@@ -91,6 +93,7 @@ Prefer these boundaries when implementation starts:
 - `normalization`: convert source responses into runtime feed items.
 - `viewer`: vertical reels feed, timer, keyboard/touch navigation, and horizontal media carousel.
 - `viewer/workspaces`: local/Supabase workspace tab, layout layer, and layout serialization. Keep this metadata-only.
+- `viewer/templates`: reusable free-layout empty box templates. Keep templates source-empty and metadata-only.
 - `local-uploads`: object URL lifecycle and browser IndexedDB Blob cache for user-selected local files. Do not store local paths.
 - `configurations`: saved feed configs and validation.
 - `collections`: grouping, sharing, tags, NSFW flags, and browse views.

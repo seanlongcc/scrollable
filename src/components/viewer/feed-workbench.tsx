@@ -65,6 +65,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { FeedViewPane } from "@/components/viewer/feed-view-pane";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -96,16 +97,21 @@ import {
   validateFreeRects,
 } from "@/lib/viewer/layout";
 import {
+  WORKSPACE_TEMPLATE_STORAGE_KEY,
   WORKSPACE_STORAGE_KEY,
   type PersistedSourceConfig,
   type SerializedWorkspace,
+  type SerializedWorkspaceTemplate,
   type WorkspaceLayer,
   type WorkspaceSessionInput,
+  type WorkspaceTemplateSlot,
   createEmptyWorkspace,
   DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
   MAX_WORKSPACE_LAYERS,
   parseWorkspaceStore,
+  parseWorkspaceTemplateStore,
   normalizeWorkspaceLayers,
+  serializeWorkspaceTemplate,
   serializeWorkspace,
 } from "@/lib/viewer/workspaces";
 import {
@@ -138,6 +144,7 @@ type FeedSession = {
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
   isRuntimeLoading?: boolean;
+  templateSlotId?: string;
   sourceConfig: PersistedSourceConfig;
 };
 
@@ -148,6 +155,7 @@ type WorkspaceTab = {
 
 type RuntimeWorkspace = Omit<SerializedWorkspace, "sessions"> & {
   sessions: WorkspaceSessionInput[];
+  templateSlots: WorkspaceTemplateSlot[];
 };
 
 type AccountState =
@@ -155,6 +163,8 @@ type AccountState =
   | { status: "signed-in"; email: string };
 
 type SourceGroupingMode = "stacked" | "separate";
+type SaveKind = "layout" | "template";
+type LibraryKind = "layouts" | "templates";
 type RedditInputMode = "subreddit" | "links";
 type RedditListingSort = "hot" | "new" | "rising" | "top" | "controversial";
 type RedditTimeRange = "day" | "week" | "month" | "year" | "all";
@@ -182,6 +192,7 @@ const REDDIT_TIME_OPTIONS: Array<{ value: RedditTimeRange; label: string }> = [
 
 type FreeDragState = {
   id: string;
+  targetType: "session" | "template-slot";
   mode: "move" | "resize";
   startX: number;
   startY: number;
@@ -246,6 +257,9 @@ export function FeedWorkbench({
   const [savedWorkspaces, setSavedWorkspaces] = useState<
     Record<string, SerializedWorkspace>
   >({});
+  const [savedTemplates, setSavedTemplates] = useState<
+    Record<string, SerializedWorkspaceTemplate>
+  >({});
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(
     initialWorkspace.id,
   );
@@ -277,6 +291,9 @@ export function FeedWorkbench({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
   const [pendingFixedSlot, setPendingFixedSlot] = useState<number | null>(null);
+  const [pendingTemplateSlotId, setPendingTemplateSlotId] = useState<
+    string | null
+  >(null);
   const [isSourceOpen, setIsSourceOpen] = useState(false);
   const [isLayoutsOpen, setIsLayoutsOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
@@ -287,18 +304,23 @@ export function FeedWorkbench({
   const [isClearOpen, setIsClearOpen] = useState(false);
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [saveName, setSaveName] = useState(initialWorkspace.name);
+  const [saveKind, setSaveKind] = useState<SaveKind>("layout");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(
     null,
   );
   const [editingWorkspaceName, setEditingWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
   const [isUiHidden, setIsUiHidden] = useState(false);
   const [isUiRevealVisible, setIsUiRevealVisible] = useState(true);
   const [showAllInfo, setShowAllInfo] = useState(false);
   const [sourceGroupingMode, setSourceGroupingMode] =
     useState<SourceGroupingMode>("stacked");
   const [freeDrag, setFreeDrag] = useState<FreeDragState | null>(null);
+  const [templateSlots, setTemplateSlots] = useState<WorkspaceTemplateSlot[]>(
+    [],
+  );
   const [canCacheLocalFiles, setCanCacheLocalFiles] = useState(() =>
     isLocalFileCacheSupported(),
   );
@@ -313,6 +335,21 @@ export function FeedWorkbench({
     () => sessions.filter((session) => session.layerId === activeLayerId),
     [activeLayerId, sessions],
   );
+  const activeLayerTemplateSlots = useMemo(
+    () =>
+      templateSlots.filter(
+        (slot) => (slot.layerId ?? activeLayerId) === activeLayerId,
+      ),
+    [activeLayerId, templateSlots],
+  );
+  const activeLayerFreeRects = useMemo(
+    () => [
+      ...activeLayerSessions.map((session) => session.freeRect),
+      ...activeLayerTemplateSlots.map((slot) => slot.freeRect),
+    ],
+    [activeLayerSessions, activeLayerTemplateSlots],
+  );
+  const layoutModeLocked = sessions.length > 0 || templateSlots.length > 0;
   const selected = useMemo(
     () =>
       activeLayerSessions.find((session) => session.id === selectedId) ??
@@ -349,10 +386,14 @@ export function FeedWorkbench({
     () =>
       layoutMode === "fixed"
         ? visibleEmptySlots.length
-        : countAvailableFreeUnitRects(
-            activeLayerSessions.map((session) => session.freeRect),
-          ),
-    [activeLayerSessions, layoutMode, visibleEmptySlots],
+        : countAvailableFreeUnitRects(activeLayerFreeRects) +
+          (pendingTemplateSlotId ? 1 : 0),
+    [
+      activeLayerFreeRects,
+      layoutMode,
+      pendingTemplateSlotId,
+      visibleEmptySlots,
+    ],
   );
   const layerStats = useMemo(
     () =>
@@ -376,11 +417,19 @@ export function FeedWorkbench({
     account.status === "signed-in" ? "Account" : "Sign in";
   const accountButtonTitle =
     account.status === "signed-in" ? account.email : accountButtonLabel;
+  const isClearDisabled =
+    hasHydrated && sessions.length === 0 && templateSlots.length === 0;
   const rememberVideoPosition = useCallback((key: string, seconds: number) => {
     setVideoPositions((current) => {
       if (current[key] === seconds) return current;
       return { ...current, [key]: seconds };
     });
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setHasHydrated(true));
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -429,6 +478,16 @@ export function FeedWorkbench({
       const stored = parseWorkspaceStore(
         window.localStorage.getItem(WORKSPACE_STORAGE_KEY),
       );
+      const templateStore = parseWorkspaceTemplateStore(
+        window.localStorage.getItem(WORKSPACE_TEMPLATE_STORAGE_KEY),
+      );
+      const nextTemplates = Object.fromEntries(
+        (templateStore?.templates ?? []).map((template) => [
+          template.id,
+          template,
+        ]),
+      );
+      setSavedTemplates(nextTemplates);
       if (!stored?.workspaces.length) return;
 
       const normalizedWorkspaces = normalizeStoredLayoutNames(
@@ -548,7 +607,11 @@ export function FeedWorkbench({
     }
 
     function onPointerUp() {
-      updateFreeRect(drag.id, drag.currentRect);
+      if (drag.targetType === "template-slot") {
+        updateTemplateSlotRect(drag.id, drag.currentRect);
+      } else {
+        updateFreeRect(drag.id, drag.currentRect);
+      }
       setFreeDrag(null);
     }
 
@@ -559,6 +622,10 @@ export function FeedWorkbench({
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
+    // Free drag installs pointer listeners only while a drag is active.
+    // `updateFreeRect` is a hoisted component helper and intentionally omitted
+    // so pointer listeners do not churn during every drag render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeDrag]);
 
   useEffect(() => {
@@ -953,17 +1020,30 @@ export function FeedWorkbench({
   ) {
     setSessions((current) => {
       const next = [...current];
-      const freeRects = findBestAvailableFreeRects(
-        next
+      const pendingTemplateSlot = pendingTemplateSlotId
+        ? templateSlots.find((slot) => slot.id === pendingTemplateSlotId)
+        : null;
+      const occupiedRects = [
+        ...next
           .filter((session) => session.layerId === activeLayerId)
           .map((session) => session.freeRect),
-        sources.length,
-      );
+        ...templateSlots
+          .filter(
+            (slot) =>
+              (slot.layerId ?? activeLayerId) === activeLayerId &&
+              slot.id !== pendingTemplateSlot?.id,
+          )
+          .map((slot) => slot.freeRect),
+      ];
       let preferredSlot = pendingFixedSlot;
       let selectedSessionId: string | null = null;
+      let consumedTemplateSlotId: string | null = null;
 
       for (const [index, source] of sources.entries()) {
-        const freeRect = freeRects[index];
+        const freeRect =
+          index === 0 && pendingTemplateSlot
+            ? pendingTemplateSlot.freeRect
+            : findBestAvailableFreeRects(occupiedRects, 1)[0];
 
         if (!freeRect) {
           toast.error("No space left in free layout");
@@ -992,21 +1072,39 @@ export function FeedWorkbench({
           allItems: source.allItems,
           urlResolution: source.urlResolution,
           localFiles: source.localFiles,
+          templateSlotId:
+            index === 0 && pendingTemplateSlot
+              ? pendingTemplateSlot.id
+              : undefined,
           sourceConfig: source.sourceConfig,
         });
+        occupiedRects.push(freeRect);
+        if (index === 0 && pendingTemplateSlot) {
+          consumedTemplateSlotId = pendingTemplateSlot.id;
+        }
       }
 
       if (selectedSessionId) {
         setSelectedId(selectedSessionId);
         setPendingFixedSlot(null);
+        setPendingTemplateSlotId(null);
+        if (consumedTemplateSlotId) {
+          setTemplateSlots((currentSlots) =>
+            currentSlots.filter((slot) => slot.id !== consumedTemplateSlotId),
+          );
+        }
       }
 
       return next.sort((first, second) => first.fixedSlot - second.fixedSlot);
     });
   }
 
-  function openSourcePanel(fixedSlot: number | null = null) {
+  function openSourcePanel(
+    fixedSlot: number | null = null,
+    templateSlotId: string | null = null,
+  ) {
     setPendingFixedSlot(fixedSlot);
+    setPendingTemplateSlotId(templateSlotId);
     resetSourceInputs();
     setIsSourceOpen(true);
   }
@@ -1037,6 +1135,15 @@ export function FeedWorkbench({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Invalid grid");
     }
+  }
+
+  function changeLayoutMode(nextMode: LayoutMode) {
+    if (layoutModeLocked && nextMode !== layoutMode) {
+      toast.error("Clear sources and template boxes before switching layouts");
+      return;
+    }
+
+    setLayoutMode(nextMode);
   }
 
   function updateSession(
@@ -1193,6 +1300,22 @@ export function FeedWorkbench({
   function removeSession(id: string) {
     const removed = sessions.find((session) => session.id === id);
     setSessions((current) => current.filter((session) => session.id !== id));
+    if (removed?.templateSlotId && layoutMode === "free") {
+      setTemplateSlots((current) => {
+        if (current.some((slot) => slot.id === removed.templateSlotId)) {
+          return current;
+        }
+
+        return [
+          ...current,
+          {
+            id: removed.templateSlotId!,
+            layerId: removed.layerId,
+            freeRect: removed.freeRect,
+          },
+        ];
+      });
+    }
     setGalleryIndexes((current) => {
       const next = { ...current };
       removed?.items.forEach((item) => delete next[item.id]);
@@ -1225,6 +1348,11 @@ export function FeedWorkbench({
                 candidate.id !== id && candidate.layerId === session.layerId,
             )
             .map((candidate) => candidate.freeRect),
+          ...templateSlots
+            .filter(
+              (slot) => (slot.layerId ?? session.layerId) === session.layerId,
+            )
+            .map((slot) => slot.freeRect),
           rect,
         ]);
 
@@ -1242,26 +1370,78 @@ export function FeedWorkbench({
     });
   }
 
+  function updateTemplateSlotRect(
+    id: string,
+    nextRect: Partial<FreeRect>,
+    showError = true,
+  ) {
+    setTemplateSlots((current) => {
+      const slot = current.find((candidate) => candidate.id === id);
+      if (!slot) return current;
+
+      const layerId = slot.layerId ?? activeLayerId;
+
+      try {
+        const rect = createFreeRect({ ...slot.freeRect, ...nextRect });
+        validateFreeRects([
+          ...sessions
+            .filter((session) => session.layerId === layerId)
+            .map((session) => session.freeRect),
+          ...current
+            .filter(
+              (candidate) =>
+                candidate.id !== id &&
+                (candidate.layerId ?? layerId) === layerId,
+            )
+            .map((candidate) => candidate.freeRect),
+          rect,
+        ]);
+
+        return current.map((candidate) =>
+          candidate.id === id
+            ? { ...candidate, layerId, freeRect: rect }
+            : candidate,
+        );
+      } catch (error) {
+        if (showError) {
+          toast.error(
+            error instanceof Error ? error.message : "Invalid free layout",
+          );
+        }
+        return current;
+      }
+    });
+  }
+
+  function removeTemplateSlot(id: string) {
+    setTemplateSlots((current) =>
+      current.filter((candidate) => candidate.id !== id),
+    );
+    if (pendingTemplateSlotId === id) setPendingTemplateSlotId(null);
+  }
+
   function beginFreeDrag(
     event: ReactPointerEvent<HTMLButtonElement>,
-    session: FeedSession,
+    target: { id: string; freeRect: FreeRect },
     mode: "move" | "resize",
+    targetType: FreeDragState["targetType"] = "session",
   ) {
     const bounds = freeGridRef.current?.getBoundingClientRect();
     if (!bounds) return;
 
     event.preventDefault();
     event.stopPropagation();
-    setSelectedId(session.id);
+    setSelectedId(targetType === "session" ? target.id : null);
     setFreeDrag({
-      id: session.id,
+      id: target.id,
+      targetType,
       mode,
       startX: event.clientX,
       startY: event.clientY,
       cellWidth: bounds.width / FREE_LAYOUT_SIZE,
       cellHeight: bounds.height / FREE_LAYOUT_SIZE,
-      startRect: session.freeRect,
-      currentRect: session.freeRect,
+      startRect: target.freeRect,
+      currentRect: target.freeRect,
     });
   }
 
@@ -1391,6 +1571,7 @@ export function FeedWorkbench({
                   sourceSession.items.length
                 : 0,
           },
+          templateSlotId: undefined,
         };
       });
 
@@ -1410,6 +1591,7 @@ export function FeedWorkbench({
     setSelectedId(null);
     setMaximizedId(null);
     setPendingFixedSlot(null);
+    setPendingTemplateSlotId(null);
   }
 
   function selectLayer(id: string) {
@@ -1418,6 +1600,7 @@ export function FeedWorkbench({
     setSelectedId(nextSelected?.id ?? null);
     setMaximizedId(null);
     setPendingFixedSlot(null);
+    setPendingTemplateSlotId(null);
   }
 
   function deleteActiveLayer() {
@@ -1433,6 +1616,11 @@ export function FeedWorkbench({
     setLayers(nextLayers);
     setSessions((current) =>
       current.filter((session) => session.layerId !== activeLayerId),
+    );
+    setTemplateSlots((current) =>
+      current.filter(
+        (slot) => (slot.layerId ?? activeLayerId) !== activeLayerId,
+      ),
     );
     setGalleryIndexes((current) => {
       const removedItemIds = new Set(
@@ -1464,15 +1652,18 @@ export function FeedWorkbench({
     );
     setMaximizedId(null);
     setPendingFixedSlot(null);
+    setPendingTemplateSlotId(null);
   }
 
   function clearCurrentLayout() {
     setSessions([]);
+    setTemplateSlots([]);
     setGalleryIndexes({});
     setVideoPositions({});
     setSelectedId(null);
     setMaximizedId(null);
     setPendingFixedSlot(null);
+    setPendingTemplateSlotId(null);
     setIsClearOpen(false);
   }
 
@@ -1497,6 +1688,7 @@ export function FeedWorkbench({
 
   function openSaveDialog() {
     setSaveName(limitLayoutName(workspaceName));
+    setSaveKind("layout");
     setSaveError(null);
     setIsSaveOpen(true);
   }
@@ -1574,6 +1766,73 @@ export function FeedWorkbench({
     setIsSaveOpen(false);
   }
 
+  async function saveTemplateAs() {
+    const nextName = saveName.trim();
+
+    if (layoutMode !== "free") {
+      setSaveError("Templates are only available for free layouts");
+      return;
+    }
+
+    if (!nextName) {
+      setSaveError("Template name is required");
+      return;
+    }
+
+    if (nextName.length > MAX_LAYOUT_NAME_LENGTH) {
+      setSaveError(
+        `Template name must be ${MAX_LAYOUT_NAME_LENGTH} characters or fewer`,
+      );
+      return;
+    }
+
+    if (hasDuplicateTemplateName(nextName, activeWorkspaceId, savedTemplates)) {
+      setSaveError("Template names must be unique");
+      return;
+    }
+
+    const { store } = persistCurrentTemplate(nextName);
+    let syncedToAccount = false;
+
+    if (getSupabaseEnv()) {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const { error } = await supabase.from("viewer_templates").upsert(
+            store.templates.map((template) => ({
+              id: template.id,
+              owner_id: user.id,
+              name: template.name,
+              layers: template.layers as unknown as Json,
+              active_layer_id: template.activeLayerId,
+              global_timer_seconds: template.globalTimerSeconds,
+              slots: template.slots as unknown as Json,
+              updated_at: new Date().toISOString(),
+            })),
+          );
+
+          if (error) throw error;
+          syncedToAccount = true;
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Template sync failed",
+        );
+      }
+    }
+
+    toast.success(
+      syncedToAccount
+        ? "Template saved locally and to account"
+        : "Template saved locally",
+    );
+    setIsSaveOpen(false);
+  }
+
   function persistCurrentWorkspace(
     nameOverride = workspaceName,
     tabsOverride = workspaceTabs,
@@ -1586,6 +1845,19 @@ export function FeedWorkbench({
     setWorkspaceTabs(tabsOverride);
     setWorkspaceStates(nextStates);
     writeWorkspaceSessionStore(tabsOverride, current.id, nextSaved);
+    return { snapshot, store };
+  }
+
+  function persistCurrentTemplate(nameOverride = workspaceName) {
+    const current = currentWorkspaceState(nameOverride);
+    const snapshot = serializeWorkspaceTemplate({
+      ...current,
+      templateSlots,
+    });
+    const nextStates = { ...workspaceStates, [current.id]: current };
+    const nextTemplates = { ...savedTemplates, [snapshot.id]: snapshot };
+    const store = writeWorkspaceTemplateStore(nextTemplates);
+    setWorkspaceStates(nextStates);
     return { snapshot, store };
   }
 
@@ -1616,6 +1888,7 @@ export function FeedWorkbench({
         urlResolution: session.urlResolution,
         localFiles: session.localFiles,
       })),
+      templateSlots,
     };
   }
 
@@ -1630,6 +1903,21 @@ export function FeedWorkbench({
 
     setSavedWorkspaces(workspaces);
     window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(store));
+    return store;
+  }
+
+  function writeWorkspaceTemplateStore(
+    templates: Record<string, SerializedWorkspaceTemplate>,
+  ) {
+    const store = {
+      templates: Object.values(templates),
+    };
+
+    setSavedTemplates(templates);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify(store),
+    );
     return store;
   }
 
@@ -1817,6 +2105,45 @@ export function FeedWorkbench({
     setIsLayoutsOpen(false);
   }
 
+  function openSavedTemplates(ids: string[]) {
+    const templates = ids
+      .map((id) => savedTemplates[id])
+      .filter((template): template is SerializedWorkspaceTemplate =>
+        Boolean(template),
+      );
+    if (!templates.length) return;
+
+    const current = currentWorkspaceState();
+    const currentAwareStates = { ...workspaceStates, [current.id]: current };
+    const nextTabs = [...workspaceTabs];
+    const nextStates = { ...currentAwareStates };
+    let activeId = activeWorkspaceId;
+
+    for (const template of templates) {
+      const nextId = createId();
+      const name = uniqueWorkspaceName(
+        template.name,
+        nextTabs,
+        savedWorkspaces,
+      );
+      const workspace = workspaceFromTemplate(template, nextId, name);
+
+      nextTabs.push({ id: nextId, name });
+      nextStates[nextId] = workspace;
+      activeId = nextId;
+    }
+
+    const activeSnapshot = nextStates[activeId];
+
+    setWorkspaceTabs(nextTabs);
+    setWorkspaceStates(nextStates);
+    setActiveWorkspaceId(activeId);
+    applyWorkspaceSnapshot(activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, activeId);
+    writeWorkspaceSessionStore(nextTabs, activeId, savedWorkspaces);
+    setIsLayoutsOpen(false);
+  }
+
   function deleteSavedWorkspace(id: string) {
     const nextSaved = { ...savedWorkspaces };
     const deleted = nextSaved[id];
@@ -1824,6 +2151,15 @@ export function FeedWorkbench({
 
     writeWorkspaceStore(nextSaved, activeWorkspaceId);
     writeWorkspaceSessionStore(workspaceTabs, activeWorkspaceId, nextSaved);
+    if (deleted) toast.success(`Deleted ${deleted.name}`);
+  }
+
+  function deleteSavedTemplate(id: string) {
+    const nextTemplates = { ...savedTemplates };
+    const deleted = nextTemplates[id];
+    delete nextTemplates[id];
+
+    writeWorkspaceTemplateStore(nextTemplates);
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
 
@@ -1842,6 +2178,7 @@ export function FeedWorkbench({
     setLayoutMode(snapshot.layoutMode);
     setFixedGrid(snapshot.fixedGrid);
     setGlobalSeconds(resolveWorkspaceGlobalSeconds(snapshot));
+    setTemplateSlots("templateSlots" in snapshot ? snapshot.templateSlots : []);
     const nextSessions = snapshot.sessions.map((session) => {
       const items =
         "runtimeItems" in session ? (session.runtimeItems ?? []) : [];
@@ -1891,6 +2228,7 @@ export function FeedWorkbench({
       )?.id ?? null,
     );
     setMaximizedId(null);
+    setPendingTemplateSlotId(null);
     void hydrateRuntimeItems(nextSessions);
   }
 
@@ -2125,8 +2463,9 @@ export function FeedWorkbench({
                 type="button"
                 size="icon"
                 variant={layoutMode === "fixed" ? "default" : "outline"}
-                onClick={() => setLayoutMode("fixed")}
+                onClick={() => changeLayoutMode("fixed")}
                 aria-label="Fixed layout mode"
+                disabled={layoutModeLocked}
               >
                 <Grid2X2 />
               </Button>
@@ -2134,8 +2473,9 @@ export function FeedWorkbench({
                 type="button"
                 size="icon"
                 variant={layoutMode === "free" ? "default" : "outline"}
-                onClick={() => setLayoutMode("free")}
+                onClick={() => changeLayoutMode("free")}
                 aria-label="Free layout mode"
+                disabled={layoutModeLocked}
               >
                 <LayoutGrid />
               </Button>
@@ -2272,7 +2612,7 @@ export function FeedWorkbench({
                 variant="outline"
                 onClick={() => setIsClearOpen(true)}
                 aria-label="Clear layout"
-                disabled={!sessions.length}
+                disabled={isClearDisabled}
               >
                 <Trash2 />
               </Button>
@@ -2356,7 +2696,13 @@ export function FeedWorkbench({
 
       <SourceDialog
         open={isSourceOpen}
-        onOpenChange={setIsSourceOpen}
+        onOpenChange={(open) => {
+          setIsSourceOpen(open);
+          if (!open) {
+            setPendingFixedSlot(null);
+            setPendingTemplateSlotId(null);
+          }
+        }}
         urlValue={urlValue}
         urlTitle={urlTitle}
         redditUrls={redditUrls}
@@ -2386,19 +2732,29 @@ export function FeedWorkbench({
         open={isLayoutsOpen}
         onOpenChange={setIsLayoutsOpen}
         workspaces={Object.values(savedWorkspaces)}
+        templates={Object.values(savedTemplates)}
         onOpenWorkspaces={openSavedWorkspaces}
+        onOpenTemplates={openSavedTemplates}
         onDeleteWorkspace={deleteSavedWorkspace}
+        onDeleteTemplate={deleteSavedTemplate}
       />
       <SaveLayoutDialog
         open={isSaveOpen}
         onOpenChange={setIsSaveOpen}
         name={saveName}
+        layoutMode={layoutMode}
+        saveKind={saveKind}
         error={saveError}
         onNameChange={(value) => {
           setSaveName(value);
           setSaveError(null);
         }}
-        onSave={saveLayoutAs}
+        onSaveKindChange={(value) => {
+          setSaveKind(value);
+          setSaveError(null);
+        }}
+        onSaveLayout={saveLayoutAs}
+        onSaveTemplate={saveTemplateAs}
       />
       <ClearLayoutDialog
         open={isClearOpen}
@@ -2683,6 +3039,9 @@ export function FeedWorkbench({
                         sessions={sessions.filter(
                           (session) => session.layerId === layer.id,
                         )}
+                        templateSlots={templateSlots.filter(
+                          (slot) => (slot.layerId ?? layer.id) === layer.id,
+                        )}
                         galleryIndexes={galleryIndexes}
                         videoPositions={videoPositions}
                         selectedId={isActiveLayer ? selectedId : null}
@@ -2694,6 +3053,8 @@ export function FeedWorkbench({
                         setMaximizedId={setMaximizedId}
                         updateSession={updateSession}
                         removeSession={removeSession}
+                        removeTemplateSlot={removeTemplateSlot}
+                        openSourcePanel={openSourcePanel}
                         changeGallery={changeGallery}
                         onVideoPositionChange={rememberVideoPosition}
                         setViewTimerMode={setViewTimerMode}
@@ -2729,25 +3090,45 @@ function LayoutDialog({
   open,
   onOpenChange,
   workspaces,
+  templates,
   onOpenWorkspaces,
+  onOpenTemplates,
   onDeleteWorkspace,
+  onDeleteTemplate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaces: SerializedWorkspace[];
+  templates: SerializedWorkspaceTemplate[];
   onOpenWorkspaces: (ids: string[]) => void;
+  onOpenTemplates: (ids: string[]) => void;
   onDeleteWorkspace: (id: string) => void;
+  onDeleteTemplate: (id: string) => void;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+  const [libraryKind, setLibraryKind] = useState<LibraryKind>("layouts");
   const sortedWorkspaces = [...workspaces].sort((first, second) =>
+    second.updatedAt.localeCompare(first.updatedAt),
+  );
+  const sortedTemplates = [...templates].sort((first, second) =>
     second.updatedAt.localeCompare(first.updatedAt),
   );
   const visibleIds = new Set(workspaces.map((workspace) => workspace.id));
   const visibleSelectedIds = selectedIds.filter((id) => visibleIds.has(id));
   const selectedCount = visibleSelectedIds.length;
+  const visibleTemplateIds = new Set(templates.map((template) => template.id));
+  const visibleSelectedTemplateIds = selectedTemplateIds.filter((id) =>
+    visibleTemplateIds.has(id),
+  );
+  const selectedTemplateCount = visibleSelectedTemplateIds.length;
 
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) setSelectedIds([]);
+    if (!nextOpen) {
+      setSelectedIds([]);
+      setSelectedTemplateIds([]);
+      setLibraryKind("layouts");
+    }
     onOpenChange(nextOpen);
   }
 
@@ -2766,82 +3147,188 @@ function LayoutDialog({
     onOpenWorkspaces(selected);
   }
 
+  function toggleTemplateSelection(id: string, checked: boolean) {
+    setSelectedTemplateIds((current) => {
+      if (checked) return current.includes(id) ? current : [...current, id];
+      return current.filter((currentId) => currentId !== id);
+    });
+  }
+
+  function openSelectedTemplates() {
+    const selected = sortedTemplates
+      .filter((template) => visibleSelectedTemplateIds.includes(template.id))
+      .map((template) => template.id);
+
+    onOpenTemplates(selected);
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[85dvh] w-[min(94vw,34rem)] gap-3 overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader className="pr-8">
           <DialogTitle>Saved layouts</DialogTitle>
           <DialogDescription className="sr-only">
-            Browse saved metadata-only layouts.
+            Browse saved metadata-only layouts and templates.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-1.5">
-          {sortedWorkspaces.length ? (
-            sortedWorkspaces.map((workspace) => {
-              const layerSummaries = workspaceLayerSummaries(workspace);
-              const sourceCount = workspace.sessions.length;
-              const fileCount = workspaceFileCount(workspace);
+        <Tabs
+          value={libraryKind}
+          onValueChange={(value) => setLibraryKind(value as LibraryKind)}
+          className="gap-3"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="layouts">Layouts</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+          </TabsList>
+          <TabsContent value="layouts" className="grid gap-3">
+            <div
+              role="group"
+              aria-label="Saved layouts list"
+              className="grid h-[min(23.25rem,52dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1"
+            >
+              {sortedWorkspaces.length ? (
+                sortedWorkspaces.map((workspace) => {
+                  const layerSummaries = workspaceLayerSummaries(workspace);
+                  const sourceCount = workspace.sessions.length;
+                  const fileCount = workspaceFileCount(workspace);
 
-              return (
-                <label
-                  key={workspace.id}
-                  className="grid min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-md border border-border bg-surface px-2.5 py-2 transition-colors hover:bg-muted/45"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(workspace.id)}
-                    onChange={(event) =>
-                      toggleSelection(workspace.id, event.target.checked)
-                    }
-                    aria-label={`Select ${workspace.name}`}
-                    className="mt-0.5 size-4 accent-primary"
-                  />
-                  <div className="min-w-0 leading-tight">
-                    <div
-                      className="truncate font-medium"
-                      title={workspace.name}
+                  return (
+                    <label
+                      key={workspace.id}
+                      className="grid h-12 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2 transition-colors hover:bg-muted/45"
                     >
-                      {workspace.name}
-                    </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {workspace.layoutMode} · {layerSummaries.length} layer
-                      {layerSummaries.length === 1 ? "" : "s"} · {sourceCount}{" "}
-                      source{sourceCount === 1 ? "" : "s"} · {fileCount} file
-                      {fileCount === 1 ? "" : "s"}
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="destructive"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      onDeleteWorkspace(workspace.id);
-                    }}
-                    aria-label={`Delete ${workspace.name}`}
-                  >
-                    <Trash2 />
-                  </Button>
-                </label>
-              );
-            })
-          ) : (
-            <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-              No saved layouts yet. Use Save layout first.
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(workspace.id)}
+                        onChange={(event) =>
+                          toggleSelection(workspace.id, event.target.checked)
+                        }
+                        aria-label={`Select ${workspace.name}`}
+                        className="mt-0.5 size-4 accent-primary"
+                      />
+                      <div className="min-w-0 leading-tight">
+                        <div
+                          className="truncate font-medium"
+                          title={workspace.name}
+                        >
+                          {workspace.name}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {workspace.layoutMode} · {layerSummaries.length} layer
+                          {layerSummaries.length === 1 ? "" : "s"} ·{" "}
+                          {sourceCount} source{sourceCount === 1 ? "" : "s"} ·{" "}
+                          {fileCount} file{fileCount === 1 ? "" : "s"}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="destructive"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onDeleteWorkspace(workspace.id);
+                        }}
+                        aria-label={`Delete ${workspace.name}`}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </label>
+                  );
+                })
+              ) : (
+                <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  No saved layouts yet. Use Save layout first.
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        {sortedWorkspaces.length ? (
-          <Button
-            type="button"
-            onClick={openSelectedLayouts}
-            disabled={selectedCount === 0}
-            className="w-full"
-          >
-            <FolderOpen />
-            Open selected layouts
-          </Button>
-        ) : null}
+            {sortedWorkspaces.length ? (
+              <Button
+                type="button"
+                onClick={openSelectedLayouts}
+                disabled={selectedCount === 0}
+                className="w-full"
+              >
+                <FolderOpen />
+                Open selected layouts
+              </Button>
+            ) : null}
+          </TabsContent>
+          <TabsContent value="templates" className="grid gap-3">
+            <div
+              role="group"
+              aria-label="Saved templates list"
+              className="grid h-[min(23.25rem,52dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1"
+            >
+              {sortedTemplates.length ? (
+                sortedTemplates.map((template) => {
+                  const layerCount = template.layers.length;
+                  const boxCount = template.slots.length;
+
+                  return (
+                    <label
+                      key={template.id}
+                      className="grid h-12 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2 transition-colors hover:bg-muted/45"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedTemplateIds.includes(template.id)}
+                        onChange={(event) =>
+                          toggleTemplateSelection(
+                            template.id,
+                            event.target.checked,
+                          )
+                        }
+                        aria-label={`Select ${template.name}`}
+                        className="mt-0.5 size-4 accent-primary"
+                      />
+                      <div className="min-w-0 leading-tight">
+                        <div
+                          className="truncate font-medium"
+                          title={template.name}
+                        >
+                          {template.name}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          free template · {layerCount} layer
+                          {layerCount === 1 ? "" : "s"} · {boxCount} box
+                          {boxCount === 1 ? "" : "es"}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="destructive"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onDeleteTemplate(template.id);
+                        }}
+                        aria-label={`Delete ${template.name}`}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </label>
+                  );
+                })
+              ) : (
+                <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  No saved templates yet. Save a free layout as a template
+                  first.
+                </div>
+              )}
+            </div>
+            {sortedTemplates.length ? (
+              <Button
+                type="button"
+                onClick={openSelectedTemplates}
+                disabled={selectedTemplateCount === 0}
+                className="w-full"
+              >
+                <FolderOpen />
+                Open selected templates
+              </Button>
+            ) : null}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -2851,17 +3338,27 @@ function SaveLayoutDialog({
   open,
   onOpenChange,
   name,
+  layoutMode,
+  saveKind,
   error,
   onNameChange,
-  onSave,
+  onSaveKindChange,
+  onSaveLayout,
+  onSaveTemplate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   name: string;
+  layoutMode: LayoutMode;
+  saveKind: SaveKind;
   error: string | null;
   onNameChange: (name: string) => void;
-  onSave: () => void;
+  onSaveKindChange: (kind: SaveKind) => void;
+  onSaveLayout: () => void;
+  onSaveTemplate: () => void;
 }) {
+  const activeSaveKind = layoutMode === "free" ? saveKind : "layout";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
@@ -2875,11 +3372,27 @@ function SaveLayoutDialog({
           className="grid gap-3"
           onSubmit={(event) => {
             event.preventDefault();
-            onSave();
+            if (activeSaveKind === "template") {
+              onSaveTemplate();
+            } else {
+              onSaveLayout();
+            }
           }}
         >
+          {layoutMode === "free" ? (
+            <Tabs
+              value={activeSaveKind}
+              onValueChange={(value) => onSaveKindChange(value as SaveKind)}
+              className="gap-2"
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="layout">Layout</TabsTrigger>
+                <TabsTrigger value="template">Template</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          ) : null}
           <Label className="grid gap-1 text-sm">
-            Layout name
+            {activeSaveKind === "template" ? "Template name" : "Layout name"}
             <Input
               value={name}
               onChange={(event) =>
@@ -2894,7 +3407,9 @@ function SaveLayoutDialog({
           ) : null}
           <Button type="submit" title="Save as layout">
             <Save />
-            Save as layout
+            {activeSaveKind === "template"
+              ? "Save as template"
+              : "Save as layout"}
           </Button>
         </form>
       </DialogContent>
@@ -3967,6 +4482,7 @@ function FixedGridView({
 
 function FreeGridView({
   sessions,
+  templateSlots,
   galleryIndexes,
   videoPositions,
   selectedId,
@@ -3978,6 +4494,8 @@ function FreeGridView({
   setMaximizedId,
   updateSession,
   removeSession,
+  removeTemplateSlot,
+  openSourcePanel,
   changeGallery,
   onVideoPositionChange,
   setViewTimerMode,
@@ -3987,6 +4505,7 @@ function FreeGridView({
   onEditSource,
 }: {
   sessions: FeedSession[];
+  templateSlots: WorkspaceTemplateSlot[];
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
   selectedId: string | null;
@@ -4001,14 +4520,20 @@ function FreeGridView({
     updater: (session: FeedSession) => FeedSession,
   ) => void;
   removeSession: (id: string) => void;
+  removeTemplateSlot: (id: string) => void;
+  openSourcePanel: (
+    slot: number | null,
+    templateSlotId?: string | null,
+  ) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
   beginFreeDrag: (
     event: ReactPointerEvent<HTMLButtonElement>,
-    session: FeedSession,
+    target: { id: string; freeRect: FreeRect },
     mode: "move" | "resize",
+    targetType?: FreeDragState["targetType"],
   ) => void;
   onLocalFilesSelected: (
     id: string,
@@ -4032,10 +4557,85 @@ function FreeGridView({
         gridTemplateRows: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,
       }}
     >
+      {templateSlots.map((slot, index) => {
+        const dragRect =
+          freeDrag?.targetType === "template-slot" && freeDrag.id === slot.id
+            ? freeDrag.currentRect
+            : slot.freeRect;
+        const boxNumber = index + 1;
+
+        return (
+          <div
+            key={slot.id}
+            data-testid={`template-slot-${slot.id}`}
+            className={cn(
+              "group/template-slot relative grid min-h-0 cursor-pointer place-items-center rounded-xl border border-dashed border-primary/45 bg-surface/35 p-2 text-center text-xs text-muted-foreground transition hover:border-primary hover:bg-surface-elevated/70 hover:text-primary",
+              freeDrag?.targetType === "template-slot" &&
+                freeDrag.id === slot.id &&
+                "z-40 scale-[1.01]",
+              hideUi && "pointer-events-none opacity-40",
+            )}
+            onClick={(event) => {
+              if ((event.target as HTMLElement).closest("button")) return;
+              openSourcePanel(null, slot.id);
+            }}
+            style={{
+              gridColumn: `${dragRect.column} / span ${dragRect.columnSpan}`,
+              gridRow: `${dragRect.row} / span ${dragRect.rowSpan}`,
+            }}
+          >
+            {!hideUi ? (
+              <div className="absolute bottom-2 right-2 z-30 flex flex-col gap-1 opacity-0 transition-opacity duration-200 group-hover/template-slot:opacity-100 group-focus-within/template-slot:opacity-100">
+                <button
+                  type="button"
+                  aria-label={`Move source box ${boxNumber}`}
+                  title={`Move source box ${boxNumber}`}
+                  onPointerDown={(event) =>
+                    beginFreeDrag(event, slot, "move", "template-slot")
+                  }
+                  className="grid size-8 cursor-grab place-items-center rounded-lg border border-primary/50 bg-background/80 text-primary backdrop-blur active:cursor-grabbing"
+                >
+                  <Move className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Resize source box ${boxNumber}`}
+                  title={`Resize source box ${boxNumber}`}
+                  onPointerDown={(event) =>
+                    beginFreeDrag(event, slot, "resize", "template-slot")
+                  }
+                  className="grid size-8 cursor-se-resize place-items-center rounded-lg border border-primary/50 bg-background/80 text-primary backdrop-blur"
+                >
+                  <GripHorizontal className="size-4 rotate-45" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove source box ${boxNumber}`}
+                  title={`Remove source box ${boxNumber}`}
+                  onClick={() => removeTemplateSlot(slot.id)}
+                  className="grid size-8 place-items-center rounded-lg border border-destructive/40 bg-background/80 text-destructive backdrop-blur hover:bg-destructive/10"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              aria-label="Add source to template box"
+              title="Add source to template box"
+              onClick={() => openSourcePanel(null, slot.id)}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-background/70 px-2 py-1 backdrop-blur transition hover:bg-background hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            >
+              <Plus className="size-4" />
+              Add source
+            </button>
+          </div>
+        );
+      })}
       {sessions.length ? (
         sessions.map((session) => {
           const dragRect =
-            freeDrag?.id === session.id
+            freeDrag?.targetType === "session" && freeDrag.id === session.id
               ? freeDrag.currentRect
               : session.freeRect;
 
@@ -4048,7 +4648,9 @@ function FreeGridView({
                 !hideUi &&
                   session.id === selectedId &&
                   "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/20 shadow-[0_0_20px_rgba(143,239,225,0.08)]",
-                freeDrag?.id === session.id && "z-40 scale-[1.01]",
+                freeDrag?.targetType === "session" &&
+                  freeDrag.id === session.id &&
+                  "z-40 scale-[1.01]",
               )}
               style={{
                 gridColumn: `${dragRect.column} / span ${dragRect.columnSpan}`,
@@ -4145,7 +4747,7 @@ function FreeGridView({
             </div>
           );
         })
-      ) : (
+      ) : templateSlots.length ? null : (
         <div
           className="grid place-items-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground"
           style={{
@@ -4686,6 +5288,7 @@ function toRuntimeWorkspace(workspace: SerializedWorkspace): RuntimeWorkspace {
     layers,
     activeLayerId,
     globalTimerSeconds: resolveWorkspaceGlobalSeconds(workspace),
+    templateSlots: [],
     sessions: workspace.sessions.map((session) => ({
       ...session,
       layerId: session.layerId ?? activeLayerId,
@@ -4737,6 +5340,7 @@ function toRuntimeWorkspaceWithLocalRuntime(
     layers,
     activeLayerId,
     globalTimerSeconds: resolveWorkspaceGlobalSeconds(workspace),
+    templateSlots: [],
     sessions: workspace.sessions.map((session) => ({
       ...session,
       layerId: session.layerId ?? activeLayerId,
@@ -4755,6 +5359,36 @@ function toRuntimeWorkspaceWithLocalRuntime(
           ? localFilesBySessionId.get(session.id)
           : undefined,
     })),
+  };
+}
+
+function workspaceFromTemplate(
+  template: SerializedWorkspaceTemplate,
+  id: string,
+  name: string,
+): RuntimeWorkspace {
+  const layers = normalizeWorkspaceLayers(template.layers);
+  const activeLayerId = layers.some(
+    (layer) => layer.id === template.activeLayerId,
+  )
+    ? template.activeLayerId
+    : layers[0].id;
+
+  return {
+    id,
+    name,
+    layers,
+    activeLayerId,
+    layoutMode: "free",
+    fixedGrid: DEFAULT_FIXED_GRID,
+    globalTimerSeconds: template.globalTimerSeconds,
+    sessions: [],
+    templateSlots: template.slots.map((slot) => ({
+      id: `${id}:${slot.id}`,
+      layerId: slot.layerId ?? activeLayerId,
+      freeRect: slot.freeRect,
+    })),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -5102,6 +5736,33 @@ function nextLayoutName(
   return `Layout ${index}`;
 }
 
+function uniqueWorkspaceName(
+  baseName: string,
+  tabs: WorkspaceTab[],
+  savedWorkspaces: Record<string, SerializedWorkspace>,
+) {
+  const trimmedBase = limitLayoutName(baseName.trim() || "Layout");
+  const usedNames = new Set([
+    ...tabs.map((tab) => normalizeLayoutName(tab.name)),
+    ...Object.values(savedWorkspaces).map((workspace) =>
+      normalizeLayoutName(workspace.name),
+    ),
+  ]);
+
+  if (!usedNames.has(normalizeLayoutName(trimmedBase))) return trimmedBase;
+
+  let index = 2;
+  while (
+    usedNames.has(
+      normalizeLayoutName(limitLayoutName(`${trimmedBase} ${index}`)),
+    )
+  ) {
+    index += 1;
+  }
+
+  return limitLayoutName(`${trimmedBase} ${index}`);
+}
+
 function hasDuplicateLayoutName(
   name: string,
   currentId: string,
@@ -5120,6 +5781,20 @@ function hasDuplicateLayoutName(
         workspace.id !== currentId &&
         normalizeLayoutName(workspace.name) === normalized,
     )
+  );
+}
+
+function hasDuplicateTemplateName(
+  name: string,
+  currentId: string,
+  savedTemplates: Record<string, SerializedWorkspaceTemplate>,
+) {
+  const normalized = normalizeLayoutName(name);
+
+  return Object.values(savedTemplates).some(
+    (template) =>
+      template.id !== currentId &&
+      normalizeLayoutName(template.name) === normalized,
   );
 }
 

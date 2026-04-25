@@ -72,6 +72,32 @@ test("local upload layouts restore cached files after refresh", async ({
   await expect(page.getByText("No runtime media")).toHaveCount(0);
 });
 
+test("free layout templates reopen as empty boxes", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Free layout mode" }).click();
+  await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page.getByLabel("Image/video files").setInputFiles("test.webp");
+  await expect(page.getByAltText("test.webp")).toBeVisible();
+
+  await page.getByRole("button", { name: "Save layout" }).click();
+  await page.getByRole("tab", { name: "Template" }).click();
+  await page.getByRole("button", { name: "Save as template" }).click();
+  await page.getByRole("button", { name: "New layout" }).click();
+
+  await page.getByRole("button", { name: "Open layouts" }).click();
+  const dialog = page.getByRole("dialog", { name: "Saved layouts" });
+  await dialog.getByRole("tab", { name: "Templates" }).click();
+  await dialog.getByRole("checkbox", { name: "Select Layout 1" }).click();
+  await dialog.getByRole("button", { name: "Open selected templates" }).click();
+
+  await expect(page.getByText("0 sources active · Free layout")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add source to template box" }),
+  ).toBeVisible();
+  await expect(page.getByAltText("test.webp")).toHaveCount(0);
+});
+
 test("warns before displaying provider page embeds", async ({ page }) => {
   await page.route("**/api/url/resolve?**", async (route) => {
     await route.fulfill({

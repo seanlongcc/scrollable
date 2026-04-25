@@ -1,11 +1,12 @@
 begin;
 
-select plan(10);
+select plan(12);
 
 select has_table('public', 'feed_configs', 'feed_configs exists');
 select has_table('public', 'collections', 'collections exists');
 select has_table('public', 'share_links', 'share_links exists');
 select has_table('public', 'viewer_sessions', 'viewer_sessions exists');
+select has_table('public', 'viewer_templates', 'viewer_templates exists');
 
 select policies_are(
   'public',
@@ -29,6 +30,12 @@ select policies_are(
   'public',
   'viewer_sessions',
   array['viewer sessions owner all']
+);
+
+select policies_are(
+  'public',
+  'viewer_templates',
+  array['viewer templates owner all']
 );
 
 select isnt_empty(

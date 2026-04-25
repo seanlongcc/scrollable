@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -26,6 +27,7 @@ vi.mock("@/lib/local-uploads/file-cache", () => ({
 }));
 
 const WORKSPACE_STORAGE_KEY = "scrollable.workspaces.v1";
+const WORKSPACE_TEMPLATE_STORAGE_KEY = "scrollable.workspace-templates.v1";
 const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 
 async function addDefaultSubredditSource(
@@ -87,6 +89,66 @@ describe("FeedWorkbench", () => {
     expect(
       screen.queryByRole("link", { name: "Sign in" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the clear button enabled in server markup until hydration completes", () => {
+    const html = renderToString(<FeedWorkbench />);
+    const clearButtonHtml =
+      html.match(/<button(?=[^>]*aria-label="Clear layout")[^>]*>/)?.[0] ?? "";
+
+    expect(clearButtonHtml).not.toBe("");
+    expect(clearButtonHtml).not.toMatch(/\sdisabled(?:=|>|$)/);
+  });
+
+  it("disables the clear button after hydration when the layout is empty", async () => {
+    render(<FeedWorkbench />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Clear layout" }),
+      ).toBeDisabled(),
+    );
+  });
+
+  it("locks layout mode after sources or template boxes are present", async () => {
+    stubRuntimeFetch();
+    stubRandomUuids(["workspace-1", "session-1", "blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    expect(
+      screen.getByRole("button", { name: "Free layout mode" }),
+    ).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Free layout mode" }));
+    expect(
+      screen.getByText("0 sources active · Free layout"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Fixed layout mode" }));
+    expect(
+      screen.getByText("0 sources active · Fixed layout"),
+    ).toBeInTheDocument();
+
+    await addDefaultSubredditSource(user);
+    await screen.findByText("1 source active · Fixed layout");
+
+    expect(
+      screen.getByRole("button", { name: "Free layout mode" }),
+    ).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "New layout" }));
+    await openSavedTemplates(user, ["Poster wall"]);
+
+    expect(
+      screen.getByText("0 sources active · Free layout"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Fixed layout mode" }),
+    ).toBeDisabled();
   });
 
   it("opens sign in and sign up as an overlay", async () => {
@@ -1762,6 +1824,54 @@ describe("FeedWorkbench", () => {
     expect(saved).not.toContain("runtime-1");
   });
 
+  it("keeps template saving out of fixed layouts", async () => {
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Save layout as" });
+    expect(
+      within(dialog).getByRole("button", { name: "Save as layout" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "Save as template" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("saves free layouts as empty templates without source payloads", async () => {
+    stubRuntimeFetch([
+      {
+        id: "runtime-1",
+        source: "reddit",
+        title: "Runtime image",
+        subreddit: "pics",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [{ type: "image", url: "https://cdn.test/runtime-image.jpg" }],
+      },
+    ]);
+    stubRandomUuids(["workspace-1", "session-1"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Free layout mode" }));
+    await addDefaultSubredditSource(user);
+    await screen.findByRole("button", { name: "Maximize r/pics" });
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("tab", { name: "Template" }));
+    await user.click(screen.getByRole("button", { name: "Save as template" }));
+
+    const saved =
+      window.localStorage.getItem(WORKSPACE_TEMPLATE_STORAGE_KEY) ?? "";
+    expect(saved).toContain('"slots"');
+    expect(saved).toContain('"columnSpan":4');
+    expect(saved).not.toContain("sourceConfig");
+    expect(saved).not.toContain("https://cdn.test/runtime-image.jpg");
+    expect(saved).not.toContain("runtime-1");
+  });
+
   it("keeps saved layouts after their open tab is closed and supports delete", async () => {
     stubRandomUuids(["workspace-1", "workspace-2"]);
 
@@ -1831,6 +1941,233 @@ describe("FeedWorkbench", () => {
     expect(
       within(dialog).queryByText("Layer 3: 0 sources / 0 files"),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps saved layout lists in seven-item scroll panels", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "saved-layout-1",
+        workspaces: Array.from({ length: 8 }, (_, index) => ({
+          ...savedLocalUploadWorkspace(undefined, `Saved layout ${index + 1}`),
+          id: `saved-layout-${index + 1}`,
+          updatedAt: `2026-04-24T00:00:0${index}.000Z`,
+        })),
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+    const layoutList = within(dialog).getByRole("group", {
+      name: "Saved layouts list",
+    });
+
+    expect(layoutList).toHaveClass(
+      "h-[min(23.25rem,52dvh)]",
+      "overflow-y-auto",
+    );
+    expect(within(layoutList).getAllByRole("checkbox")).toHaveLength(8);
+  });
+
+  it("opens saved templates as empty free layout boxes", async () => {
+    stubRandomUuids(["blank-workspace", "opened-template"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedTemplates(user, ["Poster wall"]);
+
+    expect(
+      screen.getByRole("button", { name: "Poster wall" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("0 sources active · Free layout"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Add source to template box" }),
+    ).toHaveLength(2);
+  });
+
+  it("opens the source dialog when clicking anywhere in an empty template box", async () => {
+    stubRandomUuids(["blank-workspace", "opened-template"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedTemplates(user, ["Poster wall"]);
+    await user.click(
+      screen.getByTestId("template-slot-blank-workspace:slot-1"),
+    );
+
+    expect(screen.getByRole("dialog", { name: "Add source" })).toBeVisible();
+  });
+
+  it("allows clearing template-only layouts", async () => {
+    stubRandomUuids(["blank-workspace", "opened-template"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedTemplates(user, ["Poster wall"]);
+    const clearButton = screen.getByRole("button", { name: "Clear layout" });
+
+    expect(clearButton).toBeEnabled();
+
+    await user.click(clearButton);
+    await user.click(
+      screen.getByRole("button", { name: "Confirm clear layout" }),
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Add source to template box" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("0 sources active · Free layout"),
+    ).toBeInTheDocument();
+  });
+
+  it("removes empty source boxes from loaded templates", async () => {
+    stubRandomUuids(["blank-workspace", "opened-template"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedTemplates(user, ["Poster wall"]);
+    await user.click(
+      screen.getByRole("button", { name: "Remove source box 1" }),
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: "Add source to template box" }),
+    ).toHaveLength(1);
+    expect(
+      screen.queryByTestId("template-slot-blank-workspace:slot-1"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("moves and resizes empty source boxes from loaded templates", async () => {
+    const restoreBounds = stubGridBounds();
+    stubRandomUuids(["blank-workspace", "opened-template"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    render(<FeedWorkbench />);
+
+    try {
+      await openSavedTemplates(userEvent.setup(), ["Poster wall"]);
+
+      const firstBox = screen.getByTestId(
+        "template-slot-blank-workspace:slot-1",
+      );
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Move source box 1" }),
+        { clientX: 0, clientY: 0 },
+      );
+      fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
+
+      await waitFor(() =>
+        expect(firstBox).toHaveStyle({
+          gridColumn: "2 / span 4",
+          gridRow: "2 / span 4",
+        }),
+      );
+
+      fireEvent.pointerUp(window);
+
+      const secondBox = screen.getByTestId(
+        "template-slot-blank-workspace:slot-2",
+      );
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Resize source box 2" }),
+        { clientX: 0, clientY: 0 },
+      );
+      fireEvent.pointerMove(window, { clientX: 100, clientY: 0 });
+
+      await waitFor(() =>
+        expect(secondBox).toHaveStyle({
+          gridColumn: "5 / span 5",
+          gridRow: "1 / span 4",
+        }),
+      );
+
+      fireEvent.pointerUp(window);
+    } finally {
+      restoreBounds();
+    }
+  });
+
+  it("fills and restores template boxes when sources are added and removed", async () => {
+    stubRuntimeFetch();
+    stubRandomUuids(["blank-workspace", "opened-template", "session-1"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedTemplates(user, ["Poster wall"]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Add source to template box" })[0],
+    );
+    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByRole("button", { name: "Remove r/pics" });
+    expect(
+      screen.getAllByRole("button", { name: "Add source to template box" }),
+    ).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Remove r/pics" }));
+
+    expect(
+      screen.getAllByRole("button", { name: "Add source to template box" }),
+    ).toHaveLength(2);
+  });
+
+  it("toolbar-added sources do not consume template boxes", async () => {
+    stubRuntimeFetch();
+    stubRandomUuids(["blank-workspace", "opened-template", "session-1"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedTemplates(user, ["Poster wall"]);
+    await addDefaultSubredditSource(user);
+
+    await screen.findByRole("button", { name: "Remove r/pics" });
+    expect(
+      screen.getAllByRole("button", { name: "Add source to template box" }),
+    ).toHaveLength(2);
   });
 
   it("reopens saved local uploads with in-session runtime media", async () => {
@@ -3071,7 +3408,7 @@ describe("FeedWorkbench", () => {
     ).toBeInTheDocument();
   });
 
-  it("fills empty visible cells by duplicating the selected source with the selected free size", async () => {
+  it("fills empty visible fixed cells by duplicating the selected source", async () => {
     stubRuntimeFetch([
       {
         id: "runtime-1",
@@ -3103,16 +3440,8 @@ describe("FeedWorkbench", () => {
     fireEvent.change(screen.getByLabelText("Fixed rows"), {
       target: { value: "1" },
     });
-    await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
-    fireEvent.change(screen.getByLabelText("Column span"), {
-      target: { value: "8" },
-    });
-    fireEvent.change(screen.getByLabelText("Row span"), {
-      target: { value: "8" },
-    });
-    await user.click(screen.getByRole("button", { name: "Fixed layout mode" }));
     await screen.findByRole("button", {
       name: "Duplicate selected source into empty cells",
     });
@@ -3129,9 +3458,6 @@ describe("FeedWorkbench", () => {
     expect(
       within(screen.getByTestId("fixed-cell-1")).getByText(/2\/2/),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Free layout mode" }));
-    expect(screen.getByLabelText("Column span")).toHaveValue(8);
-    expect(screen.getByLabelText("Row span")).toHaveValue(8);
   });
 
   it("keeps the active stack item when switching layout modes", async () => {
@@ -3326,6 +3652,28 @@ function stubObjectUrls() {
   });
 }
 
+function stubGridBounds() {
+  const original = HTMLElement.prototype.getBoundingClientRect;
+  HTMLElement.prototype.getBoundingClientRect = vi.fn(
+    () =>
+      ({
+        bottom: 1600,
+        height: 1600,
+        left: 0,
+        right: 1600,
+        top: 0,
+        width: 1600,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect,
+  );
+
+  return () => {
+    HTMLElement.prototype.getBoundingClientRect = original;
+  };
+}
+
 async function openSavedLayouts(
   user: ReturnType<typeof userEvent.setup>,
   names: string[],
@@ -3341,6 +3689,25 @@ async function openSavedLayouts(
 
   await user.click(
     within(dialog).getByRole("button", { name: "Open selected layouts" }),
+  );
+}
+
+async function openSavedTemplates(
+  user: ReturnType<typeof userEvent.setup>,
+  names: string[],
+) {
+  await user.click(screen.getByRole("button", { name: "Open layouts" }));
+  const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+  await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
+
+  for (const name of names) {
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: `Select ${name}` }),
+    );
+  }
+
+  await user.click(
+    within(dialog).getByRole("button", { name: "Open selected templates" }),
   );
 }
 
@@ -3431,5 +3798,28 @@ function savedLayeredWorkspace() {
         },
       },
     ],
+  };
+}
+
+function savedWorkspaceTemplate() {
+  return {
+    id: "template-1",
+    name: "Poster wall",
+    layers: [{ id: "layer-1", name: "Layer 1" }],
+    activeLayerId: "layer-1",
+    globalTimerSeconds: 10,
+    slots: [
+      {
+        id: "slot-1",
+        layerId: "layer-1",
+        freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+      },
+      {
+        id: "slot-2",
+        layerId: "layer-1",
+        freeRect: { column: 5, row: 1, columnSpan: 4, rowSpan: 4 },
+      },
+    ],
+    updatedAt: "2026-04-25T00:00:00.000Z",
   };
 }

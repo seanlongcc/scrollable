@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hlsState = vi.hoisted(() => ({
@@ -122,5 +122,22 @@ describe("MediaRenderer", () => {
     expect(video).toHaveAttribute("preload", "metadata");
     expect(video).not.toHaveAttribute("src");
     expect(hlsState.configs).toHaveLength(0);
+  });
+
+  it("shows a load error screen when direct media is blocked", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/blocked-video.mp4" }}
+        title="Blocked video"
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).toBeInTheDocument();
+
+    fireEvent.error(video!);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Media failed to load");
+    expect(screen.getByText(/cdn.test/)).toBeInTheDocument();
   });
 });

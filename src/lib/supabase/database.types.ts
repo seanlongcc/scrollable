@@ -182,6 +182,34 @@ export type Database = {
         >;
         Relationships: [];
       };
+      viewer_templates: {
+        Row: {
+          id: string;
+          owner_id: string;
+          name: string;
+          layers: Json;
+          active_layer_id: string;
+          global_timer_seconds: number;
+          slots: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id?: string;
+          name: string;
+          layers?: Json;
+          active_layer_id?: string;
+          global_timer_seconds?: number;
+          slots?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["viewer_templates"]["Insert"]
+        >;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
