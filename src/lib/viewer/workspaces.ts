@@ -43,6 +43,7 @@ export type WorkspaceSessionInput = {
   freeRect: FreeRect;
   sourceConfig: PersistedSourceConfig;
   runtimeItems?: RuntimeFeedItem[];
+  localFiles?: File[];
 };
 
 export type SerializedWorkspaceSession = Omit<

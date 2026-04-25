@@ -8,6 +8,7 @@ import {
   GlobeOff,
   Maximize2,
   Pause,
+  Pencil,
   Play,
   RotateCcw,
   SkipBack,
@@ -55,6 +56,7 @@ export function FeedViewPane({
   onTogglePaused,
   onRestart,
   onMaximize,
+  onEdit,
   onRemove,
   onTimerModeChange,
   onTimerSecondsChange,
@@ -79,6 +81,7 @@ export function FeedViewPane({
   onTogglePaused: () => void;
   onRestart: () => void;
   onMaximize?: () => void;
+  onEdit?: () => void;
   onRemove?: () => void;
   onTimerModeChange?: (mode: TimerMode) => void;
   onTimerSecondsChange?: (seconds: number) => void;
@@ -253,6 +256,18 @@ export function FeedViewPane({
                 aria-label={`Maximize ${title}`}
               >
                 <Maximize2 />
+              </Button>
+            ) : null}
+            {onEdit ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                className="border-border bg-background/75 text-foreground"
+                onClick={onEdit}
+                aria-label={`Edit ${title}`}
+              >
+                <Pencil />
               </Button>
             ) : null}
             {onRemove ? (

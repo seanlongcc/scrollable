@@ -18,6 +18,7 @@ import {
   MoveHorizontal,
   MoveVertical,
   Pause,
+  Pencil,
   Play,
   Plus,
   RotateCcw,
@@ -56,6 +57,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FeedViewPane } from "@/components/viewer/feed-view-pane";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -120,6 +128,7 @@ type FeedSession = {
   fixedSlot: number;
   freeRect: FreeRect;
   items: RuntimeFeedItem[];
+  localFiles?: File[];
   isRuntimeLoading?: boolean;
   sourceConfig: PersistedSourceConfig;
 };
@@ -138,12 +147,30 @@ type AccountState =
   | { status: "signed-in"; email: string };
 
 type SourceGroupingMode = "stacked" | "separate";
+type RedditInputMode = "subreddit" | "links";
+type RedditListingSort = "hot" | "new" | "rising" | "top" | "controversial";
+type RedditTimeRange = "day" | "week" | "month" | "year" | "all";
 
 const DEFAULT_TIMER_SECONDS = DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS;
 const DEFAULT_REDDIT_MEDIA_LIMIT = 20;
 const MAX_REDDIT_MEDIA_LIMIT = 100;
 const MAX_LAYOUT_NAME_LENGTH = 32;
 const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
+const REDDIT_SORT_OPTIONS: Array<{ value: RedditListingSort; label: string }> =
+  [
+    { value: "hot", label: "Hot" },
+    { value: "new", label: "New" },
+    { value: "rising", label: "Rising" },
+    { value: "top", label: "Top" },
+    { value: "controversial", label: "Controversial" },
+  ];
+const REDDIT_TIME_OPTIONS: Array<{ value: RedditTimeRange; label: string }> = [
+  { value: "day", label: "Day" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "year", label: "Year" },
+  { value: "all", label: "All" },
+];
 
 type FreeDragState = {
   id: string;
@@ -216,6 +243,12 @@ export function FeedWorkbench({
   );
 
   const [redditUrls, setRedditUrls] = useState("");
+  const [redditInputMode, setRedditInputMode] =
+    useState<RedditInputMode>("subreddit");
+  const [subredditName, setSubredditName] = useState("pics");
+  const [redditSort, setRedditSort] = useState<RedditListingSort>("hot");
+  const [redditTimeRange, setRedditTimeRange] =
+    useState<RedditTimeRange>("week");
   const [redditLimit, setRedditLimit] = useState(DEFAULT_REDDIT_MEDIA_LIMIT);
   const [globalSeconds, setGlobalSeconds] = useState(DEFAULT_TIMER_SECONDS);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
@@ -242,6 +275,7 @@ export function FeedWorkbench({
   );
   const [isSaveOpen, setIsSaveOpen] = useState(false);
   const [isClearOpen, setIsClearOpen] = useState(false);
+  const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [saveName, setSaveName] = useState(initialWorkspace.name);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(
@@ -276,6 +310,10 @@ export function FeedWorkbench({
   const maximized = useMemo(
     () => sessions.find((session) => session.id === maximizedId),
     [maximizedId, sessions],
+  );
+  const editingSource = useMemo(
+    () => sessions.find((session) => session.id === editingSourceId) ?? null,
+    [editingSourceId, sessions],
   );
   const hiddenFixedSessions = useMemo(
     () =>
@@ -403,17 +441,18 @@ export function FeedWorkbench({
       const blankWorkspace = toRuntimeWorkspace(
         createEmptyWorkspace(blankTab.id, blankTab.name),
       );
-      const tabs = [
-        blankTab,
-        ...openSavedWorkspaces.map(({ id, name }) => ({ id, name })),
-      ];
+      const restoredTabs = openSavedWorkspaces.map(({ id, name }) => ({
+        id,
+        name,
+      }));
+      const tabs = restoredTabs.length ? restoredTabs : [blankTab];
       const activeId = tabs.some(
         (tab) => tab.id === sessionStore?.activeWorkspaceId,
       )
         ? sessionStore!.activeWorkspaceId
-        : blankWorkspace.id;
+        : tabs[0]!.id;
       const nextStates = {
-        [blankWorkspace.id]: blankWorkspace,
+        ...(restoredTabs.length ? {} : { [blankWorkspace.id]: blankWorkspace }),
         ...Object.fromEntries(
           openSavedWorkspaces.map((workspace) => [
             workspace.id,
@@ -583,7 +622,16 @@ export function FeedWorkbench({
   async function fetchRedditFeed() {
     setIsLoading(true);
     try {
-      const urls = splitRedditUrls(redditUrls);
+      const urls =
+        redditInputMode === "subreddit"
+          ? [
+              buildSubredditListingUrl(
+                subredditName,
+                redditSort,
+                redditTimeRange,
+              ),
+            ]
+          : splitRedditUrls(redditUrls);
       const selectedRedditLimit = normalizeRedditLimit(redditLimit);
 
       if (
@@ -695,6 +743,7 @@ export function FeedWorkbench({
 
             return {
               title: items[index].title,
+              localFiles: [file],
               sourceConfig: {
                 kind: "local" as const,
                 fileCount: 1,
@@ -717,6 +766,7 @@ export function FeedWorkbench({
             ...(cacheSetId ? { cacheSetId } : {}),
           },
           items,
+          localFiles: uploadableFiles,
         });
       }
 
@@ -742,7 +792,7 @@ export function FeedWorkbench({
     if (!items.length) return;
 
     try {
-      applyLocalRuntimeItems(id, items, await cacheLocalFiles(files));
+      applyLocalRuntimeItems(id, items, await cacheLocalFiles(files), files);
     } catch (error) {
       updateSession(id, (current) => ({ ...current, isRuntimeLoading: false }));
       toast.error(
@@ -763,6 +813,7 @@ export function FeedWorkbench({
     id: string,
     items: RuntimeFeedItem[],
     cacheSetId?: string,
+    files?: File[],
   ) {
     if (!items.length) {
       updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
@@ -784,6 +835,7 @@ export function FeedWorkbench({
             ? items[0].title
             : session.title,
         items,
+        localFiles: files,
         isRuntimeLoading: false,
         sourceConfig: {
           kind: "local",
@@ -810,19 +862,22 @@ export function FeedWorkbench({
   function addSession({
     title,
     items,
+    localFiles,
     sourceConfig,
   }: {
     title: string;
     items: RuntimeFeedItem[];
+    localFiles?: File[];
     sourceConfig: PersistedSourceConfig;
   }) {
-    addSessions([{ title, items, sourceConfig }]);
+    addSessions([{ title, items, localFiles, sourceConfig }]);
   }
 
   function addSessions(
     sources: Array<{
       title: string;
       items: RuntimeFeedItem[];
+      localFiles?: File[];
       sourceConfig: PersistedSourceConfig;
     }>,
   ) {
@@ -864,6 +919,7 @@ export function FeedWorkbench({
           fixedSlot,
           freeRect,
           items: source.items,
+          localFiles: source.localFiles,
           sourceConfig: source.sourceConfig,
         });
       }
@@ -880,6 +936,10 @@ export function FeedWorkbench({
   function openSourcePanel(fixedSlot: number | null = null) {
     setPendingFixedSlot(fixedSlot);
     setIsSourceOpen(true);
+  }
+
+  function openEditSource(id: string) {
+    setEditingSourceId(id);
   }
 
   function updateFixedGrid(next: Partial<FixedGrid>) {
@@ -904,6 +964,79 @@ export function FeedWorkbench({
         session.id === id ? updater(session) : session,
       ),
     );
+  }
+
+  async function saveRedditSourceEdit(
+    id: string,
+    urls: string[],
+    limit: number,
+  ) {
+    if (!urls.length) {
+      toast.error("Keep at least one Reddit source");
+      return;
+    }
+
+    const selectedRedditLimit = normalizeRedditLimit(limit);
+    updateSession(id, (session) => ({ ...session, isRuntimeLoading: true }));
+
+    try {
+      const items = await fetchRedditRuntimeItems(urls, selectedRedditLimit);
+      updateSession(id, (session) => {
+        const timer = createTimerState({
+          durationSeconds: session.timer.durationSeconds,
+          itemCount: items.length,
+        });
+
+        return {
+          ...session,
+          title: redditLinksTitle(urls, items),
+          items,
+          localFiles: undefined,
+          isRuntimeLoading: false,
+          sourceConfig: {
+            kind: "reddit",
+            urls,
+            limit: selectedRedditLimit,
+            allowNsfw: true,
+          },
+          timer: {
+            ...timer,
+            isPaused: session.timer.isPaused,
+          },
+        };
+      });
+      setEditingSourceId(null);
+    } catch (error) {
+      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
+      toast.error(
+        error instanceof Error ? error.message : "Reddit fetch failed",
+      );
+    }
+  }
+
+  async function saveLocalSourceEdit(id: string, files: File[]) {
+    const uploadableFiles = getUploadableFiles(files);
+
+    if (!uploadableFiles.length) {
+      toast.error("Keep at least one local file");
+      return;
+    }
+
+    try {
+      const items = createLocalRuntimeItems(uploadableFiles);
+      applyLocalRuntimeItems(
+        id,
+        items,
+        await cacheLocalFiles(uploadableFiles),
+        uploadableFiles,
+      );
+      setEditingSourceId(null);
+    } catch (error) {
+      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
+      toast.error(
+        error instanceof Error ? error.message : "Local file cache failed",
+      );
+    }
   }
 
   function removeSession(id: string) {
@@ -1328,6 +1461,7 @@ export function FeedWorkbench({
         freeRect: session.freeRect,
         sourceConfig: session.sourceConfig,
         runtimeItems: session.items,
+        localFiles: session.localFiles,
       })),
     };
   }
@@ -1576,6 +1710,7 @@ export function FeedWorkbench({
         fixedSlot: session.fixedSlot,
         freeRect: session.freeRect,
         items,
+        localFiles: "localFiles" in session ? session.localFiles : undefined,
         isRuntimeLoading:
           (session.sourceConfig.kind === "reddit" ||
             (session.sourceConfig.kind === "local" &&
@@ -1611,33 +1746,42 @@ export function FeedWorkbench({
     const hydrated = await Promise.all(
       sessionsToHydrate.map(async (session) => {
         try {
-          const items =
+          const result =
             session.sourceConfig.kind === "reddit"
-              ? await fetchRuntimeItemsForSource(session.sourceConfig)
+              ? {
+                  items: await fetchRuntimeItemsForSource(session.sourceConfig),
+                  localFiles: undefined,
+                }
               : await fetchLocalRuntimeItemsForSource(session.sourceConfig);
-          return { id: session.id, items };
+          return { id: session.id, ...result };
         } catch (error) {
           toast.error(
             error instanceof Error
               ? `Could not load ${session.title}: ${error.message}`
               : `Could not load ${session.title}`,
           );
-          return { id: session.id, items: [] as RuntimeFeedItem[] };
+          return {
+            id: session.id,
+            items: [] as RuntimeFeedItem[],
+            localFiles: undefined,
+          };
         }
       }),
     );
-    const itemsBySession = new Map(
-      hydrated.map(({ id, items }) => [id, items]),
+    const hydratedBySession = new Map(
+      hydrated.map((result) => [result.id, result]),
     );
 
     setSessions((current) =>
       current.map((session) => {
-        const items = itemsBySession.get(session.id);
-        if (!items) return session;
+        const hydratedSession = hydratedBySession.get(session.id);
+        if (!hydratedSession) return session;
+        const { items, localFiles } = hydratedSession;
 
         return {
           ...session,
           items,
+          localFiles,
           isRuntimeLoading: false,
           timer: {
             ...session.timer,
@@ -1679,12 +1823,18 @@ export function FeedWorkbench({
   async function fetchLocalRuntimeItemsForSource(
     sourceConfig: PersistedSourceConfig,
   ) {
-    if (sourceConfig.kind !== "local" || !sourceConfig.cacheSetId) return [];
+    if (sourceConfig.kind !== "local" || !sourceConfig.cacheSetId) {
+      return { items: [], localFiles: undefined };
+    }
 
     const result = await loadLocalFiles(sourceConfig.cacheSetId);
-    if (result.status !== "loaded") return [];
+    if (result.status !== "loaded") return { items: [], localFiles: undefined };
 
-    return createLocalRuntimeItems(getUploadableFiles(result.files));
+    const localFiles = getUploadableFiles(result.files);
+    return {
+      items: createLocalRuntimeItems(localFiles),
+      localFiles,
+    };
   }
 
   return (
@@ -1959,10 +2109,18 @@ export function FeedWorkbench({
         open={isSourceOpen}
         onOpenChange={setIsSourceOpen}
         redditUrls={redditUrls}
+        redditInputMode={redditInputMode}
+        subredditName={subredditName}
+        redditSort={redditSort}
+        redditTimeRange={redditTimeRange}
         redditLimit={redditLimit}
         isLoading={isLoading}
         sourceGroupingMode={sourceGroupingMode}
         setRedditUrls={setRedditUrls}
+        setRedditInputMode={setRedditInputMode}
+        setSubredditName={setSubredditName}
+        setRedditSort={setRedditSort}
+        setRedditTimeRange={setRedditTimeRange}
         setRedditLimit={setRedditLimit}
         setSourceGroupingMode={setSourceGroupingMode}
         fetchRedditFeed={fetchRedditFeed}
@@ -1993,6 +2151,18 @@ export function FeedWorkbench({
         onOpenChange={setIsClearOpen}
         onConfirm={clearCurrentLayout}
       />
+      {editingSource ? (
+        <EditSourceDialog
+          key={editingSource.id}
+          source={editingSource}
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditingSourceId(null);
+          }}
+          onSaveReddit={saveRedditSourceEdit}
+          onSaveLocal={saveLocalSourceEdit}
+        />
+      ) : null}
       <AccountDialog
         open={isAccountOpen}
         onOpenChange={setIsAccountOpen}
@@ -2033,6 +2203,7 @@ export function FeedWorkbench({
           onTimerModeChange={setViewTimerMode}
           onTimerSecondsChange={setViewTimerSeconds}
           onLocalFilesSelected={replaceLocalSessionFiles}
+          onEditSource={openEditSource}
         />
       ) : (
         <section
@@ -2220,6 +2391,7 @@ export function FeedWorkbench({
                         setViewTimerMode={setViewTimerMode}
                         setViewTimerSeconds={setViewTimerSeconds}
                         onLocalFilesSelected={replaceLocalSessionFiles}
+                        onEditSource={openEditSource}
                       />
                     </div>
                   );
@@ -2271,6 +2443,7 @@ export function FeedWorkbench({
                         setViewTimerSeconds={setViewTimerSeconds}
                         beginFreeDrag={beginFreeDrag}
                         onLocalFilesSelected={replaceLocalSessionFiles}
+                        onEditSource={openEditSource}
                       />
                     </div>
                   );
@@ -2564,10 +2737,18 @@ function SourceDialog({
   open,
   onOpenChange,
   redditUrls,
+  redditInputMode,
+  subredditName,
+  redditSort,
+  redditTimeRange,
   redditLimit,
   isLoading,
   sourceGroupingMode,
   setRedditUrls,
+  setRedditInputMode,
+  setSubredditName,
+  setRedditSort,
+  setRedditTimeRange,
   setRedditLimit,
   setSourceGroupingMode,
   fetchRedditFeed,
@@ -2578,10 +2759,18 @@ function SourceDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   redditUrls: string;
+  redditInputMode: RedditInputMode;
+  subredditName: string;
+  redditSort: RedditListingSort;
+  redditTimeRange: RedditTimeRange;
   redditLimit: number;
   isLoading: boolean;
   sourceGroupingMode: SourceGroupingMode;
   setRedditUrls: (value: string) => void;
+  setRedditInputMode: (value: RedditInputMode) => void;
+  setSubredditName: (value: string) => void;
+  setRedditSort: (value: RedditListingSort) => void;
+  setRedditTimeRange: (value: RedditTimeRange) => void;
   setRedditLimit: (value: number) => void;
   setSourceGroupingMode: (value: SourceGroupingMode) => void;
   fetchRedditFeed: () => void;
@@ -2591,7 +2780,7 @@ function SourceDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
+      <DialogContent className="grid h-[min(96dvh,48rem)] max-h-[96dvh] w-[min(92vw,42rem)] grid-rows-[auto_minmax(0,1fr)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
@@ -2599,7 +2788,7 @@ function SourceDialog({
             links for the viewer.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-h-0 min-w-0 content-start gap-4">
+        <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-4">
           <div
             className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
             role="group"
@@ -2625,14 +2814,14 @@ function SourceDialog({
             </Button>
           </div>
           <div className="grid min-h-0 min-w-0 gap-5 md:grid-cols-2">
-            <section className="grid min-w-0 gap-3 rounded-lg border border-border bg-surface p-3">
+            <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-surface p-3">
               <h2 className="text-sm font-medium">Local source</h2>
               <div
-                className="grid gap-3 text-sm text-muted-foreground"
+                className="grid min-h-0 gap-3 text-sm text-muted-foreground"
                 role="group"
                 aria-label="Local upload picker"
               >
-                <div className="grid min-h-80 grid-rows-2 gap-2">
+                <div className="grid min-h-0 grid-rows-2 gap-3">
                   <Label
                     role="button"
                     tabIndex={0}
@@ -2695,8 +2884,239 @@ function SourceDialog({
               </div>
             </section>
 
-            <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-surface p-3">
-              <h2 className="text-sm font-medium">Reddit links</h2>
+            <section className="grid min-h-0 min-w-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] gap-2 rounded-lg border border-border bg-surface p-3">
+              <h2 className="text-sm font-medium">Reddit</h2>
+              <div
+                className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
+                role="group"
+                aria-label="Reddit input mode"
+              >
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    redditInputMode === "subreddit" ? "default" : "ghost"
+                  }
+                  aria-label="Use subreddit name"
+                  aria-pressed={redditInputMode === "subreddit"}
+                  onClick={() => setRedditInputMode("subreddit")}
+                >
+                  Subreddit
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={redditInputMode === "links" ? "default" : "ghost"}
+                  aria-label="Use Reddit links"
+                  aria-pressed={redditInputMode === "links"}
+                  onClick={() => setRedditInputMode("links")}
+                >
+                  Links
+                </Button>
+              </div>
+              <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
+                Reddit media count
+                <Input
+                  type="number"
+                  min={1}
+                  max={MAX_REDDIT_MEDIA_LIMIT}
+                  value={redditLimit || ""}
+                  onChange={(event) => {
+                    if (event.target.value === "") {
+                      setRedditLimit(0);
+                      return;
+                    }
+
+                    setRedditLimit(
+                      clamp(
+                        Number(event.target.value),
+                        1,
+                        MAX_REDDIT_MEDIA_LIMIT,
+                      ),
+                    );
+                  }}
+                  className="h-9"
+                />
+              </Label>
+              {redditInputMode === "subreddit" ? (
+                <div className="grid content-start gap-3">
+                  <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
+                    Subreddit name
+                    <Input
+                      value={subredditName}
+                      onChange={(event) => setSubredditName(event.target.value)}
+                      placeholder="kpop"
+                      className="h-9 font-mono"
+                    />
+                  </Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <LabeledSelect
+                      label="Sort"
+                      value={redditSort}
+                      options={REDDIT_SORT_OPTIONS}
+                      onValueChange={(value) =>
+                        setRedditSort(value as RedditListingSort)
+                      }
+                    />
+                    <LabeledSelect
+                      label="Time range"
+                      value={redditTimeRange}
+                      options={REDDIT_TIME_OPTIONS}
+                      disabled={
+                        redditSort !== "top" && redditSort !== "controversial"
+                      }
+                      onValueChange={(value) =>
+                        setRedditTimeRange(value as RedditTimeRange)
+                      }
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Textarea
+                  aria-label="Paste Reddit post or subreddit links, one per line"
+                  value={redditUrls}
+                  onChange={(event) => setRedditUrls(event.target.value)}
+                  placeholder={`Accepted links:
+1. Specific post link:
+https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/
+2. Sorted subreddit link:
+https://www.reddit.com/r/<community>/top/?t=week
+
+Use the Subreddit tab for bare names.`}
+                  className="h-full min-h-0 resize-none font-mono text-xs leading-5"
+                />
+              )}
+              <Button
+                type="button"
+                onClick={fetchRedditFeed}
+                disabled={isLoading}
+                aria-label="Open Reddit links"
+                className="self-end"
+              >
+                {isLoading ? <Loader2 className="animate-spin" /> : <Grid2X2 />}
+                Open Reddit
+              </Button>
+            </section>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function LabeledSelect<T extends string>({
+  label,
+  value,
+  options,
+  disabled,
+  onValueChange,
+}: {
+  label: string;
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  disabled?: boolean;
+  onValueChange: (value: T) => void;
+}) {
+  return (
+    <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+        <SelectTrigger aria-label={label} className="h-9 w-full bg-background">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Label>
+  );
+}
+
+function EditSourceDialog({
+  source,
+  open,
+  onOpenChange,
+  onSaveReddit,
+  onSaveLocal,
+}: {
+  source: FeedSession;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaveReddit: (id: string, urls: string[], limit: number) => void;
+  onSaveLocal: (id: string, files: File[]) => void;
+}) {
+  type LocalEditEntry = { file: File; previewUrl?: string };
+  const [redditUrls, setRedditUrls] = useState<string[]>(
+    source.sourceConfig.kind === "reddit" ? source.sourceConfig.urls : [],
+  );
+  const [redditLimit, setRedditLimit] = useState(
+    source.sourceConfig.kind === "reddit"
+      ? (source.sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT)
+      : DEFAULT_REDDIT_MEDIA_LIMIT,
+  );
+  const [localEntries, setLocalEntries] = useState<LocalEditEntry[]>(
+    source.sourceConfig.kind === "local"
+      ? (source.localFiles ?? []).map((file, index) => ({
+          file,
+          previewUrl: source.items[index]?.media[0]?.url,
+        }))
+      : [],
+  );
+
+  const currentSource = source;
+  const isReddit = currentSource.sourceConfig.kind === "reddit";
+
+  function removeRedditUrl(index: number) {
+    setRedditUrls((current) =>
+      current.filter((_url, currentIndex) => currentIndex !== index),
+    );
+  }
+
+  function updateRedditUrl(index: number, value: string) {
+    setRedditUrls((current) =>
+      current.map((url, currentIndex) =>
+        currentIndex === index ? value : url,
+      ),
+    );
+  }
+
+  function save() {
+    if (isReddit) {
+      onSaveReddit(
+        currentSource.id,
+        redditUrls.map((url) => url.trim()).filter(Boolean),
+        redditLimit,
+      );
+      return;
+    }
+
+    onSaveLocal(
+      currentSource.id,
+      localEntries.map((entry) => entry.file),
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85dvh] w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Edit source</DialogTitle>
+          <DialogDescription className="sr-only">
+            Edit source contents without changing layout placement.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+            <Pencil className="size-4 text-primary" />
+            <span className="truncate font-medium">{source.title}</span>
+          </div>
+
+          {isReddit ? (
+            <>
               <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Reddit media count
                 <Input
@@ -2721,27 +3141,106 @@ function SourceDialog({
                   className="h-9"
                 />
               </Label>
-              <Textarea
-                aria-label="Paste Reddit post or subreddit links, one per line"
-                value={redditUrls}
-                onChange={(event) => setRedditUrls(event.target.value)}
-                placeholder={`One link per line:
-https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/
-https://www.reddit.com/r/<community>/top/?t=week`}
-                className="h-full min-h-0 resize-none font-mono text-xs leading-5"
-              />
-              <Button
-                type="button"
-                onClick={fetchRedditFeed}
-                disabled={isLoading}
-                aria-label="Open Reddit links"
-                className="self-end"
-              >
-                {isLoading ? <Loader2 className="animate-spin" /> : <Grid2X2 />}
-                Open Reddit links
-              </Button>
-            </section>
-          </div>
+              <div className="grid gap-2">
+                {redditUrls.map((url, index) => {
+                  const subreddit = subredditFromRedditUrl(url);
+
+                  return (
+                    <div
+                      key={`${url}-${index}`}
+                      className="grid grid-cols-[minmax(0,1fr)_auto] gap-2"
+                    >
+                      <Input
+                        value={url}
+                        onChange={(event) =>
+                          updateRedditUrl(index, event.target.value)
+                        }
+                        aria-label={`Reddit source ${index + 1}`}
+                        className="h-9 font-mono text-xs"
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        aria-label={`Remove ${subreddit ? `r/${subreddit}` : `Reddit ${index + 1}`} link`}
+                        onClick={() => removeRedditUrl(index)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="grid gap-2">
+              {localEntries.length ? (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {localEntries.map(({ file, previewUrl }, index) => (
+                    <div
+                      key={`${file.name}-${file.size}-${index}`}
+                      className="grid min-w-0 gap-2 rounded-lg border border-border bg-surface p-2"
+                    >
+                      <div className="relative aspect-square overflow-hidden rounded-md border border-border/70 bg-background">
+                        {previewUrl && file.type.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={previewUrl}
+                            alt={`Preview ${file.name}`}
+                            className="size-full object-cover"
+                          />
+                        ) : file.type.startsWith("video/") ? (
+                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                            Video
+                          </span>
+                        ) : file.type.startsWith("audio/") ? (
+                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                            Audio
+                          </span>
+                        ) : (
+                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                            File
+                          </span>
+                        )}
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="outline"
+                          className="absolute right-1 top-1 border-border bg-background/85 backdrop-blur"
+                          aria-label={`Remove ${file.name}`}
+                          onClick={() =>
+                            setLocalEntries((current) =>
+                              current.filter(
+                                (_entry, currentIndex) =>
+                                  currentIndex !== index,
+                              ),
+                            )
+                          }
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                      <span
+                        className="truncate text-xs font-medium"
+                        title={file.name}
+                      >
+                        {file.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  Reload files before editing this source.
+                </div>
+              )}
+            </div>
+          )}
+
+          <Button type="button" onClick={save} className="w-full">
+            <Save />
+            Save source
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -2767,6 +3266,7 @@ function FixedGridView({
   setViewTimerMode,
   setViewTimerSeconds,
   onLocalFilesSelected,
+  onEditSource,
 }: {
   sessions: FeedSession[];
   visibleCells: number;
@@ -2792,6 +3292,7 @@ function FixedGridView({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  onEditSource: (id: string) => void;
 }) {
   return (
     <div
@@ -2860,6 +3361,7 @@ function FixedGridView({
                   }))
                 }
                 onMaximize={() => setMaximizedId(session.id)}
+                onEdit={() => onEditSource(session.id)}
                 onRemove={() => removeSession(session.id)}
                 onTimerModeChange={(mode) => setViewTimerMode(session.id, mode)}
                 onTimerSecondsChange={(value) =>
@@ -2908,6 +3410,7 @@ function FreeGridView({
   setViewTimerSeconds,
   beginFreeDrag,
   onLocalFilesSelected,
+  onEditSource,
 }: {
   sessions: FeedSession[];
   galleryIndexes: Record<string, number>;
@@ -2936,6 +3439,7 @@ function FreeGridView({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  onEditSource: (id: string) => void;
 }) {
   return (
     <div
@@ -3044,6 +3548,7 @@ function FreeGridView({
                   }))
                 }
                 onMaximize={() => setMaximizedId(session.id)}
+                onEdit={() => onEditSource(session.id)}
                 onRemove={() => removeSession(session.id)}
                 onTimerModeChange={(mode) => setViewTimerMode(session.id, mode)}
                 onTimerSecondsChange={(value) =>
@@ -3086,6 +3591,7 @@ function SessionPane({
   onTogglePaused,
   onRestart,
   onMaximize,
+  onEdit,
   onRemove,
   onTimerModeChange,
   onTimerSecondsChange,
@@ -3105,6 +3611,7 @@ function SessionPane({
   onTogglePaused: () => void;
   onRestart: () => void;
   onMaximize?: () => void;
+  onEdit?: () => void;
   onRemove?: () => void;
   onTimerModeChange: (mode: TimerMode) => void;
   onTimerSecondsChange: (seconds: number) => void;
@@ -3166,6 +3673,7 @@ function SessionPane({
       onTogglePaused={onTogglePaused}
       onRestart={onRestart}
       onMaximize={onMaximize}
+      onEdit={onEdit}
       onRemove={onRemove}
       onTimerModeChange={onTimerModeChange}
       onTimerSecondsChange={onTimerSecondsChange}
@@ -3190,6 +3698,7 @@ function FocusLayout({
   onTimerModeChange,
   onTimerSecondsChange,
   onLocalFilesSelected,
+  onEditSource,
 }: {
   focused: FeedSession;
   sessions: FeedSession[];
@@ -3210,6 +3719,7 @@ function FocusLayout({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  onEditSource: (id: string) => void;
 }) {
   const satellites = sessions.filter((session) => session.id !== focused.id);
 
@@ -3237,6 +3747,7 @@ function FocusLayout({
           onTimerSecondsChange={(value) =>
             onTimerSecondsChange(focused.id, value)
           }
+          onEdit={() => onEditSource(focused.id)}
           onLocalFilesSelected={(event) =>
             onLocalFilesSelected(focused.id, event)
           }
@@ -3408,6 +3919,15 @@ function toRuntimeWorkspaceWithLocalRuntime(
       )
       .map((session) => [session.id, session.runtimeItems ?? []]),
   );
+  const localFilesBySessionId = new Map(
+    runtimeWorkspace?.sessions
+      .filter(
+        (session) =>
+          session.sourceConfig.kind === "local" &&
+          (session.localFiles?.length ?? 0) > 0,
+      )
+      .map((session) => [session.id, session.localFiles ?? []]),
+  );
 
   return {
     ...workspace,
@@ -3421,6 +3941,10 @@ function toRuntimeWorkspaceWithLocalRuntime(
       runtimeItems:
         session.sourceConfig.kind === "local"
           ? localItemsBySessionId.get(session.id)
+          : undefined,
+      localFiles:
+        session.sourceConfig.kind === "local"
+          ? localFilesBySessionId.get(session.id)
           : undefined,
     })),
   };
@@ -3451,6 +3975,29 @@ function splitRedditUrls(value: string) {
     .split(/[\n,]+/)
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+function buildSubredditListingUrl(
+  value: string,
+  sort: RedditListingSort,
+  timeRange: RedditTimeRange,
+) {
+  const subreddit = normalizeSubredditName(value);
+  if (!subreddit) throw new Error("Enter a subreddit name");
+
+  const url = new URL(`https://www.reddit.com/r/${subreddit}/${sort}/`);
+  if (sort === "top" || sort === "controversial") {
+    url.searchParams.set("t", timeRange);
+  }
+
+  return url.toString();
+}
+
+function normalizeSubredditName(value: string) {
+  const trimmed = value.trim().replace(/^\/?r\//i, "");
+  const withoutSlashes = trimmed.split(/[/?#]/)[0] ?? "";
+
+  return /^[A-Za-z0-9_]{2,21}$/.test(withoutSlashes) ? withoutSlashes : null;
 }
 
 async function fetchRedditRuntimeItems(

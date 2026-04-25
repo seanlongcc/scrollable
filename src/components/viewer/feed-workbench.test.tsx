@@ -30,6 +30,15 @@ const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 
 describe("FeedWorkbench", () => {
   beforeEach(() => {
+    if (!HTMLElement.prototype.hasPointerCapture) {
+      HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
+    }
+    if (!HTMLElement.prototype.releasePointerCapture) {
+      HTMLElement.prototype.releasePointerCapture = vi.fn();
+    }
+    if (!HTMLElement.prototype.scrollIntoView) {
+      HTMLElement.prototype.scrollIntoView = vi.fn();
+    }
     vi.mocked(isLocalFileCacheSupported).mockReturnValue(false);
     vi.mocked(loadLocalFiles).mockResolvedValue({
       status: "unavailable",
@@ -165,6 +174,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
         "Paste Reddit post or subreddit links, one per line",
@@ -215,6 +225,7 @@ describe("FeedWorkbench", () => {
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.clear(screen.getByLabelText("Reddit media count"));
     await user.type(screen.getByLabelText("Reddit media count"), "24");
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
         "Paste Reddit post or subreddit links, one per line",
@@ -235,6 +246,71 @@ describe("FeedWorkbench", () => {
       "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fkpop%2Ftop%2F%3Ft%3Dweek",
     );
     expect(requestUrl).toContain("limit=24");
+  });
+
+  it("accepts a bare subreddit name with listing controls", async () => {
+    const fetchMock = stubRuntimeFetch([
+      {
+        id: "runtime-kpop",
+        source: "reddit",
+        title: "Runtime kpop",
+        subreddit: "kpop",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image",
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    expect(
+      within(dialog).getByRole("button", { name: "Use subreddit name" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await user.clear(within(dialog).getByLabelText("Subreddit name"));
+    await user.type(within(dialog).getByLabelText("Subreddit name"), "kpop");
+    await user.click(within(dialog).getByRole("combobox", { name: "Sort" }));
+    await user.click(screen.getByRole("option", { name: "Top" }));
+    await user.click(
+      within(dialog).getByRole("combobox", { name: "Time range" }),
+    );
+    await user.click(screen.getByRole("option", { name: "Week" }));
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByRole("button", { name: "Remove r/kpop" });
+    const requestUrl = String(
+      (
+        fetchMock.mock.calls as unknown as Array<
+          [RequestInfo | URL, RequestInit?]
+        >
+      )[0]?.[0],
+    );
+    expect(requestUrl).toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fkpop%2Ftop%2F%3Ft%3Dweek",
+    );
+  });
+
+  it("keeps bare subreddit examples out of the Reddit links placeholder", async () => {
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
+
+    const placeholder = screen
+      .getByLabelText("Paste Reddit post or subreddit links, one per line")
+      .getAttribute("placeholder");
+    expect(placeholder).toContain("Specific post link");
+    expect(placeholder).toContain("Sorted subreddit link");
+    expect(placeholder).not.toContain("Subreddit name");
+    expect(placeholder).not.toContain("\nkpop");
   });
 
   it("can add Reddit post links as separate sources", async () => {
@@ -272,6 +348,7 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await selectSourceGrouping(user, "Separate sources");
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
         "Paste Reddit post or subreddit links, one per line",
@@ -294,6 +371,73 @@ describe("FeedWorkbench", () => {
     );
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
       "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Faww",
+    );
+  });
+
+  it("edits a Reddit source by removing a link and refetching remaining media", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const requestUrl = new URL(String(input), "http://localhost");
+      const sourceUrls = requestUrl.searchParams.getAll("urls");
+      const subreddit = sourceUrls.some((url) => url.includes("/r/aww/"))
+        ? "aww"
+        : "pics";
+
+      return {
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              id: `runtime-${subreddit}-${fetchMock.mock.calls.length}`,
+              source: "reddit",
+              title: `Runtime ${subreddit}`,
+              subreddit,
+              isNsfw: false,
+              createdAt: "2026-04-24T00:00:00.000Z",
+              media: [
+                {
+                  type: "image",
+                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                },
+              ],
+            },
+          ],
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
+    await user.type(
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
+      [
+        "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+        "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
+      ].join("\n"),
+    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await screen.findByRole("button", { name: "Edit r/pics" });
+
+    await user.click(screen.getByRole("button", { name: "Edit r/pics" }));
+    const editDialog = screen.getByRole("dialog", { name: "Edit source" });
+    await user.click(
+      within(editDialog).getByRole("button", { name: "Remove r/pics link" }),
+    );
+    await user.click(
+      within(editDialog).getByRole("button", { name: "Save source" }),
+    );
+
+    await screen.findByRole("button", { name: "Edit r/aww" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const refetchUrl = String(fetchMock.mock.calls[1]?.[0]);
+    expect(refetchUrl).toContain("urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Faww");
+    expect(refetchUrl).not.toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fpics",
     );
   });
 
@@ -323,6 +467,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
         "Paste Reddit post or subreddit links, one per line",
@@ -855,6 +1000,9 @@ describe("FeedWorkbench", () => {
     expect(
       await screen.findByRole("button", { name: "Saved local" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Layout 1" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/1 source active/)).toBeInTheDocument();
   });
 
@@ -1075,6 +1223,51 @@ describe("FeedWorkbench", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("a.png").length).toBeGreaterThan(0);
     expect(screen.getAllByText("b.mp4").length).toBeGreaterThan(0);
+  });
+
+  it("edits a local source by removing one file and caching the remaining file", async () => {
+    stubObjectUrls();
+    stubRandomUuids([
+      "item-a",
+      "item-b",
+      "cache-1",
+      "session-1",
+      "item-c",
+      "cache-2",
+    ]);
+    vi.mocked(isLocalFileCacheSupported).mockReturnValue(true);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(screen.getByLabelText("Image/video files"), [
+      new File(["a"], "a.png", { type: "image/png" }),
+      new File(["b"], "b.png", { type: "image/png" }),
+    ]);
+    expect(await screen.findByAltText("a.png")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit Local upload" }));
+    const editDialog = screen.getByRole("dialog", { name: "Edit source" });
+    expect(
+      within(editDialog).getByAltText("Preview a.png"),
+    ).toBeInTheDocument();
+    expect(
+      within(editDialog).getByAltText("Preview b.png"),
+    ).toBeInTheDocument();
+    await user.click(
+      within(editDialog).getByRole("button", { name: "Remove a.png" }),
+    );
+    await user.click(
+      within(editDialog).getByRole("button", { name: "Save source" }),
+    );
+
+    expect(await screen.findByAltText("b.png")).toBeInTheDocument();
+    expect(screen.queryByAltText("a.png")).not.toBeInTheDocument();
+    expect(screen.getByText("Layer 1: 1 source / 1 file")).toBeInTheDocument();
+    expect(saveLocalFiles).toHaveBeenLastCalledWith("cache-2", [
+      expect.objectContaining({ name: "b.png" }),
+    ]);
   });
 
   it("adds and deletes layers while reporting source and file counts per layer", async () => {
@@ -1813,6 +2006,7 @@ describe("FeedWorkbench", () => {
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.clear(
       screen.getByLabelText(
         "Paste Reddit post or subreddit links, one per line",
@@ -1855,6 +2049,7 @@ describe("FeedWorkbench", () => {
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.clear(
       screen.getByLabelText(
         "Paste Reddit post or subreddit links, one per line",
