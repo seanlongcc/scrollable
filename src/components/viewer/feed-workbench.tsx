@@ -299,7 +299,9 @@ export function FeedWorkbench({
   const [sourceGroupingMode, setSourceGroupingMode] =
     useState<SourceGroupingMode>("stacked");
   const [freeDrag, setFreeDrag] = useState<FreeDragState | null>(null);
-  const [canCacheLocalFiles, setCanCacheLocalFiles] = useState(false);
+  const [canCacheLocalFiles, setCanCacheLocalFiles] = useState(() =>
+    isLocalFileCacheSupported(),
+  );
   const registryRef = useRef<LocalObjectUrlRegistry | null>(null);
   const freeGridRef = useRef<HTMLDivElement | null>(null);
 
@@ -787,6 +789,8 @@ export function FeedWorkbench({
       return;
     }
 
+    setIsLoading(true);
+
     try {
       if (sourceGroupingMode === "separate") {
         const sources = await Promise.all(
@@ -828,6 +832,7 @@ export function FeedWorkbench({
         error instanceof Error ? error.message : "Local file cache failed",
       );
     } finally {
+      setIsLoading(false);
       onSettled?.();
     }
   }
@@ -1002,7 +1007,19 @@ export function FeedWorkbench({
 
   function openSourcePanel(fixedSlot: number | null = null) {
     setPendingFixedSlot(fixedSlot);
+    resetSourceInputs();
     setIsSourceOpen(true);
+  }
+
+  function resetSourceInputs() {
+    setUrlValue("");
+    setUrlTitle("");
+    setRedditUrls("");
+    setSubredditName("");
+    setRedditInputMode("subreddit");
+    setRedditSort("top");
+    setRedditTimeRange("week");
+    setRedditLimit(DEFAULT_REDDIT_MEDIA_LIMIT);
   }
 
   function openEditSource(id: string) {
@@ -2618,6 +2635,7 @@ export function FeedWorkbench({
                         videoPositions={videoPositions}
                         selectedId={isActiveLayer ? selectedId : null}
                         hideUi={isUiHidden || !isActiveLayer}
+                        isPlaybackActive={isActiveLayer}
                         showInfo={isActiveLayer && showAllInfo}
                         openSourcePanel={openSourcePanel}
                         setSelectedId={setSelectedId}
@@ -2669,6 +2687,7 @@ export function FeedWorkbench({
                         videoPositions={videoPositions}
                         selectedId={isActiveLayer ? selectedId : null}
                         hideUi={isUiHidden || !isActiveLayer}
+                        isPlaybackActive={isActiveLayer}
                         showInfo={isActiveLayer && showAllInfo}
                         freeDrag={isActiveLayer ? freeDrag : null}
                         setSelectedId={setSelectedId}
@@ -3027,8 +3046,28 @@ function SourceDialog({
   allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid max-h-[96dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!isLoading) onOpenChange(nextOpen);
+      }}
+    >
+      <DialogContent
+        aria-busy={isLoading}
+        className="grid max-h-[96dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl"
+      >
+        {isLoading ? (
+          <div className="absolute inset-0 z-30 grid place-items-center bg-popover/82 px-6 backdrop-blur-sm">
+            <div
+              role="status"
+              aria-live="polite"
+              className="grid justify-items-center gap-2 rounded-lg border border-border bg-background px-5 py-4 text-center shadow-[0_16px_48px_rgba(0,0,0,0.55)]"
+            >
+              <Loader2 className="size-6 animate-spin text-primary" />
+              <span className="text-sm font-medium">Preparing source</span>
+            </div>
+          </div>
+        ) : null}
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
@@ -3036,7 +3075,12 @@ function SourceDialog({
             for the viewer.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-w-0 gap-4">
+        <div
+          className={cn(
+            "grid min-w-0 gap-4",
+            isLoading && "pointer-events-none select-none opacity-50",
+          )}
+        >
           <div
             className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
             role="group"
@@ -3046,6 +3090,7 @@ function SourceDialog({
               type="button"
               size="sm"
               variant={sourceGroupingMode === "stacked" ? "default" : "ghost"}
+              disabled={isLoading}
               onClick={() => setSourceGroupingMode("stacked")}
               aria-label="Add sources as one stacked source"
             >
@@ -3055,6 +3100,7 @@ function SourceDialog({
               type="button"
               size="sm"
               variant={sourceGroupingMode === "separate" ? "default" : "ghost"}
+              disabled={isLoading}
               onClick={() => setSourceGroupingMode("separate")}
               aria-label="Add sources as separate sources"
             >
@@ -3068,6 +3114,7 @@ function SourceDialog({
                 URL
                 <Input
                   value={urlValue}
+                  disabled={isLoading}
                   onChange={(event) => setUrlValue(event.target.value)}
                   placeholder="https://example.com/media-or-page"
                   className="h-9 font-mono text-xs"
@@ -3077,6 +3124,7 @@ function SourceDialog({
                 Title
                 <Input
                   value={urlTitle}
+                  disabled={isLoading}
                   onChange={(event) => setUrlTitle(event.target.value)}
                   placeholder="Optional"
                   className="h-9"
@@ -3105,11 +3153,11 @@ function SourceDialog({
                 <div className="grid min-h-0 grid-rows-2 gap-3">
                   <Label
                     role="button"
-                    tabIndex={0}
+                    tabIndex={isLoading ? -1 : 0}
                     aria-label="Drop files"
-                    onDragOver={allowLocalFileDrop}
-                    onDragEnter={allowLocalFileDrop}
-                    onDrop={addDroppedLocalFiles}
+                    onDragOver={isLoading ? undefined : allowLocalFileDrop}
+                    onDragEnter={isLoading ? undefined : allowLocalFileDrop}
+                    onDrop={isLoading ? undefined : addDroppedLocalFiles}
                     className="size-full min-h-0 cursor-pointer justify-center rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <span className="flex flex-col items-center justify-center gap-2">
@@ -3128,6 +3176,7 @@ function SourceDialog({
                       type="file"
                       accept="image/*,video/*,audio/*"
                       multiple
+                      disabled={isLoading}
                       className="sr-only"
                       aria-label="Image/video files"
                       onChange={addLocalFiles}
@@ -3135,11 +3184,11 @@ function SourceDialog({
                   </Label>
                   <Label
                     role="button"
-                    tabIndex={0}
+                    tabIndex={isLoading ? -1 : 0}
                     aria-label="Drop folder"
-                    onDragOver={allowLocalFileDrop}
-                    onDragEnter={allowLocalFileDrop}
-                    onDrop={addDroppedLocalFiles}
+                    onDragOver={isLoading ? undefined : allowLocalFileDrop}
+                    onDragEnter={isLoading ? undefined : allowLocalFileDrop}
+                    onDrop={isLoading ? undefined : addDroppedLocalFiles}
                     className="size-full min-h-0 cursor-pointer justify-center rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <span className="flex flex-col items-center justify-center gap-2">
@@ -3158,6 +3207,7 @@ function SourceDialog({
                       type="file"
                       accept="image/*,video/*,audio/*"
                       multiple
+                      disabled={isLoading}
                       directory=""
                       webkitdirectory=""
                       className="sr-only"
@@ -3184,6 +3234,7 @@ function SourceDialog({
                   }
                   aria-label="Use subreddit name"
                   aria-pressed={redditInputMode === "subreddit"}
+                  disabled={isLoading}
                   onClick={() => setRedditInputMode("subreddit")}
                 >
                   Subreddit
@@ -3194,6 +3245,7 @@ function SourceDialog({
                   variant={redditInputMode === "links" ? "default" : "ghost"}
                   aria-label="Use Reddit links"
                   aria-pressed={redditInputMode === "links"}
+                  disabled={isLoading}
                   onClick={() => setRedditInputMode("links")}
                 >
                   Links
@@ -3206,6 +3258,7 @@ function SourceDialog({
                   min={1}
                   max={MAX_REDDIT_MEDIA_LIMIT}
                   value={redditLimit || ""}
+                  disabled={isLoading}
                   onChange={(event) => {
                     if (event.target.value === "") {
                       setRedditLimit(0);
@@ -3229,6 +3282,7 @@ function SourceDialog({
                     Subreddit name
                     <Input
                       value={subredditName}
+                      disabled={isLoading}
                       onChange={(event) => setSubredditName(event.target.value)}
                       placeholder="kpop, pics, aww"
                       className="h-9 font-mono"
@@ -3239,6 +3293,7 @@ function SourceDialog({
                       label="Sort"
                       value={redditSort}
                       options={REDDIT_SORT_OPTIONS}
+                      disabled={isLoading}
                       onValueChange={(value) =>
                         setRedditSort(value as RedditListingSort)
                       }
@@ -3248,7 +3303,8 @@ function SourceDialog({
                       value={redditTimeRange}
                       options={REDDIT_TIME_OPTIONS}
                       disabled={
-                        redditSort !== "top" && redditSort !== "controversial"
+                        isLoading ||
+                        (redditSort !== "top" && redditSort !== "controversial")
                       }
                       onValueChange={(value) =>
                         setRedditTimeRange(value as RedditTimeRange)
@@ -3260,6 +3316,7 @@ function SourceDialog({
                 <Textarea
                   aria-label="Paste Reddit post or subreddit links, one per line"
                   value={redditUrls}
+                  disabled={isLoading}
                   onChange={(event) => setRedditUrls(event.target.value)}
                   placeholder={`Accepted links:
 1. Specific post link:
@@ -3760,6 +3817,7 @@ function FixedGridView({
   videoPositions,
   selectedId,
   hideUi,
+  isPlaybackActive,
   showInfo,
   openSourcePanel,
   setSelectedId,
@@ -3780,6 +3838,7 @@ function FixedGridView({
   videoPositions: Record<string, number>;
   selectedId: string | null;
   hideUi: boolean;
+  isPlaybackActive: boolean;
   showInfo: boolean;
   openSourcePanel: (slot: number | null) => void;
   setSelectedId: (id: string | null) => void;
@@ -3852,6 +3911,7 @@ function FixedGridView({
                 isFocused={session.id === selectedId}
                 forceInfoVisible={showInfo}
                 hideUi={hideUi}
+                isPlaybackActive={isPlaybackActive}
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}
@@ -3911,6 +3971,7 @@ function FreeGridView({
   videoPositions,
   selectedId,
   hideUi,
+  isPlaybackActive,
   showInfo,
   freeDrag,
   setSelectedId,
@@ -3930,6 +3991,7 @@ function FreeGridView({
   videoPositions: Record<string, number>;
   selectedId: string | null;
   hideUi: boolean;
+  isPlaybackActive: boolean;
   showInfo: boolean;
   freeDrag: FreeDragState | null;
   setSelectedId: (id: string | null) => void;
@@ -4047,6 +4109,7 @@ function FreeGridView({
                 isFocused={session.id === selectedId}
                 forceInfoVisible={showInfo}
                 hideUi={hideUi}
+                isPlaybackActive={isPlaybackActive}
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}
@@ -4106,6 +4169,7 @@ function SessionPane({
   isFocused,
   forceInfoVisible,
   hideUi,
+  isPlaybackActive = true,
   isRuntimeLoading,
   onGalleryChange,
   onVideoPositionChange,
@@ -4127,6 +4191,7 @@ function SessionPane({
   isFocused?: boolean;
   forceInfoVisible?: boolean;
   hideUi?: boolean;
+  isPlaybackActive?: boolean;
   isRuntimeLoading?: boolean;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
@@ -4158,7 +4223,7 @@ function SessionPane({
         resolution={session.urlResolution}
         isRuntimeLoading={isRuntimeLoading}
         hideUi={hideUi}
-        canMountIframe={canMountUrlIframe}
+        canMountIframe={isPlaybackActive && canMountUrlIframe}
         onMaximize={onMaximize}
         onEdit={onEdit}
         onRemove={onRemove}
@@ -4179,6 +4244,7 @@ function SessionPane({
       isFocused={isFocused}
       forceInfoVisible={forceInfoVisible}
       hideUi={hideUi}
+      isPlaybackActive={isPlaybackActive}
       isRuntimeLoading={isRuntimeLoading}
       emptyMessage={
         hasCachedLocalFiles
@@ -4286,7 +4352,7 @@ function UrlSourcePane({
                     <img
                       src={resolution.metadata.thumbnailUrl}
                       alt=""
-                      className="mt-1 max-h-36 rounded-md border border-border object-contain"
+                      className="mx-auto mt-1 max-h-36 max-w-full rounded-md border border-border object-contain"
                     />
                   ) : null}
                 </>
@@ -4428,6 +4494,7 @@ function FocusLayout({
           videoPositions={videoPositions}
           forceInfoVisible={showInfo}
           hideUi={hideUi}
+          isPlaybackActive
           isRuntimeLoading={focused.isRuntimeLoading}
           onGalleryChange={onGalleryChange}
           onVideoPositionChange={onVideoPositionChange}
@@ -4471,6 +4538,7 @@ function FocusLayout({
                   videoPositions={videoPositions}
                   compact
                   forceInfoVisible={showInfo}
+                  isPlaybackActive={false}
                   isRuntimeLoading={session.isRuntimeLoading}
                   onGalleryChange={onGalleryChange}
                   onVideoPositionChange={onVideoPositionChange}

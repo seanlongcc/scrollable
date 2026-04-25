@@ -14,6 +14,7 @@ Current installed stack:
 - `@supabase/ssr` 0.10.x and `@supabase/supabase-js` 2.104.x
 - Supabase CLI 2.95.x
 - Vitest 4.x, Playwright 1.59.x, ESLint 9.x
+- Optional `yt-dlp` executable for runtime arbitrary-site URL extraction. Keep it on `PATH` or set `YTDLP_PATH`.
 - Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
 - Vercel for deployment
 - Mobile-first user experience
@@ -57,7 +58,7 @@ These rules are core product constraints.
 - Never persist third-party media from Reddit or any other site.
 - Never rehost third-party media.
 - Never proxy-cache third-party media as application-owned content.
-- Never persist third-party media URLs, thumbnails, cached Reddit JSON responses, normalized runtime feed/media items, raw Reddit item/post IDs, or local upload object URLs.
+- Never persist third-party media URLs, thumbnails, cached Reddit JSON responses, raw `yt-dlp` JSON, normalized runtime feed/media items, raw Reddit item/post IDs, or local upload object URLs.
 - User-pasted Reddit post permalinks and subreddit listing URLs are allowed as saved configuration data because the user intentionally provides them.
 - User-hidden Reddit listing or post media items may be saved only as opaque `sha256:` hashes of runtime Reddit item IDs scoped to the source configuration. Do not store raw item/post IDs, titles, authors, permalinks, media URLs, thumbnails, payloads, or normalized runtime items for hidden Reddit content.
 - Never persist absolute local filesystem paths.
@@ -79,6 +80,7 @@ Acceptable stored data:
 - `display_options` may store display/config preferences only, not third-party media metadata.
 - `viewer_sessions.sessions` must remain metadata-only and must not contain raw Reddit item/post IDs, media URLs, thumbnails, listing payloads, normalized runtime items, or local upload object URLs. Opaque `sha256:` Reddit hidden-item hashes are allowed.
 - Layout layers may store layer IDs, layer names, active layer IDs, and per-source layer membership only.
+- URL resolver hints may include `provider:yt-dlp`, but extracted stream URLs, HLS segment query parameters, thumbnails, cookies, headers, and raw `yt-dlp` output remain runtime-only.
 
 ## Architecture Direction
 
@@ -162,8 +164,9 @@ For visual-only or presentational UI changes:
 2. Run `npm run lint` when source files changed.
 3. Run `npm run format:check` to verify formatting; use `npm run format` when intentionally fixing formatting.
 4. Use browser/mobile viewport verification when the change affects layout, responsiveness, or interaction.
-5. During browser/mobile verification, explicitly inspect for unnecessary empty space: stretched grid rows, oversized wrappers, excessive padding/margins, large blank areas below compact controls, and content that should shrink to fit its actual height.
-6. Do not create new tests unless behavior changed.
+5. When verifying modals, dialogs, overlays, popovers, sheets, menus, or loading blockers, do not treat "a screenshot was captured" as sufficient. Inspect the screenshot and/or browser DOM measurements on desktop and mobile to confirm the surface is actually inside the viewport, not attached to the wrong edge, not clipped, not hidden behind the overlay, and not using a conflicting positioning class such as `relative` overriding `fixed`.
+6. During browser/mobile verification, explicitly inspect for unnecessary empty space: stretched grid rows, oversized wrappers, excessive padding/margins, large blank areas below compact controls, and content that should shrink to fit its actual height.
+7. Do not create new tests unless behavior changed.
 
 In the completion summary, state one of:
 
@@ -190,9 +193,10 @@ Before completion:
 2. Ensure the lint pass includes ESLint, and run the configured Prettier check when available, such as `npm run format:check` or `npm run prettier:check`.
 3. If ESLint or Prettier check scripts do not exist yet, add them as part of project setup work or clearly note that they could not be run.
 4. Run browser verification for UI changes, including mobile viewport checks.
-5. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases.
-6. Check `git status --short --branch`.
-7. Summarize changed files and any checks that could not be run.
+5. For overlay-style UI changes, include a viewport-bounds check in browser verification: compare the relevant element's `getBoundingClientRect()` against the viewport or inspect an equivalent browser snapshot/screenshot with that specific question in mind.
+6. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases.
+7. Check `git status --short --branch`.
+8. Summarize changed files and any checks that could not be run.
 
 ## Issue Tracking
 

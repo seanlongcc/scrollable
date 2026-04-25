@@ -143,6 +143,7 @@ describe("FeedWorkbench", () => {
   it("uses one shared old-style grouping control in the add-source dialog", async () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
+    await waitFor(() => expect(isLocalFileCacheSupported).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     const dialog = screen.getByRole("dialog", { name: "Add source" });
@@ -224,6 +225,45 @@ describe("FeedWorkbench", () => {
     expect(saved).toContain('"resolverHint":"direct-media"');
     expect(saved).not.toContain("url:https://cdn.test/photo.jpg");
     expect(saved).not.toContain('"media"');
+  });
+
+  it("resets source inputs each time the add-source dialog opens", async () => {
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.type(screen.getByLabelText("URL"), "https://old.example/video");
+    await user.type(screen.getByLabelText("Title"), "Old title");
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
+    await user.type(
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
+      "https://www.reddit.com/r/pics/comments/abc123/old/",
+    );
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+
+    expect(screen.getByLabelText("URL")).toHaveValue("");
+    expect(screen.getByLabelText("Title")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
+    expect(
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
+    ).toHaveValue("");
+  });
+
+  it("anchors the add-source dialog within the viewport", async () => {
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    const dialog = screen.getByRole("dialog", { name: "Add source" });
+
+    expect(dialog.className).toContain("fixed");
+    expect(dialog.className).not.toContain("relative");
   });
 
   it("reopens a saved URL source by trying its resolver hint first", async () => {
@@ -2154,6 +2194,44 @@ describe("FeedWorkbench", () => {
 
     expect(await screen.findByLabelText("ambient.mp3")).toBeInTheDocument();
     expect(screen.getByText("Layer 1: 1 source / 1 file")).toBeInTheDocument();
+  });
+
+  it("shows a blocking loading state while local files are cached", async () => {
+    stubObjectUrls();
+    stubRandomUuids(["workspace-1", "cache-1", "session-1"]);
+    vi.mocked(isLocalFileCacheSupported).mockReturnValue(true);
+    let resolveSave = () => {};
+    vi.mocked(saveLocalFiles).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    fireEvent.change(within(dialog).getByLabelText("Image/video files"), {
+      target: {
+        files: [new File(["video"], "large.mp4", { type: "video/mp4" })],
+      },
+    });
+
+    expect(await within(dialog).findByRole("status")).toHaveTextContent(
+      "Preparing source",
+    );
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Add sources as one stacked source",
+      }),
+    ).toBeDisabled();
+    expect(within(dialog).getByLabelText("URL")).toBeDisabled();
+    expect(within(dialog).getByLabelText("Image/video files")).toBeDisabled();
+
+    resolveSave();
+    expect(await screen.findByLabelText("large.mp4")).toBeInTheDocument();
   });
 
   it("keeps inactive layer grids mounted but visually hidden", async () => {

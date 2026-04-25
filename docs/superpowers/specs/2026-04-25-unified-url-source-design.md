@@ -15,14 +15,14 @@ type UrlSourceConfig = {
 };
 ```
 
-The saved config stores only user-authored URL/title/settings plus the resolver hint. It must not store extracted media URLs, thumbnails, HTML, provider JSON, cookies, screenshots, normalized runtime items, or fetched payloads. Legacy saved Reddit configs remain loadable, but new Reddit links are created through the URL source path and use `provider:reddit` as the resolver hint after success. YouTube watch, short, and youtu.be links use `provider:youtube` with a runtime embed URL that is never persisted.
+The saved config stores only user-authored URL/title/settings plus the resolver hint. It must not store extracted media URLs, thumbnails, HTML, provider JSON, cookies, screenshots, normalized runtime items, or fetched payloads. Legacy saved Reddit configs remain loadable, but new Reddit links are created through the URL source path and use `provider:reddit` as the resolver hint after success. YouTube watch, short, and youtu.be links use `provider:youtube` with a runtime embed URL that is never persisted. `yt-dlp` results use `provider:yt-dlp` and expose only runtime media items for the active viewer session; extracted stream URLs, HLS segment query parameters, thumbnails, cookies, headers, and raw `yt-dlp` JSON are never persisted.
 
 ## Resolver Flow
 
 New URL sources run this chain:
 
 1. Direct media: the pasted URL itself is an image, video, or audio URL.
-2. Known provider adapter: V1 includes Reddit by reusing the runtime Reddit listing endpoint.
+2. Known provider adapter: V1 includes Reddit by reusing the runtime Reddit listing endpoint, YouTube through its embed URL, and `yt-dlp` extraction for supported non-specialized media pages.
 3. Generic metadata: server-side best-effort OpenGraph/basic metadata fetch for title, description, site name, and optional runtime-only preview image.
 4. Iframe fallback: static pane that points at the pasted URL.
 
@@ -30,7 +30,7 @@ Saved URL sources with `resolverHint` try the hinted resolver first. If the hint
 
 ## Runtime Rendering
 
-Direct media and Reddit provider results render in the existing feed viewer. Generic metadata, iframe, and unsupported states render as static URL panes. Static panes ignore timer advancement and carousel controls. Iframe fallback is lazy-loaded only when its source pane is visible, and hidden-layer iframe panes are unmounted by the existing active-layer visibility flow plus URL pane gating.
+Direct media, Reddit provider results, and playable `yt-dlp` results render in the existing feed viewer. Generic metadata, iframe, and unsupported states render as static URL panes. Static panes ignore timer advancement and carousel controls. Iframe fallback is lazy-loaded only when its source pane is visible, and hidden-layer iframe panes are unmounted by the existing active-layer visibility flow plus URL pane gating.
 
 The app caps active iframe fallback panes to reduce mobile memory pressure. Desktop allows more active iframes than mobile; blocked panes show an external-open action instead of mounting another iframe. No URL source auto-reloads after initial resolution.
 
@@ -44,4 +44,4 @@ Validation accepts only well-formed `http:` and `https:` URLs. It rejects `file:
 
 ## Tests
 
-Tests cover URL validation, resolver ordering, resolver hints and fallback, metadata-only workspace persistence, adding a URL source in the UI, reopening a saved URL layout with a stored hint, blocked iframe fallback, and mobile-style multiple-source behavior.
+Tests cover URL validation, resolver ordering, resolver hints and fallback, `yt-dlp` extraction mapping, metadata-only workspace persistence, adding a URL source in the UI, reopening a saved URL layout with a stored hint, blocked iframe fallback, and mobile-style multiple-source behavior.

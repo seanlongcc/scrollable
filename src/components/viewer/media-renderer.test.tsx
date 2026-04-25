@@ -1,9 +1,35 @@
 import { render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const hlsState = vi.hoisted(() => ({
+  configs: [] as unknown[],
+}));
+
+vi.mock("hls.js", () => {
+  class MockHls {
+    static isSupported = vi.fn(() => true);
+
+    constructor(config?: unknown) {
+      hlsState.configs.push(config);
+    }
+
+    loadSource = vi.fn();
+    attachMedia = vi.fn();
+    destroy = vi.fn();
+  }
+
+  return { default: MockHls };
+});
 
 import { MediaRenderer } from "./media-renderer";
 
 describe("MediaRenderer", () => {
+  beforeEach(() => {
+    hlsState.configs = [];
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  });
+
   it("autoplays videos muted and inline", () => {
     const { container } = render(
       <MediaRenderer
@@ -17,6 +43,7 @@ describe("MediaRenderer", () => {
     expect(video?.autoplay).toBe(true);
     expect(video?.muted).toBe(true);
     expect(video).toHaveAttribute("playsinline");
+    expect(video).toHaveAttribute("preload", "auto");
   });
 
   it("restores and reports video playback position", () => {
@@ -39,5 +66,61 @@ describe("MediaRenderer", () => {
     unmount();
 
     expect(onVideoTimeChange).toHaveBeenLastCalledWith(11);
+  });
+
+  it("adds signed HLS params to segment requests", () => {
+    render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url: "https://stream.test/master.m3u8",
+          isHls: true,
+          hlsSegmentQuery: "__gda__=signed-token",
+        }}
+        title="Signed HLS"
+      />,
+    );
+
+    const config = hlsState.configs.at(-1) as {
+      xhrSetup?: (xhr: XMLHttpRequest, url: string) => void;
+      maxBufferLength?: number;
+      maxMaxBufferLength?: number;
+      capLevelToPlayerSize?: boolean;
+      startFragPrefetch?: boolean;
+    };
+    const xhr = { open: vi.fn() } as unknown as XMLHttpRequest;
+
+    config.xhrSetup?.(xhr, "https://stream.test/segment-000000.ts");
+
+    expect(xhr.open).toHaveBeenCalledWith(
+      "GET",
+      "https://stream.test/segment-000000.ts?__gda__=signed-token",
+      true,
+    );
+    expect(config.maxBufferLength).toBeGreaterThan(30);
+    expect(config.maxMaxBufferLength).toBeGreaterThan(60);
+    expect(config.capLevelToPlayerSize).toBe(true);
+    expect(config.startFragPrefetch).toBe(true);
+  });
+
+  it("does not load or autoplay video when playback is inactive", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url: "https://stream.test/master.m3u8",
+          isHls: true,
+        }}
+        title="Hidden video"
+        shouldPlay={false}
+      />,
+    );
+
+    const video = container.querySelector("video");
+
+    expect(video?.autoplay).toBe(false);
+    expect(video).toHaveAttribute("preload", "metadata");
+    expect(video).not.toHaveAttribute("src");
+    expect(hlsState.configs).toHaveLength(0);
   });
 });

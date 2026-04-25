@@ -8,6 +8,7 @@ import {
 } from "@/lib/url-source/validation";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);

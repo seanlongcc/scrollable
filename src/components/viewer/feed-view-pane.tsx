@@ -46,6 +46,7 @@ export function FeedViewPane({
   compact = false,
   isFocused = false,
   forceInfoVisible = false,
+  isPlaybackActive = true,
   isRuntimeLoading = false,
   emptyMessage = "No runtime media",
   emptyAction,
@@ -71,6 +72,7 @@ export function FeedViewPane({
   compact?: boolean;
   isFocused?: boolean;
   forceInfoVisible?: boolean;
+  isPlaybackActive?: boolean;
   isRuntimeLoading?: boolean;
   emptyMessage?: string;
   emptyAction?: ReactNode;
@@ -179,6 +181,7 @@ export function FeedViewPane({
             media={activeMedia}
             title={activeItem.title}
             showControls={!hideUi}
+            shouldPlay={isPlaybackActive}
             initialVideoTime={
               videoPositionKey ? (videoPositions[videoPositionKey] ?? 0) : 0
             }

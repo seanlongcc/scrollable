@@ -7,6 +7,7 @@ export type RuntimeMedia = {
   height?: number;
   galleryIndex?: number;
   isHls?: boolean;
+  hlsSegmentQuery?: string;
 };
 
 export type RuntimeFeedItem = {

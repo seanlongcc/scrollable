@@ -1,6 +1,6 @@
 # Scrollable
 
-Mobile-first reels-style runtime feed viewer for user-provided URLs and local uploads. URL sources accept `http`/`https` links and resolve at runtime as direct media, known provider media/embeds such as Reddit and YouTube, generic metadata, or iframe fallback.
+Mobile-first reels-style runtime feed viewer for user-provided URLs and local uploads. URL sources accept `http`/`https` links and resolve at runtime as direct media, known provider media/embeds such as Reddit and YouTube, optional `yt-dlp` extraction, generic metadata, or iframe fallback.
 
 ## Commands
 
@@ -12,6 +12,8 @@ npm run typecheck
 npm test
 npm run build
 ```
+
+Optional arbitrary-site video extraction uses a local `yt-dlp` executable at runtime. Install it on the server or development machine and keep it on `PATH`, or set `YTDLP_PATH` to the executable path.
 
 Supabase local verification needs Docker Desktop WSL integration:
 

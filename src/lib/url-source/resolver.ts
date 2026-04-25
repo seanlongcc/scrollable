@@ -7,6 +7,7 @@ import type {
   UrlSourceConfig,
 } from "./types";
 import { parseUrlSourceConfig } from "./validation";
+import { extractYtDlpRuntimeResolution } from "./ytdlp";
 
 type FetchLike = (
   input: RequestInfo | URL,
@@ -16,6 +17,7 @@ type FetchLike = (
 type UrlResolverOptions = {
   fetch?: FetchLike;
   redditResolver?: (url: string) => Promise<RuntimeFeedItem[]>;
+  ytDlpResolver?: (url: string) => Promise<RuntimeFeedItem[]>;
   allowIframeFallback?: boolean;
   now?: () => string;
 };
@@ -234,37 +236,133 @@ async function resolveProvider(
     };
   }
 
-  if (!isRedditUrl(source.url)) return null;
+  const socialEmbed = resolveBrowserRequiredSocialEmbed(source);
+  if (socialEmbed) return socialEmbed;
 
-  const redditResolver =
-    options.redditResolver ??
-    (async (url: string) => {
-      const result = await fetchRedditRuntimePostLinks({
-        urls: url,
-        allowNsfw: true,
+  if (isRedditUrl(source.url)) {
+    const redditResolver =
+      options.redditResolver ??
+      (async (url: string) => {
+        const result = await fetchRedditRuntimePostLinks({
+          urls: url,
+          allowNsfw: true,
+        });
+        return result.items;
       });
-      return result.items;
-    });
-  const items = flattenRuntimeMediaItems(await redditResolver(source.url));
 
-  if (!items.length) return null;
+    try {
+      const items = flattenRuntimeMediaItems(await redditResolver(source.url));
 
-  const title =
-    source.title ??
-    (items.find((item) => item.subreddit)?.subreddit
-      ? `r/${items.find((item) => item.subreddit)?.subreddit}`
-      : items[0]?.title) ??
-    "Reddit URL";
+      if (items.length) {
+        const title =
+          source.title ??
+          (items.find((item) => item.subreddit)?.subreddit
+            ? `r/${items.find((item) => item.subreddit)?.subreddit}`
+            : items[0]?.title) ??
+          "Reddit URL";
 
-  return {
-    status: "resolved",
-    mode: "provider",
-    hint: "provider:reddit",
-    provider: "reddit",
-    title,
-    externalUrl: source.url,
-    items,
-  };
+        return {
+          status: "resolved",
+          mode: "provider",
+          hint: "provider:reddit",
+          provider: "reddit",
+          title,
+          externalUrl: source.url,
+          items,
+        };
+      }
+    } catch {
+      // Reddit posts can wrap externally hosted media. Let yt-dlp try next.
+    }
+  }
+
+  if (options.ytDlpResolver) {
+    const items = flattenRuntimeMediaItems(
+      await options.ytDlpResolver(source.url),
+    );
+    if (items.length) {
+      return {
+        status: "resolved",
+        mode: "provider",
+        hint: "provider:yt-dlp",
+        provider: "yt-dlp",
+        title: source.title ?? items[0]?.title ?? "URL video",
+        externalUrl: source.url,
+        items,
+      };
+    }
+  } else {
+    const resolution = await extractYtDlpRuntimeResolution(source.url);
+    if (resolution) {
+      return {
+        status: "resolved",
+        mode: "provider",
+        hint: "provider:yt-dlp",
+        provider: resolution.provider,
+        title: source.title ?? resolution.title,
+        externalUrl: source.url,
+        ...(resolution.items ? { items: resolution.items } : {}),
+        ...(resolution.iframeUrl ? { iframeUrl: resolution.iframeUrl } : {}),
+        ...(resolution.metadata ? { metadata: resolution.metadata } : {}),
+      };
+    }
+  }
+
+  return resolveSocialEmbed(source);
+}
+
+function resolveBrowserRequiredSocialEmbed(
+  source: UrlSourceConfig,
+): UrlResolvedRuntimeResolution | null {
+  const instagram = instagramEmbedUrl(source.url);
+  if (instagram) {
+    return {
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:instagram",
+      provider: "instagram",
+      title: source.title ?? "Instagram post",
+      externalUrl: source.url,
+      iframeUrl: instagram,
+    };
+  }
+
+  const tiktok = tiktokEmbedUrl(source.url);
+  if (tiktok) {
+    return {
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:tiktok",
+      provider: "tiktok",
+      title: source.title ?? "TikTok video",
+      externalUrl: source.url,
+      iframeUrl: tiktok,
+    };
+  }
+
+  return null;
+}
+
+function resolveSocialEmbed(
+  source: UrlSourceConfig,
+): UrlResolvedRuntimeResolution | null {
+  const browserRequired = resolveBrowserRequiredSocialEmbed(source);
+  if (browserRequired) return browserRequired;
+
+  const tweet = twitterEmbedUrl(source.url);
+  if (tweet) {
+    return {
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:twitter",
+      provider: "twitter",
+      title: source.title ?? "Twitter/X post",
+      externalUrl: source.url,
+      iframeUrl: tweet,
+    };
+  }
+
+  return null;
 }
 
 async function resolveMetadata(
@@ -373,7 +471,15 @@ function isRedditUrl(value: string) {
 }
 
 function isKnownProviderUrl(value: string) {
-  return isRedditUrl(value) || isYoutubeUrl(value);
+  return (
+    isRedditUrl(value) ||
+    isYoutubeUrl(value) ||
+    Boolean(
+      instagramEmbedUrl(value) ||
+      tiktokEmbedUrl(value) ||
+      twitterEmbedUrl(value),
+    )
+  );
 }
 
 function isYoutubeUrl(value: string) {
@@ -423,6 +529,56 @@ function youtubeStartSeconds(url: URL) {
     Number(match[2] ?? 0) * 60 +
     Number(match[3] ?? 0)
   );
+}
+
+function instagramEmbedUrl(value: string) {
+  const url = new URL(value);
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== "instagram.com") return null;
+
+  const segments = url.pathname.split("/").filter(Boolean);
+  const kind = segments[0];
+  const shortcode = segments[1];
+  if (
+    !shortcode ||
+    (kind !== "p" && kind !== "reel" && kind !== "tv") ||
+    !/^[A-Za-z0-9_-]+$/.test(shortcode)
+  ) {
+    return null;
+  }
+
+  return `https://www.instagram.com/${kind}/${shortcode}/embed`;
+}
+
+function tiktokEmbedUrl(value: string) {
+  const url = new URL(value);
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== "tiktok.com") return null;
+
+  const segments = url.pathname.split("/").filter(Boolean);
+  const videoIndex = segments.indexOf("video");
+  const videoId = videoIndex >= 0 ? segments[videoIndex + 1] : null;
+  if (!videoId || !/^\d{6,32}$/.test(videoId)) return null;
+
+  return `https://www.tiktok.com/embed/v2/${videoId}`;
+}
+
+function twitterEmbedUrl(value: string) {
+  const url = new URL(value);
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== "x.com" && host !== "twitter.com") return null;
+
+  const segments = url.pathname.split("/").filter(Boolean);
+  const statusIndex = segments.findIndex(
+    (segment) => segment === "status" || segment === "statuses",
+  );
+  const statusId = statusIndex >= 0 ? segments[statusIndex + 1] : null;
+  if (!statusId || !/^\d{6,32}$/.test(statusId)) return null;
+
+  const embedUrl = new URL("https://platform.twitter.com/embed/Tweet.html");
+  embedUrl.searchParams.set("id", statusId);
+
+  return embedUrl.toString();
 }
 
 function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
