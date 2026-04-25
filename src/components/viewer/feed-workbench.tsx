@@ -2879,15 +2879,17 @@ function SourceDialog({
                     onDragOver={allowLocalFileDrop}
                     onDragEnter={allowLocalFileDrop}
                     onDrop={addDroppedLocalFiles}
-                    className="grid size-full min-h-0 cursor-pointer place-items-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    className="size-full min-h-0 cursor-pointer justify-center rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
-                    <Upload className="size-6 text-primary" />
-                    <span className="grid gap-1">
-                      <span className="text-sm font-medium text-foreground">
-                        Files
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Drop files here or click to select
+                    <span className="flex flex-col items-center justify-center gap-2">
+                      <Upload className="size-6 text-primary" />
+                      <span className="grid gap-1">
+                        <span className="text-sm font-medium text-foreground">
+                          Files
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Drop files here or click to select
+                        </span>
                       </span>
                     </span>
                     <span className="sr-only">Image/video files</span>
@@ -2907,15 +2909,17 @@ function SourceDialog({
                     onDragOver={allowLocalFileDrop}
                     onDragEnter={allowLocalFileDrop}
                     onDrop={addDroppedLocalFiles}
-                    className="grid size-full min-h-0 cursor-pointer place-items-center gap-2 rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    className="size-full min-h-0 cursor-pointer justify-center rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
-                    <FolderOpen className="size-6 text-primary" />
-                    <span className="grid gap-1">
-                      <span className="text-sm font-medium text-foreground">
-                        Folder
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Drop a folder here or click to select
+                    <span className="flex flex-col items-center justify-center gap-2">
+                      <FolderOpen className="size-6 text-primary" />
+                      <span className="grid gap-1">
+                        <span className="text-sm font-medium text-foreground">
+                          Folder
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Drop a folder here or click to select
+                        </span>
                       </span>
                     </span>
                     <span className="sr-only">Image/video folder</span>
