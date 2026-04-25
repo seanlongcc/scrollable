@@ -72,15 +72,9 @@ import {
   validateFreeRects,
 } from "@/lib/viewer/layout";
 import {
-  WORKSPACE_TEMPLATE_STORAGE_KEY,
-  WORKSPACE_STORAGE_KEY,
   createEmptyWorkspace,
   MAX_WORKSPACE_LAYERS,
-  parseWorkspaceStore,
-  parseWorkspaceTemplateStore,
   normalizeWorkspaceLayers,
-  serializeWorkspaceTemplate,
-  serializeWorkspace,
 } from "@/lib/viewer/workspaces";
 import {
   advanceTimerState,
@@ -90,7 +84,6 @@ import {
   globalRestartTimers,
   globalTogglePaused,
   moveTimerIndex,
-  normalizeTimerMode,
   syncTimerToGlobal,
   togglePaused,
   type TimerMode,
@@ -118,7 +111,6 @@ import {
   DEFAULT_TIMER_SECONDS,
   FALLBACK_INITIAL_WORKSPACE_ID,
   MAX_LAYOUT_NAME_LENGTH,
-  WORKSPACE_SESSION_STORAGE_KEY,
 } from "./workbench/types";
 import {
   buildSubredditListingUrls,
@@ -132,13 +124,9 @@ import {
   limitLayoutName,
   nextFixedSlot,
   nextLayoutName,
-  normalizeLegacyLayoutName,
   normalizeRedditLimit,
-  normalizeStoredLayoutNames,
-  parseWorkspaceSessionStore,
   redditHiddenItemHashes,
   redditLinksTitle,
-  resolveWorkspaceGlobalSeconds,
   sessionFileCount,
   splitRedditUrls,
   toMultiTimerState,
@@ -146,7 +134,6 @@ import {
   toRuntimeWorkspaceWithLocalRuntime,
   uniqueWorkspaceName,
   workspaceFromTemplate,
-  writeWorkspaceSessionStore,
 } from "./workbench/helpers";
 import {
   applyLocalRuntimeItemsToSession,
@@ -165,6 +152,16 @@ import {
   hydrateRuntimeSources,
   runtimeHydrationCandidates,
 } from "./workbench/runtime-sources";
+import {
+  createCurrentWorkspaceState,
+  persistTemplateSnapshot,
+  persistWorkspaceSnapshot,
+  restoreWorkspaceBootstrap,
+  workspaceSnapshotToState,
+  writeWorkspaceSessionStore,
+  writeWorkspaceStore,
+  writeWorkspaceTemplateStore,
+} from "./workbench/workspace-state";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -403,70 +400,28 @@ export function FeedWorkbench({
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const stored = parseWorkspaceStore(
-        window.localStorage.getItem(WORKSPACE_STORAGE_KEY),
-      );
-      const templateStore = parseWorkspaceTemplateStore(
-        window.localStorage.getItem(WORKSPACE_TEMPLATE_STORAGE_KEY),
-      );
-      const nextTemplates = Object.fromEntries(
-        (templateStore?.templates ?? []).map((template) => [
-          template.id,
-          template,
-        ]),
-      );
-      setSavedTemplates(nextTemplates);
-      if (!stored?.workspaces.length) return;
+      const bootstrap = restoreWorkspaceBootstrap(initialWorkspace);
 
-      const normalizedWorkspaces = normalizeStoredLayoutNames(
-        stored.workspaces.map((workspace) => ({
-          ...workspace,
-          name: normalizeLegacyLayoutName(workspace.name),
-        })),
-      );
-      const nextSaved = Object.fromEntries(
-        normalizedWorkspaces.map((workspace) => [workspace.id, workspace]),
-      );
-      const sessionStore = parseWorkspaceSessionStore(
-        window.sessionStorage.getItem(WORKSPACE_SESSION_STORAGE_KEY),
-      );
-      const openSavedWorkspaces = normalizedWorkspaces.filter((workspace) =>
-        sessionStore?.openWorkspaceIds.includes(workspace.id),
-      );
-      const blankTab = {
-        id: initialWorkspace.id,
-        name: nextLayoutName([], nextSaved),
-      };
-      const blankWorkspace = toRuntimeWorkspace(
-        createEmptyWorkspace(blankTab.id, blankTab.name),
-      );
-      const restoredTabs = openSavedWorkspaces.map(({ id, name }) => ({
-        id,
-        name,
-      }));
-      const tabs = restoredTabs.length ? restoredTabs : [blankTab];
-      const activeId = tabs.some(
-        (tab) => tab.id === sessionStore?.activeWorkspaceId,
-      )
-        ? sessionStore!.activeWorkspaceId
-        : tabs[0]!.id;
-      const nextStates = {
-        ...(restoredTabs.length ? {} : { [blankWorkspace.id]: blankWorkspace }),
-        ...Object.fromEntries(
-          openSavedWorkspaces.map((workspace) => [
-            workspace.id,
-            toRuntimeWorkspace(workspace),
-          ]),
-        ),
-      };
-      const activeWorkspace = nextStates[activeId] ?? blankWorkspace;
+      setSavedTemplates(bootstrap.savedTemplates);
+      if (
+        !bootstrap.savedWorkspaces ||
+        !bootstrap.workspaceTabs ||
+        !bootstrap.workspaceStates ||
+        !bootstrap.activeWorkspace
+      ) {
+        return;
+      }
 
-      setWorkspaceTabs(tabs);
-      setSavedWorkspaces(nextSaved);
-      setWorkspaceStates(nextStates);
-      setActiveWorkspaceId(activeWorkspace.id);
-      applyWorkspaceSnapshot(activeWorkspace);
-      writeWorkspaceSessionStore(tabs, activeWorkspace.id, nextSaved);
+      setWorkspaceTabs(bootstrap.workspaceTabs);
+      setSavedWorkspaces(bootstrap.savedWorkspaces);
+      setWorkspaceStates(bootstrap.workspaceStates);
+      setActiveWorkspaceId(bootstrap.activeWorkspace.id);
+      applyWorkspaceSnapshot(bootstrap.activeWorkspace);
+      writeWorkspaceSessionStore(
+        bootstrap.workspaceTabs,
+        bootstrap.activeWorkspace.id,
+        bootstrap.savedWorkspaces,
+      );
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -1672,87 +1627,45 @@ export function FeedWorkbench({
     tabsOverride = workspaceTabs,
   ) {
     const current = currentWorkspaceState(nameOverride);
-    const snapshot = serializeWorkspace(current);
+    const { snapshot, nextSaved, store } = persistWorkspaceSnapshot(
+      current,
+      savedWorkspaces,
+    );
     const nextStates = { ...workspaceStates, [current.id]: current };
-    const nextSaved = { ...savedWorkspaces, [snapshot.id]: snapshot };
-    const store = writeWorkspaceStore(nextSaved, current.id);
     setWorkspaceTabs(tabsOverride);
     setWorkspaceStates(nextStates);
+    setSavedWorkspaces(nextSaved);
     writeWorkspaceSessionStore(tabsOverride, current.id, nextSaved);
     return { snapshot, store };
   }
 
   function persistCurrentTemplate(nameOverride = workspaceName) {
     const current = currentWorkspaceState(nameOverride);
-    const snapshot = serializeWorkspaceTemplate({
-      ...current,
+    const { snapshot, nextTemplates, store } = persistTemplateSnapshot(
+      current,
+      savedTemplates,
       templateSlots,
-    });
+    );
     const nextStates = { ...workspaceStates, [current.id]: current };
-    const nextTemplates = { ...savedTemplates, [snapshot.id]: snapshot };
-    const store = writeWorkspaceTemplateStore(nextTemplates);
     setWorkspaceStates(nextStates);
+    setSavedTemplates(nextTemplates);
     return { snapshot, store };
   }
 
   function currentWorkspaceState(
     nameOverride = workspaceName,
   ): RuntimeWorkspace {
-    return {
-      id: activeWorkspaceId,
+    return createCurrentWorkspaceState({
+      activeWorkspaceId,
       name: nameOverride,
       layers,
       activeLayerId,
       layoutMode,
       fixedGrid,
-      globalTimerSeconds: globalSeconds,
-      updatedAt: new Date().toISOString(),
-      sessions: sessions.map((session) => ({
-        id: session.id,
-        title: session.title,
-        layerId: session.layerId,
-        timerMode: normalizeTimerMode(session.timerMode),
-        timerSeconds: session.timer.durationSeconds,
-        timerActiveIndex: session.timer.activeIndex,
-        fixedSlot: session.fixedSlot,
-        freeRect: session.freeRect,
-        sourceConfig: session.sourceConfig,
-        runtimeItems: session.items,
-        allRuntimeItems: session.allItems,
-        urlResolution: session.urlResolution,
-        localFiles: session.localFiles,
-      })),
+      globalSeconds,
+      sessions,
       templateSlots,
-    };
-  }
-
-  function writeWorkspaceStore(
-    workspaces: Record<string, SerializedWorkspace>,
-    activeId: string,
-  ) {
-    const store = {
-      activeWorkspaceId: activeId,
-      workspaces: Object.values(workspaces),
-    };
-
-    setSavedWorkspaces(workspaces);
-    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(store));
-    return store;
-  }
-
-  function writeWorkspaceTemplateStore(
-    templates: Record<string, SerializedWorkspaceTemplate>,
-  ) {
-    const store = {
-      templates: Object.values(templates),
-    };
-
-    setSavedTemplates(templates);
-    window.localStorage.setItem(
-      WORKSPACE_TEMPLATE_STORAGE_KEY,
-      JSON.stringify(store),
-    );
-    return store;
+    });
   }
 
   function createWorkspaceTab() {
@@ -1984,6 +1897,7 @@ export function FeedWorkbench({
     delete nextSaved[id];
 
     writeWorkspaceStore(nextSaved, activeWorkspaceId);
+    setSavedWorkspaces(nextSaved);
     writeWorkspaceSessionStore(workspaceTabs, activeWorkspaceId, nextSaved);
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
@@ -1994,76 +1908,27 @@ export function FeedWorkbench({
     delete nextTemplates[id];
 
     writeWorkspaceTemplateStore(nextTemplates);
+    setSavedTemplates(nextTemplates);
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
 
   function applyWorkspaceSnapshot(
     snapshot: SerializedWorkspace | RuntimeWorkspace,
   ) {
-    const snapshotLayers = normalizeWorkspaceLayers(snapshot.layers);
-    const snapshotActiveLayerId = snapshotLayers.some(
-      (layer) => layer.id === snapshot.activeLayerId,
-    )
-      ? snapshot.activeLayerId
-      : snapshotLayers[0].id;
+    const nextState = workspaceSnapshotToState(snapshot);
 
-    setLayers(snapshotLayers);
-    setActiveLayerId(snapshotActiveLayerId);
-    setLayoutMode(snapshot.layoutMode);
-    setFixedGrid(snapshot.fixedGrid);
-    setGlobalSeconds(resolveWorkspaceGlobalSeconds(snapshot));
-    setTemplateSlots("templateSlots" in snapshot ? snapshot.templateSlots : []);
-    const nextSessions = snapshot.sessions.map((session) => {
-      const items =
-        "runtimeItems" in session ? (session.runtimeItems ?? []) : [];
-      const allItems =
-        "allRuntimeItems" in session
-          ? (session.allRuntimeItems ?? items)
-          : items;
-      const urlResolution =
-        "urlResolution" in session ? session.urlResolution : undefined;
-      const activeIndex =
-        items.length > 0
-          ? clamp(session.timerActiveIndex ?? 0, 0, items.length - 1)
-          : 0;
-      const timer = createTimerState({
-        durationSeconds: session.timerSeconds,
-        itemCount: items.length,
-      });
-
-      return {
-        id: session.id,
-        title: session.title,
-        layerId: session.layerId ?? snapshotActiveLayerId,
-        timerMode: normalizeTimerMode(session.timerMode),
-        timer: { ...timer, activeIndex },
-        fixedSlot: session.fixedSlot,
-        freeRect: session.freeRect,
-        items,
-        allItems,
-        urlResolution,
-        localFiles: "localFiles" in session ? session.localFiles : undefined,
-        isRuntimeLoading:
-          (session.sourceConfig.kind === "reddit" ||
-            (session.sourceConfig.kind === "url" && !urlResolution) ||
-            (session.sourceConfig.kind === "local" &&
-              Boolean(session.sourceConfig.cacheSetId))) &&
-          items.length === 0,
-        sourceConfig: session.sourceConfig,
-      };
-    });
-
-    setSessions(nextSessions);
+    setLayers(nextState.layers);
+    setActiveLayerId(nextState.activeLayerId);
+    setLayoutMode(nextState.layoutMode);
+    setFixedGrid(nextState.fixedGrid);
+    setGlobalSeconds(nextState.globalSeconds);
+    setTemplateSlots(nextState.templateSlots);
+    setSessions(nextState.sessions);
     setGalleryIndexes({});
-    setSelectedId(
-      snapshot.sessions.find(
-        (session) =>
-          (session.layerId ?? snapshotActiveLayerId) === snapshotActiveLayerId,
-      )?.id ?? null,
-    );
+    setSelectedId(nextState.selectedId);
     setMaximizedId(null);
     setPendingTemplateSlotId(null);
-    void hydrateRuntimeItems(nextSessions);
+    void hydrateRuntimeItems(nextState.sessions);
   }
 
   async function hydrateRuntimeItems(nextSessions: FeedSession[]) {

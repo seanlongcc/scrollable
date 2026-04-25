@@ -15,14 +15,12 @@ import type {
   RuntimeWorkspace,
   SerializedWorkspace,
   WorkspaceSessionInput,
-  WorkspaceSessionStore,
   WorkspaceTab,
 } from "./types";
 import {
   DEFAULT_REDDIT_MEDIA_LIMIT,
   MAX_LAYOUT_NAME_LENGTH,
   MAX_REDDIT_MEDIA_LIMIT,
-  WORKSPACE_SESSION_STORAGE_KEY,
 } from "./types";
 
 export function nextFixedSlot(
@@ -381,49 +379,6 @@ export function createId() {
   }
 
   return `id-${Math.random().toString(36).slice(2)}`;
-}
-
-export function parseWorkspaceSessionStore(
-  value: string | null,
-): WorkspaceSessionStore | null {
-  if (!value) return null;
-
-  try {
-    const parsed = JSON.parse(value) as WorkspaceSessionStore;
-    if (
-      !Array.isArray(parsed.openWorkspaceIds) ||
-      typeof parsed.activeWorkspaceId !== "string"
-    ) {
-      return null;
-    }
-
-    return {
-      openWorkspaceIds: parsed.openWorkspaceIds.filter(
-        (id): id is string => typeof id === "string",
-      ),
-      activeWorkspaceId: parsed.activeWorkspaceId,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function writeWorkspaceSessionStore(
-  tabs: WorkspaceTab[],
-  activeWorkspaceId: string,
-  savedWorkspaces: Record<string, SerializedWorkspace>,
-) {
-  const openWorkspaceIds = tabs
-    .map((tab) => tab.id)
-    .filter((id) => Boolean(savedWorkspaces[id]));
-  const sessionActiveId = openWorkspaceIds.includes(activeWorkspaceId)
-    ? activeWorkspaceId
-    : "";
-
-  window.sessionStorage.setItem(
-    WORKSPACE_SESSION_STORAGE_KEY,
-    JSON.stringify({ openWorkspaceIds, activeWorkspaceId: sessionActiveId }),
-  );
 }
 
 export function nextLayoutName(
