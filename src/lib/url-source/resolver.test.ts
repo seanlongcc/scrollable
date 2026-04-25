@@ -13,6 +13,15 @@ const redditItem: RuntimeFeedItem = {
   media: [{ type: "image", url: "https://i.redd.it/runtime.jpg" }],
 };
 
+const galleryItem: RuntimeFeedItem = {
+  id: "url:gallery:abc123",
+  source: "url",
+  title: "Gallery image",
+  isNsfw: true,
+  createdAt: "2026-04-25T00:00:00.000Z",
+  media: [{ type: "image", url: "https://i.nhentai.net/galleries/1/1.jpg" }],
+};
+
 describe("resolveUrlSource", () => {
   it("uses direct media before a known provider", async () => {
     const redditResolver = vi.fn(async () => [redditItem]);
@@ -127,6 +136,160 @@ describe("resolveUrlSource", () => {
       provider: "youtube",
       title: "YouTube video",
       iframeUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses gallery provider extraction before yt-dlp and metadata", async () => {
+    const fetchMock = vi.fn(async () =>
+      htmlResponse("<title>Metadata should not win</title>"),
+    );
+    const galleryResolver = vi.fn(async () => [galleryItem]);
+    const ytDlpResolver = vi.fn(async () => [
+      {
+        id: "url:ytdlp:gallery",
+        source: "url" as const,
+        title: "Video should not win",
+        isNsfw: false,
+        createdAt: "2026-04-25T00:00:00.000Z",
+        media: [{ type: "video" as const, url: "https://cdn.test/v.mp4" }],
+      },
+    ]);
+
+    const result = await resolveUrlSource(
+      { kind: "url", url: "https://nhentai.net/g/123456/" },
+      { fetch: fetchMock, galleryResolver, ytDlpResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:gallery",
+      provider: "gallery",
+      title: "Gallery image",
+      items: [
+        {
+          media: [
+            {
+              type: "image",
+              url: "https://i.nhentai.net/galleries/1/1.jpg",
+            },
+          ],
+        },
+      ],
+    });
+    expect(result.nextResolverHint).toBe("provider:gallery");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(galleryResolver).toHaveBeenCalledWith(
+      "https://nhentai.net/g/123456/",
+    );
+    expect(ytDlpResolver).not.toHaveBeenCalled();
+  });
+
+  it("uses a Hitomi iframe provider instead of direct gallery images", async () => {
+    const fetchMock = vi.fn(async () =>
+      htmlResponse("<title>Metadata should not win</title>"),
+    );
+    const galleryResolver = vi.fn(async () => [
+      {
+        ...galleryItem,
+        media: [
+          {
+            type: "image" as const,
+            url: "https://w1.gold-usergeneratedcontent.net/path/page.webp",
+          },
+        ],
+      },
+    ]);
+    const hitomiUrl =
+      "https://hitomi.la/cg/the-weak-soccer-club-trampled-under-the-feet-of-the-dance-club-girls-3-english-3887944.html#1";
+
+    const result = await resolveUrlSource(
+      { kind: "url", url: hitomiUrl, title: "Hitomi sample" },
+      { fetch: fetchMock, galleryResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:hitomi",
+      provider: "hitomi",
+      title: "Hitomi sample",
+      externalUrl: hitomiUrl,
+      iframeUrl: hitomiUrl,
+    });
+    expect(result.nextResolverHint).toBe("provider:hitomi");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(galleryResolver).not.toHaveBeenCalled();
+  });
+
+  it("tries a saved gallery provider hint before generic metadata", async () => {
+    const fetchMock = vi.fn(async () =>
+      htmlResponse("<title>Metadata should not win</title>"),
+    );
+    const galleryResolver = vi.fn(async () => [galleryItem]);
+
+    const result = await resolveUrlSource(
+      {
+        kind: "url",
+        url: "https://example.com/gallery/123",
+        resolverHint: "provider:gallery",
+      },
+      { fetch: fetchMock, galleryResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:gallery",
+      provider: "gallery",
+      title: "Gallery image",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(galleryResolver).toHaveBeenCalledWith(
+      "https://example.com/gallery/123",
+    );
+  });
+
+  it("falls back to metadata when gallery extraction finds no images", async () => {
+    const fetchMock = vi.fn(async () =>
+      htmlResponse("<html><head><title>Gallery metadata</title></head></html>"),
+    );
+    const galleryResolver = vi.fn(async () => []);
+    const ytDlpResolver = vi.fn(async () => []);
+
+    const result = await resolveUrlSource(
+      { kind: "url", url: "https://nhentai.net/g/empty/" },
+      { fetch: fetchMock, galleryResolver, ytDlpResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "metadata",
+      hint: "metadata",
+      title: "Gallery metadata",
+    });
+    expect(galleryResolver).toHaveBeenCalledWith(
+      "https://nhentai.net/g/empty/",
+    );
+    expect(ytDlpResolver).toHaveBeenCalledWith("https://nhentai.net/g/empty/");
+  });
+
+  it("does not iframe a known gallery host when gallery extraction fails", async () => {
+    const fetchMock = vi.fn(async () => emptyResponse(403));
+    const galleryResolver = vi.fn(async () => []);
+    const ytDlpResolver = vi.fn(async () => []);
+
+    const result = await resolveUrlSource(
+      { kind: "url", url: "https://nhentai.net/g/123456/" },
+      { fetch: fetchMock, galleryResolver, ytDlpResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "unsupported",
+      title: "123456",
+      externalUrl: "https://nhentai.net/g/123456/",
+      reason: "url_source_unsupported",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -265,7 +428,51 @@ describe("resolveUrlSource", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("uses a TikTok embed instead of direct CDN media", async () => {
+  it("uses yt-dlp media for Instagram before the social embed fallback", async () => {
+    const ytDlpResolver = vi.fn(async () => [
+      {
+        id: "url:ytdlp:instagram",
+        source: "url" as const,
+        title: "Instagram direct video",
+        isNsfw: false,
+        createdAt: "2026-04-25T00:00:00.000Z",
+        media: [
+          {
+            type: "video" as const,
+            url: "https://scontent.cdninstagram.test/video.mp4",
+          },
+        ],
+      },
+    ]);
+
+    const result = await resolveUrlSource(
+      { kind: "url", url: "https://www.instagram.com/reel/DXel_SUEX9r/" },
+      { ytDlpResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:yt-dlp",
+      provider: "yt-dlp",
+      title: "Instagram direct video",
+      items: [
+        {
+          media: [
+            {
+              type: "video",
+              url: "https://scontent.cdninstagram.test/video.mp4",
+            },
+          ],
+        },
+      ],
+    });
+    expect(ytDlpResolver).toHaveBeenCalledWith(
+      "https://www.instagram.com/reel/DXel_SUEX9r/",
+    );
+  });
+
+  it("uses yt-dlp media for TikTok before the social embed fallback", async () => {
     const ytDlpResolver = vi.fn(async () => [
       {
         id: "url:ytdlp:tiktok",
@@ -293,11 +500,131 @@ describe("resolveUrlSource", () => {
     expect(result.resolution).toMatchObject({
       status: "resolved",
       mode: "provider",
+      hint: "provider:yt-dlp",
+      provider: "yt-dlp",
+      title: "TikTok direct video",
+      items: [
+        {
+          media: [
+            {
+              type: "video",
+              url: "https://v16-webapp-prime.us.tiktok.com/video.mp4",
+            },
+          ],
+        },
+      ],
+    });
+    expect(ytDlpResolver).toHaveBeenCalledWith(
+      "https://www.tiktok.com/@gogo.cosplaylife/video/7611467568305540365?is_from_webapp=1&sender_device=pc",
+    );
+  });
+
+  it("uses the TikTok embed when yt-dlp exposes no direct media", async () => {
+    const ytDlpResolver = vi.fn(async () => []);
+
+    const result = await resolveUrlSource(
+      {
+        kind: "url",
+        url: "https://www.tiktok.com/@gogo.cosplaylife/video/7611467568305540365?is_from_webapp=1&sender_device=pc",
+      },
+      { ytDlpResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "provider",
       hint: "provider:tiktok",
       provider: "tiktok",
       iframeUrl: "https://www.tiktok.com/embed/v2/7611467568305540365",
     });
-    expect(ytDlpResolver).not.toHaveBeenCalled();
+  });
+
+  it("uses yt-dlp media for Twitter/X before the social embed fallback", async () => {
+    const ytDlpResolver = vi.fn(async () => [
+      {
+        id: "url:ytdlp:twitter",
+        source: "url" as const,
+        title: "Twitter direct video",
+        isNsfw: false,
+        createdAt: "2026-04-25T00:00:00.000Z",
+        media: [
+          {
+            type: "video" as const,
+            url: "https://video.twimg.com/amplify_video.mp4",
+          },
+        ],
+      },
+    ]);
+
+    const result = await resolveUrlSource(
+      {
+        kind: "url",
+        url: "https://x.com/iconicstayc/status/2047918257261150588",
+      },
+      { ytDlpResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:yt-dlp",
+      provider: "yt-dlp",
+      title: "Twitter direct video",
+      items: [
+        {
+          media: [
+            {
+              type: "video",
+              url: "https://video.twimg.com/amplify_video.mp4",
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("does not let a saved iframe hint pin social URLs to the full page", async () => {
+    const ytDlpResolver = vi.fn(async () => [
+      {
+        id: "url:ytdlp:saved-social",
+        source: "url" as const,
+        title: "Saved social direct video",
+        isNsfw: false,
+        createdAt: "2026-04-25T00:00:00.000Z",
+        media: [
+          {
+            type: "video" as const,
+            url: "https://video.twimg.com/saved.mp4",
+          },
+        ],
+      },
+    ]);
+
+    const result = await resolveUrlSource(
+      {
+        kind: "url",
+        url: "https://twitter.com/iconicstayc/status/2047918257261150588",
+        resolverHint: "iframe",
+      },
+      { ytDlpResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:yt-dlp",
+      provider: "yt-dlp",
+      items: [
+        {
+          media: [
+            {
+              type: "video",
+              url: "https://video.twimg.com/saved.mp4",
+            },
+          ],
+        },
+      ],
+    });
   });
 
   it("tries a saved YouTube provider hint before generic metadata", async () => {

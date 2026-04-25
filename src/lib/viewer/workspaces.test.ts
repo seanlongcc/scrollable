@@ -127,6 +127,80 @@ describe("viewer workspaces", () => {
     expect(snapshot.sessions[0]).not.toHaveProperty("urlResolution");
   });
 
+  it("serializes gallery URL hints without runtime image payloads", () => {
+    const workspace = createEmptyWorkspace("workspace-1", "Layout 1");
+
+    const snapshot = serializeWorkspace({
+      ...workspace,
+      sessions: [
+        {
+          id: "session-1",
+          title: "Gallery URL",
+          timerMode: "global",
+          timerSeconds: 10,
+          fixedSlot: 0,
+          freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+          sourceConfig: {
+            kind: "url",
+            url: "https://nhentai.net/g/123456/",
+            title: "User gallery title",
+            resolverHint: "provider:gallery",
+          },
+          runtimeItems: [
+            {
+              id: "url:gallery:runtime",
+              source: "url",
+              title: "Runtime gallery image",
+              isNsfw: true,
+              createdAt: "2026-04-25T00:00:00.000Z",
+              media: [
+                {
+                  type: "image",
+                  url: "https://i.nhentai.net/galleries/98765/1.jpg",
+                },
+              ],
+            },
+          ],
+          urlResolution: {
+            status: "resolved",
+            mode: "provider",
+            hint: "provider:gallery",
+            provider: "gallery",
+            title: "Runtime gallery",
+            externalUrl: "https://nhentai.net/g/123456/",
+            items: [
+              {
+                id: "url:gallery:runtime",
+                source: "url",
+                title: "Runtime gallery image",
+                isNsfw: true,
+                createdAt: "2026-04-25T00:00:00.000Z",
+                media: [
+                  {
+                    type: "image",
+                    url: "https://i.nhentai.net/galleries/98765/1.jpg",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const encoded = JSON.stringify(snapshot);
+
+    expect(encoded).toContain("https://nhentai.net/g/123456/");
+    expect(encoded).toContain('"resolverHint":"provider:gallery"');
+    expect(encoded).toContain("User gallery title");
+    expect(encoded).not.toContain(
+      "https://i.nhentai.net/galleries/98765/1.jpg",
+    );
+    expect(encoded).not.toContain("url:gallery:runtime");
+    expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");
+    expect(snapshot.sessions[0]).not.toHaveProperty("urlResolution");
+  });
+
   it("creates a default editable layer for new workspaces", () => {
     expect(createEmptyWorkspace("workspace-1", "Layout 1")).toMatchObject({
       layers: [{ id: "layer-1", name: "Layer 1" }],

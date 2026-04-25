@@ -3054,7 +3054,7 @@ function SourceDialog({
     >
       <DialogContent
         aria-busy={isLoading}
-        className="grid max-h-[96dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl"
+        className="grid max-h-[96dvh] w-[min(96vw,72rem)] max-w-[72rem] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-[72rem]"
       >
         {isLoading ? (
           <div className="absolute inset-0 z-30 grid place-items-center bg-popover/82 px-6 backdrop-blur-sm">
@@ -4307,18 +4307,34 @@ function UrlSourcePane({
   onEdit?: () => void;
   onRemove?: () => void;
 }) {
+  const [approvedFallbackIframeUrl, setApprovedFallbackIframeUrl] = useState<
+    string | null
+  >(null);
   const displayTitle = resolution?.title ?? title;
   const externalUrl = resolution?.externalUrl;
   const iframeUrl = resolution ? urlResolutionIframeUrl(resolution) : null;
+  const requiresDisplayWarning =
+    urlResolutionRequiresDisplayWarning(resolution);
+  const hasApprovedFallbackIframe =
+    Boolean(iframeUrl) && approvedFallbackIframeUrl === iframeUrl;
+  const shouldShowDisplayWarning =
+    Boolean(iframeUrl) && requiresDisplayWarning && !hasApprovedFallbackIframe;
+  const shouldMountIframe =
+    Boolean(iframeUrl) &&
+    canMountIframe &&
+    (!requiresDisplayWarning || hasApprovedFallbackIframe);
   const iframeBlocked =
-    resolution?.status === "resolved" && iframeUrl && !canMountIframe;
+    resolution?.status === "resolved" &&
+    iframeUrl &&
+    !shouldShowDisplayWarning &&
+    !shouldMountIframe;
 
   return (
     <article className="group/source relative grid size-full min-h-0 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]">
-      {iframeUrl && canMountIframe ? (
+      {shouldMountIframe ? (
         <iframe
           title={displayTitle}
-          src={iframeUrl}
+          src={iframeUrl ?? ""}
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
           sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
@@ -4356,6 +4372,16 @@ function UrlSourcePane({
                     />
                   ) : null}
                 </>
+              ) : shouldShowDisplayWarning ? (
+                <>
+                  <p className="text-xs font-medium text-primary">
+                    Site not natively supported
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This source will open as an embedded site instead of native
+                    media.
+                  </p>
+                </>
               ) : iframeBlocked ? (
                 <p className="text-xs text-muted-foreground">
                   Iframe limit reached
@@ -4374,6 +4400,15 @@ function UrlSourcePane({
                 </p>
               )}
             </div>
+            {shouldShowDisplayWarning ? (
+              <Button
+                size="sm"
+                onClick={() => setApprovedFallbackIframeUrl(iframeUrl)}
+              >
+                <Info />
+                Display site
+              </Button>
+            ) : null}
             {externalUrl ? (
               <Button asChild size="sm" variant="outline">
                 <a href={externalUrl} target="_blank" rel="noreferrer">
@@ -5165,6 +5200,17 @@ function urlResolutionIframeUrl(resolution: UrlRuntimeResolution) {
   }
 
   return null;
+}
+
+function urlResolutionRequiresDisplayWarning(
+  resolution: UrlRuntimeResolution | undefined,
+) {
+  if (!resolution || resolution.status !== "resolved") return false;
+  if (resolution.mode === "iframe") return true;
+  if (resolution.mode !== "provider" || !resolution.iframeUrl) return false;
+  if (resolution.items?.length) return false;
+
+  return resolution.provider !== "youtube";
 }
 
 function activeIframeFallbackLimit() {

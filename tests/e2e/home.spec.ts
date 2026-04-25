@@ -72,6 +72,43 @@ test("local upload layouts restore cached files after refresh", async ({
   await expect(page.getByText("No runtime media")).toHaveCount(0);
 });
 
+test("warns before displaying provider page embeds", async ({ page }) => {
+  await page.route("**/api/url/resolve?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        resolution: {
+          status: "resolved",
+          mode: "provider",
+          hint: "provider:hitomi",
+          provider: "hitomi",
+          title: "Hitomi",
+          externalUrl: "https://hitomi.la/cg/sample-123.html",
+          iframeUrl: "https://hitomi.la/cg/sample-123.html",
+        },
+        nextResolverHint: "provider:hitomi",
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "URL" })
+    .fill("https://hitomi.la/cg/sample-123.html");
+  await page.getByRole("button", { name: "Open URL" }).click();
+
+  await expect(page.getByText("Site not natively supported")).toBeVisible();
+  await expect(page.locator("iframe[title='Hitomi']")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Display site" }).click();
+  await expect(page.locator("iframe[title='Hitomi']")).toHaveAttribute(
+    "src",
+    "https://hitomi.la/cg/sample-123.html",
+  );
+});
+
 test("keyboard and wheel move through runtime feed items", async ({ page }) => {
   await page.route("**/api/reddit/listing?**", async (route) => {
     await route.fulfill({

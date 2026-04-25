@@ -227,6 +227,59 @@ describe("FeedWorkbench", () => {
     expect(saved).not.toContain('"media"');
   });
 
+  it("adds a gallery URL source and saves only the gallery resolver hint", async () => {
+    stubUrlResolveFetch({
+      resolution: {
+        status: "resolved",
+        mode: "provider",
+        hint: "provider:gallery",
+        provider: "gallery",
+        title: "Gallery URL",
+        externalUrl: "https://nhentai.net/g/123456/",
+        items: [
+          {
+            id: "url:gallery:runtime",
+            source: "url",
+            title: "Gallery image",
+            isNsfw: true,
+            createdAt: "2026-04-25T00:00:00.000Z",
+            media: [
+              {
+                type: "image",
+                url: "https://i.nhentai.net/galleries/98765/1.jpg",
+              },
+            ],
+          },
+        ],
+      },
+      nextResolverHint: "provider:gallery",
+    });
+    stubRandomUuids(["workspace-1", "session-1"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.type(
+      screen.getByLabelText("URL"),
+      "https://nhentai.net/g/123456/",
+    );
+    await user.click(screen.getByRole("button", { name: "Open URL" }));
+
+    expect(await screen.findByAltText("Gallery image")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
+
+    expect(saved).toContain('"kind":"url"');
+    expect(saved).toContain("https://nhentai.net/g/123456/");
+    expect(saved).toContain('"resolverHint":"provider:gallery"');
+    expect(saved).not.toContain("https://i.nhentai.net/galleries/98765/1.jpg");
+    expect(saved).not.toContain("url:gallery:runtime");
+    expect(saved).not.toContain('"media"');
+  });
+
   it("resets source inputs each time the add-source dialog opens", async () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
@@ -353,6 +406,96 @@ describe("FeedWorkbench", () => {
     expect(screen.queryByLabelText("Blocked site timer progress")).toBeNull();
   });
 
+  it.each([
+    {
+      label: "generic iframe",
+      resolution: {
+        status: "resolved" as const,
+        mode: "iframe" as const,
+        hint: "iframe" as const,
+        title: "Unknown site",
+        externalUrl: "https://unknown.example/",
+        iframeUrl: "https://unknown.example/",
+      },
+    },
+    {
+      label: "Hitomi provider",
+      resolution: {
+        status: "resolved" as const,
+        mode: "provider" as const,
+        hint: "provider:hitomi" as const,
+        provider: "hitomi",
+        title: "Hitomi",
+        externalUrl: "https://hitomi.la/cg/sample-123.html",
+        iframeUrl: "https://hitomi.la/cg/sample-123.html",
+      },
+    },
+    {
+      label: "Instagram provider",
+      resolution: {
+        status: "resolved" as const,
+        mode: "provider" as const,
+        hint: "provider:instagram" as const,
+        provider: "instagram",
+        title: "Instagram",
+        externalUrl: "https://www.instagram.com/p/example/",
+        iframeUrl: "https://www.instagram.com/p/example/embed",
+      },
+    },
+    {
+      label: "TikTok provider",
+      resolution: {
+        status: "resolved" as const,
+        mode: "provider" as const,
+        hint: "provider:tiktok" as const,
+        provider: "tiktok",
+        title: "TikTok",
+        externalUrl: "https://www.tiktok.com/@user/video/7611467568305540365",
+        iframeUrl: "https://www.tiktok.com/embed/v2/7611467568305540365",
+      },
+    },
+    {
+      label: "Twitter/X provider",
+      resolution: {
+        status: "resolved" as const,
+        mode: "provider" as const,
+        hint: "provider:twitter" as const,
+        provider: "twitter",
+        title: "Twitter/X",
+        externalUrl: "https://x.com/example/status/2047918257261150588",
+        iframeUrl:
+          "https://platform.twitter.com/embed/Tweet.html?id=2047918257261150588",
+      },
+    },
+  ])("warns before rendering $label page embeds", async ({ resolution }) => {
+    stubUrlResolveFetch({
+      resolution,
+      nextResolverHint: resolution.hint,
+    });
+    stubRandomUuids(["workspace-1", "session-1"]);
+
+    const user = userEvent.setup();
+    const { container } = render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.clear(screen.getByLabelText("URL"));
+    await user.type(screen.getByLabelText("URL"), resolution.externalUrl);
+    await user.click(screen.getByRole("button", { name: "Open URL" }));
+
+    expect(
+      await screen.findByText("Site not natively supported"),
+    ).toBeVisible();
+    expect(container.querySelector("iframe")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Display site" }));
+
+    expect(await screen.findByTitle(resolution.title)).toBeInTheDocument();
+    expect(container.querySelector("iframe")).toHaveAttribute(
+      "src",
+      resolution.iframeUrl,
+    );
+  });
+
   it("renders YouTube provider URL sources as embedded provider panes", async () => {
     stubUrlResolveFetch({
       resolution: {
@@ -445,7 +588,13 @@ describe("FeedWorkbench", () => {
 
     await openSavedLayouts(user, ["Iframe wall"]);
 
-    await screen.findByText("site-1.example");
+    await screen.findAllByText("site-1.example");
+    for (const button of screen.getAllByRole("button", {
+      name: "Display site",
+    })) {
+      await user.click(button);
+    }
+
     expect(container.querySelectorAll("iframe")).toHaveLength(1);
     expect(screen.getAllByText("Iframe limit reached")).toHaveLength(2);
   });

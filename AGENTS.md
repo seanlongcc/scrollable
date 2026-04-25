@@ -15,6 +15,7 @@ Current installed stack:
 - Supabase CLI 2.95.x
 - Vitest 4.x, Playwright 1.59.x, ESLint 9.x
 - Optional `yt-dlp` executable for runtime arbitrary-site URL extraction. Keep it on `PATH` or set `YTDLP_PATH`.
+- Optional server-only `NHENTAI_API_KEY` for runtime nHentai gallery API requests. Store it in local/deployment secrets only, never as `NEXT_PUBLIC_*`.
 - Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
 - Vercel for deployment
 - Mobile-first user experience
@@ -80,7 +81,7 @@ Acceptable stored data:
 - `display_options` may store display/config preferences only, not third-party media metadata.
 - `viewer_sessions.sessions` must remain metadata-only and must not contain raw Reddit item/post IDs, media URLs, thumbnails, listing payloads, normalized runtime items, or local upload object URLs. Opaque `sha256:` Reddit hidden-item hashes are allowed.
 - Layout layers may store layer IDs, layer names, active layer IDs, and per-source layer membership only.
-- URL resolver hints may include `provider:yt-dlp`, but extracted stream URLs, HLS segment query parameters, thumbnails, cookies, headers, and raw `yt-dlp` output remain runtime-only.
+- URL resolver hints may include `provider:gallery`, `provider:hitomi`, and `provider:yt-dlp`, but extracted gallery image URLs, stream URLs, HLS segment query parameters, thumbnails, cookies, headers, API keys, raw gallery HTML/JSON, and raw `yt-dlp` output remain runtime-only.
 
 ## Architecture Direction
 

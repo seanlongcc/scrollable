@@ -7,6 +7,7 @@ import type {
   UrlSourceConfig,
 } from "./types";
 import { parseUrlSourceConfig } from "./validation";
+import { extractGalleryRuntimeItems } from "./gallery";
 import { extractYtDlpRuntimeResolution } from "./ytdlp";
 
 type FetchLike = (
@@ -17,6 +18,7 @@ type FetchLike = (
 type UrlResolverOptions = {
   fetch?: FetchLike;
   redditResolver?: (url: string) => Promise<RuntimeFeedItem[]>;
+  galleryResolver?: (url: string) => Promise<RuntimeFeedItem[]>;
   ytDlpResolver?: (url: string) => Promise<RuntimeFeedItem[]>;
   allowIframeFallback?: boolean;
   now?: () => string;
@@ -66,7 +68,7 @@ export async function resolveUrlSource(
   options: UrlResolverOptions = {},
 ): Promise<ResolvedUrlSource> {
   const source = parseUrlSourceConfig(input);
-  const hintedResolver = resolverNameFromHint(source.resolverHint);
+  const hintedResolver = resolverNameFromHint(source.resolverHint, source);
   const tried = new Set<ResolverName>();
 
   if (hintedResolver) {
@@ -118,8 +120,10 @@ async function runResolver(
 
 function resolverNameFromHint(
   hint: UrlResolverHint | undefined,
+  source: UrlSourceConfig,
 ): ResolverName | null {
   if (!hint) return null;
+  if (hint === "iframe" && isSocialProviderUrl(source.url)) return null;
   if (hint === "direct-media" || hint === "metadata" || hint === "iframe") {
     return hint;
   }
@@ -220,7 +224,7 @@ function mediaFromMime(url: string, contentType: string): RuntimeMedia | null {
 async function resolveProvider(
   source: UrlSourceConfig,
   options: UrlResolverOptions,
-): Promise<UrlResolvedRuntimeResolution | null> {
+): Promise<UrlRuntimeResolution | null> {
   if (isYoutubeUrl(source.url)) {
     const embedUrl = youtubeEmbedUrl(source.url);
     if (!embedUrl) return null;
@@ -235,9 +239,6 @@ async function resolveProvider(
       iframeUrl: embedUrl,
     };
   }
-
-  const socialEmbed = resolveBrowserRequiredSocialEmbed(source);
-  if (socialEmbed) return socialEmbed;
 
   if (isRedditUrl(source.url)) {
     const redditResolver =
@@ -276,20 +277,94 @@ async function resolveProvider(
     }
   }
 
+  const hitomi = resolveHitomiProvider(source);
+  if (hitomi) return hitomi;
+
+  const gallery = await resolveGalleryProvider(source, options);
+  if (gallery) return gallery;
+  if (isGalleryProviderUrl(source.url)) {
+    return {
+      status: "unsupported",
+      title: source.title ?? titleFromUrl(source.url) ?? "Gallery URL",
+      externalUrl: source.url,
+      reason: "url_source_unsupported",
+    };
+  }
+
+  const ytDlp = await resolveYtDlpProvider(source, options);
+  if (ytDlp) return ytDlp;
+
+  return resolveSocialEmbed(source);
+}
+
+async function resolveGalleryProvider(
+  source: UrlSourceConfig,
+  options: UrlResolverOptions,
+): Promise<UrlResolvedRuntimeResolution | null> {
+  try {
+    const resolver =
+      options.galleryResolver ??
+      ((url: string) =>
+        extractGalleryRuntimeItems(url, {
+          ...(options.fetch ? { fetch: options.fetch } : {}),
+          ...(options.now ? { now: options.now } : {}),
+        }));
+    const items = flattenRuntimeMediaItems(await resolver(source.url));
+
+    if (!items.length) return null;
+
+    return {
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:gallery",
+      provider: "gallery",
+      title: source.title ?? items[0]?.title ?? "Gallery URL",
+      externalUrl: source.url,
+      items,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function resolveHitomiProvider(
+  source: UrlSourceConfig,
+): UrlResolvedRuntimeResolution | null {
+  if (!isHitomiGalleryUrl(source.url)) return null;
+
+  return {
+    status: "resolved",
+    mode: "provider",
+    hint: "provider:hitomi",
+    provider: "hitomi",
+    title: source.title ?? "Hitomi gallery",
+    externalUrl: source.url,
+    iframeUrl: source.url,
+  };
+}
+
+async function resolveYtDlpProvider(
+  source: UrlSourceConfig,
+  options: UrlResolverOptions,
+): Promise<UrlResolvedRuntimeResolution | null> {
   if (options.ytDlpResolver) {
-    const items = flattenRuntimeMediaItems(
-      await options.ytDlpResolver(source.url),
-    );
-    if (items.length) {
-      return {
-        status: "resolved",
-        mode: "provider",
-        hint: "provider:yt-dlp",
-        provider: "yt-dlp",
-        title: source.title ?? items[0]?.title ?? "URL video",
-        externalUrl: source.url,
-        items,
-      };
+    try {
+      const items = flattenRuntimeMediaItems(
+        await options.ytDlpResolver(source.url),
+      );
+      if (items.length) {
+        return {
+          status: "resolved",
+          mode: "provider",
+          hint: "provider:yt-dlp",
+          provider: "yt-dlp",
+          title: source.title ?? items[0]?.title ?? "URL video",
+          externalUrl: source.url,
+          items,
+        };
+      }
+    } catch {
+      return null;
     }
   } else {
     const resolution = await extractYtDlpRuntimeResolution(source.url);
@@ -308,7 +383,7 @@ async function resolveProvider(
     }
   }
 
-  return resolveSocialEmbed(source);
+  return null;
 }
 
 function resolveBrowserRequiredSocialEmbed(
@@ -474,11 +549,48 @@ function isKnownProviderUrl(value: string) {
   return (
     isRedditUrl(value) ||
     isYoutubeUrl(value) ||
-    Boolean(
-      instagramEmbedUrl(value) ||
-      tiktokEmbedUrl(value) ||
-      twitterEmbedUrl(value),
-    )
+    isSocialProviderUrl(value) ||
+    isGalleryProviderUrl(value)
+  );
+}
+
+function isGalleryProviderUrl(value: string) {
+  const url = new URL(value);
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  const path = url.pathname;
+
+  if (host === "nhentai.net") return /^\/g\/\d+\/?$/.test(path);
+  if (host === "imhentai.xxx") return /^\/gallery\//.test(path);
+  if (host === "hentaifox.com") return /^\/gallery\/\d+\/?$/.test(path);
+  if (host === "hentainexus.com") return /^\/(?:read|view)\/\d+\/?$/.test(path);
+  if (host === "hentairead.com") return path.startsWith("/hentai/");
+  if (host === "akuma.moe") return /^\/g\/[^/]+\/?$/.test(path);
+  if (host === "e-hentai.org") return /^\/g\/\d+\/[a-z0-9]+\/?$/i.test(path);
+  if (host === "hitomi.la") return isHitomiGalleryUrl(value);
+
+  return false;
+}
+
+function isHitomiGalleryUrl(value: string) {
+  const url = new URL(value);
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  return (
+    host === "hitomi.la" && /^\/[^/]+\/[^/]+-\d+\.html$/i.test(url.pathname)
+  );
+}
+
+function isSocialProviderUrl(value: string) {
+  const host = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+
+  return (
+    host === "instagram.com" ||
+    host.endsWith(".instagram.com") ||
+    host === "tiktok.com" ||
+    host.endsWith(".tiktok.com") ||
+    host === "x.com" ||
+    host.endsWith(".x.com") ||
+    host === "twitter.com" ||
+    host.endsWith(".twitter.com")
   );
 }
 
