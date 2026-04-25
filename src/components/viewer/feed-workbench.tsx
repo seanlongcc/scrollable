@@ -49,16 +49,12 @@ import {
 import { EditSourceDialog, SourceDialog } from "./workbench/source-dialogs";
 import { FixedGridView, FocusLayout, FreeGridView } from "./workbench/views";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
-import {
-  isLocalFileCacheSupported,
-  loadLocalFiles,
-} from "@/lib/local-uploads/file-cache";
+import { isLocalFileCacheSupported } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import type { Json } from "@/lib/supabase/database.types";
 import type {
-  UrlResolverHint,
   UrlRuntimeResolution,
   UrlSourceConfig,
 } from "@/lib/url-source/types";
@@ -128,9 +124,6 @@ import {
   buildSubredditListingUrls,
   clamp,
   createId,
-  fetchRedditRuntimeItems,
-  filterHiddenRedditItems,
-  flattenRuntimeMediaItems,
   hasDuplicateLayoutName,
   hasDuplicateTemplateName,
   hashRedditItemId,
@@ -152,7 +145,6 @@ import {
   toRuntimeWorkspace,
   toRuntimeWorkspaceWithLocalRuntime,
   uniqueWorkspaceName,
-  urlHostLabel,
   workspaceFromTemplate,
   writeWorkspaceSessionStore,
 } from "./workbench/helpers";
@@ -164,6 +156,15 @@ import {
   filesFromDataTransfer,
   getUploadableFiles,
 } from "./workbench/local-sources";
+import {
+  applyRuntimeHydrationResults,
+  createRedditSessionSources,
+  fetchRedditRuntimeItems,
+  fetchUrlRuntimeItemsForSource,
+  filterHiddenRedditItems,
+  hydrateRuntimeSources,
+  runtimeHydrationCandidates,
+} from "./workbench/runtime-sources";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -667,44 +668,13 @@ export function FeedWorkbench({
         return;
       }
 
-      if (sourceGroupingMode === "separate") {
-        const sources = await Promise.all(
-          urls.map(async (url) => {
-            const items = await fetchRedditRuntimeItems(
-              [url],
-              selectedRedditLimit,
-            );
+      const sources = await createRedditSessionSources({
+        urls,
+        limit: selectedRedditLimit,
+        sourceGroupingMode,
+      });
 
-            return {
-              title: redditLinksTitle([url], items),
-              sourceConfig: {
-                kind: "reddit" as const,
-                urls: [url],
-                limit: selectedRedditLimit,
-                allowNsfw: true,
-              },
-              items,
-              allItems: items,
-            };
-          }),
-        );
-
-        addSessions(sources);
-      } else {
-        const items = await fetchRedditRuntimeItems(urls, selectedRedditLimit);
-
-        addSession({
-          title: redditLinksTitle(urls, items),
-          sourceConfig: {
-            kind: "reddit",
-            urls,
-            limit: selectedRedditLimit,
-            allowNsfw: true,
-          },
-          items,
-          allItems: items,
-        });
-      }
+      addSessions(sources);
       setIsSourceOpen(false);
     } catch (error) {
       toast.error(
@@ -2097,89 +2067,25 @@ export function FeedWorkbench({
   }
 
   async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
-    const sessionsToHydrate = nextSessions.filter(
-      (session) =>
-        session.items.length === 0 &&
-        (session.sourceConfig.kind === "reddit" ||
-          (session.sourceConfig.kind === "url" &&
-            !session.urlResolution &&
-            isSessionVisibleForUrlHydration(session)) ||
-          (session.sourceConfig.kind === "local" &&
-            Boolean(session.sourceConfig.cacheSetId))),
+    const sessionsToHydrate = runtimeHydrationCandidates(
+      nextSessions,
+      isSessionVisibleForUrlHydration,
     );
 
     if (!sessionsToHydrate.length) return;
 
-    const hydrated = await Promise.all(
-      sessionsToHydrate.map(async (session) => {
-        try {
-          const result =
-            session.sourceConfig.kind === "reddit"
-              ? {
-                  ...(await fetchRuntimeItemsForSource(session.sourceConfig)),
-                  localFiles: undefined,
-                }
-              : session.sourceConfig.kind === "url"
-                ? {
-                    ...(await fetchUrlRuntimeItemsForSource(
-                      session.sourceConfig,
-                    )),
-                    localFiles: undefined,
-                  }
-                : await fetchLocalRuntimeItemsForSource(session.sourceConfig);
-          return { id: session.id, ...result };
-        } catch (error) {
-          toast.error(
-            error instanceof Error
-              ? `Could not load ${session.title}: ${error.message}`
-              : `Could not load ${session.title}`,
-          );
-          return {
-            id: session.id,
-            items: [] as RuntimeFeedItem[],
-            allItems: undefined,
-            urlResolution: undefined,
-            localFiles: undefined,
-          };
-        }
-      }),
-    );
-    const hydratedBySession = new Map(
-      hydrated.map((result) => [result.id, result]),
-    );
+    const hydrated = await hydrateRuntimeSources({
+      sessions: sessionsToHydrate,
+      createLocalRuntimeItems,
+      onError: (session, error) =>
+        toast.error(
+          error instanceof Error
+            ? `Could not load ${session.title}: ${error.message}`
+            : `Could not load ${session.title}`,
+        ),
+    });
 
-    setSessions((current) =>
-      current.map((session) => {
-        const hydratedSession = hydratedBySession.get(session.id);
-        if (!hydratedSession) return session;
-        const { items, allItems, localFiles, urlResolution } = hydratedSession;
-        const sourceConfig =
-          "sourceConfig" in hydratedSession
-            ? hydratedSession.sourceConfig
-            : undefined;
-        const title =
-          "title" in hydratedSession ? hydratedSession.title : undefined;
-
-        return {
-          ...session,
-          title: title ?? session.title,
-          items,
-          allItems,
-          urlResolution,
-          localFiles,
-          isRuntimeLoading: false,
-          sourceConfig: sourceConfig ?? session.sourceConfig,
-          timer: {
-            ...session.timer,
-            itemCount: items.length,
-            activeIndex:
-              items.length > 0
-                ? clamp(session.timer.activeIndex, 0, items.length - 1)
-                : 0,
-          },
-        };
-      }),
-    );
+    setSessions((current) => applyRuntimeHydrationResults(current, hydrated));
   }
 
   function isSessionVisibleForUrlHydration(session: FeedSession) {
@@ -2188,104 +2094,6 @@ export function FeedWorkbench({
     if (layoutMode !== "fixed") return true;
 
     return session.fixedSlot < visibleFixedCells;
-  }
-
-  async function fetchRuntimeItemsForSource(
-    sourceConfig: PersistedSourceConfig,
-  ) {
-    if (sourceConfig.kind !== "reddit") {
-      return { items: [], allItems: undefined };
-    }
-
-    const params = new URLSearchParams({
-      allowNsfw: String(sourceConfig.allowNsfw),
-      limit: String(sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT),
-    });
-    for (const url of sourceConfig.urls) {
-      params.append("urls", url);
-    }
-    const response = await fetch(`/api/reddit/listing?${params}`, {
-      cache: "no-store",
-    });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error ?? "reddit_error");
-    }
-
-    const allItems = flattenRuntimeMediaItems(
-      payload.items as RuntimeFeedItem[],
-    );
-
-    return {
-      items: await filterHiddenRedditItems(
-        allItems,
-        redditHiddenItemHashes(sourceConfig),
-      ),
-      allItems,
-    };
-  }
-
-  async function fetchUrlRuntimeItemsForSource(sourceConfig: UrlSourceConfig) {
-    const params = new URLSearchParams({ url: sourceConfig.url });
-    if (sourceConfig.resolverHint) {
-      params.set("hint", sourceConfig.resolverHint);
-    }
-
-    const response = await fetch(`/api/url/resolve?${params}`, {
-      cache: "no-store",
-    });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error ?? "url_source_error");
-    }
-
-    const resolution = payload.resolution as UrlRuntimeResolution;
-    const nextResolverHint = payload.nextResolverHint as
-      | UrlResolverHint
-      | undefined;
-    const items =
-      resolution.status === "resolved" && "items" in resolution
-        ? flattenRuntimeMediaItems(resolution.items as RuntimeFeedItem[])
-        : [];
-    const title =
-      sourceConfig.title ??
-      ("title" in resolution ? resolution.title : undefined) ??
-      urlHostLabel(sourceConfig.url);
-
-    return {
-      title,
-      items,
-      allItems: items,
-      urlResolution: resolution,
-      sourceConfig: {
-        ...sourceConfig,
-        url: sourceConfig.url,
-        title: sourceConfig.title,
-        ...(nextResolverHint ? { resolverHint: nextResolverHint } : {}),
-      } satisfies UrlSourceConfig,
-    };
-  }
-
-  async function fetchLocalRuntimeItemsForSource(
-    sourceConfig: PersistedSourceConfig,
-  ) {
-    if (sourceConfig.kind !== "local" || !sourceConfig.cacheSetId) {
-      return { items: [], allItems: undefined, localFiles: undefined };
-    }
-
-    const result = await loadLocalFiles(sourceConfig.cacheSetId);
-    if (result.status !== "loaded") {
-      return { items: [], allItems: undefined, localFiles: undefined };
-    }
-
-    const localFiles = getUploadableFiles(result.files);
-    return {
-      items: createLocalRuntimeItems(localFiles),
-      allItems: undefined,
-      localFiles,
-    };
   }
 
   return (

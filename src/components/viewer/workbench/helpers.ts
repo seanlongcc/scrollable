@@ -233,63 +233,6 @@ export function normalizeSubredditName(value: string) {
   return /^[A-Za-z0-9_]{2,21}$/.test(withoutSlashes) ? withoutSlashes : null;
 }
 
-export async function fetchRedditRuntimeItems(
-  urls: string[],
-  limit = DEFAULT_REDDIT_MEDIA_LIMIT,
-) {
-  const params = new URLSearchParams({
-    allowNsfw: "true",
-    limit: String(limit),
-  });
-  for (const url of urls) {
-    params.append("urls", url);
-  }
-  const response = await fetch(`/api/reddit/listing?${params}`, {
-    cache: "no-store",
-  });
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "reddit_error");
-  }
-
-  return flattenRuntimeMediaItems(payload.items as RuntimeFeedItem[]);
-}
-
-export function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
-  return items.flatMap((item) => {
-    if (item.media.length <= 1) return [item];
-
-    return item.media.map((media, index) => ({
-      ...item,
-      id: `${item.id}:media:${index}`,
-      media: [media],
-    }));
-  });
-}
-
-export async function filterHiddenRedditItems(
-  items: RuntimeFeedItem[],
-  hiddenItemIdHashes: string[] = [],
-) {
-  if (!hiddenItemIdHashes.length) return items;
-
-  const hidden = new Set(hiddenItemIdHashes);
-  const hashPairs = await Promise.all(
-    items.map(async (item) => {
-      return {
-        item,
-        hashes:
-          item.source === "reddit" ? await redditHashesForItemId(item.id) : [],
-      };
-    }),
-  );
-
-  return hashPairs
-    .filter(({ hashes }) => hashes.every((hash) => !hidden.has(hash)))
-    .map(({ item }) => item);
-}
-
 export async function redditHashesForItemId(itemId: string) {
   const itemHashInput = redditItemHashInput(itemId);
   const parentHashInput = redditParentPostHashInput(itemId);
