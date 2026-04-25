@@ -63,15 +63,10 @@ test("local upload layouts restore cached files after refresh", async ({
   await page.reload();
 
   await expect(
-    page.getByRole("button", { name: "Layout 2", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByText("0 sources active · Fixed layout")).toBeVisible();
-  await expect(
     page.getByRole("button", { name: "Layout 1", exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("1 source active · Fixed layout")).toBeVisible();
   await expect(page.getByText("No runtime media")).toHaveCount(0);
-
-  await page.getByRole("button", { name: "Layout 1", exact: true }).click();
   await expect(page.getByAltText("test.webp")).toBeVisible();
   await expect(page.getByText("Local files need reload")).toHaveCount(0);
   await expect(page.getByText("No runtime media")).toHaveCount(0);

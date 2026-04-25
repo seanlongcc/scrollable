@@ -26,6 +26,7 @@ vi.mock("@/lib/local-uploads/file-cache", () => ({
 }));
 
 const WORKSPACE_STORAGE_KEY = "scrollable.workspaces.v1";
+const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 
 describe("FeedWorkbench", () => {
   beforeEach(() => {
@@ -42,6 +43,7 @@ describe("FeedWorkbench", () => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it("does not render saved or shared media previews before runtime feed opens", () => {
@@ -610,13 +612,13 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Open layouts" }));
     expect(
-      screen.getByRole("button", { name: "Open Layout 1" }),
+      screen.getByRole("checkbox", { name: "Select Layout 1" }),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Delete Layout 1" }));
 
     expect(
-      screen.queryByRole("button", { name: "Open Layout 1" }),
+      screen.queryByRole("checkbox", { name: "Select Layout 1" }),
     ).not.toBeInTheDocument();
   });
 
@@ -639,6 +641,36 @@ describe("FeedWorkbench", () => {
     expect(screen.getByText(/1 source · 2 files/)).toBeInTheDocument();
   });
 
+  it("shows compact layer totals in saved layouts", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "layered-layout",
+        workspaces: [savedLayeredWorkspace()],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+    expect(
+      within(dialog).getByText("fixed · 3 layers · 2 sources · 5 files"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("Layer 1: 1 source / 4 files"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("Layer 2: 1 source / 1 file"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("Layer 3: 0 sources / 0 files"),
+    ).not.toBeInTheDocument();
+  });
+
   it("reopens saved local uploads with in-session runtime media", async () => {
     stubObjectUrls();
     stubRandomUuids(["workspace-1", "local-1", "session-1", "workspace-2"]);
@@ -658,8 +690,7 @@ describe("FeedWorkbench", () => {
 
     expect(screen.queryByAltText("a.png")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
-    await user.click(screen.getByRole("button", { name: "Open Layout 1" }));
+    await openSavedLayouts(user, ["Layout 1"]);
 
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
@@ -685,8 +716,7 @@ describe("FeedWorkbench", () => {
     await user.click(screen.getByRole("button", { name: "New layout" }));
     await user.click(screen.getByRole("button", { name: "Close Layout 1" }));
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
-    await user.click(screen.getByRole("button", { name: "Open Layout 1" }));
+    await openSavedLayouts(user, ["Layout 1"]);
 
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
@@ -694,7 +724,7 @@ describe("FeedWorkbench", () => {
     expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
-  it("keeps a blank layout first when saved layouts load from local storage", async () => {
+  it("keeps saved layouts closed when they load from local storage", async () => {
     stubRandomUuids(["blank-workspace"]);
     window.localStorage.setItem(
       WORKSPACE_STORAGE_KEY,
@@ -706,19 +736,93 @@ describe("FeedWorkbench", () => {
 
     render(<FeedWorkbench />);
 
-    const savedTab = await screen.findByRole("button", {
-      name: "Saved local",
-    });
-    const blankTab = screen.getByRole("button", { name: "Layout 1" });
-
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Saved local" }),
+      ).not.toBeInTheDocument(),
+    );
     expect(
-      blankTab.compareDocumentPosition(savedTab) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.getByRole("button", { name: "Layout 1" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("0 sources active · Fixed layout"),
     ).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
+  });
+
+  it("keeps saved layout tabs open across refreshes in the same browser session", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "saved-local",
+        workspaces: [savedLocalUploadWorkspace()],
+      }),
+    );
+    window.sessionStorage.setItem(
+      WORKSPACE_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        openWorkspaceIds: ["saved-local"],
+        activeWorkspaceId: "saved-local",
+      }),
+    );
+
+    render(<FeedWorkbench />);
+
+    expect(
+      await screen.findByRole("button", { name: "Saved local" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/1 source active/)).toBeInTheDocument();
+  });
+
+  it("opens multiple selected saved layouts from the compact layout popup", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "saved-local",
+        workspaces: [
+          savedLocalUploadWorkspace(undefined, "Saved local"),
+          {
+            ...savedLocalUploadWorkspace(undefined, "Movie wall"),
+            id: "movie-wall",
+          },
+        ],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+    expect(
+      within(dialog).queryByRole("button", { name: "Open Saved local" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select Saved local" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select Movie wall" }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: "Select Saved local" }),
+    );
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: "Select Movie wall" }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Open selected layouts" }),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Saved local" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Movie wall" }),
+    ).toBeInTheDocument();
   });
 
   it("gives the automatic blank layout a name that does not collide with saved layouts", async () => {
@@ -737,8 +841,8 @@ describe("FeedWorkbench", () => {
       await screen.findByRole("button", { name: "Layout 2" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Layout 1" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Layout 1" }),
+    ).not.toBeInTheDocument();
   });
 
   it("reloads saved local upload sources after page refresh when files are selected again", async () => {
@@ -755,9 +859,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Saved local" }),
-    );
+    await openSavedLayouts(user, ["Saved local"]);
     expect(screen.getByText("Local files need reload")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
 
@@ -791,9 +893,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Saved local" }),
-    );
+    await openSavedLayouts(user, ["Saved local"]);
 
     expect(await screen.findByAltText("cached.png")).toBeInTheDocument();
     expect(loadLocalFiles).toHaveBeenCalledWith("cache-1");
@@ -822,9 +922,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Saved local" }),
-    );
+    await openSavedLayouts(user, ["Saved local"]);
     expect(
       await screen.findByText("Cached files unavailable"),
     ).toBeInTheDocument();
@@ -1254,10 +1352,10 @@ describe("FeedWorkbench", () => {
     await user.click(screen.getByRole("button", { name: "Open layouts" }));
 
     expect(
-      screen.getByRole("button", { name: "Open Layout 1" }),
+      screen.getByRole("checkbox", { name: "Select Layout 1" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Open Movie Wall" }),
+      screen.queryByRole("checkbox", { name: "Select Movie Wall" }),
     ).not.toBeInTheDocument();
   });
 
@@ -1299,8 +1397,7 @@ describe("FeedWorkbench", () => {
       target: { value: "5" },
     });
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
-    await user.click(screen.getByRole("button", { name: "Open Layout 1" }));
+    await openSavedLayouts(user, ["Layout 1"]);
 
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
   });
@@ -1342,9 +1439,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Legacy saved" }),
-    );
+    await openSavedLayouts(user, ["Legacy saved"]);
 
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
   });
@@ -1391,8 +1486,7 @@ describe("FeedWorkbench", () => {
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
     await user.click(screen.getByRole("button", { name: "New layout" }));
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
-    await user.click(screen.getByRole("button", { name: "Open Layout 1" }));
+    await openSavedLayouts(user, ["Layout 1"]);
 
     expect(screen.getAllByText("r/pics").length).toBeGreaterThan(0);
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
@@ -1450,9 +1544,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Saved reddit" }),
-    );
+    await openSavedLayouts(user, ["Saved reddit"]);
 
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
@@ -1517,9 +1609,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Saved reddit" }),
-    );
+    await openSavedLayouts(user, ["Saved reddit"]);
 
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
     expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
@@ -1580,9 +1670,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(
-      await screen.findByRole("button", { name: "Saved reddit" }),
-    );
+    await openSavedLayouts(user, ["Saved reddit"]);
 
     expect(
       await screen.findByText("Loading runtime media"),
@@ -1927,6 +2015,24 @@ function stubObjectUrls() {
   });
 }
 
+async function openSavedLayouts(
+  user: ReturnType<typeof userEvent.setup>,
+  names: string[],
+) {
+  await user.click(screen.getByRole("button", { name: "Open layouts" }));
+  const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+
+  for (const name of names) {
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: `Select ${name}` }),
+    );
+  }
+
+  await user.click(
+    within(dialog).getByRole("button", { name: "Open selected layouts" }),
+  );
+}
+
 function savedLocalUploadWorkspace(cacheSetId?: string, name = "Saved local") {
   return {
     id: "saved-local",
@@ -1947,6 +2053,56 @@ function savedLocalUploadWorkspace(cacheSetId?: string, name = "Saved local") {
           kind: "local" as const,
           fileCount: 1,
           ...(cacheSetId ? { cacheSetId } : {}),
+        },
+      },
+    ],
+  };
+}
+
+function savedLayeredWorkspace() {
+  return {
+    id: "layered-layout",
+    name: "Layered layout",
+    layers: [
+      { id: "layer-1", name: "Layer 1" },
+      { id: "layer-2", name: "Layer 2" },
+      { id: "layer-3", name: "Layer 3" },
+    ],
+    activeLayerId: "layer-1",
+    layoutMode: "fixed" as const,
+    fixedGrid: { columns: 2, rows: 1 },
+    globalTimerSeconds: 10,
+    updatedAt: "2026-04-24T00:00:00.000Z",
+    sessions: [
+      {
+        id: "session-local",
+        title: "Local upload",
+        layerId: "layer-1",
+        timerMode: "global" as const,
+        timerSeconds: 10,
+        timerActiveIndex: 0,
+        fixedSlot: 0,
+        freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+        sourceConfig: {
+          kind: "local" as const,
+          fileCount: 4,
+        },
+      },
+      {
+        id: "session-reddit",
+        title: "r/pics",
+        layerId: "layer-2",
+        timerMode: "global" as const,
+        timerSeconds: 10,
+        timerActiveIndex: 0,
+        fixedSlot: 0,
+        freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+        sourceConfig: {
+          kind: "reddit" as const,
+          urls: [
+            "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+          ],
+          allowNsfw: true,
         },
       },
     ],

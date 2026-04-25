@@ -141,6 +141,7 @@ type SourceGroupingMode = "stacked" | "separate";
 
 const DEFAULT_TIMER_SECONDS = DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS;
 const MAX_LAYOUT_NAME_LENGTH = 32;
+const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 
 type FreeDragState = {
   id: string;
@@ -181,6 +182,11 @@ type FileSystemDirectoryEntryLike = FileSystemEntryLike & {
 
 type DataTransferItemWithEntry = DataTransferItem & {
   webkitGetAsEntry?: () => FileSystemEntryLike | null;
+};
+
+type WorkspaceSessionStore = {
+  openWorkspaceIds: string[];
+  activeWorkspaceId: string;
 };
 
 const FALLBACK_INITIAL_WORKSPACE_ID = "00000000-0000-4000-8000-000000000001";
@@ -383,6 +389,12 @@ export function FeedWorkbench({
       const nextSaved = Object.fromEntries(
         normalizedWorkspaces.map((workspace) => [workspace.id, workspace]),
       );
+      const sessionStore = parseWorkspaceSessionStore(
+        window.sessionStorage.getItem(WORKSPACE_SESSION_STORAGE_KEY),
+      );
+      const openSavedWorkspaces = normalizedWorkspaces.filter((workspace) =>
+        sessionStore?.openWorkspaceIds.includes(workspace.id),
+      );
       const blankTab = {
         id: initialWorkspace.id,
         name: nextLayoutName([], nextSaved),
@@ -392,22 +404,30 @@ export function FeedWorkbench({
       );
       const tabs = [
         blankTab,
-        ...normalizedWorkspaces.map(({ id, name }) => ({ id, name })),
+        ...openSavedWorkspaces.map(({ id, name }) => ({ id, name })),
       ];
-
-      setWorkspaceTabs(tabs);
-      setSavedWorkspaces(nextSaved);
-      setWorkspaceStates({
+      const activeId = tabs.some(
+        (tab) => tab.id === sessionStore?.activeWorkspaceId,
+      )
+        ? sessionStore!.activeWorkspaceId
+        : blankWorkspace.id;
+      const nextStates = {
         [blankWorkspace.id]: blankWorkspace,
         ...Object.fromEntries(
-          normalizedWorkspaces.map((workspace) => [
+          openSavedWorkspaces.map((workspace) => [
             workspace.id,
             toRuntimeWorkspace(workspace),
           ]),
         ),
-      });
-      setActiveWorkspaceId(blankWorkspace.id);
-      applyWorkspaceSnapshot(blankWorkspace);
+      };
+      const activeWorkspace = nextStates[activeId] ?? blankWorkspace;
+
+      setWorkspaceTabs(tabs);
+      setSavedWorkspaces(nextSaved);
+      setWorkspaceStates(nextStates);
+      setActiveWorkspaceId(activeWorkspace.id);
+      applyWorkspaceSnapshot(activeWorkspace);
+      writeWorkspaceSessionStore(tabs, activeWorkspace.id, nextSaved);
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -1274,6 +1294,7 @@ export function FeedWorkbench({
     const store = writeWorkspaceStore(nextSaved, current.id);
     setWorkspaceTabs(tabsOverride);
     setWorkspaceStates(nextStates);
+    writeWorkspaceSessionStore(tabsOverride, current.id, nextSaved);
     return { snapshot, store };
   }
 
@@ -1335,6 +1356,7 @@ export function FeedWorkbench({
     setActiveWorkspaceId(nextId);
     applyWorkspaceSnapshot(empty);
     writeWorkspaceStore(savedWorkspaces, nextId);
+    writeWorkspaceSessionStore(nextTabs, nextId, savedWorkspaces);
   }
 
   function selectWorkspace(id: string) {
@@ -1360,6 +1382,7 @@ export function FeedWorkbench({
     setActiveWorkspaceId(id);
     applyWorkspaceSnapshot(snapshot);
     writeWorkspaceStore(savedWorkspaces, id);
+    writeWorkspaceSessionStore(workspaceTabs, id, savedWorkspaces);
   }
 
   function beginWorkspaceRename(tab: WorkspaceTab) {
@@ -1433,6 +1456,7 @@ export function FeedWorkbench({
       setActiveWorkspaceId(nextId);
       applyWorkspaceSnapshot(empty);
       writeWorkspaceStore(savedWorkspaces, nextId);
+      writeWorkspaceSessionStore([nextTab], nextId, savedWorkspaces);
       return;
     }
 
@@ -1461,31 +1485,41 @@ export function FeedWorkbench({
     setActiveWorkspaceId(nextActiveId);
     applyWorkspaceSnapshot(nextSnapshot);
     writeWorkspaceStore(savedWorkspaces, nextActiveId);
+    writeWorkspaceSessionStore(nextTabs, nextActiveId, savedWorkspaces);
   }
 
-  function openSavedWorkspace(id: string) {
-    const snapshot = savedWorkspaces[id];
-    if (!snapshot) return;
+  function openSavedWorkspaces(ids: string[]) {
+    const snapshots = ids
+      .map((id) => savedWorkspaces[id])
+      .filter((workspace): workspace is SerializedWorkspace =>
+        Boolean(workspace),
+      );
+    if (!snapshots.length) return;
 
     const current = currentWorkspaceState();
     const currentAwareStates = { ...workspaceStates, [current.id]: current };
-    const runtimeSnapshot = toRuntimeWorkspaceWithLocalRuntime(
-      snapshot,
-      currentAwareStates[snapshot.id],
-    );
-    const nextTabs = workspaceTabs.some((tab) => tab.id === id)
-      ? workspaceTabs
-      : [...workspaceTabs, { id: snapshot.id, name: snapshot.name }];
-    const nextStates = {
-      ...currentAwareStates,
-      [snapshot.id]: runtimeSnapshot,
-    };
+    const nextTabs = [...workspaceTabs];
+    const nextStates = { ...currentAwareStates };
+
+    for (const snapshot of snapshots) {
+      nextStates[snapshot.id] = toRuntimeWorkspaceWithLocalRuntime(
+        snapshot,
+        currentAwareStates[snapshot.id],
+      );
+      if (!nextTabs.some((tab) => tab.id === snapshot.id)) {
+        nextTabs.push({ id: snapshot.id, name: snapshot.name });
+      }
+    }
+
+    const activeId = snapshots[0].id;
+    const activeSnapshot = nextStates[activeId];
 
     setWorkspaceTabs(nextTabs);
     setWorkspaceStates(nextStates);
-    setActiveWorkspaceId(snapshot.id);
-    applyWorkspaceSnapshot(runtimeSnapshot);
-    writeWorkspaceStore(savedWorkspaces, snapshot.id);
+    setActiveWorkspaceId(activeId);
+    applyWorkspaceSnapshot(activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, activeId);
+    writeWorkspaceSessionStore(nextTabs, activeId, savedWorkspaces);
     setIsLayoutsOpen(false);
   }
 
@@ -1495,6 +1529,7 @@ export function FeedWorkbench({
     delete nextSaved[id];
 
     writeWorkspaceStore(nextSaved, activeWorkspaceId);
+    writeWorkspaceSessionStore(workspaceTabs, activeWorkspaceId, nextSaved);
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
 
@@ -1931,7 +1966,7 @@ export function FeedWorkbench({
         open={isLayoutsOpen}
         onOpenChange={setIsLayoutsOpen}
         workspaces={Object.values(savedWorkspaces)}
-        onOpenWorkspace={openSavedWorkspace}
+        onOpenWorkspaces={openSavedWorkspaces}
         onDeleteWorkspace={deleteSavedWorkspace}
       />
       <SaveLayoutDialog
@@ -2256,78 +2291,119 @@ function LayoutDialog({
   open,
   onOpenChange,
   workspaces,
-  onOpenWorkspace,
+  onOpenWorkspaces,
   onDeleteWorkspace,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaces: SerializedWorkspace[];
-  onOpenWorkspace: (id: string) => void;
+  onOpenWorkspaces: (ids: string[]) => void;
   onDeleteWorkspace: (id: string) => void;
 }) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const sortedWorkspaces = [...workspaces].sort((first, second) =>
     second.updatedAt.localeCompare(first.updatedAt),
   );
+  const visibleIds = new Set(workspaces.map((workspace) => workspace.id));
+  const visibleSelectedIds = selectedIds.filter((id) => visibleIds.has(id));
+  const selectedCount = visibleSelectedIds.length;
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) setSelectedIds([]);
+    onOpenChange(nextOpen);
+  }
+
+  function toggleSelection(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      if (checked) return current.includes(id) ? current : [...current, id];
+      return current.filter((currentId) => currentId !== id);
+    });
+  }
+
+  function openSelectedLayouts() {
+    const selected = sortedWorkspaces
+      .filter((workspace) => visibleSelectedIds.includes(workspace.id))
+      .map((workspace) => workspace.id);
+
+    onOpenWorkspaces(selected);
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85dvh] w-[min(92vw,34rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[85dvh] w-[min(94vw,34rem)] gap-3 overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+        <DialogHeader className="pr-8">
           <DialogTitle>Saved layouts</DialogTitle>
           <DialogDescription className="sr-only">
             Browse saved metadata-only layouts.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-2">
+        <div className="grid gap-1.5">
           {sortedWorkspaces.length ? (
-            sortedWorkspaces.map((workspace) => (
-              <div
-                key={workspace.id}
-                className="grid min-w-0 gap-2 rounded-lg border border-border bg-surface p-3"
-              >
-                <div className="min-w-0">
-                  <div className="break-words font-medium">
-                    {workspace.name}
+            sortedWorkspaces.map((workspace) => {
+              const layerSummaries = workspaceLayerSummaries(workspace);
+              const sourceCount = workspace.sessions.length;
+              const fileCount = workspaceFileCount(workspace);
+
+              return (
+                <label
+                  key={workspace.id}
+                  className="grid min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-md border border-border bg-surface px-2.5 py-2 transition-colors hover:bg-muted/45"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(workspace.id)}
+                    onChange={(event) =>
+                      toggleSelection(workspace.id, event.target.checked)
+                    }
+                    aria-label={`Select ${workspace.name}`}
+                    className="mt-0.5 size-4 accent-primary"
+                  />
+                  <div className="min-w-0 leading-tight">
+                    <div
+                      className="truncate font-medium"
+                      title={workspace.name}
+                    >
+                      {workspace.name}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {workspace.layoutMode} · {layerSummaries.length} layer
+                      {layerSummaries.length === 1 ? "" : "s"} · {sourceCount}{" "}
+                      source{sourceCount === 1 ? "" : "s"} · {fileCount} file
+                      {fileCount === 1 ? "" : "s"}
+                    </div>
                   </div>
-                  <div className="break-words text-xs text-muted-foreground">
-                    {workspace.layoutMode} · {workspace.sessions.length} source
-                    {workspace.sessions.length === 1 ? "" : "s"} ·{" "}
-                    {workspaceLocalFileCount(workspace)} file
-                    {workspaceLocalFileCount(workspace) === 1 ? "" : "s"} ·
-                    saved locally
-                  </div>
-                </div>
-                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
                   <Button
                     type="button"
-                    variant="outline"
-                    onClick={() => onOpenWorkspace(workspace.id)}
-                    title={`Open ${workspace.name}`}
-                    className="h-auto min-w-0 justify-start whitespace-normal text-left break-words"
-                  >
-                    <FolderOpen />
-                    <span className="min-w-0 break-words">
-                      Open {workspace.name}
-                    </span>
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
+                    size="icon-sm"
                     variant="destructive"
-                    onClick={() => onDeleteWorkspace(workspace.id)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onDeleteWorkspace(workspace.id);
+                    }}
                     aria-label={`Delete ${workspace.name}`}
                   >
                     <Trash2 />
                   </Button>
-                </div>
-              </div>
-            ))
+                </label>
+              );
+            })
           ) : (
-            <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
               No saved layouts yet. Use Save layout first.
             </div>
           )}
         </div>
+        {sortedWorkspaces.length ? (
+          <Button
+            type="button"
+            onClick={openSelectedLayouts}
+            disabled={selectedCount === 0}
+            className="w-full"
+          >
+            <FolderOpen />
+            Open selected layouts
+          </Button>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -3467,6 +3543,49 @@ function createId() {
   return `id-${Math.random().toString(36).slice(2)}`;
 }
 
+function parseWorkspaceSessionStore(
+  value: string | null,
+): WorkspaceSessionStore | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as WorkspaceSessionStore;
+    if (
+      !Array.isArray(parsed.openWorkspaceIds) ||
+      typeof parsed.activeWorkspaceId !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      openWorkspaceIds: parsed.openWorkspaceIds.filter(
+        (id): id is string => typeof id === "string",
+      ),
+      activeWorkspaceId: parsed.activeWorkspaceId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeWorkspaceSessionStore(
+  tabs: WorkspaceTab[],
+  activeWorkspaceId: string,
+  savedWorkspaces: Record<string, SerializedWorkspace>,
+) {
+  const openWorkspaceIds = tabs
+    .map((tab) => tab.id)
+    .filter((id) => Boolean(savedWorkspaces[id]));
+  const sessionActiveId = openWorkspaceIds.includes(activeWorkspaceId)
+    ? activeWorkspaceId
+    : "";
+
+  window.sessionStorage.setItem(
+    WORKSPACE_SESSION_STORAGE_KEY,
+    JSON.stringify({ openWorkspaceIds, activeWorkspaceId: sessionActiveId }),
+  );
+}
+
 function nextLayoutName(
   tabs: WorkspaceTab[],
   savedWorkspaces: Record<string, SerializedWorkspace>,
@@ -3507,11 +3626,36 @@ function hasDuplicateLayoutName(
   );
 }
 
-function workspaceLocalFileCount(workspace: SerializedWorkspace) {
-  return workspace.sessions.reduce((count, session) => {
-    if (session.sourceConfig.kind !== "local") return count;
-    return count + session.sourceConfig.fileCount;
-  }, 0);
+function workspaceFileCount(workspace: SerializedWorkspace) {
+  return workspace.sessions.reduce(
+    (count, session) => count + sessionFileCount(session),
+    0,
+  );
+}
+
+function workspaceLayerSummaries(workspace: SerializedWorkspace) {
+  const layers = normalizeWorkspaceLayers(workspace.layers);
+  const activeLayerId = layers.some(
+    (layer) => layer.id === workspace.activeLayerId,
+  )
+    ? workspace.activeLayerId
+    : layers[0].id;
+
+  return layers.map((layer) => {
+    const layerSessions = workspace.sessions.filter(
+      (session) => (session.layerId ?? activeLayerId) === layer.id,
+    );
+
+    return {
+      id: layer.id,
+      name: layer.name,
+      sourceCount: layerSessions.length,
+      fileCount: layerSessions.reduce(
+        (count, session) => count + sessionFileCount(session),
+        0,
+      ),
+    };
+  });
 }
 
 function sessionFileCount(session: FeedSession | WorkspaceSessionInput) {
