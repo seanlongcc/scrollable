@@ -4,8 +4,9 @@ import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { normalizeRedditListing } from "./normalization";
 
 const DEFAULT_REDDIT_SOURCE_LIMIT = 20;
-const MAX_REDDIT_SOURCE_LIMIT = 100;
-const REDDIT_LISTING_FETCH_LIMIT = 50;
+const MAX_REDDIT_SOURCE_LIMIT = 200;
+const MAX_REDDIT_SOURCE_URLS = 200;
+const REDDIT_LISTING_FETCH_LIMIT = 200;
 const REDDIT_LISTING_SORTS = new Set([
   "hot",
   "new",
@@ -22,7 +23,10 @@ const booleanQuerySchema = z.preprocess((value) => {
 }, z.boolean());
 
 const redditPostLinksInputSchema = z.object({
-  urls: z.preprocess(splitUrlInput, z.array(z.string()).min(1).max(50)),
+  urls: z.preprocess(
+    splitUrlInput,
+    z.array(z.string()).min(1).max(MAX_REDDIT_SOURCE_URLS),
+  ),
   allowNsfw: booleanQuerySchema.default(true),
   limit: z.coerce
     .number()
@@ -60,19 +64,18 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
     const normalized = normalizeRedditListing(listing, {
       subreddit: source.subreddit ?? "reddit",
       allowNsfw: parsed.allowNsfw,
-      limit: parsed.limit - items.length,
+      limit: parsed.limit,
     });
 
     items.push(...normalized.items);
     unsupportedIds.push(...normalized.unsupportedIds);
-    if (items.length >= parsed.limit) break;
   }
 
   if (items.length === 0) {
     throw new Error("reddit_source_has_no_supported_media");
   }
 
-  return { items: items.slice(0, parsed.limit), unsupportedIds };
+  return { items, unsupportedIds };
 }
 
 export function parseRedditPostLinksInput(
@@ -190,7 +193,12 @@ function toRedditJsonUrl(source: ParsedRedditSourceUrl, limit: number) {
   if (source.timeRange) url.searchParams.set("t", source.timeRange);
   url.searchParams.set(
     "limit",
-    String(Math.min(Math.max(limit, REDDIT_LISTING_FETCH_LIMIT), 100)),
+    String(
+      Math.min(
+        Math.max(limit, REDDIT_LISTING_FETCH_LIMIT),
+        MAX_REDDIT_SOURCE_LIMIT,
+      ),
+    ),
   );
 
   return url.toString();

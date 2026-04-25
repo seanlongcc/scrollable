@@ -1,4 +1,4 @@
-export type FeedSource = "reddit" | "local";
+export type FeedSource = "reddit" | "local" | "url";
 
 export type RuntimeMedia = {
   type: "image" | "video" | "audio";

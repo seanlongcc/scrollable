@@ -1,4 +1,8 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type {
+  UrlRuntimeResolution,
+  UrlSourceConfig,
+} from "@/lib/url-source/types";
 import { DEFAULT_FIXED_GRID, type FixedGrid, type FreeRect } from "./layout";
 import type { TimerMode } from "./timer";
 
@@ -32,7 +36,10 @@ export type LocalSourceConfig = {
   cacheSetId?: string;
 };
 
-export type PersistedSourceConfig = RedditSourceConfig | LocalSourceConfig;
+export type PersistedSourceConfig =
+  | RedditSourceConfig
+  | LocalSourceConfig
+  | UrlSourceConfig;
 
 export type WorkspaceSessionInput = {
   id: string;
@@ -46,12 +53,13 @@ export type WorkspaceSessionInput = {
   sourceConfig: PersistedSourceConfig;
   runtimeItems?: RuntimeFeedItem[];
   allRuntimeItems?: RuntimeFeedItem[];
+  urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
 };
 
 export type SerializedWorkspaceSession = Omit<
   WorkspaceSessionInput,
-  "runtimeItems" | "allRuntimeItems"
+  "runtimeItems" | "allRuntimeItems" | "urlResolution"
 >;
 
 export type SerializedWorkspace = {

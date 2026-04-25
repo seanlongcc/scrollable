@@ -4,6 +4,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  ExternalLink,
   FolderOpen,
   Globe,
   GripHorizontal,
@@ -76,6 +77,11 @@ import { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import type { Json } from "@/lib/supabase/database.types";
+import type {
+  UrlResolverHint,
+  UrlRuntimeResolution,
+  UrlSourceConfig,
+} from "@/lib/url-source/types";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_FIXED_GRID,
@@ -129,6 +135,7 @@ type FeedSession = {
   freeRect: FreeRect;
   items: RuntimeFeedItem[];
   allItems?: RuntimeFeedItem[];
+  urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
   isRuntimeLoading?: boolean;
   sourceConfig: PersistedSourceConfig;
@@ -153,8 +160,8 @@ type RedditListingSort = "hot" | "new" | "rising" | "top" | "controversial";
 type RedditTimeRange = "day" | "week" | "month" | "year" | "all";
 
 const DEFAULT_TIMER_SECONDS = DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS;
-const DEFAULT_REDDIT_MEDIA_LIMIT = 20;
-const MAX_REDDIT_MEDIA_LIMIT = 100;
+const DEFAULT_REDDIT_MEDIA_LIMIT = 10;
+const MAX_REDDIT_MEDIA_LIMIT = 200;
 const MAX_LAYOUT_NAME_LENGTH = 32;
 const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 const REDDIT_SORT_OPTIONS: Array<{ value: RedditListingSort; label: string }> =
@@ -244,10 +251,12 @@ export function FeedWorkbench({
   );
 
   const [redditUrls, setRedditUrls] = useState("");
+  const [urlValue, setUrlValue] = useState("");
+  const [urlTitle, setUrlTitle] = useState("");
   const [redditInputMode, setRedditInputMode] =
     useState<RedditInputMode>("subreddit");
-  const [subredditName, setSubredditName] = useState("pics");
-  const [redditSort, setRedditSort] = useState<RedditListingSort>("hot");
+  const [subredditName, setSubredditName] = useState("");
+  const [redditSort, setRedditSort] = useState<RedditListingSort>("top");
   const [redditTimeRange, setRedditTimeRange] =
     useState<RedditTimeRange>("week");
   const [redditLimit, setRedditLimit] = useState(DEFAULT_REDDIT_MEDIA_LIMIT);
@@ -563,6 +572,23 @@ export function FeedWorkbench({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isUiHidden]);
 
+  useEffect(() => {
+    const visibleUnresolvedUrlSessions = sessions.filter(
+      (session) =>
+        session.sourceConfig.kind === "url" &&
+        session.isRuntimeLoading &&
+        session.items.length === 0 &&
+        !session.urlResolution &&
+        isSessionVisibleForUrlHydration(session),
+    );
+
+    if (!visibleUnresolvedUrlSessions.length) return;
+
+    void hydrateRuntimeItems(visibleUnresolvedUrlSessions);
+    // URL hydration is intentionally tied to visibility state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayerId, layoutMode, visibleFixedCells, sessions]);
+
   const activeKeyboardSessionId = maximizedId ?? selected?.id ?? null;
 
   useEffect(() => {
@@ -625,13 +651,11 @@ export function FeedWorkbench({
     try {
       const urls =
         redditInputMode === "subreddit"
-          ? [
-              buildSubredditListingUrl(
-                subredditName,
-                redditSort,
-                redditTimeRange,
-              ),
-            ]
+          ? buildSubredditListingUrls(
+              subredditName,
+              redditSort,
+              redditTimeRange,
+            )
           : splitRedditUrls(redditUrls);
       const selectedRedditLimit = normalizeRedditLimit(redditLimit);
 
@@ -690,6 +714,31 @@ export function FeedWorkbench({
       toast.error(
         error instanceof Error ? error.message : "Reddit fetch failed",
       );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function openUrlSource() {
+    setIsLoading(true);
+    try {
+      const sourceConfig: UrlSourceConfig = {
+        kind: "url",
+        url: urlValue.trim(),
+        ...(urlTitle.trim() ? { title: urlTitle.trim() } : {}),
+      };
+      const result = await fetchUrlRuntimeItemsForSource(sourceConfig);
+
+      addSession({
+        title: result.title,
+        sourceConfig: result.sourceConfig,
+        items: result.items,
+        allItems: result.allItems,
+        urlResolution: result.urlResolution,
+      });
+      setIsSourceOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "URL source failed");
     } finally {
       setIsLoading(false);
     }
@@ -871,16 +920,20 @@ export function FeedWorkbench({
     title,
     items,
     allItems,
+    urlResolution,
     localFiles,
     sourceConfig,
   }: {
     title: string;
     items: RuntimeFeedItem[];
     allItems?: RuntimeFeedItem[];
+    urlResolution?: UrlRuntimeResolution;
     localFiles?: File[];
     sourceConfig: PersistedSourceConfig;
   }) {
-    addSessions([{ title, items, allItems, localFiles, sourceConfig }]);
+    addSessions([
+      { title, items, allItems, urlResolution, localFiles, sourceConfig },
+    ]);
   }
 
   function addSessions(
@@ -888,6 +941,7 @@ export function FeedWorkbench({
       title: string;
       items: RuntimeFeedItem[];
       allItems?: RuntimeFeedItem[];
+      urlResolution?: UrlRuntimeResolution;
       localFiles?: File[];
       sourceConfig: PersistedSourceConfig;
     }>,
@@ -931,6 +985,7 @@ export function FeedWorkbench({
           freeRect,
           items: source.items,
           allItems: source.allItems,
+          urlResolution: source.urlResolution,
           localFiles: source.localFiles,
           sourceConfig: source.sourceConfig,
         });
@@ -1043,6 +1098,53 @@ export function FeedWorkbench({
       toast.error(
         error instanceof Error ? error.message : "Reddit fetch failed",
       );
+    }
+  }
+
+  async function saveUrlSourceEdit(id: string, url: string, title?: string) {
+    updateSession(id, (session) => ({ ...session, isRuntimeLoading: true }));
+
+    try {
+      const currentSource = sessions.find((session) => session.id === id);
+      const currentConfig =
+        currentSource?.sourceConfig.kind === "url"
+          ? currentSource.sourceConfig
+          : null;
+      const sourceConfig: UrlSourceConfig = {
+        kind: "url",
+        url,
+        ...(title?.trim() ? { title: title.trim() } : {}),
+        ...(currentConfig?.resolverHint
+          ? { resolverHint: currentConfig.resolverHint }
+          : {}),
+      };
+      const result = await fetchUrlRuntimeItemsForSource(sourceConfig);
+
+      updateSession(id, (session) => {
+        const timer = createTimerState({
+          durationSeconds: session.timer.durationSeconds,
+          itemCount: result.items.length,
+        });
+
+        return {
+          ...session,
+          title: result.title,
+          items: result.items,
+          allItems: result.allItems,
+          urlResolution: result.urlResolution,
+          localFiles: undefined,
+          isRuntimeLoading: false,
+          sourceConfig: result.sourceConfig,
+          timer: {
+            ...timer,
+            isPaused: session.timer.isPaused,
+          },
+        };
+      });
+      setEditingSourceId(null);
+    } catch (error) {
+      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
+      toast.error(error instanceof Error ? error.message : "URL source failed");
     }
   }
 
@@ -1494,6 +1596,7 @@ export function FeedWorkbench({
         sourceConfig: session.sourceConfig,
         runtimeItems: session.items,
         allRuntimeItems: session.allItems,
+        urlResolution: session.urlResolution,
         localFiles: session.localFiles,
       })),
     };
@@ -1729,6 +1832,8 @@ export function FeedWorkbench({
         "allRuntimeItems" in session
           ? (session.allRuntimeItems ?? items)
           : items;
+      const urlResolution =
+        "urlResolution" in session ? session.urlResolution : undefined;
       const activeIndex =
         items.length > 0
           ? clamp(session.timerActiveIndex ?? 0, 0, items.length - 1)
@@ -1748,9 +1853,11 @@ export function FeedWorkbench({
         freeRect: session.freeRect,
         items,
         allItems,
+        urlResolution,
         localFiles: "localFiles" in session ? session.localFiles : undefined,
         isRuntimeLoading:
           (session.sourceConfig.kind === "reddit" ||
+            (session.sourceConfig.kind === "url" && !urlResolution) ||
             (session.sourceConfig.kind === "local" &&
               Boolean(session.sourceConfig.cacheSetId))) &&
           items.length === 0,
@@ -1775,6 +1882,9 @@ export function FeedWorkbench({
       (session) =>
         session.items.length === 0 &&
         (session.sourceConfig.kind === "reddit" ||
+          (session.sourceConfig.kind === "url" &&
+            !session.urlResolution &&
+            isSessionVisibleForUrlHydration(session)) ||
           (session.sourceConfig.kind === "local" &&
             Boolean(session.sourceConfig.cacheSetId))),
     );
@@ -1790,7 +1900,14 @@ export function FeedWorkbench({
                   ...(await fetchRuntimeItemsForSource(session.sourceConfig)),
                   localFiles: undefined,
                 }
-              : await fetchLocalRuntimeItemsForSource(session.sourceConfig);
+              : session.sourceConfig.kind === "url"
+                ? {
+                    ...(await fetchUrlRuntimeItemsForSource(
+                      session.sourceConfig,
+                    )),
+                    localFiles: undefined,
+                  }
+                : await fetchLocalRuntimeItemsForSource(session.sourceConfig);
           return { id: session.id, ...result };
         } catch (error) {
           toast.error(
@@ -1802,6 +1919,7 @@ export function FeedWorkbench({
             id: session.id,
             items: [] as RuntimeFeedItem[],
             allItems: undefined,
+            urlResolution: undefined,
             localFiles: undefined,
           };
         }
@@ -1815,14 +1933,23 @@ export function FeedWorkbench({
       current.map((session) => {
         const hydratedSession = hydratedBySession.get(session.id);
         if (!hydratedSession) return session;
-        const { items, allItems, localFiles } = hydratedSession;
+        const { items, allItems, localFiles, urlResolution } = hydratedSession;
+        const sourceConfig =
+          "sourceConfig" in hydratedSession
+            ? hydratedSession.sourceConfig
+            : undefined;
+        const title =
+          "title" in hydratedSession ? hydratedSession.title : undefined;
 
         return {
           ...session,
+          title: title ?? session.title,
           items,
           allItems,
+          urlResolution,
           localFiles,
           isRuntimeLoading: false,
+          sourceConfig: sourceConfig ?? session.sourceConfig,
           timer: {
             ...session.timer,
             itemCount: items.length,
@@ -1834,6 +1961,14 @@ export function FeedWorkbench({
         };
       }),
     );
+  }
+
+  function isSessionVisibleForUrlHydration(session: FeedSession) {
+    if (session.sourceConfig.kind !== "url") return true;
+    if (session.layerId !== activeLayerId) return false;
+    if (layoutMode !== "fixed") return true;
+
+    return session.fixedSlot < visibleFixedCells;
   }
 
   async function fetchRuntimeItemsForSource(
@@ -1869,6 +2004,48 @@ export function FeedWorkbench({
         redditHiddenItemHashes(sourceConfig),
       ),
       allItems,
+    };
+  }
+
+  async function fetchUrlRuntimeItemsForSource(sourceConfig: UrlSourceConfig) {
+    const params = new URLSearchParams({ url: sourceConfig.url });
+    if (sourceConfig.resolverHint) {
+      params.set("hint", sourceConfig.resolverHint);
+    }
+
+    const response = await fetch(`/api/url/resolve?${params}`, {
+      cache: "no-store",
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? "url_source_error");
+    }
+
+    const resolution = payload.resolution as UrlRuntimeResolution;
+    const nextResolverHint = payload.nextResolverHint as
+      | UrlResolverHint
+      | undefined;
+    const items =
+      resolution.status === "resolved" && "items" in resolution
+        ? flattenRuntimeMediaItems(resolution.items as RuntimeFeedItem[])
+        : [];
+    const title =
+      sourceConfig.title ??
+      ("title" in resolution ? resolution.title : undefined) ??
+      urlHostLabel(sourceConfig.url);
+
+    return {
+      title,
+      items,
+      allItems: items,
+      urlResolution: resolution,
+      sourceConfig: {
+        ...sourceConfig,
+        url: sourceConfig.url,
+        title: sourceConfig.title,
+        ...(nextResolverHint ? { resolverHint: nextResolverHint } : {}),
+      } satisfies UrlSourceConfig,
     };
   }
 
@@ -2163,6 +2340,8 @@ export function FeedWorkbench({
       <SourceDialog
         open={isSourceOpen}
         onOpenChange={setIsSourceOpen}
+        urlValue={urlValue}
+        urlTitle={urlTitle}
         redditUrls={redditUrls}
         redditInputMode={redditInputMode}
         subredditName={subredditName}
@@ -2171,6 +2350,8 @@ export function FeedWorkbench({
         redditLimit={redditLimit}
         isLoading={isLoading}
         sourceGroupingMode={sourceGroupingMode}
+        setUrlValue={setUrlValue}
+        setUrlTitle={setUrlTitle}
         setRedditUrls={setRedditUrls}
         setRedditInputMode={setRedditInputMode}
         setSubredditName={setSubredditName}
@@ -2178,6 +2359,7 @@ export function FeedWorkbench({
         setRedditTimeRange={setRedditTimeRange}
         setRedditLimit={setRedditLimit}
         setSourceGroupingMode={setSourceGroupingMode}
+        openUrlSource={openUrlSource}
         fetchRedditFeed={fetchRedditFeed}
         addLocalFiles={addLocalFiles}
         addDroppedLocalFiles={addDroppedLocalFiles}
@@ -2215,6 +2397,7 @@ export function FeedWorkbench({
             if (!open) setEditingSourceId(null);
           }}
           onSaveReddit={saveRedditSourceEdit}
+          onSaveUrl={saveUrlSourceEdit}
           onSaveLocal={saveLocalSourceEdit}
         />
       ) : null}
@@ -2791,6 +2974,8 @@ function AccountDialog({
 function SourceDialog({
   open,
   onOpenChange,
+  urlValue,
+  urlTitle,
   redditUrls,
   redditInputMode,
   subredditName,
@@ -2799,6 +2984,8 @@ function SourceDialog({
   redditLimit,
   isLoading,
   sourceGroupingMode,
+  setUrlValue,
+  setUrlTitle,
   setRedditUrls,
   setRedditInputMode,
   setSubredditName,
@@ -2806,6 +2993,7 @@ function SourceDialog({
   setRedditTimeRange,
   setRedditLimit,
   setSourceGroupingMode,
+  openUrlSource,
   fetchRedditFeed,
   addLocalFiles,
   addDroppedLocalFiles,
@@ -2813,6 +3001,8 @@ function SourceDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  urlValue: string;
+  urlTitle: string;
   redditUrls: string;
   redditInputMode: RedditInputMode;
   subredditName: string;
@@ -2821,6 +3011,8 @@ function SourceDialog({
   redditLimit: number;
   isLoading: boolean;
   sourceGroupingMode: SourceGroupingMode;
+  setUrlValue: (value: string) => void;
+  setUrlTitle: (value: string) => void;
   setRedditUrls: (value: string) => void;
   setRedditInputMode: (value: RedditInputMode) => void;
   setSubredditName: (value: string) => void;
@@ -2828,6 +3020,7 @@ function SourceDialog({
   setRedditTimeRange: (value: RedditTimeRange) => void;
   setRedditLimit: (value: number) => void;
   setSourceGroupingMode: (value: SourceGroupingMode) => void;
+  openUrlSource: () => void;
   fetchRedditFeed: () => void;
   addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
@@ -2835,15 +3028,15 @@ function SourceDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid h-[min(96dvh,48rem)] max-h-[96dvh] w-[min(92vw,42rem)] grid-rows-[auto_minmax(0,1fr)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
+      <DialogContent className="grid max-h-[96dvh] w-[min(92vw,42rem)] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
-            Choose local files or paste one or more Reddit post or subreddit
-            links for the viewer.
+            Choose local files or paste a URL, Reddit post, or subreddit link
+            for the viewer.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-4">
+        <div className="grid min-w-0 gap-4">
           <div
             className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
             role="group"
@@ -2868,7 +3061,40 @@ function SourceDialog({
               Separate
             </Button>
           </div>
-          <div className="grid min-h-0 min-w-0 gap-5 md:grid-cols-2">
+          <section className="grid gap-3 rounded-lg border border-border bg-surface p-3">
+            <h2 className="text-sm font-medium">URL source</h2>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(7rem,10rem)_auto] sm:items-end">
+              <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
+                URL
+                <Input
+                  value={urlValue}
+                  onChange={(event) => setUrlValue(event.target.value)}
+                  placeholder="https://example.com/media-or-page"
+                  className="h-9 font-mono text-xs"
+                />
+              </Label>
+              <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
+                Title
+                <Input
+                  value={urlTitle}
+                  onChange={(event) => setUrlTitle(event.target.value)}
+                  placeholder="Optional"
+                  className="h-9"
+                />
+              </Label>
+              <Button
+                type="button"
+                onClick={openUrlSource}
+                disabled={isLoading}
+                aria-label="Open URL"
+                className="h-9"
+              >
+                {isLoading ? <Loader2 className="animate-spin" /> : <Globe />}
+                Open URL
+              </Button>
+            </div>
+          </section>
+          <div className="grid min-h-[39rem] min-w-0 gap-5 md:grid-cols-2">
             <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-surface p-3">
               <h2 className="text-sm font-medium">Local source</h2>
               <div
@@ -3004,7 +3230,7 @@ function SourceDialog({
                     <Input
                       value={subredditName}
                       onChange={(event) => setSubredditName(event.target.value)}
-                      placeholder="kpop"
+                      placeholder="kpop, pics, aww"
                       className="h-9 font-mono"
                     />
                   </Label>
@@ -3100,6 +3326,7 @@ function EditSourceDialog({
   open,
   onOpenChange,
   onSaveReddit,
+  onSaveUrl,
   onSaveLocal,
 }: {
   source: FeedSession;
@@ -3112,6 +3339,7 @@ function EditSourceDialog({
     hiddenItemIds: string[],
     unhiddenItemHashes: string[],
   ) => void;
+  onSaveUrl: (id: string, url: string, title?: string) => void;
   onSaveLocal: (id: string, files: File[]) => void;
 }) {
   type LocalEditEntry = { file: File; previewUrl?: string };
@@ -3131,6 +3359,12 @@ function EditSourceDialog({
         }))
       : [],
   );
+  const [urlValue, setUrlValue] = useState(
+    source.sourceConfig.kind === "url" ? source.sourceConfig.url : "",
+  );
+  const [urlTitle, setUrlTitle] = useState(
+    source.sourceConfig.kind === "url" ? (source.sourceConfig.title ?? "") : "",
+  );
   const [hiddenRedditItemIds, setHiddenRedditItemIds] = useState<string[]>([]);
   const [unhiddenRedditHashes, setUnhiddenRedditHashes] = useState<string[]>(
     [],
@@ -3141,6 +3375,7 @@ function EditSourceDialog({
 
   const currentSource = source;
   const isReddit = currentSource.sourceConfig.kind === "reddit";
+  const isUrl = currentSource.sourceConfig.kind === "url";
   const savedHiddenHashes = useMemo(
     () =>
       currentSource.sourceConfig.kind === "reddit"
@@ -3239,6 +3474,15 @@ function EditSourceDialog({
         redditLimit,
         hiddenRedditItemIds,
         unhiddenRedditHashes,
+      );
+      return;
+    }
+
+    if (isUrl) {
+      onSaveUrl(
+        currentSource.id,
+        urlValue.trim(),
+        urlTitle.trim() || undefined,
       );
       return;
     }
@@ -3413,6 +3657,26 @@ function EditSourceDialog({
                 )}
               </div>
             </>
+          ) : isUrl ? (
+            <div className="grid gap-3">
+              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                URL
+                <Input
+                  value={urlValue}
+                  onChange={(event) => setUrlValue(event.target.value)}
+                  className="h-9 font-mono text-xs"
+                />
+              </Label>
+              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                Title
+                <Input
+                  value={urlTitle}
+                  onChange={(event) => setUrlTitle(event.target.value)}
+                  placeholder="Optional"
+                  className="h-9"
+                />
+              </Label>
+            </div>
           ) : (
             <div className="grid gap-2">
               {localEntries.length ? (
@@ -3535,6 +3799,9 @@ function FixedGridView({
   ) => void;
   onEditSource: (id: string) => void;
 }) {
+  let mountedIframeCount = 0;
+  const iframeLimit = activeIframeFallbackLimit();
+
   return (
     <div
       className={cn(
@@ -3574,6 +3841,11 @@ function FixedGridView({
             {session ? (
               <SessionPane
                 session={session}
+                canMountUrlIframe={(() => {
+                  if (!isIframeUrlSession(session)) return true;
+                  mountedIframeCount += 1;
+                  return mountedIframeCount <= iframeLimit;
+                })()}
                 galleryIndexes={galleryIndexes}
                 videoPositions={videoPositions}
                 compact={fixedGrid.columns * fixedGrid.rows > 4}
@@ -3682,6 +3954,9 @@ function FreeGridView({
   ) => void;
   onEditSource: (id: string) => void;
 }) {
+  let mountedIframeCount = 0;
+  const iframeLimit = activeIframeFallbackLimit();
+
   return (
     <div
       className={cn(
@@ -3758,6 +4033,11 @@ function FreeGridView({
               ) : null}
               <SessionPane
                 session={session}
+                canMountUrlIframe={(() => {
+                  if (!isIframeUrlSession(session)) return true;
+                  mountedIframeCount += 1;
+                  return mountedIframeCount <= iframeLimit;
+                })()}
                 galleryIndexes={galleryIndexes}
                 videoPositions={videoPositions}
                 compact={
@@ -3819,6 +4099,7 @@ function FreeGridView({
 
 function SessionPane({
   session,
+  canMountUrlIframe = true,
   galleryIndexes,
   videoPositions,
   compact,
@@ -3839,6 +4120,7 @@ function SessionPane({
   onLocalFilesSelected,
 }: {
   session: FeedSession;
+  canMountUrlIframe?: boolean;
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
   compact?: boolean;
@@ -3865,6 +4147,24 @@ function SessionPane({
   );
   const hasCachedLocalFiles =
     needsLocalReload && Boolean(localSourceConfig?.cacheSetId);
+
+  if (
+    session.sourceConfig.kind === "url" &&
+    !hasPlayableRuntimeItems(session)
+  ) {
+    return (
+      <UrlSourcePane
+        title={session.title}
+        resolution={session.urlResolution}
+        isRuntimeLoading={isRuntimeLoading}
+        hideUi={hideUi}
+        canMountIframe={canMountUrlIframe}
+        onMaximize={onMaximize}
+        onEdit={onEdit}
+        onRemove={onRemove}
+      />
+    );
+  }
 
   return (
     <FeedViewPane
@@ -3919,6 +4219,156 @@ function SessionPane({
       onTimerModeChange={onTimerModeChange}
       onTimerSecondsChange={onTimerSecondsChange}
     />
+  );
+}
+
+function UrlSourcePane({
+  title,
+  resolution,
+  isRuntimeLoading,
+  hideUi,
+  canMountIframe,
+  onMaximize,
+  onEdit,
+  onRemove,
+}: {
+  title: string;
+  resolution?: UrlRuntimeResolution;
+  isRuntimeLoading?: boolean;
+  hideUi?: boolean;
+  canMountIframe: boolean;
+  onMaximize?: () => void;
+  onEdit?: () => void;
+  onRemove?: () => void;
+}) {
+  const displayTitle = resolution?.title ?? title;
+  const externalUrl = resolution?.externalUrl;
+  const iframeUrl = resolution ? urlResolutionIframeUrl(resolution) : null;
+  const iframeBlocked =
+    resolution?.status === "resolved" && iframeUrl && !canMountIframe;
+
+  return (
+    <article className="group/source relative grid size-full min-h-0 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]">
+      {iframeUrl && canMountIframe ? (
+        <iframe
+          title={displayTitle}
+          src={iframeUrl}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+          className="absolute inset-0 z-0 size-full border-0 bg-background"
+        />
+      ) : (
+        <div className="absolute inset-0 z-0 grid place-items-center bg-background p-4">
+          <div className="grid max-w-md justify-items-center gap-3 text-center">
+            <Globe className="size-8 text-primary" />
+            <div className="grid gap-1">
+              <h3 className="text-sm font-medium">{displayTitle}</h3>
+              {isRuntimeLoading ? (
+                <p className="text-xs text-muted-foreground">
+                  Loading runtime media
+                </p>
+              ) : resolution?.status === "resolved" &&
+                resolution.mode === "metadata" ? (
+                <>
+                  {resolution.metadata.siteName ? (
+                    <p className="text-[11px] font-medium text-primary">
+                      {resolution.metadata.siteName}
+                    </p>
+                  ) : null}
+                  {resolution.metadata.description ? (
+                    <p className="text-xs text-muted-foreground">
+                      {resolution.metadata.description}
+                    </p>
+                  ) : null}
+                  {resolution.metadata.thumbnailUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={resolution.metadata.thumbnailUrl}
+                      alt=""
+                      className="mt-1 max-h-36 rounded-md border border-border object-contain"
+                    />
+                  ) : null}
+                </>
+              ) : iframeBlocked ? (
+                <p className="text-xs text-muted-foreground">
+                  Iframe limit reached
+                </p>
+              ) : resolution?.status === "blocked" ? (
+                <p className="text-xs text-muted-foreground">
+                  This site blocks embedded viewing.
+                </p>
+              ) : resolution?.status === "unsupported" ? (
+                <p className="text-xs text-muted-foreground">
+                  This URL cannot be displayed inside the viewer.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  URL source is waiting for runtime resolution.
+                </p>
+              )}
+            </div>
+            {externalUrl ? (
+              <Button asChild size="sm" variant="outline">
+                <a href={externalUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink />
+                  Open externally
+                </a>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {hideUi ? null : (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
+          <div className="min-w-0 rounded-md bg-background/75 px-2 py-1.5 backdrop-blur">
+            <div className="truncate text-xs font-medium">{displayTitle}</div>
+            <div className="font-mono text-[10px] text-muted-foreground">
+              URL source
+            </div>
+          </div>
+          <div className="pointer-events-auto flex shrink-0 flex-wrap justify-end gap-1">
+            {onMaximize ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                className="border-border bg-background/75 text-foreground"
+                onClick={onMaximize}
+                aria-label={`Maximize ${displayTitle}`}
+              >
+                <Maximize2 />
+              </Button>
+            ) : null}
+            {onEdit ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                className="border-border bg-background/75 text-foreground"
+                onClick={onEdit}
+                aria-label={`Edit ${displayTitle}`}
+              >
+                <Pencil />
+              </Button>
+            ) : null}
+            {onRemove ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                className="border-border bg-background/75 text-foreground"
+                onClick={onRemove}
+                aria-label={`Remove ${displayTitle}`}
+              >
+                <X />
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -4155,10 +4605,19 @@ function toRuntimeWorkspaceWithLocalRuntime(
     runtimeWorkspace?.sessions
       .filter(
         (session) =>
-          session.sourceConfig.kind === "local" &&
+          (session.sourceConfig.kind === "local" ||
+            session.sourceConfig.kind === "url") &&
           (session.runtimeItems?.length ?? 0) > 0,
       )
       .map((session) => [session.id, session.runtimeItems ?? []]),
+  );
+  const urlResolutionsBySessionId = new Map(
+    runtimeWorkspace?.sessions
+      .filter(
+        (session) =>
+          session.sourceConfig.kind === "url" && Boolean(session.urlResolution),
+      )
+      .map((session) => [session.id, session.urlResolution]),
   );
   const localFilesBySessionId = new Map(
     runtimeWorkspace?.sessions
@@ -4180,8 +4639,13 @@ function toRuntimeWorkspaceWithLocalRuntime(
       layerId: session.layerId ?? activeLayerId,
       timerMode: normalizeTimerMode(session.timerMode),
       runtimeItems:
-        session.sourceConfig.kind === "local"
+        session.sourceConfig.kind === "local" ||
+        session.sourceConfig.kind === "url"
           ? localItemsBySessionId.get(session.id)
+          : undefined,
+      urlResolution:
+        session.sourceConfig.kind === "url"
+          ? urlResolutionsBySessionId.get(session.id)
           : undefined,
       localFiles:
         session.sourceConfig.kind === "local"
@@ -4216,6 +4680,31 @@ function splitRedditUrls(value: string) {
     .split(/[\n,]+/)
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+function buildSubredditListingUrls(
+  value: string,
+  sort: RedditListingSort,
+  timeRange: RedditTimeRange,
+) {
+  const entries = value
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (!entries.length) throw new Error("Enter one or more subreddit names");
+
+  return Array.from(
+    new Set(
+      entries.map((entry) => {
+        const subreddit = normalizeSubredditName(entry);
+        if (!subreddit) {
+          throw new Error(`Unsupported subreddit name: ${entry}`);
+        }
+
+        return subreddit;
+      }),
+    ),
+  ).map((subreddit) => buildSubredditListingUrl(subreddit, sort, timeRange));
 }
 
 function buildSubredditListingUrl(
@@ -4375,13 +4864,30 @@ function resolveWorkspaceGlobalSeconds(
 }
 
 function redditLinksTitle(urls: string[], items: RuntimeFeedItem[]) {
-  const subredditFromUrl = subredditFromRedditUrl(urls[0]);
-  if (subredditFromUrl) return `r/${subredditFromUrl}`;
+  const subredditsFromUrls = uniqueSubreddits(urls.map(subredditFromRedditUrl));
+  const subreddits = subredditsFromUrls.length
+    ? subredditsFromUrls
+    : uniqueSubreddits(items.map((item) => item.subreddit));
 
-  const subredditFromItem = items.find((item) => item.subreddit)?.subreddit;
-  if (subredditFromItem) return `r/${subredditFromItem}`;
+  if (subreddits.length) {
+    return subreddits.map((subreddit) => `r/${subreddit}`).join(", ");
+  }
 
   return urls.length === 1 ? "Reddit post" : "Reddit links";
+}
+
+function uniqueSubreddits(values: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+
+  return values.flatMap((value) => {
+    if (!value) return [];
+
+    const key = value.toLowerCase();
+    if (seen.has(key)) return [];
+
+    seen.add(key);
+    return [value];
+  });
 }
 
 function subredditFromRedditUrl(value: string | undefined) {
@@ -4551,6 +5057,17 @@ function sessionFileCount(session: FeedSession | WorkspaceSessionInput) {
     return session.sourceConfig.fileCount;
   }
 
+  if (session.sourceConfig.kind === "url") {
+    const runtimeCount =
+      "items" in session
+        ? session.items.length
+        : "runtimeItems" in session
+          ? (session.runtimeItems?.length ?? 0)
+          : 0;
+
+    return runtimeCount || 1;
+  }
+
   const runtimeCount =
     "items" in session
       ? session.items.length
@@ -4559,6 +5076,41 @@ function sessionFileCount(session: FeedSession | WorkspaceSessionInput) {
         : 0;
 
   return runtimeCount || session.sourceConfig.urls.length;
+}
+
+function hasPlayableRuntimeItems(session: FeedSession) {
+  return session.items.length > 0;
+}
+
+function isIframeUrlSession(session: FeedSession) {
+  return (
+    session.sourceConfig.kind === "url" &&
+    session.urlResolution?.status === "resolved" &&
+    Boolean(urlResolutionIframeUrl(session.urlResolution))
+  );
+}
+
+function urlResolutionIframeUrl(resolution: UrlRuntimeResolution) {
+  if (resolution.status !== "resolved") return null;
+  if (resolution.mode === "iframe" || resolution.mode === "provider") {
+    return resolution.iframeUrl ?? null;
+  }
+
+  return null;
+}
+
+function activeIframeFallbackLimit() {
+  if (typeof window !== "undefined" && window.innerWidth < 768) return 1;
+
+  return 4;
+}
+
+function urlHostLabel(value: string) {
+  try {
+    return new URL(value).host;
+  } catch {
+    return "URL source";
+  }
 }
 
 function normalizeLayoutName(name: string) {

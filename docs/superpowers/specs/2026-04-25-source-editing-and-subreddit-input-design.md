@@ -6,10 +6,10 @@ Scrollable will let users add Reddit sources through a split Reddit input and ed
 
 - The add-source dialog keeps the shared `Stacked` / `Separate` source grouping control.
 - The Reddit section adds a segmented control with `Subreddit` and `Links`.
-- `Subreddit` mode accepts a bare subreddit name such as `kpop`.
-- `Subreddit` mode has sort and time range selects. Supported sorts are `hot`, `new`, `rising`, `top`, and `controversial`. Time range applies to `top` and `controversial`, defaulting to `week`.
+- `Subreddit` mode accepts one or more bare subreddit names such as `kpop, pics, aww`.
+- `Subreddit` mode has sort and time range selects. Supported sorts are `hot`, `new`, `rising`, `top`, and `controversial`. The default sort is `top`; time range applies to `top` and `controversial`, defaulting to `week`.
 - `Links` mode keeps the textarea for one or more direct Reddit post links or sorted subreddit listing URLs.
-- The textarea placeholder documents all accepted forms: a direct post URL, a bare subreddit name, or a sorted subreddit URL.
+- The links textarea placeholder documents direct post URLs and sorted subreddit URLs. Bare subreddit examples stay in the subreddit-name input placeholder.
 
 ## Edit Source
 
@@ -25,4 +25,4 @@ Saved layouts continue storing metadata only. Reddit saved source configs store 
 
 ## Testing
 
-Tests cover bare subreddit URL construction, the split Reddit input, Reddit source editing/removal/refetch, local source item removal, local cache update, and metadata-only layout persistence after editing.
+Tests cover bare and multi-subreddit URL construction, the split Reddit input, Reddit source editing/removal/refetch, local source item removal, local cache update, and metadata-only layout persistence after editing.

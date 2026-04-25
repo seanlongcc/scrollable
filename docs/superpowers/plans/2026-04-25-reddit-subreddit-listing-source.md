@@ -41,7 +41,7 @@
 - Modify: `src/components/viewer/feed-workbench.tsx`
 - Modify: `src/components/viewer/feed-workbench.test.tsx`
 
-- [x] Add a Reddit media count input with default 20.
+- [x] Add a Reddit media count input with default 10.
 - [x] Send `limit` when opening live Reddit sources and when refetching saved Reddit sources.
 - [x] Store listing URLs as source config URLs.
 - [x] Update UI tests for listing URL input and limit query params.

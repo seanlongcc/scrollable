@@ -201,12 +201,14 @@ export function FeedViewPane({
       {hideUi ? null : (
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2",
+            "pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-between gap-2 p-2",
             sourceChromeClass,
           )}
         >
-          <div className="min-w-0 rounded-md bg-background/75 px-2 py-1.5 backdrop-blur">
-            <div className="truncate text-xs font-medium">{title}</div>
+          <div className="min-w-32 max-w-full flex-1 rounded-md bg-background/75 px-2 py-1.5 backdrop-blur">
+            <div className="truncate text-xs font-medium" title={title}>
+              {title}
+            </div>
             <div className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
               {items.length ? timer.activeIndex + 1 : 0}/{items.length} ·{" "}
               {timer.durationSeconds}s ·{" "}
@@ -217,7 +219,7 @@ export function FeedViewPane({
               />
             </div>
           </div>
-          <div className="pointer-events-auto flex shrink-0 flex-wrap justify-end gap-1">
+          <div className="pointer-events-auto flex max-w-full shrink-0 flex-wrap justify-end gap-1">
             {onTimerModeChange ? (
               <Button
                 type="button"

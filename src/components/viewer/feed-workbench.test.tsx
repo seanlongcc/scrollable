@@ -28,6 +28,15 @@ vi.mock("@/lib/local-uploads/file-cache", () => ({
 const WORKSPACE_STORAGE_KEY = "scrollable.workspaces.v1";
 const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 
+async function addDefaultSubredditSource(
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  await user.click(screen.getByRole("button", { name: "Add source" }));
+  const dialog = screen.getByRole("dialog", { name: "Add source" });
+  await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
+  await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+}
+
 describe("FeedWorkbench", () => {
   beforeEach(() => {
     if (!HTMLElement.prototype.hasPointerCapture) {
@@ -102,8 +111,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
 
     await screen.findByRole("button", { name: "Remove r/pics" });
     expect(screen.getByLabelText("Free column")).toHaveValue(1);
@@ -167,6 +175,241 @@ describe("FeedWorkbench", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("adds a unified URL source and saves only URL metadata plus resolver hint", async () => {
+    const fetchMock = stubUrlResolveFetch({
+      resolution: {
+        status: "resolved",
+        mode: "direct-media",
+        hint: "direct-media",
+        title: "Direct image",
+        externalUrl: "https://cdn.test/photo.jpg",
+        items: [
+          {
+            id: "url:https://cdn.test/photo.jpg",
+            source: "url",
+            title: "Direct image",
+            isNsfw: false,
+            createdAt: "2026-04-25T00:00:00.000Z",
+            media: [{ type: "image", url: "https://cdn.test/photo.jpg" }],
+          },
+        ],
+      },
+      nextResolverHint: "direct-media",
+    });
+    stubRandomUuids(["workspace-1", "session-1"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    expect(screen.getByLabelText("URL")).toHaveValue("");
+    expect(screen.getByLabelText("URL")).toHaveAttribute(
+      "placeholder",
+      "https://example.com/media-or-page",
+    );
+    await user.type(screen.getByLabelText("URL"), "https://cdn.test/photo.jpg");
+    await user.click(screen.getByRole("button", { name: "Open URL" }));
+
+    expect(await screen.findByAltText("Direct image")).toBeInTheDocument();
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "url=https%3A%2F%2Fcdn.test%2Fphoto.jpg",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
+
+    expect(saved).toContain('"kind":"url"');
+    expect(saved).toContain("https://cdn.test/photo.jpg");
+    expect(saved).toContain('"resolverHint":"direct-media"');
+    expect(saved).not.toContain("url:https://cdn.test/photo.jpg");
+    expect(saved).not.toContain('"media"');
+  });
+
+  it("reopens a saved URL source by trying its resolver hint first", async () => {
+    const fetchMock = stubUrlResolveFetch({
+      resolution: {
+        status: "resolved",
+        mode: "metadata",
+        hint: "metadata",
+        title: "Saved article",
+        externalUrl: "https://example.com/article",
+        metadata: {
+          title: "Saved article",
+          description: "Runtime-only description",
+          siteName: "Example",
+        },
+      },
+      nextResolverHint: "metadata",
+    });
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "workspace-1",
+        workspaces: [
+          {
+            id: "workspace-1",
+            name: "Saved URL",
+            layers: [{ id: "layer-1", name: "Layer 1" }],
+            activeLayerId: "layer-1",
+            layoutMode: "fixed",
+            fixedGrid: { columns: 2, rows: 1 },
+            globalTimerSeconds: 10,
+            updatedAt: "2026-04-25T00:00:00.000Z",
+            sessions: [
+              {
+                id: "session-1",
+                title: "Saved article",
+                layerId: "layer-1",
+                timerMode: "global",
+                timerSeconds: 10,
+                fixedSlot: 0,
+                freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+                sourceConfig: {
+                  kind: "url",
+                  url: "https://example.com/article",
+                  title: "Saved article",
+                  resolverHint: "metadata",
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedLayouts(user, ["Saved URL"]);
+
+    expect(await screen.findByText("Runtime-only description")).toBeVisible();
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("hint=metadata");
+  });
+
+  it("shows a blocked URL iframe fallback with an external-open action", async () => {
+    stubUrlResolveFetch({
+      resolution: {
+        status: "blocked",
+        title: "Blocked site",
+        externalUrl: "https://blocked.example/",
+        reason: "url_source_frame_blocked",
+      },
+    });
+    stubRandomUuids(["workspace-1", "session-1"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.clear(screen.getByLabelText("URL"));
+    await user.type(screen.getByLabelText("URL"), "https://blocked.example/");
+    await user.click(screen.getByRole("button", { name: "Open URL" }));
+
+    expect((await screen.findAllByText("Blocked site"))[0]).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Open externally" }),
+    ).toHaveAttribute("href", "https://blocked.example/");
+    expect(screen.queryByLabelText("Blocked site timer progress")).toBeNull();
+  });
+
+  it("renders YouTube provider URL sources as embedded provider panes", async () => {
+    stubUrlResolveFetch({
+      resolution: {
+        status: "resolved",
+        mode: "provider",
+        hint: "provider:youtube",
+        provider: "youtube",
+        title: "YouTube video",
+        externalUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        iframeUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      },
+      nextResolverHint: "provider:youtube",
+    });
+    stubRandomUuids(["workspace-1", "session-1"]);
+
+    const user = userEvent.setup();
+    const { container } = render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.clear(screen.getByLabelText("URL"));
+    await user.type(
+      screen.getByLabelText("URL"),
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+    await user.click(screen.getByRole("button", { name: "Open URL" }));
+
+    expect(await screen.findByTitle("YouTube video")).toBeInTheDocument();
+    expect(container.querySelector("iframe")).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
+
+    expect(saved).toContain('"resolverHint":"provider:youtube"');
+    expect(saved).not.toContain("youtube.com/embed");
+  });
+
+  it("caps active mobile iframe fallback panes", async () => {
+    vi.stubGlobal("innerWidth", 390);
+    stubUrlResolveFetch((url) => ({
+      resolution: {
+        status: "resolved",
+        mode: "iframe",
+        hint: "iframe",
+        title: new URL(url).hostname,
+        externalUrl: url,
+        iframeUrl: url,
+      },
+      nextResolverHint: "iframe",
+    }));
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "iframe-layout",
+        workspaces: [
+          {
+            id: "iframe-layout",
+            name: "Iframe wall",
+            layers: [{ id: "layer-1", name: "Layer 1" }],
+            activeLayerId: "layer-1",
+            layoutMode: "fixed",
+            fixedGrid: { columns: 2, rows: 2 },
+            globalTimerSeconds: 10,
+            updatedAt: "2026-04-25T00:00:00.000Z",
+            sessions: [1, 2, 3].map((index) => ({
+              id: `session-${index}`,
+              title: `Site ${index}`,
+              layerId: "layer-1",
+              timerMode: "global",
+              timerSeconds: 10,
+              fixedSlot: index - 1,
+              freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+              sourceConfig: {
+                kind: "url",
+                url: `https://site-${index}.example/`,
+                resolverHint: "iframe",
+              },
+            })),
+          },
+        ],
+      }),
+    );
+
+    const user = userEvent.setup();
+    const { container } = render(<FeedWorkbench />);
+
+    await openSavedLayouts(user, ["Iframe wall"]);
+
+    await screen.findByText("site-1.example");
+    expect(container.querySelectorAll("iframe")).toHaveLength(1);
+    expect(screen.getAllByText("Iframe limit reached")).toHaveLength(2);
+  });
+
   it("sends pasted Reddit post links to the runtime endpoint", async () => {
     const fetchMock = stubRuntimeFetch();
 
@@ -186,7 +429,7 @@ describe("FeedWorkbench", () => {
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
-    await screen.findByRole("button", { name: "Remove r/pics" });
+    await screen.findByRole("button", { name: "Remove r/pics, r/aww" });
     const requestUrl = String(
       (
         fetchMock.mock.calls as unknown as Array<
@@ -248,6 +491,44 @@ describe("FeedWorkbench", () => {
     expect(requestUrl).toContain("limit=24");
   });
 
+  it("allows subreddit media counts up to 200", async () => {
+    const fetchMock = stubRuntimeFetch([
+      {
+        id: "runtime-kpop",
+        source: "reddit",
+        title: "Runtime kpop",
+        subreddit: "kpop",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image",
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.clear(screen.getByLabelText("Reddit media count"));
+    await user.type(screen.getByLabelText("Reddit media count"), "200");
+    await user.type(screen.getByLabelText("Subreddit name"), "kpop");
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByRole("button", { name: "Remove r/kpop" });
+    const requestUrl = String(
+      (
+        fetchMock.mock.calls as unknown as Array<
+          [RequestInfo | URL, RequestInit?]
+        >
+      )[0]?.[0],
+    );
+    expect(requestUrl).toContain("limit=200");
+  });
+
   it("accepts a bare subreddit name with listing controls", async () => {
     const fetchMock = stubRuntimeFetch([
       {
@@ -274,7 +555,11 @@ describe("FeedWorkbench", () => {
     expect(
       within(dialog).getByRole("button", { name: "Use subreddit name" }),
     ).toHaveAttribute("aria-pressed", "true");
-    await user.clear(within(dialog).getByLabelText("Subreddit name"));
+    expect(within(dialog).getByLabelText("Subreddit name")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Subreddit name")).toHaveAttribute(
+      "placeholder",
+      "kpop, pics, aww",
+    );
     await user.type(within(dialog).getByLabelText("Subreddit name"), "kpop");
     await user.click(within(dialog).getByRole("combobox", { name: "Sort" }));
     await user.click(screen.getByRole("option", { name: "Top" }));
@@ -294,6 +579,118 @@ describe("FeedWorkbench", () => {
     );
     expect(requestUrl).toContain(
       "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fkpop%2Ftop%2F%3Ft%3Dweek",
+    );
+    expect(requestUrl).toContain("limit=10");
+  });
+
+  it("defaults subreddit listings to top week", async () => {
+    const fetchMock = stubRuntimeFetch([
+      {
+        id: "runtime-kpop",
+        source: "reddit",
+        title: "Runtime kpop",
+        subreddit: "kpop",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image",
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    await user.type(within(dialog).getByLabelText("Subreddit name"), "kpop");
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByRole("button", { name: "Remove r/kpop" });
+    const requestUrl = String(
+      (
+        fetchMock.mock.calls as unknown as Array<
+          [RequestInfo | URL, RequestInit?]
+        >
+      )[0]?.[0],
+    );
+    expect(requestUrl).toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fkpop%2Ftop%2F%3Ft%3Dweek",
+    );
+  });
+
+  it("accepts multiple bare subreddit names with listing controls", async () => {
+    const fetchMock = stubRuntimeFetch([
+      {
+        id: "runtime-kpop",
+        source: "reddit",
+        title: "Runtime kpop",
+        subreddit: "kpop",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image",
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+      {
+        id: "runtime-aww",
+        source: "reddit",
+        title: "Runtime aww",
+        subreddit: "aww",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image",
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    await user.type(
+      within(dialog).getByLabelText("Subreddit name"),
+      "kpop, aww",
+    );
+    await user.click(within(dialog).getByRole("combobox", { name: "Sort" }));
+    await user.click(screen.getByRole("option", { name: "Top" }));
+    await user.click(
+      within(dialog).getByRole("combobox", { name: "Time range" }),
+    );
+    await user.click(screen.getByRole("option", { name: "Week" }));
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByRole("button", { name: "Remove r/kpop, r/aww" });
+    expect(screen.getByText("r/kpop, r/aww")).toBeInTheDocument();
+    expect(screen.getByText("Runtime kpop")).toBeInTheDocument();
+    expect(screen.getByText(/1\/2/)).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Next item for r/kpop, r/aww" }),
+    );
+    expect(screen.getByText("Runtime aww")).toBeInTheDocument();
+    const requestUrl = String(
+      (
+        fetchMock.mock.calls as unknown as Array<
+          [RequestInfo | URL, RequestInit?]
+        >
+      )[0]?.[0],
+    );
+    expect(requestUrl).toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fkpop%2Ftop%2F%3Ft%3Dweek",
+    );
+    expect(requestUrl).toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Faww%2Ftop%2F%3Ft%3Dweek",
     );
   });
 
@@ -421,9 +818,11 @@ describe("FeedWorkbench", () => {
       ].join("\n"),
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
-    await screen.findByRole("button", { name: "Edit r/pics" });
+    await screen.findByRole("button", { name: "Edit r/pics, r/aww" });
 
-    await user.click(screen.getByRole("button", { name: "Edit r/pics" }));
+    await user.click(
+      screen.getByRole("button", { name: "Edit r/pics, r/aww" }),
+    );
     const editDialog = screen.getByRole("dialog", { name: "Edit source" });
     await user.click(
       within(editDialog).getByRole("button", { name: "Remove r/pics link" }),
@@ -894,8 +1293,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Maximize r/pics" }),
@@ -919,8 +1317,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
 
     expect(
       await screen.findByRole("button", { name: "r/pics uses global timer" }),
@@ -951,8 +1348,7 @@ describe("FeedWorkbench", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await user.click(
       await screen.findByRole("button", { name: "r/pics uses global timer" }),
     );
@@ -992,8 +1388,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByLabelText("r/pics timer progress");
 
     await user.click(screen.getByRole("button", { name: "Hide UI" }));
@@ -1072,8 +1467,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
 
     expect(await screen.findByText("Runtime image 1")).toBeInTheDocument();
 
@@ -1120,8 +1514,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
 
     const activeTitle = await screen.findByText("Runtime image 1");
     const pane = activeTitle.closest("article");
@@ -1165,8 +1558,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Maximize r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
@@ -2132,8 +2524,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     const { container } = render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Maximize r/pics" });
     await user.click(screen.getByRole("button", { name: "Save layout" }));
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
@@ -2362,8 +2753,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     const { container } = render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByAltText("Runtime image");
 
     await user.click(screen.getByRole("button", { name: "New layout" }));
@@ -2382,8 +2772,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
@@ -2425,8 +2814,7 @@ describe("FeedWorkbench", () => {
     fireEvent.change(screen.getByLabelText("Fixed rows"), {
       target: { value: "1" },
     });
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
@@ -2489,8 +2877,7 @@ describe("FeedWorkbench", () => {
       target: { value: "1" },
     });
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
     fireEvent.change(screen.getByLabelText("Column span"), {
       target: { value: "8" },
@@ -2550,8 +2937,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByText(/1\/2/);
     await user.click(
       screen.getByRole("button", { name: "Next item for r/pics" }),
@@ -2598,8 +2984,7 @@ describe("FeedWorkbench", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await addDefaultSubredditSource(user);
     await screen.findByText("1 source active · Fixed layout");
 
     await user.click(screen.getByRole("button", { name: "Clear layout" }));
@@ -2639,6 +3024,24 @@ function stubRuntimeFetch(
     ok: true,
     json: async () => ({ items }),
   }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  return fetchMock;
+}
+
+function stubUrlResolveFetch(
+  payload: Record<string, unknown> | ((url: string) => Record<string, unknown>),
+) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const requestUrl = new URL(String(input), "http://localhost");
+    const sourceUrl = requestUrl.searchParams.get("url") ?? "";
+    const body = typeof payload === "function" ? payload(sourceUrl) : payload;
+
+    return {
+      ok: true,
+      json: async () => body,
+    };
+  });
   vi.stubGlobal("fetch", fetchMock);
 
   return fetchMock;

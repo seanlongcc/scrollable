@@ -1,6 +1,12 @@
 import { z } from "zod";
 
+import {
+  normalizeUrlSourceUrl,
+  urlResolverHintSchema,
+} from "@/lib/url-source/validation";
+
 export const DEFAULT_FEED_TIMER_SECONDS = 10;
+const MAX_REDDIT_SOURCE_URLS = 200;
 
 const REDDIT_LISTING_SORTS = new Set([
   "hot",
@@ -19,24 +25,47 @@ const redditPostUrlSchema = z
   })
   .transform((value) => normalizeRedditSourceUrl(value) ?? value);
 
-export const feedConfigInputSchema = z
+const feedConfigBaseSchema = {
+  name: z.string().trim().min(1).max(80).optional(),
+  timerSeconds: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(120)
+    .default(DEFAULT_FEED_TIMER_SECONDS),
+  isNsfw: z.coerce.boolean().default(false),
+  displayMode: z.enum(["single", "grid"]).default("single"),
+};
+
+const redditFeedConfigInputSchema = z
   .object({
     source: z.literal("reddit").default("reddit"),
-    name: z.string().trim().min(1).max(80).optional(),
     postUrls: z.preprocess(
       splitUrlInput,
-      z.array(redditPostUrlSchema).min(1).max(50),
+      z.array(redditPostUrlSchema).min(1).max(MAX_REDDIT_SOURCE_URLS),
     ),
-    timerSeconds: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(120)
-      .default(DEFAULT_FEED_TIMER_SECONDS),
-    isNsfw: z.coerce.boolean().default(false),
-    displayMode: z.enum(["single", "grid"]).default("single"),
+    ...feedConfigBaseSchema,
   })
   .strip();
+
+const urlFeedConfigInputSchema = z
+  .object({
+    source: z.literal("url"),
+    url: z
+      .string()
+      .trim()
+      .min(1)
+      .transform((value) => normalizeUrlSourceUrl(value)),
+    title: z.string().trim().min(1).max(120).optional(),
+    resolverHint: urlResolverHintSchema.optional(),
+    ...feedConfigBaseSchema,
+  })
+  .strip();
+
+export const feedConfigInputSchema = z.union([
+  urlFeedConfigInputSchema,
+  redditFeedConfigInputSchema,
+]);
 
 export type FeedConfigInput = z.input<typeof feedConfigInputSchema>;
 export type SavedFeedConfig = z.output<typeof feedConfigInputSchema> & {

@@ -47,6 +47,16 @@ describe("parseRedditPostLinksInput", () => {
       limit: 24,
     });
   });
+
+  it("accepts up to 200 Reddit source URLs", () => {
+    const urls = Array.from(
+      { length: 200 },
+      (_entry, index) =>
+        `https://www.reddit.com/r/pics/comments/post${index}/title/`,
+    );
+
+    expect(parseRedditPostLinksInput({ urls }).urls).toHaveLength(200);
+  });
 });
 
 describe("fetchRedditRuntimePostLinks", () => {
@@ -168,7 +178,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=50",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -181,5 +191,58 @@ describe("fetchRedditRuntimePostLinks", () => {
       "reddit:two",
     ]);
     expect(result.unsupportedIds).toEqual(["self"]);
+  });
+
+  it("fetches the requested media count for each stacked subreddit listing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const subreddit = url.includes("/r/aww/") ? "aww" : "kpop";
+
+      return {
+        ok: true,
+        json: async () => ({
+          kind: "Listing",
+          data: {
+            children: [
+              {
+                data: {
+                  id: `${subreddit}-one`,
+                  title: `${subreddit} one`,
+                  subreddit,
+                  post_hint: "image",
+                  url: `https://i.redd.it/${subreddit}-one.jpg`,
+                },
+              },
+              {
+                data: {
+                  id: `${subreddit}-two`,
+                  title: `${subreddit} two`,
+                  subreddit,
+                  post_hint: "image",
+                  url: `https://i.redd.it/${subreddit}-two.jpg`,
+                },
+              },
+            ],
+          },
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: [
+        "https://www.reddit.com/r/kpop/top/?t=week",
+        "https://www.reddit.com/r/aww/top/?t=week",
+      ],
+      limit: 2,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.items.map((item) => item.id)).toEqual([
+      "reddit:kpop-one",
+      "reddit:kpop-two",
+      "reddit:aww-one",
+      "reddit:aww-two",
+    ]);
   });
 });

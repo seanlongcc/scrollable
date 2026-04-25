@@ -70,6 +70,63 @@ describe("viewer workspaces", () => {
     expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");
   });
 
+  it("serializes URL sources with resolver hints but without runtime URL payloads", () => {
+    const workspace = createEmptyWorkspace("workspace-1", "Layout 1");
+
+    const snapshot = serializeWorkspace({
+      ...workspace,
+      sessions: [
+        {
+          id: "session-1",
+          title: "Example URL",
+          timerMode: "global",
+          timerSeconds: 10,
+          fixedSlot: 0,
+          freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+          sourceConfig: {
+            kind: "url",
+            url: "https://example.com/watch",
+            title: "User title",
+            resolverHint: "metadata",
+          },
+          runtimeItems: [
+            {
+              id: "runtime-url",
+              source: "url",
+              title: "Extracted media",
+              isNsfw: false,
+              createdAt: "2026-04-25T00:00:00.000Z",
+              media: [{ type: "image", url: "https://cdn.test/extracted.jpg" }],
+            },
+          ],
+          urlResolution: {
+            status: "resolved",
+            mode: "metadata",
+            hint: "metadata",
+            title: "Extracted title",
+            externalUrl: "https://example.com/watch",
+            metadata: {
+              title: "Extracted title",
+              description: "Fetched description",
+              thumbnailUrl: "https://cdn.test/thumb.jpg",
+            },
+          },
+        },
+      ],
+    });
+
+    const encoded = JSON.stringify(snapshot);
+
+    expect(encoded).toContain("https://example.com/watch");
+    expect(encoded).toContain('"resolverHint":"metadata"');
+    expect(encoded).toContain("User title");
+    expect(encoded).not.toContain("https://cdn.test/extracted.jpg");
+    expect(encoded).not.toContain("https://cdn.test/thumb.jpg");
+    expect(encoded).not.toContain("Fetched description");
+    expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");
+    expect(snapshot.sessions[0]).not.toHaveProperty("urlResolution");
+  });
+
   it("creates a default editable layer for new workspaces", () => {
     expect(createEmptyWorkspace("workspace-1", "Layout 1")).toMatchObject({
       layers: [{ id: "layer-1", name: "Layer 1" }],
