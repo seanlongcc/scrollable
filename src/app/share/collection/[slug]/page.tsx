@@ -47,7 +47,7 @@ export default async function SharedCollectionPage({
                   >
                     <div className="font-medium">{item.config?.name}</div>
                     <div className="text-muted-foreground">
-                      {item.config?.post_urls.length ?? 0} Reddit post{" "}
+                      {item.config?.post_urls.length ?? 0} Reddit source{" "}
                       {item.config?.post_urls.length === 1 ? "link" : "links"}
                     </div>
                   </li>

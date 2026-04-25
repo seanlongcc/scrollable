@@ -140,6 +140,8 @@ type AccountState =
 type SourceGroupingMode = "stacked" | "separate";
 
 const DEFAULT_TIMER_SECONDS = DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS;
+const DEFAULT_REDDIT_MEDIA_LIMIT = 20;
+const MAX_REDDIT_MEDIA_LIMIT = 100;
 const MAX_LAYOUT_NAME_LENGTH = 32;
 const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 
@@ -214,6 +216,7 @@ export function FeedWorkbench({
   );
 
   const [redditUrls, setRedditUrls] = useState("");
+  const [redditLimit, setRedditLimit] = useState(DEFAULT_REDDIT_MEDIA_LIMIT);
   const [globalSeconds, setGlobalSeconds] = useState(DEFAULT_TIMER_SECONDS);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
@@ -583,6 +586,7 @@ export function FeedWorkbench({
     setIsLoading(true);
     try {
       const urls = splitRedditUrls(redditUrls);
+      const selectedRedditLimit = normalizeRedditLimit(redditLimit);
 
       if (
         redditLinksMode === "separate" &&
@@ -599,13 +603,17 @@ export function FeedWorkbench({
       if (redditLinksMode === "separate") {
         const sources = await Promise.all(
           urls.map(async (url) => {
-            const items = await fetchRedditRuntimeItems([url]);
+            const items = await fetchRedditRuntimeItems(
+              [url],
+              selectedRedditLimit,
+            );
 
             return {
               title: redditLinksTitle([url], items),
               sourceConfig: {
                 kind: "reddit" as const,
                 urls: [url],
+                limit: selectedRedditLimit,
                 allowNsfw: true,
               },
               items,
@@ -615,13 +623,14 @@ export function FeedWorkbench({
 
         addSessions(sources);
       } else {
-        const items = await fetchRedditRuntimeItems(urls);
+        const items = await fetchRedditRuntimeItems(urls, selectedRedditLimit);
 
         addSession({
           title: redditLinksTitle(urls, items),
           sourceConfig: {
             kind: "reddit",
             urls,
+            limit: selectedRedditLimit,
             allowNsfw: true,
           },
           items,
@@ -1652,6 +1661,7 @@ export function FeedWorkbench({
 
     const params = new URLSearchParams({
       allowNsfw: String(sourceConfig.allowNsfw),
+      limit: String(sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT),
     });
     for (const url of sourceConfig.urls) {
       params.append("urls", url);
@@ -1951,10 +1961,12 @@ export function FeedWorkbench({
         open={isSourceOpen}
         onOpenChange={setIsSourceOpen}
         redditUrls={redditUrls}
+        redditLimit={redditLimit}
         isLoading={isLoading}
         localUploadMode={localUploadMode}
         redditLinksMode={redditLinksMode}
         setRedditUrls={setRedditUrls}
+        setRedditLimit={setRedditLimit}
         setLocalUploadMode={setLocalUploadMode}
         setRedditLinksMode={setRedditLinksMode}
         fetchRedditFeed={fetchRedditFeed}
@@ -2556,10 +2568,12 @@ function SourceDialog({
   open,
   onOpenChange,
   redditUrls,
+  redditLimit,
   isLoading,
   localUploadMode,
   redditLinksMode,
   setRedditUrls,
+  setRedditLimit,
   setLocalUploadMode,
   setRedditLinksMode,
   fetchRedditFeed,
@@ -2570,10 +2584,12 @@ function SourceDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   redditUrls: string;
+  redditLimit: number;
   isLoading: boolean;
   localUploadMode: SourceGroupingMode;
   redditLinksMode: SourceGroupingMode;
   setRedditUrls: (value: string) => void;
+  setRedditLimit: (value: number) => void;
   setLocalUploadMode: (value: SourceGroupingMode) => void;
   setRedditLinksMode: (value: SourceGroupingMode) => void;
   fetchRedditFeed: () => void;
@@ -2587,8 +2603,8 @@ function SourceDialog({
         <DialogHeader>
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
-            Choose local files or paste one or more Reddit post links for the
-            viewer.
+            Choose local files or paste one or more Reddit post or subreddit
+            links for the viewer.
           </DialogDescription>
         </DialogHeader>
         <div className="grid min-h-0 min-w-0 gap-5 md:grid-cols-2">
@@ -2687,8 +2703,8 @@ function SourceDialog({
             </div>
           </section>
 
-          <section className="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-surface p-3">
-            <h2 className="text-sm font-medium">Reddit post links</h2>
+          <section className="grid min-w-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-surface p-3">
+            <h2 className="text-sm font-medium">Reddit links</h2>
             <div
               className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
               role="group"
@@ -2713,13 +2729,37 @@ function SourceDialog({
                 Separate
               </Button>
             </div>
+            <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Reddit media count
+              <Input
+                type="number"
+                min={1}
+                max={MAX_REDDIT_MEDIA_LIMIT}
+                value={redditLimit || ""}
+                onChange={(event) => {
+                  if (event.target.value === "") {
+                    setRedditLimit(0);
+                    return;
+                  }
+
+                  setRedditLimit(
+                    clamp(
+                      Number(event.target.value),
+                      1,
+                      MAX_REDDIT_MEDIA_LIMIT,
+                    ),
+                  );
+                }}
+                className="h-9"
+              />
+            </Label>
             <Textarea
-              aria-label="Paste Reddit post links, one per line"
+              aria-label="Paste Reddit post or subreddit links, one per line"
               value={redditUrls}
               onChange={(event) => setRedditUrls(event.target.value)}
               placeholder={`One link per line:
 https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/
-https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/`}
+https://www.reddit.com/r/<community>/top/?t=week`}
               className="h-full min-h-0 resize-none font-mono text-xs leading-5"
             />
             <Button
@@ -3433,6 +3473,10 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function normalizeRedditLimit(value: number) {
+  return clamp(value || DEFAULT_REDDIT_MEDIA_LIMIT, 1, MAX_REDDIT_MEDIA_LIMIT);
+}
+
 function splitRedditUrls(value: string) {
   return value
     .split(/[\n,]+/)
@@ -3440,9 +3484,13 @@ function splitRedditUrls(value: string) {
     .filter(Boolean);
 }
 
-async function fetchRedditRuntimeItems(urls: string[]) {
+async function fetchRedditRuntimeItems(
+  urls: string[],
+  limit = DEFAULT_REDDIT_MEDIA_LIMIT,
+) {
   const params = new URLSearchParams({
     allowNsfw: "true",
+    limit: String(limit),
   });
   for (const url of urls) {
     params.append("urls", url);
@@ -3505,11 +3553,11 @@ function subredditFromRedditUrl(value: string | undefined) {
     const subredditIndex = segments.indexOf("r");
     const commentsIndex = segments.indexOf("comments");
 
-    if (
-      subredditIndex !== -1 &&
-      commentsIndex !== -1 &&
-      commentsIndex > subredditIndex + 1
-    ) {
+    if (subredditIndex !== -1 && commentsIndex > subredditIndex + 1) {
+      return segments[subredditIndex + 1];
+    }
+
+    if (subredditIndex !== -1 && segments[subredditIndex + 1]) {
       return segments[subredditIndex + 1];
     }
   } catch {

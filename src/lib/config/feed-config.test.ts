@@ -22,12 +22,17 @@ describe("parseFeedConfigInput", () => {
     expect(result).not.toHaveProperty("thumbnails");
   });
 
-  it("normalizes direct Reddit post links and rejects listing URLs", () => {
+  it("normalizes Reddit post and subreddit listing URLs", () => {
     expect(
       parseFeedConfigInput({
         postUrls: "https://old.reddit.com/r/aww/comments/abc123/title",
       }).postUrls,
     ).toEqual(["https://www.reddit.com/r/aww/comments/abc123/title/"]);
+    expect(
+      parseFeedConfigInput({
+        postUrls: "https://old.reddit.com/r/kpop/top/?t=week",
+      }).postUrls,
+    ).toEqual(["https://www.reddit.com/r/kpop/top/?t=week"]);
     expect(() =>
       parseFeedConfigInput({ postUrls: "https://www.reddit.com/r/pics/" }),
     ).toThrow(/postUrls/i);

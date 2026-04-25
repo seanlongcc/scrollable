@@ -32,7 +32,7 @@ export default async function SharedConfigPage({
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
               <div className="text-muted-foreground">
-                {shared.config.post_urls.length} Reddit post{" "}
+                {shared.config.post_urls.length} Reddit source{" "}
                 {shared.config.post_urls.length === 1 ? "link" : "links"}
               </div>
               <div>timer {shared.config.timer_seconds}s</div>

@@ -2,13 +2,22 @@ import { z } from "zod";
 
 export const DEFAULT_FEED_TIMER_SECONDS = 10;
 
+const REDDIT_LISTING_SORTS = new Set([
+  "hot",
+  "new",
+  "rising",
+  "top",
+  "controversial",
+]);
+const REDDIT_TIME_RANGES = new Set(["day", "week", "month", "year", "all"]);
+
 const redditPostUrlSchema = z
   .string()
   .trim()
-  .refine((value) => normalizeRedditPostUrl(value) !== null, {
-    message: "Use Reddit post URLs from comments pages",
+  .refine((value) => normalizeRedditSourceUrl(value) !== null, {
+    message: "Use Reddit post or subreddit listing URLs",
   })
-  .transform((value) => normalizeRedditPostUrl(value) ?? value);
+  .transform((value) => normalizeRedditSourceUrl(value) ?? value);
 
 export const feedConfigInputSchema = z
   .object({
@@ -54,7 +63,7 @@ function splitUrlInput(value: unknown): unknown {
     .filter(Boolean);
 }
 
-function normalizeRedditPostUrl(value: string) {
+function normalizeRedditSourceUrl(value: string) {
   let url: URL;
 
   try {
@@ -79,9 +88,26 @@ function normalizeRedditPostUrl(value: string) {
 
   const segments = url.pathname.split("/").filter(Boolean);
   const commentsIndex = segments.indexOf("comments");
-  if (commentsIndex === -1 || !segments[commentsIndex + 1]) {
+  if (commentsIndex !== -1 && segments[commentsIndex + 1]) {
+    return `https://www.reddit.com/${segments.slice(0, commentsIndex + 3).join("/")}/`;
+  }
+
+  if (segments[0] !== "r" || !segments[1] || !segments[2]) {
     return null;
   }
 
-  return `https://www.reddit.com/${segments.slice(0, commentsIndex + 3).join("/")}/`;
+  const sort = segments[2].toLowerCase();
+  if (!REDDIT_LISTING_SORTS.has(sort)) {
+    return null;
+  }
+
+  const timeRange = url.searchParams.get("t")?.toLowerCase();
+  if (timeRange && !REDDIT_TIME_RANGES.has(timeRange)) {
+    return null;
+  }
+
+  const canonical = new URL(`https://www.reddit.com/r/${segments[1]}/${sort}/`);
+  if (timeRange) canonical.searchParams.set("t", timeRange);
+
+  return canonical.toString();
 }

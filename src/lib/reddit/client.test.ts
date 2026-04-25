@@ -24,10 +24,28 @@ describe("parseRedditPostLinksInput", () => {
     });
   });
 
-  it("rejects Reddit listing URLs because only direct posts are supported", () => {
+  it("rejects subreddit roots without an explicit listing sort", () => {
     expect(() =>
       parseRedditPostLinksInput({ urls: "https://www.reddit.com/r/pics/" }),
     ).toThrow();
+  });
+
+  it("parses subreddit listing URLs and a custom media count", () => {
+    expect(
+      parseRedditPostLinksInput({
+        urls: [
+          "https://www.reddit.com/r/kpop/top/?t=week",
+          "https://old.reddit.com/r/kpop/hot/",
+        ].join("\n"),
+        limit: "24",
+      }),
+    ).toMatchObject({
+      urls: [
+        "https://www.reddit.com/r/kpop/top/?t=week",
+        "https://www.reddit.com/r/kpop/hot/",
+      ],
+      limit: 24,
+    });
   });
 });
 
@@ -85,5 +103,83 @@ describe("fetchRedditRuntimePostLinks", () => {
     if (originalClientSecret) {
       process.env.REDDIT_CLIENT_SECRET = originalClientSecret;
     }
+  });
+
+  it("fetches subreddit listings and returns the requested number of usable media posts after skips", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        kind: "Listing",
+        data: {
+          children: [
+            {
+              data: {
+                id: "sticky",
+                stickied: true,
+                title: "Sticky",
+                subreddit: "kpop",
+                post_hint: "image",
+                url: "https://i.redd.it/sticky.jpg",
+              },
+            },
+            {
+              data: {
+                id: "self",
+                title: "Text",
+                subreddit: "kpop",
+              },
+            },
+            {
+              data: {
+                id: "one",
+                title: "One",
+                subreddit: "kpop",
+                post_hint: "image",
+                url: "https://i.redd.it/one.jpg",
+              },
+            },
+            {
+              data: {
+                id: "two",
+                title: "Two",
+                subreddit: "kpop",
+                post_hint: "image",
+                url: "https://i.redd.it/two.jpg",
+              },
+            },
+            {
+              data: {
+                id: "three",
+                title: "Three",
+                subreddit: "kpop",
+                post_hint: "image",
+                url: "https://i.redd.it/three.jpg",
+              },
+            },
+          ],
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/kpop/top/?t=week",
+      limit: 2,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=50",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items.map((item) => item.id)).toEqual([
+      "reddit:one",
+      "reddit:two",
+    ]);
+    expect(result.unsupportedIds).toEqual(["self"]);
   });
 });

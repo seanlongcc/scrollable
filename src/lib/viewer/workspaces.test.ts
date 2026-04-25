@@ -33,9 +33,8 @@ describe("viewer workspaces", () => {
           freeRect: { column: 1, row: 1, columnSpan: 2, rowSpan: 2 },
           sourceConfig: {
             kind: "reddit",
-            urls: [
-              "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
-            ],
+            urls: ["https://www.reddit.com/r/pics/top/?t=week"],
+            limit: 24,
             allowNsfw: true,
           },
           runtimeItems: [
@@ -57,9 +56,8 @@ describe("viewer workspaces", () => {
 
     const encoded = JSON.stringify(snapshot);
 
-    expect(encoded).toContain(
-      "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
-    );
+    expect(encoded).toContain("https://www.reddit.com/r/pics/top/?t=week");
+    expect(encoded).toContain('"limit":24');
     expect(snapshot.layers).toEqual([
       { id: "layer-background", name: "Layer 1" },
       { id: "layer-main", name: "Layer 2" },

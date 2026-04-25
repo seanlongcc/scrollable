@@ -14,7 +14,13 @@ import {
   SkipForward,
   X,
 } from "lucide-react";
-import { type ReactNode, type WheelEvent, useCallback } from "react";
+import {
+  type ReactNode,
+  type WheelEvent,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -25,6 +31,8 @@ import {
   type TimerState,
 } from "@/lib/viewer/timer";
 import { MediaRenderer } from "./media-renderer";
+
+const PREFETCH_NEXT_ITEM_COUNT = 3;
 
 export function FeedViewPane({
   viewId,
@@ -75,6 +83,7 @@ export function FeedViewPane({
   onTimerModeChange?: (mode: TimerMode) => void;
   onTimerSecondsChange?: (seconds: number) => void;
 }) {
+  const prefetchedImageUrlsRef = useRef<Set<string>>(new Set());
   const activeItem = items[timer.activeIndex];
   const activeGalleryIndex = activeItem
     ? (galleryIndexes[activeItem.id] ?? 0)
@@ -94,6 +103,24 @@ export function FeedViewPane({
     [onVideoPositionChange, videoPositionKey],
   );
   const progress = getTimerProgressPercent(timer);
+
+  useEffect(() => {
+    const prefetchedImageUrls = prefetchedImageUrlsRef.current;
+    const urls = collectImagePrefetchUrls({
+      items,
+      activeIndex: timer.activeIndex,
+      activeGalleryIndex,
+    });
+
+    for (const url of urls) {
+      if (prefetchedImageUrls.has(url)) continue;
+
+      const image = new Image();
+      image.decoding = "async";
+      image.src = url;
+      prefetchedImageUrls.add(url);
+    }
+  }, [activeGalleryIndex, items, timer.activeIndex]);
 
   const showProgress = !hideUi && timer.itemCount > 1;
   const sourceChromeClass = cn(
@@ -357,4 +384,35 @@ export function FeedViewPane({
       )}
     </article>
   );
+}
+
+function collectImagePrefetchUrls({
+  items,
+  activeIndex,
+  activeGalleryIndex,
+}: {
+  items: RuntimeFeedItem[];
+  activeIndex: number;
+  activeGalleryIndex: number;
+}) {
+  const urls = new Set<string>();
+  const activeItem = items[activeIndex];
+
+  if (activeItem?.media.length && activeItem.media.length > 1) {
+    for (const galleryIndex of [
+      activeGalleryIndex - 1,
+      activeGalleryIndex + 1,
+    ]) {
+      const media = activeItem.media[galleryIndex];
+      if (media?.type === "image") urls.add(media.url);
+    }
+  }
+
+  for (let offset = 1; offset <= PREFETCH_NEXT_ITEM_COUNT; offset += 1) {
+    const item = items[activeIndex + offset];
+    const media = item?.media[0];
+    if (media?.type === "image") urls.add(media.url);
+  }
+
+  return [...urls];
 }

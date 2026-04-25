@@ -131,7 +131,9 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.type(
-      screen.getByLabelText("Paste Reddit post links, one per line"),
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
       [
         "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
         "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
@@ -152,6 +154,52 @@ describe("FeedWorkbench", () => {
     );
     expect(requestUrl).toContain("urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Faww");
     expect(requestUrl).toContain("allowNsfw=true");
+  });
+
+  it("sends subreddit listing URLs with a custom media count", async () => {
+    const fetchMock = stubRuntimeFetch([
+      {
+        id: "runtime-kpop",
+        source: "reddit",
+        title: "Runtime kpop",
+        subreddit: "kpop",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image",
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.clear(screen.getByLabelText("Reddit media count"));
+    await user.type(screen.getByLabelText("Reddit media count"), "24");
+    await user.type(
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
+      "https://www.reddit.com/r/kpop/top/?t=week",
+    );
+    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+
+    await screen.findByRole("button", { name: "Remove r/kpop" });
+    const requestUrl = String(
+      (
+        fetchMock.mock.calls as unknown as Array<
+          [RequestInfo | URL, RequestInit?]
+        >
+      )[0]?.[0],
+    );
+    expect(requestUrl).toContain(
+      "urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fkpop%2Ftop%2F%3Ft%3Dweek",
+    );
+    expect(requestUrl).toContain("limit=24");
   });
 
   it("can add Reddit post links as separate sources", async () => {
@@ -194,7 +242,9 @@ describe("FeedWorkbench", () => {
       }),
     );
     await user.type(
-      screen.getByLabelText("Paste Reddit post links, one per line"),
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
       [
         "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
         "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
@@ -243,7 +293,9 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.type(
-      screen.getByLabelText("Paste Reddit post links, one per line"),
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
       "https://www.reddit.com/r/pics/comments/abc123/runtime_gallery/",
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
@@ -1495,7 +1547,7 @@ describe("FeedWorkbench", () => {
   });
 
   it("refetches Reddit runtime media after a page refresh", async () => {
-    stubRuntimeFetch([
+    const fetchMock = stubRuntimeFetch([
       {
         id: "runtime-1",
         source: "reddit",
@@ -1529,9 +1581,8 @@ describe("FeedWorkbench", () => {
                 freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
                 sourceConfig: {
                   kind: "reddit",
-                  urls: [
-                    "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
-                  ],
+                  urls: ["https://www.reddit.com/r/pics/top/?t=week"],
+                  limit: 24,
                   allowNsfw: true,
                 },
               },
@@ -1548,6 +1599,15 @@ describe("FeedWorkbench", () => {
 
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
+    expect(
+      String(
+        (
+          fetchMock.mock.calls as unknown as Array<
+            [RequestInfo | URL, RequestInit?]
+          >
+        )[0]?.[0],
+      ),
+    ).toContain("limit=24");
   });
 
   it("refetches saved Reddit galleries as scrollable feed items", async () => {
@@ -1727,10 +1787,14 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.clear(
-      screen.getByLabelText("Paste Reddit post links, one per line"),
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
     );
     await user.type(
-      screen.getByLabelText("Paste Reddit post links, one per line"),
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
       "https://www.reddit.com/r/aww/comments/abc123/runtime_image/",
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
@@ -1765,10 +1829,14 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.clear(
-      screen.getByLabelText("Paste Reddit post links, one per line"),
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
     );
     await user.type(
-      screen.getByLabelText("Paste Reddit post links, one per line"),
+      screen.getByLabelText(
+        "Paste Reddit post or subreddit links, one per line",
+      ),
       "https://www.reddit.com/r/aww/comments/abc123/runtime_image/",
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));

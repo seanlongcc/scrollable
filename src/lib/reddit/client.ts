@@ -3,6 +3,18 @@ import { z } from "zod";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { normalizeRedditListing } from "./normalization";
 
+const DEFAULT_REDDIT_SOURCE_LIMIT = 20;
+const MAX_REDDIT_SOURCE_LIMIT = 100;
+const REDDIT_LISTING_FETCH_LIMIT = 50;
+const REDDIT_LISTING_SORTS = new Set([
+  "hot",
+  "new",
+  "rising",
+  "top",
+  "controversial",
+]);
+const REDDIT_TIME_RANGES = new Set(["day", "week", "month", "year", "all"]);
+
 const booleanQuerySchema = z.preprocess((value) => {
   if (value === "false" || value === "0") return false;
   if (value === "true" || value === "1") return true;
@@ -12,6 +24,12 @@ const booleanQuerySchema = z.preprocess((value) => {
 const redditPostLinksInputSchema = z.object({
   urls: z.preprocess(splitUrlInput, z.array(z.string()).min(1).max(50)),
   allowNsfw: booleanQuerySchema.default(true),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_REDDIT_SOURCE_LIMIT)
+    .default(DEFAULT_REDDIT_SOURCE_LIMIT),
 });
 
 export type RedditPostLinksInput = z.input<typeof redditPostLinksInputSchema>;
@@ -24,8 +42,9 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
   const items: RuntimeFeedItem[] = [];
   const unsupportedIds: string[] = [];
 
-  for (const postUrl of parsed.urls) {
-    const response = await fetch(toRedditJsonUrl(postUrl), {
+  for (const sourceUrl of parsed.urls) {
+    const source = parseRedditSourceUrl(sourceUrl);
+    const response = await fetch(toRedditJsonUrl(source, parsed.limit), {
       headers: {
         "User-Agent": getRedditUserAgent(),
       },
@@ -39,19 +58,21 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
     const payload = await response.json();
     const listing = Array.isArray(payload) ? payload[0] : payload;
     const normalized = normalizeRedditListing(listing, {
-      subreddit: "reddit",
+      subreddit: source.subreddit ?? "reddit",
       allowNsfw: parsed.allowNsfw,
+      limit: parsed.limit - items.length,
     });
 
     items.push(...normalized.items);
     unsupportedIds.push(...normalized.unsupportedIds);
+    if (items.length >= parsed.limit) break;
   }
 
   if (items.length === 0) {
-    throw new Error("reddit_post_has_no_supported_media");
+    throw new Error("reddit_source_has_no_supported_media");
   }
 
-  return { items, unsupportedIds };
+  return { items: items.slice(0, parsed.limit), unsupportedIds };
 }
 
 export function parseRedditPostLinksInput(
@@ -61,7 +82,7 @@ export function parseRedditPostLinksInput(
 
   return {
     ...parsed,
-    urls: parsed.urls.map((url) => normalizeRedditPostUrl(url)),
+    urls: parsed.urls.map((url) => parseRedditSourceUrl(url).url),
   };
 }
 
@@ -78,7 +99,21 @@ function splitUrlInput(value: unknown): unknown {
     .filter(Boolean);
 }
 
-function normalizeRedditPostUrl(value: string) {
+type ParsedRedditSourceUrl =
+  | {
+      kind: "post";
+      url: string;
+      subreddit?: string;
+    }
+  | {
+      kind: "listing";
+      url: string;
+      subreddit: string;
+      sort: string;
+      timeRange?: string;
+    };
+
+function parseRedditSourceUrl(value: string): ParsedRedditSourceUrl {
   let url: URL;
 
   try {
@@ -92,7 +127,10 @@ function normalizeRedditPostUrl(value: string) {
     const id = url.pathname.split("/").filter(Boolean)[0];
     if (!id) throw new Error("invalid_reddit_post_url");
 
-    return `https://www.reddit.com/comments/${id}/`;
+    return {
+      kind: "post",
+      url: `https://www.reddit.com/comments/${id}/`,
+    };
   }
 
   if (
@@ -105,15 +143,71 @@ function normalizeRedditPostUrl(value: string) {
 
   const segments = url.pathname.split("/").filter(Boolean);
   const commentsIndex = segments.indexOf("comments");
-  if (commentsIndex === -1 || !segments[commentsIndex + 1]) {
-    throw new Error("invalid_reddit_post_url");
+  if (commentsIndex !== -1 && segments[commentsIndex + 1]) {
+    return {
+      kind: "post",
+      url: `https://www.reddit.com/${segments.slice(0, commentsIndex + 3).join("/")}/`,
+      subreddit: subredditFromSegments(segments),
+    };
   }
 
-  return `https://www.reddit.com/${segments.slice(0, commentsIndex + 3).join("/")}/`;
+  if (segments[0] !== "r" || !segments[1] || !segments[2]) {
+    throw new Error("invalid_reddit_listing_url");
+  }
+
+  const subreddit = segments[1];
+  const sort = segments[2].toLowerCase();
+  if (!REDDIT_LISTING_SORTS.has(sort)) {
+    throw new Error("invalid_reddit_listing_url");
+  }
+
+  const timeRange = url.searchParams.get("t")?.toLowerCase();
+  if (timeRange && !REDDIT_TIME_RANGES.has(timeRange)) {
+    throw new Error("invalid_reddit_listing_url");
+  }
+
+  const canonical = new URL(`https://www.reddit.com/r/${subreddit}/${sort}/`);
+  if (timeRange) canonical.searchParams.set("t", timeRange);
+
+  return {
+    kind: "listing",
+    url: canonical.toString(),
+    subreddit,
+    sort,
+    timeRange,
+  };
 }
 
-function toRedditJsonUrl(postUrl: string) {
-  return `${postUrl.replace(/\/$/, "")}/.json?raw_json=1`;
+function toRedditJsonUrl(source: ParsedRedditSourceUrl, limit: number) {
+  if (source.kind === "post") {
+    return `${source.url.replace(/\/$/, "")}/.json?raw_json=1`;
+  }
+
+  const url = new URL(
+    `https://www.reddit.com/r/${source.subreddit}/${source.sort}/.json`,
+  );
+  url.searchParams.set("raw_json", "1");
+  if (source.timeRange) url.searchParams.set("t", source.timeRange);
+  url.searchParams.set(
+    "limit",
+    String(Math.min(Math.max(limit, REDDIT_LISTING_FETCH_LIMIT), 100)),
+  );
+
+  return url.toString();
+}
+
+function subredditFromSegments(segments: string[]) {
+  const subredditIndex = segments.indexOf("r");
+  const commentsIndex = segments.indexOf("comments");
+  if (
+    subredditIndex === -1 ||
+    commentsIndex === -1 ||
+    commentsIndex <= subredditIndex + 1
+  ) {
+    return undefined;
+  }
+
+  return segments[subredditIndex + 1];
 }
 
 function getRedditUserAgent() {

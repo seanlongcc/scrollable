@@ -20,6 +20,7 @@ export const DEFAULT_WORKSPACE_LAYERS: WorkspaceLayer[] = [
 export type RedditSourceConfig = {
   kind: "reddit";
   urls: string[];
+  limit?: number;
   allowNsfw: boolean;
 };
 
