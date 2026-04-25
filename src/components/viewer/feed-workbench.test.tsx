@@ -835,7 +835,7 @@ describe("FeedWorkbench", () => {
     );
 
     expect(await screen.findByAltText("reuploaded.png")).toBeInTheDocument();
-    expect(saveLocalFiles).toHaveBeenCalledWith("local-1", [
+    expect(saveLocalFiles).toHaveBeenCalledWith("cache-2", [
       expect.objectContaining({ name: "reuploaded.png" }),
     ]);
     expect(
@@ -862,10 +862,10 @@ describe("FeedWorkbench", () => {
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
 
     const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
-    expect(saveLocalFiles).toHaveBeenCalledWith("cache-1", [
+    expect(saveLocalFiles).toHaveBeenCalledWith("local-1", [
       expect.objectContaining({ name: "cached.png" }),
     ]);
-    expect(saved).toContain('"cacheSetId":"cache-1"');
+    expect(saved).toContain('"cacheSetId":"local-1"');
     expect(saved).not.toContain("blob:upload");
   });
 
@@ -898,6 +898,204 @@ describe("FeedWorkbench", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("a.png").length).toBeGreaterThan(0);
     expect(screen.getAllByText("b.mp4").length).toBeGreaterThan(0);
+  });
+
+  it("adds and deletes layers while reporting source and file counts per layer", async () => {
+    stubObjectUrls();
+    stubRandomUuids([
+      "workspace-1",
+      "local-1",
+      "session-1",
+      "layer-2",
+      "local-2",
+      "local-3",
+      "session-2",
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    expect(
+      screen.getByRole("button", { name: "Select Layer 1" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["a"], "foreground.png", { type: "image/png" }),
+    );
+
+    expect(
+      await screen.findByText("Layer 1: 1 source / 1 file"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add layer" }));
+    await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(screen.getByLabelText("Image/video files"), [
+      new File(["b"], "background.mp4", { type: "video/mp4" }),
+      new File(["c"], "background.mp3", { type: "audio/mpeg" }),
+    ]);
+
+    expect(
+      await screen.findByText("2 sources active · Fixed layout"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Layer 2: 1 source / 2 files")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Delete active layer" }),
+    );
+
+    expect(
+      screen.getByText("1 source active · Fixed layout"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Select Layer 2" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renumbers layers after deleting a middle layer", async () => {
+    stubObjectUrls();
+    stubRandomUuids([
+      "workspace-1",
+      "layer-2",
+      "layer-3",
+      "local-1",
+      "session-1",
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add layer" }));
+    await user.click(screen.getByRole("button", { name: "Add layer" }));
+    await user.click(screen.getByRole("button", { name: "Select Layer 3" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["c"], "third-layer.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByAltText("third-layer.png")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete active layer" }),
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Select Layer 3" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Select Layer 2" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByAltText("third-layer.png")).toBeVisible();
+    expect(screen.getByText("Layer 2: 1 source / 1 file")).toBeInTheDocument();
+  });
+
+  it("uploads audio files into the current layer as local runtime media", async () => {
+    stubObjectUrls();
+    stubRandomUuids(["workspace-1", "local-1", "session-1"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    expect(screen.getByLabelText("Image/video files")).toHaveAttribute(
+      "accept",
+      "image/*,video/*,audio/*",
+    );
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["sound"], "ambient.mp3", { type: "audio/mpeg" }),
+    );
+
+    expect(await screen.findByLabelText("ambient.mp3")).toBeInTheDocument();
+    expect(screen.getByText("Layer 1: 1 source / 1 file")).toBeInTheDocument();
+  });
+
+  it("keeps inactive layer grids mounted but visually hidden", async () => {
+    stubObjectUrls();
+    stubRandomUuids([
+      "workspace-1",
+      "local-1",
+      "session-1",
+      "layer-2",
+      "local-2",
+      "session-2",
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["a"], "foreground.png", { type: "image/png" }),
+    );
+    expect(await screen.findByAltText("foreground.png")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add layer" }));
+    await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
+    expect(screen.getByAltText("foreground.png")).not.toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["b"], "background.png", { type: "image/png" }),
+    );
+    expect(await screen.findByAltText("background.png")).toBeInTheDocument();
+    expect(screen.getByAltText("foreground.png")).not.toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
+
+    expect(await screen.findByAltText("foreground.png")).toBeInTheDocument();
+    expect(screen.getByAltText("background.png")).not.toBeVisible();
+  });
+
+  it("continues advancing inactive layer timers while another layer is active", async () => {
+    stubObjectUrls();
+    stubRandomUuids([
+      "workspace-1",
+      "local-1",
+      "local-2",
+      "session-1",
+      "layer-2",
+      "local-3",
+      "session-2",
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    fireEvent.change(screen.getByLabelText("Global timer seconds"), {
+      target: { value: "1" },
+    });
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(1);
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(screen.getByLabelText("Image/video files"), [
+      new File(["a"], "foreground-a.png", { type: "image/png" }),
+      new File(["b"], "foreground-b.png", { type: "image/png" }),
+    ]);
+    expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add layer" }));
+    await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["c"], "background.png", { type: "image/png" }),
+    );
+
+    await waitFor(
+      () => {
+        expect(screen.getByAltText("foreground-b.png")).not.toBeVisible();
+      },
+      { timeout: 2500 },
+    );
+    await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
+
+    expect(screen.getByAltText("foreground-b.png")).toBeVisible();
+    expect(screen.getByText(/2\/2/)).toBeVisible();
   });
 
   it("offers local folder upload with directory selection attributes", async () => {

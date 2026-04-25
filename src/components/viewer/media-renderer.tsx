@@ -110,6 +110,21 @@ export function MediaRenderer({
     );
   }
 
+  if (media.type === "audio") {
+    return (
+      <div className="grid size-full place-items-center bg-background px-6">
+        <audio
+          src={media.url}
+          aria-label={title}
+          className="w-full max-w-md"
+          autoPlay
+          controls={showControls}
+          loop
+        />
+      </div>
+    );
+  }
+
   return (
     <video
       ref={videoRef}

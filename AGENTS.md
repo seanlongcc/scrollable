@@ -42,8 +42,9 @@ Planned capabilities:
 - Provide a configurable timer for feed advancement.
 - Provide a slice/filter input for excluding items from the initial listing, since sticky posts count in listing limits.
 - Support posts with multiple images by presenting those images as a horizontal left-to-right sequence inside the vertical feed.
-- Support user-uploaded local image/video files as a general scrollable feed.
+- Support user-uploaded local image/video/audio files as a general scrollable feed.
 - Support multiple feeds displayed in a grid-like view.
+- Support up to three stacked layout layers so background or overlay sources can persist behind the active editing layer.
 - Support saved feed configurations and collections of configurations.
 - Support sharing configurations and collections.
 - Support collection tags and NSFW marking.
@@ -73,9 +74,10 @@ Acceptable stored data:
 - Collections of feed configurations.
 - Tags, NSFW flags, sharing settings, ownership, timestamps, and audit/security metadata.
 - Runtime logs or rate-limit records that do not contain third-party media payloads.
-- User-selected local file byte copies in browser IndexedDB for saved local layouts, plus metadata-only local `cacheSetId` references in saved layouts.
+- User-selected local image/video/audio file byte copies in browser IndexedDB for saved local layouts, plus metadata-only local `cacheSetId` references in saved layouts.
 - `display_options` may store display/config preferences only, not third-party media metadata.
 - `viewer_sessions.sessions` must remain metadata-only and must not contain Reddit post IDs, media URLs, thumbnails, listing payloads, normalized runtime items, or local upload object URLs.
+- Layout layers may store layer IDs, layer names, active layer IDs, and per-source layer membership only.
 
 ## Architecture Direction
 
@@ -84,7 +86,7 @@ Prefer these boundaries when implementation starts:
 - `sources`: source adapters for Reddit and local uploads.
 - `normalization`: convert source responses into runtime feed items.
 - `viewer`: vertical reels feed, timer, keyboard/touch navigation, and horizontal media carousel.
-- `viewer/workspaces`: local/Supabase workspace tab and layout serialization. Keep this metadata-only.
+- `viewer/workspaces`: local/Supabase workspace tab, layout layer, and layout serialization. Keep this metadata-only.
 - `local-uploads`: object URL lifecycle and browser IndexedDB Blob cache for user-selected local files. Do not store local paths.
 - `configurations`: saved feed configs and validation.
 - `collections`: grouping, sharing, tags, NSFW flags, and browse views.

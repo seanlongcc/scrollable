@@ -1,7 +1,7 @@
 export type FeedSource = "reddit" | "local";
 
 export type RuntimeMedia = {
-  type: "image" | "video";
+  type: "image" | "video" | "audio";
   url: string;
   width?: number;
   height?: number;

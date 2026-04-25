@@ -3,6 +3,16 @@ import { expect, test } from "@playwright/test";
 test("home renders multi-view wall without media previews", async ({
   page,
 }) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      message.text().includes("hydrated but some attributes")
+    ) {
+      hydrationErrors.push(message.text());
+    }
+  });
+
   await page.goto("/");
 
   await expect(
@@ -35,6 +45,7 @@ test("home renders multi-view wall without media previews", async ({
   await expect(page.getByRole("dialog", { name: "Account" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign up" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reddit" })).toHaveCount(0);
+  expect(hydrationErrors).toEqual([]);
 });
 
 test("local upload layouts restore cached files after refresh", async ({

@@ -9,6 +9,7 @@ import {
   GripHorizontal,
   Grid2X2,
   Info,
+  Layers,
   LayoutGrid,
   Loader2,
   LogOut,
@@ -84,10 +85,13 @@ import {
   WORKSPACE_STORAGE_KEY,
   type PersistedSourceConfig,
   type SerializedWorkspace,
+  type WorkspaceLayer,
   type WorkspaceSessionInput,
   createEmptyWorkspace,
   DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
+  MAX_WORKSPACE_LAYERS,
   parseWorkspaceStore,
+  normalizeWorkspaceLayers,
   serializeWorkspace,
 } from "@/lib/viewer/workspaces";
 import {
@@ -110,6 +114,7 @@ type LayoutMode = "fixed" | "free";
 type FeedSession = {
   id: string;
   title: string;
+  layerId: string;
   timerMode: TimerMode;
   timer: TimerState;
   fixedSlot: number;
@@ -178,10 +183,16 @@ type DataTransferItemWithEntry = DataTransferItem & {
   webkitGetAsEntry?: () => FileSystemEntryLike | null;
 };
 
-export function FeedWorkbench() {
+const FALLBACK_INITIAL_WORKSPACE_ID = "00000000-0000-4000-8000-000000000001";
+
+export function FeedWorkbench({
+  initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
+}: {
+  initialWorkspaceId?: string;
+} = {}) {
   const initialWorkspace = useMemo(
-    () => ({ id: createId(), name: "Layout 1" }),
-    [],
+    () => ({ id: initialWorkspaceId, name: "Layout 1" }),
+    [initialWorkspaceId],
   );
   const [workspaceTabs, setWorkspaceTabs] = useState<WorkspaceTab[]>([
     initialWorkspace,
@@ -200,6 +211,10 @@ export function FeedWorkbench() {
   const [globalSeconds, setGlobalSeconds] = useState(DEFAULT_TIMER_SECONDS);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
+  const [layers, setLayers] = useState<WorkspaceLayer[]>([
+    { id: "layer-1", name: "Layer 1" },
+  ]);
+  const [activeLayerId, setActiveLayerId] = useState("layer-1");
   const [sessions, setSessions] = useState<FeedSession[]>([]);
   const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>(
     {},
@@ -241,9 +256,15 @@ export function FeedWorkbench() {
     workspaceTabs.find((tab) => tab.id === activeWorkspaceId)?.name ??
     "Layout 1";
   const visibleFixedCells = fixedGrid.columns * fixedGrid.rows;
+  const activeLayerSessions = useMemo(
+    () => sessions.filter((session) => session.layerId === activeLayerId),
+    [activeLayerId, sessions],
+  );
   const selected = useMemo(
-    () => sessions.find((session) => session.id === selectedId) ?? sessions[0],
-    [selectedId, sessions],
+    () =>
+      activeLayerSessions.find((session) => session.id === selectedId) ??
+      activeLayerSessions[0],
+    [activeLayerSessions, selectedId],
   );
   const maximized = useMemo(
     () => sessions.find((session) => session.id === maximizedId),
@@ -252,25 +273,47 @@ export function FeedWorkbench() {
   const hiddenFixedSessions = useMemo(
     () =>
       layoutMode === "fixed"
-        ? sessions.filter((session) => session.fixedSlot >= visibleFixedCells)
+        ? activeLayerSessions.filter(
+            (session) => session.fixedSlot >= visibleFixedCells,
+          )
         : [],
-    [layoutMode, sessions, visibleFixedCells],
+    [activeLayerSessions, layoutMode, visibleFixedCells],
   );
   const visibleEmptySlots = useMemo(() => {
-    const occupied = new Set(sessions.map((session) => session.fixedSlot));
+    const occupied = new Set(
+      activeLayerSessions.map((session) => session.fixedSlot),
+    );
     return Array.from(
       { length: visibleFixedCells },
       (_, index) => index,
     ).filter((slot) => !occupied.has(slot));
-  }, [sessions, visibleFixedCells]);
+  }, [activeLayerSessions, visibleFixedCells]);
   const availableSeparateSourceSlots = useMemo(
     () =>
       layoutMode === "fixed"
         ? visibleEmptySlots.length
         : countAvailableFreeUnitRects(
-            sessions.map((session) => session.freeRect),
+            activeLayerSessions.map((session) => session.freeRect),
           ),
-    [layoutMode, sessions, visibleEmptySlots],
+    [activeLayerSessions, layoutMode, visibleEmptySlots],
+  );
+  const layerStats = useMemo(
+    () =>
+      layers.map((layer) => {
+        const layerSessions = sessions.filter(
+          (session) => session.layerId === layer.id,
+        );
+
+        return {
+          ...layer,
+          sourceCount: layerSessions.length,
+          fileCount: layerSessions.reduce(
+            (count, session) => count + sessionFileCount(session),
+            0,
+          ),
+        };
+      }),
+    [layers, sessions],
   );
   const accountButtonLabel =
     account.status === "signed-in" ? "Account" : "Sign in";
@@ -759,7 +802,9 @@ export function FeedWorkbench() {
     setSessions((current) => {
       const next = [...current];
       const freeRects = findBestAvailableFreeRects(
-        next.map((session) => session.freeRect),
+        next
+          .filter((session) => session.layerId === activeLayerId)
+          .map((session) => session.freeRect),
         sources.length,
       );
       let preferredSlot = pendingFixedSlot;
@@ -774,12 +819,16 @@ export function FeedWorkbench() {
         }
 
         const id = createId();
-        const fixedSlot = nextFixedSlot(next, preferredSlot);
+        const fixedSlot = nextFixedSlot(
+          next.filter((session) => session.layerId === activeLayerId),
+          preferredSlot,
+        );
         preferredSlot = null;
         selectedSessionId = id;
         next.push({
           id,
           title: source.title,
+          layerId: activeLayerId,
           timerMode: "global" as TimerMode,
           timer: createTimerState({
             durationSeconds: globalSeconds,
@@ -860,7 +909,10 @@ export function FeedWorkbench() {
         const rect = createFreeRect({ ...session.freeRect, ...nextRect });
         validateFreeRects([
           ...current
-            .filter((candidate) => candidate.id !== id)
+            .filter(
+              (candidate) =>
+                candidate.id !== id && candidate.layerId === session.layerId,
+            )
             .map((candidate) => candidate.freeRect),
           rect,
         ]);
@@ -985,16 +1037,19 @@ export function FeedWorkbench() {
         (session) => session.id === selected.id,
       );
       if (!sourceSession?.items.length) return current;
+      const layerSessions = current.filter(
+        (session) => session.layerId === sourceSession.layerId,
+      );
 
       let cloneIndex = 0;
       const emptySlots = Array.from(
         { length: visibleFixedCells },
         (_, index) => index,
       ).filter(
-        (slot) => !current.some((session) => session.fixedSlot === slot),
+        (slot) => !layerSessions.some((session) => session.fixedSlot === slot),
       );
       const freeRects = findAvailableFreeRectsBySize(
-        current.map((session) => session.freeRect),
+        layerSessions.map((session) => session.freeRect),
         emptySlots.length,
         {
           columnSpan: sourceSession.freeRect.columnSpan,
@@ -1032,6 +1087,72 @@ export function FeedWorkbench() {
         (first, second) => first.fixedSlot - second.fixedSlot,
       );
     });
+  }
+
+  function addLayer() {
+    if (layers.length >= MAX_WORKSPACE_LAYERS) return;
+
+    const id = createId();
+    const name = `Layer ${layers.length + 1}`;
+    setLayers((current) => [...current, { id, name }]);
+    setActiveLayerId(id);
+    setSelectedId(null);
+    setMaximizedId(null);
+    setPendingFixedSlot(null);
+  }
+
+  function selectLayer(id: string) {
+    setActiveLayerId(id);
+    const nextSelected = sessions.find((session) => session.layerId === id);
+    setSelectedId(nextSelected?.id ?? null);
+    setMaximizedId(null);
+    setPendingFixedSlot(null);
+  }
+
+  function deleteActiveLayer() {
+    if (layers.length <= 1) return;
+
+    const deleteIndex = layers.findIndex((layer) => layer.id === activeLayerId);
+    const nextLayers = normalizeWorkspaceLayers(
+      layers.filter((layer) => layer.id !== activeLayerId),
+    );
+    const nextActiveLayer =
+      nextLayers[Math.min(deleteIndex, nextLayers.length - 1)] ?? nextLayers[0];
+
+    setLayers(nextLayers);
+    setSessions((current) =>
+      current.filter((session) => session.layerId !== activeLayerId),
+    );
+    setGalleryIndexes((current) => {
+      const removedItemIds = new Set(
+        sessions
+          .filter((session) => session.layerId === activeLayerId)
+          .flatMap((session) => session.items.map((item) => item.id)),
+      );
+      return Object.fromEntries(
+        Object.entries(current).filter(
+          ([itemId]) => !removedItemIds.has(itemId),
+        ),
+      );
+    });
+    setVideoPositions((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([key]) => {
+          const sessionId = key.split(":")[0];
+          return !sessions.some(
+            (session) =>
+              session.id === sessionId && session.layerId === activeLayerId,
+          );
+        }),
+      ),
+    );
+    setActiveLayerId(nextActiveLayer.id);
+    setSelectedId(
+      sessions.find((session) => session.layerId === nextActiveLayer.id)?.id ??
+        null,
+    );
+    setMaximizedId(null);
+    setPendingFixedSlot(null);
   }
 
   function clearCurrentLayout() {
@@ -1162,6 +1283,8 @@ export function FeedWorkbench() {
     return {
       id: activeWorkspaceId,
       name: nameOverride,
+      layers,
+      activeLayerId,
       layoutMode,
       fixedGrid,
       globalTimerSeconds: globalSeconds,
@@ -1169,6 +1292,7 @@ export function FeedWorkbench() {
       sessions: sessions.map((session) => ({
         id: session.id,
         title: session.title,
+        layerId: session.layerId,
         timerMode: normalizeTimerMode(session.timerMode),
         timerSeconds: session.timer.durationSeconds,
         timerActiveIndex: session.timer.activeIndex,
@@ -1377,6 +1501,15 @@ export function FeedWorkbench() {
   function applyWorkspaceSnapshot(
     snapshot: SerializedWorkspace | RuntimeWorkspace,
   ) {
+    const snapshotLayers = normalizeWorkspaceLayers(snapshot.layers);
+    const snapshotActiveLayerId = snapshotLayers.some(
+      (layer) => layer.id === snapshot.activeLayerId,
+    )
+      ? snapshot.activeLayerId
+      : snapshotLayers[0].id;
+
+    setLayers(snapshotLayers);
+    setActiveLayerId(snapshotActiveLayerId);
     setLayoutMode(snapshot.layoutMode);
     setFixedGrid(snapshot.fixedGrid);
     setGlobalSeconds(resolveWorkspaceGlobalSeconds(snapshot));
@@ -1395,6 +1528,7 @@ export function FeedWorkbench() {
       return {
         id: session.id,
         title: session.title,
+        layerId: session.layerId ?? snapshotActiveLayerId,
         timerMode: normalizeTimerMode(session.timerMode),
         timer: { ...timer, activeIndex },
         fixedSlot: session.fixedSlot,
@@ -1411,7 +1545,12 @@ export function FeedWorkbench() {
 
     setSessions(nextSessions);
     setGalleryIndexes({});
-    setSelectedId(snapshot.sessions[0]?.id ?? null);
+    setSelectedId(
+      snapshot.sessions.find(
+        (session) =>
+          (session.layerId ?? snapshotActiveLayerId) === snapshotActiveLayerId,
+      )?.id ?? null,
+    );
     setMaximizedId(null);
     void hydrateRuntimeItems(nextSessions);
   }
@@ -1864,11 +2003,69 @@ export function FeedWorkbench() {
               data-testid="layout-status-row"
               className="grid min-h-8 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
             >
-              <div className="text-sm text-muted-foreground md:justify-self-start">
-                {sessions.length} source{sessions.length === 1 ? "" : "s"}{" "}
-                active · {layoutMode === "fixed" ? "Fixed" : "Free"} layout
+              <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground md:justify-self-start">
+                <span>
+                  {sessions.length} source{sessions.length === 1 ? "" : "s"}{" "}
+                  active · {layoutMode === "fixed" ? "Fixed" : "Free"} layout
+                </span>
+                <div
+                  role="group"
+                  aria-label="Layout layers"
+                  className="flex flex-wrap items-center gap-1 rounded-lg border border-border/70 bg-surface-elevated/70 p-1"
+                >
+                  <Layers className="size-3.5 text-primary" />
+                  {layers.map((layer) => (
+                    <Button
+                      key={layer.id}
+                      type="button"
+                      size="sm"
+                      variant={layer.id === activeLayerId ? "default" : "ghost"}
+                      aria-label={`Select ${layer.name}`}
+                      aria-pressed={layer.id === activeLayerId}
+                      onClick={() => selectLayer(layer.id)}
+                    >
+                      {layer.name}
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Add layer"
+                    onClick={addLayer}
+                    disabled={layers.length >= MAX_WORKSPACE_LAYERS}
+                  >
+                    <Plus />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Delete active layer"
+                    onClick={deleteActiveLayer}
+                    disabled={layers.length <= 1}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1 text-[11px]">
+                  {layerStats.map((layer) => (
+                    <span
+                      key={layer.id}
+                      className={cn(
+                        "rounded-full border border-border/70 bg-background/60 px-2 py-0.5",
+                        layer.id === activeLayerId &&
+                          "border-primary/50 text-primary",
+                      )}
+                    >
+                      {layer.name}: {layer.sourceCount} source
+                      {layer.sourceCount === 1 ? "" : "s"} / {layer.fileCount}{" "}
+                      file{layer.fileCount === 1 ? "" : "s"}
+                    </span>
+                  ))}
+                </div>
                 {hiddenFixedSessions.length ? (
-                  <span className="ml-2 rounded-full border border-primary/35 bg-surface-elevated px-2 py-0.5 text-xs text-primary">
+                  <span className="rounded-full border border-primary/35 bg-surface-elevated px-2 py-0.5 text-xs text-primary">
                     {hiddenFixedSessions.length} hidden source
                     {hiddenFixedSessions.length === 1 ? "" : "s"}
                   </span>
@@ -1935,47 +2132,107 @@ export function FeedWorkbench() {
             )}
           >
             {layoutMode === "fixed" ? (
-              <FixedGridView
-                sessions={sessions}
-                visibleCells={visibleFixedCells}
-                fixedGrid={fixedGrid}
-                galleryIndexes={galleryIndexes}
-                videoPositions={videoPositions}
-                selectedId={selectedId}
-                hideUi={isUiHidden}
-                showInfo={showAllInfo}
-                openSourcePanel={openSourcePanel}
-                setSelectedId={setSelectedId}
-                setMaximizedId={setMaximizedId}
-                updateSession={updateSession}
-                removeSession={removeSession}
-                changeGallery={changeGallery}
-                onVideoPositionChange={rememberVideoPosition}
-                setViewTimerMode={setViewTimerMode}
-                setViewTimerSeconds={setViewTimerSeconds}
-                onLocalFilesSelected={replaceLocalSessionFiles}
-              />
+              <div
+                className={cn(
+                  "relative",
+                  isUiHidden
+                    ? "h-dvh min-h-0 min-w-0"
+                    : "h-full min-h-[360px] min-w-0 md:min-w-[720px]",
+                )}
+              >
+                {layers.map((layer) => {
+                  const isActiveLayer = layer.id === activeLayerId;
+
+                  return (
+                    <div
+                      key={layer.id}
+                      aria-hidden={!isActiveLayer}
+                      style={{
+                        visibility: isActiveLayer ? "visible" : "hidden",
+                      }}
+                      className={cn(
+                        isActiveLayer
+                          ? "relative z-10 size-full"
+                          : "pointer-events-none absolute inset-0 opacity-0",
+                      )}
+                    >
+                      <FixedGridView
+                        sessions={sessions.filter(
+                          (session) => session.layerId === layer.id,
+                        )}
+                        visibleCells={visibleFixedCells}
+                        fixedGrid={fixedGrid}
+                        galleryIndexes={galleryIndexes}
+                        videoPositions={videoPositions}
+                        selectedId={isActiveLayer ? selectedId : null}
+                        hideUi={isUiHidden || !isActiveLayer}
+                        showInfo={isActiveLayer && showAllInfo}
+                        openSourcePanel={openSourcePanel}
+                        setSelectedId={setSelectedId}
+                        setMaximizedId={setMaximizedId}
+                        updateSession={updateSession}
+                        removeSession={removeSession}
+                        changeGallery={changeGallery}
+                        onVideoPositionChange={rememberVideoPosition}
+                        setViewTimerMode={setViewTimerMode}
+                        setViewTimerSeconds={setViewTimerSeconds}
+                        onLocalFilesSelected={replaceLocalSessionFiles}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <FreeGridView
-                sessions={sessions}
-                galleryIndexes={galleryIndexes}
-                videoPositions={videoPositions}
-                selectedId={selectedId}
-                hideUi={isUiHidden}
-                showInfo={showAllInfo}
-                gridRef={freeGridRef}
-                freeDrag={freeDrag}
-                setSelectedId={setSelectedId}
-                setMaximizedId={setMaximizedId}
-                updateSession={updateSession}
-                removeSession={removeSession}
-                changeGallery={changeGallery}
-                onVideoPositionChange={rememberVideoPosition}
-                setViewTimerMode={setViewTimerMode}
-                setViewTimerSeconds={setViewTimerSeconds}
-                beginFreeDrag={beginFreeDrag}
-                onLocalFilesSelected={replaceLocalSessionFiles}
-              />
+              <div
+                ref={freeGridRef}
+                className={cn(
+                  "relative",
+                  isUiHidden
+                    ? "h-dvh min-h-0 min-w-0"
+                    : "h-full min-h-[360px] min-w-0 md:min-w-[720px]",
+                )}
+              >
+                {layers.map((layer) => {
+                  const isActiveLayer = layer.id === activeLayerId;
+
+                  return (
+                    <div
+                      key={layer.id}
+                      aria-hidden={!isActiveLayer}
+                      style={{
+                        visibility: isActiveLayer ? "visible" : "hidden",
+                      }}
+                      className={cn(
+                        isActiveLayer
+                          ? "relative z-10 size-full"
+                          : "pointer-events-none absolute inset-0 opacity-0",
+                      )}
+                    >
+                      <FreeGridView
+                        sessions={sessions.filter(
+                          (session) => session.layerId === layer.id,
+                        )}
+                        galleryIndexes={galleryIndexes}
+                        videoPositions={videoPositions}
+                        selectedId={isActiveLayer ? selectedId : null}
+                        hideUi={isUiHidden || !isActiveLayer}
+                        showInfo={isActiveLayer && showAllInfo}
+                        freeDrag={isActiveLayer ? freeDrag : null}
+                        setSelectedId={setSelectedId}
+                        setMaximizedId={setMaximizedId}
+                        updateSession={updateSession}
+                        removeSession={removeSession}
+                        changeGallery={changeGallery}
+                        onVideoPositionChange={rememberVideoPosition}
+                        setViewTimerMode={setViewTimerMode}
+                        setViewTimerSeconds={setViewTimerSeconds}
+                        beginFreeDrag={beginFreeDrag}
+                        onLocalFilesSelected={replaceLocalSessionFiles}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </section>
@@ -2313,7 +2570,7 @@ function SourceDialog({
                   <span className="sr-only">Image/video files</span>
                   <Input
                     type="file"
-                    accept="image/*,video/*"
+                    accept="image/*,video/*,audio/*"
                     multiple
                     className="sr-only"
                     aria-label="Image/video files"
@@ -2341,7 +2598,7 @@ function SourceDialog({
                   <span className="sr-only">Image/video folder</span>
                   <DirectoryInput
                     type="file"
-                    accept="image/*,video/*"
+                    accept="image/*,video/*,audio/*"
                     multiple
                     directory=""
                     webkitdirectory=""
@@ -2451,10 +2708,6 @@ function FixedGridView({
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
 }) {
-  const sessionsBySlot = new Map(
-    sessions.map((session) => [session.fixedSlot, session]),
-  );
-
   return (
     <div
       className={cn(
@@ -2469,7 +2722,10 @@ function FixedGridView({
       }}
     >
       {Array.from({ length: visibleCells }, (_, slot) => {
-        const session = sessionsBySlot.get(slot);
+        const session = sessions.find(
+          (candidate) => candidate.fixedSlot === slot,
+        );
+
         return (
           <div
             key={slot}
@@ -2556,7 +2812,6 @@ function FreeGridView({
   selectedId,
   hideUi,
   showInfo,
-  gridRef,
   freeDrag,
   setSelectedId,
   setMaximizedId,
@@ -2575,7 +2830,6 @@ function FreeGridView({
   selectedId: string | null;
   hideUi: boolean;
   showInfo: boolean;
-  gridRef: React.RefObject<HTMLDivElement | null>;
   freeDrag: FreeDragState | null;
   setSelectedId: (id: string | null) => void;
   setMaximizedId: (id: string) => void;
@@ -2600,7 +2854,6 @@ function FreeGridView({
 }) {
   return (
     <div
-      ref={gridRef}
       className={cn(
         "grid",
         hideUi
@@ -2812,7 +3065,7 @@ function SessionPane({
               Select files
               <Input
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*,video/*,audio/*"
                 multiple
                 className="sr-only"
                 aria-label={`Reload files for ${session.title}`}
@@ -3031,11 +3284,21 @@ function nextFixedSlot(sessions: FeedSession[], preferredSlot: number | null) {
 }
 
 function toRuntimeWorkspace(workspace: SerializedWorkspace): RuntimeWorkspace {
+  const layers = normalizeWorkspaceLayers(workspace.layers);
+  const activeLayerId = layers.some(
+    (layer) => layer.id === workspace.activeLayerId,
+  )
+    ? workspace.activeLayerId
+    : layers[0].id;
+
   return {
     ...workspace,
+    layers,
+    activeLayerId,
     globalTimerSeconds: resolveWorkspaceGlobalSeconds(workspace),
     sessions: workspace.sessions.map((session) => ({
       ...session,
+      layerId: session.layerId ?? activeLayerId,
       timerMode: normalizeTimerMode(session.timerMode),
     })),
   };
@@ -3045,6 +3308,12 @@ function toRuntimeWorkspaceWithLocalRuntime(
   workspace: SerializedWorkspace,
   runtimeWorkspace?: RuntimeWorkspace,
 ): RuntimeWorkspace {
+  const layers = normalizeWorkspaceLayers(workspace.layers);
+  const activeLayerId = layers.some(
+    (layer) => layer.id === workspace.activeLayerId,
+  )
+    ? workspace.activeLayerId
+    : layers[0].id;
   const localItemsBySessionId = new Map(
     runtimeWorkspace?.sessions
       .filter(
@@ -3057,9 +3326,12 @@ function toRuntimeWorkspaceWithLocalRuntime(
 
   return {
     ...workspace,
+    layers,
+    activeLayerId,
     globalTimerSeconds: resolveWorkspaceGlobalSeconds(workspace),
     sessions: workspace.sessions.map((session) => ({
       ...session,
+      layerId: session.layerId ?? activeLayerId,
       timerMode: normalizeTimerMode(session.timerMode),
       runtimeItems:
         session.sourceConfig.kind === "local"
@@ -3242,6 +3514,21 @@ function workspaceLocalFileCount(workspace: SerializedWorkspace) {
   }, 0);
 }
 
+function sessionFileCount(session: FeedSession | WorkspaceSessionInput) {
+  if (session.sourceConfig.kind === "local") {
+    return session.sourceConfig.fileCount;
+  }
+
+  const runtimeCount =
+    "items" in session
+      ? session.items.length
+      : "runtimeItems" in session
+        ? (session.runtimeItems?.length ?? 0)
+        : 0;
+
+  return runtimeCount || session.sourceConfig.urls.length;
+}
+
 function normalizeLayoutName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 }
@@ -3275,7 +3562,11 @@ function getUploadableFiles(files: File[]) {
 }
 
 function isUploadableFile(file: File) {
-  return file.type.startsWith("image/") || file.type.startsWith("video/");
+  return (
+    file.type.startsWith("image/") ||
+    file.type.startsWith("video/") ||
+    file.type.startsWith("audio/")
+  );
 }
 
 async function filesFromDataTransfer(dataTransfer: DataTransfer) {

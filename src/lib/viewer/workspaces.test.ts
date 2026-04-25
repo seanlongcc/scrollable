@@ -16,11 +16,17 @@ describe("viewer workspaces", () => {
 
     const snapshot = serializeWorkspace({
       ...workspace,
+      layers: [
+        { id: "layer-background", name: "Background" },
+        { id: "layer-main", name: "Main" },
+      ],
+      activeLayerId: "layer-background",
       globalTimerSeconds: 17,
       sessions: [
         {
           id: "session-1",
           title: "r/pics",
+          layerId: "layer-background",
           timerMode: "local",
           timerSeconds: 12,
           fixedSlot: 0,
@@ -54,9 +60,22 @@ describe("viewer workspaces", () => {
     expect(encoded).toContain(
       "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
     );
+    expect(snapshot.layers).toEqual([
+      { id: "layer-background", name: "Layer 1" },
+      { id: "layer-main", name: "Layer 2" },
+    ]);
+    expect(snapshot.activeLayerId).toBe("layer-background");
+    expect(snapshot.sessions[0]?.layerId).toBe("layer-background");
     expect(encoded).not.toContain("https://cdn.test/runtime-image.jpg");
     expect(encoded).not.toContain("runtime-1");
     expect(snapshot.globalTimerSeconds).toBe(17);
     expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");
+  });
+
+  it("creates a default editable layer for new workspaces", () => {
+    expect(createEmptyWorkspace("workspace-1", "Layout 1")).toMatchObject({
+      layers: [{ id: "layer-1", name: "Layer 1" }],
+      activeLayerId: "layer-1",
+    });
   });
 });

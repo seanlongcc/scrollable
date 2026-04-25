@@ -4,8 +4,18 @@ import type { TimerMode } from "./timer";
 
 export const WORKSPACE_STORAGE_KEY = "scrollable.workspaces.v1";
 export const DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS = 10;
+export const MAX_WORKSPACE_LAYERS = 3;
 
 export type WorkspaceLayoutMode = "fixed" | "free";
+
+export type WorkspaceLayer = {
+  id: string;
+  name: string;
+};
+
+export const DEFAULT_WORKSPACE_LAYERS: WorkspaceLayer[] = [
+  { id: "layer-1", name: "Layer 1" },
+];
 
 export type RedditSourceConfig = {
   kind: "reddit";
@@ -24,6 +34,7 @@ export type PersistedSourceConfig = RedditSourceConfig | LocalSourceConfig;
 export type WorkspaceSessionInput = {
   id: string;
   title: string;
+  layerId?: string;
   timerMode: TimerMode;
   timerSeconds: number;
   timerActiveIndex?: number;
@@ -41,6 +52,8 @@ export type SerializedWorkspaceSession = Omit<
 export type SerializedWorkspace = {
   id: string;
   name: string;
+  layers: WorkspaceLayer[];
+  activeLayerId: string;
   layoutMode: WorkspaceLayoutMode;
   fixedGrid: FixedGrid;
   globalTimerSeconds: number;
@@ -60,6 +73,8 @@ export function createEmptyWorkspace(
   return {
     id,
     name,
+    layers: DEFAULT_WORKSPACE_LAYERS,
+    activeLayerId: DEFAULT_WORKSPACE_LAYERS[0].id,
     layoutMode: "fixed",
     fixedGrid: DEFAULT_FIXED_GRID,
     globalTimerSeconds: DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
@@ -74,11 +89,22 @@ export function serializeWorkspace(workspace: {
   layoutMode: WorkspaceLayoutMode;
   fixedGrid: FixedGrid;
   globalTimerSeconds?: number;
+  layers?: WorkspaceLayer[];
+  activeLayerId?: string;
   sessions: WorkspaceSessionInput[];
 }): SerializedWorkspace {
+  const layers = normalizeWorkspaceLayers(workspace.layers);
+  const activeLayerId = layers.some(
+    (layer) => layer.id === workspace.activeLayerId,
+  )
+    ? workspace.activeLayerId!
+    : layers[0].id;
+
   return {
     id: workspace.id,
     name: workspace.name,
+    layers,
+    activeLayerId,
     layoutMode: workspace.layoutMode,
     fixedGrid: workspace.fixedGrid,
     globalTimerSeconds:
@@ -87,6 +113,7 @@ export function serializeWorkspace(workspace: {
       ({
         id,
         title,
+        layerId,
         timerMode,
         timerSeconds,
         timerActiveIndex,
@@ -96,6 +123,7 @@ export function serializeWorkspace(workspace: {
       }) => ({
         id,
         title,
+        layerId: layerId ?? activeLayerId,
         timerMode,
         timerSeconds,
         timerActiveIndex,
@@ -106,6 +134,19 @@ export function serializeWorkspace(workspace: {
     ),
     updatedAt: new Date().toISOString(),
   };
+}
+
+export function normalizeWorkspaceLayers(layers?: WorkspaceLayer[]) {
+  const normalized =
+    layers
+      ?.filter((layer) => layer.id.trim() && layer.name.trim())
+      .slice(0, MAX_WORKSPACE_LAYERS)
+      .map((layer, index) => ({
+        id: layer.id,
+        name: `Layer ${index + 1}`,
+      })) ?? [];
+
+  return normalized.length ? normalized : DEFAULT_WORKSPACE_LAYERS;
 }
 
 export function parseWorkspaceStore(

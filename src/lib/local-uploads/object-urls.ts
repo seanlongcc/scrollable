@@ -1,5 +1,11 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 
+function mediaTypeForFile(file: File) {
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  return "image";
+}
+
 export class LocalObjectUrlRegistry {
   private urls = new Set<string>();
 
@@ -15,7 +21,7 @@ export class LocalObjectUrlRegistry {
       createdAt: new Date().toISOString(),
       media: [
         {
-          type: file.type.startsWith("video/") ? "video" : "image",
+          type: mediaTypeForFile(file),
           url,
         },
       ],
