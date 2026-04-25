@@ -128,6 +128,7 @@ type FeedSession = {
   fixedSlot: number;
   freeRect: FreeRect;
   items: RuntimeFeedItem[];
+  allItems?: RuntimeFeedItem[];
   localFiles?: File[];
   isRuntimeLoading?: boolean;
   sourceConfig: PersistedSourceConfig;
@@ -663,6 +664,7 @@ export function FeedWorkbench({
                 allowNsfw: true,
               },
               items,
+              allItems: items,
             };
           }),
         );
@@ -680,6 +682,7 @@ export function FeedWorkbench({
             allowNsfw: true,
           },
           items,
+          allItems: items,
         });
       }
       setIsSourceOpen(false);
@@ -862,21 +865,24 @@ export function FeedWorkbench({
   function addSession({
     title,
     items,
+    allItems,
     localFiles,
     sourceConfig,
   }: {
     title: string;
     items: RuntimeFeedItem[];
+    allItems?: RuntimeFeedItem[];
     localFiles?: File[];
     sourceConfig: PersistedSourceConfig;
   }) {
-    addSessions([{ title, items, localFiles, sourceConfig }]);
+    addSessions([{ title, items, allItems, localFiles, sourceConfig }]);
   }
 
   function addSessions(
     sources: Array<{
       title: string;
       items: RuntimeFeedItem[];
+      allItems?: RuntimeFeedItem[];
       localFiles?: File[];
       sourceConfig: PersistedSourceConfig;
     }>,
@@ -919,6 +925,7 @@ export function FeedWorkbench({
           fixedSlot,
           freeRect,
           items: source.items,
+          allItems: source.allItems,
           localFiles: source.localFiles,
           sourceConfig: source.sourceConfig,
         });
@@ -970,6 +977,8 @@ export function FeedWorkbench({
     id: string,
     urls: string[],
     limit: number,
+    hiddenItemIds: string[],
+    unhiddenItemHashes: string[],
   ) {
     if (!urls.length) {
       toast.error("Keep at least one Reddit source");
@@ -980,7 +989,23 @@ export function FeedWorkbench({
     updateSession(id, (session) => ({ ...session, isRuntimeLoading: true }));
 
     try {
-      const items = await fetchRedditRuntimeItems(urls, selectedRedditLimit);
+      const currentSource = sessions.find((session) => session.id === id);
+      const existingHiddenHashes =
+        currentSource?.sourceConfig.kind === "reddit"
+          ? redditHiddenItemHashes(currentSource.sourceConfig)
+          : [];
+      const unhidden = new Set(unhiddenItemHashes);
+      const addedHiddenHashes = await Promise.all(
+        hiddenItemIds.map((itemId) => hashRedditItemId(itemId)),
+      );
+      const hiddenItemIdHashes = Array.from(
+        new Set([
+          ...existingHiddenHashes.filter((hash) => !unhidden.has(hash)),
+          ...addedHiddenHashes,
+        ]),
+      );
+      const allItems = await fetchRedditRuntimeItems(urls, selectedRedditLimit);
+      const items = await filterHiddenRedditItems(allItems, hiddenItemIdHashes);
       updateSession(id, (session) => {
         const timer = createTimerState({
           durationSeconds: session.timer.durationSeconds,
@@ -989,8 +1014,9 @@ export function FeedWorkbench({
 
         return {
           ...session,
-          title: redditLinksTitle(urls, items),
+          title: redditLinksTitle(urls, allItems),
           items,
+          allItems,
           localFiles: undefined,
           isRuntimeLoading: false,
           sourceConfig: {
@@ -998,6 +1024,7 @@ export function FeedWorkbench({
             urls,
             limit: selectedRedditLimit,
             allowNsfw: true,
+            ...(hiddenItemIdHashes.length ? { hiddenItemIdHashes } : {}),
           },
           timer: {
             ...timer,
@@ -1461,6 +1488,7 @@ export function FeedWorkbench({
         freeRect: session.freeRect,
         sourceConfig: session.sourceConfig,
         runtimeItems: session.items,
+        allRuntimeItems: session.allItems,
         localFiles: session.localFiles,
       })),
     };
@@ -1692,6 +1720,10 @@ export function FeedWorkbench({
     const nextSessions = snapshot.sessions.map((session) => {
       const items =
         "runtimeItems" in session ? (session.runtimeItems ?? []) : [];
+      const allItems =
+        "allRuntimeItems" in session
+          ? (session.allRuntimeItems ?? items)
+          : items;
       const activeIndex =
         items.length > 0
           ? clamp(session.timerActiveIndex ?? 0, 0, items.length - 1)
@@ -1710,6 +1742,7 @@ export function FeedWorkbench({
         fixedSlot: session.fixedSlot,
         freeRect: session.freeRect,
         items,
+        allItems,
         localFiles: "localFiles" in session ? session.localFiles : undefined,
         isRuntimeLoading:
           (session.sourceConfig.kind === "reddit" ||
@@ -1749,7 +1782,7 @@ export function FeedWorkbench({
           const result =
             session.sourceConfig.kind === "reddit"
               ? {
-                  items: await fetchRuntimeItemsForSource(session.sourceConfig),
+                  ...(await fetchRuntimeItemsForSource(session.sourceConfig)),
                   localFiles: undefined,
                 }
               : await fetchLocalRuntimeItemsForSource(session.sourceConfig);
@@ -1763,6 +1796,7 @@ export function FeedWorkbench({
           return {
             id: session.id,
             items: [] as RuntimeFeedItem[],
+            allItems: undefined,
             localFiles: undefined,
           };
         }
@@ -1776,11 +1810,12 @@ export function FeedWorkbench({
       current.map((session) => {
         const hydratedSession = hydratedBySession.get(session.id);
         if (!hydratedSession) return session;
-        const { items, localFiles } = hydratedSession;
+        const { items, allItems, localFiles } = hydratedSession;
 
         return {
           ...session,
           items,
+          allItems,
           localFiles,
           isRuntimeLoading: false,
           timer: {
@@ -1799,7 +1834,9 @@ export function FeedWorkbench({
   async function fetchRuntimeItemsForSource(
     sourceConfig: PersistedSourceConfig,
   ) {
-    if (sourceConfig.kind !== "reddit") return [];
+    if (sourceConfig.kind !== "reddit") {
+      return { items: [], allItems: undefined };
+    }
 
     const params = new URLSearchParams({
       allowNsfw: String(sourceConfig.allowNsfw),
@@ -1817,22 +1854,35 @@ export function FeedWorkbench({
       throw new Error(payload.error ?? "reddit_error");
     }
 
-    return flattenRuntimeMediaItems(payload.items as RuntimeFeedItem[]);
+    const allItems = flattenRuntimeMediaItems(
+      payload.items as RuntimeFeedItem[],
+    );
+
+    return {
+      items: await filterHiddenRedditItems(
+        allItems,
+        redditHiddenItemHashes(sourceConfig),
+      ),
+      allItems,
+    };
   }
 
   async function fetchLocalRuntimeItemsForSource(
     sourceConfig: PersistedSourceConfig,
   ) {
     if (sourceConfig.kind !== "local" || !sourceConfig.cacheSetId) {
-      return { items: [], localFiles: undefined };
+      return { items: [], allItems: undefined, localFiles: undefined };
     }
 
     const result = await loadLocalFiles(sourceConfig.cacheSetId);
-    if (result.status !== "loaded") return { items: [], localFiles: undefined };
+    if (result.status !== "loaded") {
+      return { items: [], allItems: undefined, localFiles: undefined };
+    }
 
     const localFiles = getUploadableFiles(result.files);
     return {
       items: createLocalRuntimeItems(localFiles),
+      allItems: undefined,
       localFiles,
     };
   }
@@ -3046,7 +3096,13 @@ function EditSourceDialog({
   source: FeedSession;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaveReddit: (id: string, urls: string[], limit: number) => void;
+  onSaveReddit: (
+    id: string,
+    urls: string[],
+    limit: number,
+    hiddenItemIds: string[],
+    unhiddenItemHashes: string[],
+  ) => void;
   onSaveLocal: (id: string, files: File[]) => void;
 }) {
   type LocalEditEntry = { file: File; previewUrl?: string };
@@ -3066,9 +3122,91 @@ function EditSourceDialog({
         }))
       : [],
   );
+  const [hiddenRedditItemIds, setHiddenRedditItemIds] = useState<string[]>([]);
+  const [unhiddenRedditHashes, setUnhiddenRedditHashes] = useState<string[]>(
+    [],
+  );
+  const [savedHiddenHashMatches, setSavedHiddenHashMatches] = useState<
+    Record<string, string[]>
+  >({});
 
   const currentSource = source;
   const isReddit = currentSource.sourceConfig.kind === "reddit";
+  const savedHiddenHashes = useMemo(
+    () =>
+      currentSource.sourceConfig.kind === "reddit"
+        ? redditHiddenItemHashes(currentSource.sourceConfig)
+        : [],
+    [currentSource.sourceConfig],
+  );
+  const savedHiddenHashSet = useMemo(
+    () => new Set(savedHiddenHashes),
+    [savedHiddenHashes],
+  );
+  const activeHiddenHashSet = useMemo(
+    () =>
+      new Set(
+        savedHiddenHashes.filter(
+          (hash) => !unhiddenRedditHashes.includes(hash),
+        ),
+      ),
+    [savedHiddenHashes, unhiddenRedditHashes],
+  );
+  const runtimeRedditItems = useMemo(
+    () =>
+      currentSource.sourceConfig.kind === "reddit"
+        ? (currentSource.allItems ?? currentSource.items)
+        : [],
+    [currentSource.allItems, currentSource.items, currentSource.sourceConfig],
+  );
+  const redditItemLabels = redditRuntimeItemLabels(runtimeRedditItems);
+  const hiddenRedditCount = runtimeRedditItems.filter((item) => {
+    const itemId = redditItemHashInput(item.id);
+    const savedMatches = savedHiddenHashMatches[itemId] ?? [];
+
+    return (
+      hiddenRedditItemIds.includes(itemId) ||
+      savedMatches.some((hash) => activeHiddenHashSet.has(hash))
+    );
+  }).length;
+
+  useEffect(() => {
+    if (!isReddit || !savedHiddenHashes.length || !runtimeRedditItems.length) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function matchSavedHiddenHashes() {
+      const entries = await Promise.all(
+        runtimeRedditItems.map(async (item) => {
+          const itemId = redditItemHashInput(item.id);
+          const matches = (await redditHashesForItemId(item.id)).filter(
+            (hash) => savedHiddenHashSet.has(hash),
+          );
+
+          return [itemId, matches] as const;
+        }),
+      );
+
+      if (!cancelled) {
+        setSavedHiddenHashMatches(
+          Object.fromEntries(entries.filter((entry) => entry[1].length)),
+        );
+      }
+    }
+
+    void matchSavedHiddenHashes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isReddit,
+    runtimeRedditItems,
+    savedHiddenHashes.length,
+    savedHiddenHashSet,
+  ]);
 
   function removeRedditUrl(index: number) {
     setRedditUrls((current) =>
@@ -3090,6 +3228,8 @@ function EditSourceDialog({
         currentSource.id,
         redditUrls.map((url) => url.trim()).filter(Boolean),
         redditLimit,
+        hiddenRedditItemIds,
+        unhiddenRedditHashes,
       );
       return;
     }
@@ -3102,14 +3242,26 @@ function EditSourceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85dvh] w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl">
+      <DialogContent
+        className={cn(
+          "w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl",
+          isReddit
+            ? "grid h-[min(92dvh,46rem)] grid-rows-[auto_minmax(0,1fr)]"
+            : "max-h-[92dvh]",
+        )}
+      >
         <DialogHeader>
           <DialogTitle>Edit source</DialogTitle>
           <DialogDescription className="sr-only">
             Edit source contents without changing layout placement.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3">
+        <div
+          className={cn(
+            "grid gap-3",
+            isReddit && "min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]",
+          )}
+        >
           <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
             <Pencil className="size-4 text-primary" />
             <span className="truncate font-medium">{source.title}</span>
@@ -3161,7 +3313,8 @@ function EditSourceDialog({
                       <Button
                         type="button"
                         size="icon"
-                        variant="outline"
+                        variant="ghost"
+                        className="border-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
                         aria-label={`Remove ${subreddit ? `r/${subreddit}` : `Reddit ${index + 1}`} link`}
                         onClick={() => removeRedditUrl(index)}
                       >
@@ -3170,6 +3323,85 @@ function EditSourceDialog({
                     </div>
                   );
                 })}
+              </div>
+              <div className="grid min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-border bg-background/45 p-3">
+                <div className="grid w-full grid-cols-[minmax(0,1fr)_5rem] items-center gap-2">
+                  <h3 className="text-xs font-medium text-muted-foreground">
+                    Items
+                  </h3>
+                  <span
+                    className={cn(
+                      "w-20 rounded-full border border-border bg-surface px-2 py-0.5 text-center text-[11px] text-muted-foreground transition-opacity",
+                      !hiddenRedditCount && "invisible opacity-0",
+                    )}
+                    aria-hidden={!hiddenRedditCount}
+                  >
+                    {hiddenRedditCount} hidden
+                  </span>
+                </div>
+                {runtimeRedditItems.length ? (
+                  <div className="grid min-h-0 gap-2 overflow-y-auto pr-1">
+                    {runtimeRedditItems.map((item) => {
+                      const subreddit = item.subreddit ?? source.title;
+                      const itemId = redditItemHashInput(item.id);
+                      const label = redditItemLabels.get(item.id) ?? item.title;
+                      const savedMatches = savedHiddenHashMatches[itemId] ?? [];
+                      const isSavedHidden = savedMatches.some((hash) =>
+                        activeHiddenHashSet.has(hash),
+                      );
+                      const isHidden =
+                        hiddenRedditItemIds.includes(itemId) || isSavedHidden;
+
+                      return (
+                        <div
+                          key={itemId}
+                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2"
+                        >
+                          <span className="truncate text-xs font-medium">
+                            {label}
+                          </span>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant={isHidden ? "default" : "outline"}
+                            aria-label={`${isHidden ? "Unhide" : "Hide"} ${label} from r/${subreddit}`}
+                            onClick={() => {
+                              if (savedMatches.length) {
+                                setUnhiddenRedditHashes((current) =>
+                                  isSavedHidden
+                                    ? [
+                                        ...current,
+                                        ...savedMatches.filter(
+                                          (hash) => !current.includes(hash),
+                                        ),
+                                      ]
+                                    : current.filter(
+                                        (hash) => !savedMatches.includes(hash),
+                                      ),
+                                );
+                                return;
+                              }
+
+                              setHiddenRedditItemIds((current) =>
+                                current.includes(itemId)
+                                  ? current.filter(
+                                      (candidate) => candidate !== itemId,
+                                    )
+                                  : [...current, itemId],
+                              );
+                            }}
+                          >
+                            <EyeOff />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    No runtime items in this source.
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -3205,8 +3437,8 @@ function EditSourceDialog({
                         <Button
                           type="button"
                           size="icon-sm"
-                          variant="outline"
-                          className="absolute right-1 top-1 border-border bg-background/85 backdrop-blur"
+                          variant="ghost"
+                          className="absolute right-1 top-1 border-0 bg-background/60 text-foreground/90 backdrop-blur hover:bg-destructive/15 hover:text-destructive"
                           aria-label={`Remove ${file.name}`}
                           onClick={() =>
                             setLocalEntries((current) =>
@@ -4033,6 +4265,89 @@ function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
       media: [media],
     }));
   });
+}
+
+async function filterHiddenRedditItems(
+  items: RuntimeFeedItem[],
+  hiddenItemIdHashes: string[] = [],
+) {
+  if (!hiddenItemIdHashes.length) return items;
+
+  const hidden = new Set(hiddenItemIdHashes);
+  const hashPairs = await Promise.all(
+    items.map(async (item) => {
+      return {
+        item,
+        hashes:
+          item.source === "reddit" ? await redditHashesForItemId(item.id) : [],
+      };
+    }),
+  );
+
+  return hashPairs
+    .filter(({ hashes }) => hashes.every((hash) => !hidden.has(hash)))
+    .map(({ item }) => item);
+}
+
+async function redditHashesForItemId(itemId: string) {
+  const itemHashInput = redditItemHashInput(itemId);
+  const parentHashInput = redditParentPostHashInput(itemId);
+  const hashes = [await hashRedditItemId(itemHashInput)];
+
+  if (parentHashInput !== itemHashInput) {
+    hashes.push(await hashRedditItemId(parentHashInput));
+  }
+
+  return hashes;
+}
+
+async function hashRedditItemId(itemId: string) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(redditItemHashInput(itemId)),
+  );
+
+  return `sha256:${Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function redditItemHashInput(itemId: string) {
+  return itemId;
+}
+
+function redditParentPostHashInput(itemId: string) {
+  const [source, postId] = itemId.split(":");
+  return source === "reddit" && postId ? `reddit:${postId}` : itemId;
+}
+
+function redditHiddenItemHashes(sourceConfig: PersistedSourceConfig) {
+  if (sourceConfig.kind !== "reddit") return [];
+
+  return [
+    ...(sourceConfig.hiddenItemIdHashes ?? []),
+    ...(sourceConfig.hiddenPostIdHashes ?? []),
+  ];
+}
+
+function redditRuntimeItemLabels(items: RuntimeFeedItem[]) {
+  const counts = items.reduce<Record<string, number>>((accumulator, item) => {
+    accumulator[item.title] = (accumulator[item.title] ?? 0) + 1;
+    return accumulator;
+  }, {});
+  const indexes = new Map<string, number>();
+
+  return new Map(
+    items.map((item) => {
+      const nextIndex = (indexes.get(item.title) ?? 0) + 1;
+      indexes.set(item.title, nextIndex);
+
+      return [
+        item.id,
+        counts[item.title] > 1 ? `${item.title} item ${nextIndex}` : item.title,
+      ];
+    }),
+  );
 }
 
 function resolveWorkspaceGlobalSeconds(

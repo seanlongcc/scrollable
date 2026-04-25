@@ -23,7 +23,7 @@ npm run supabase:test
 
 ## Data Rule
 
-Do not persist, rehost, proxy-cache, or store third-party media, Reddit post/listing payloads, thumbnails, media URLs, or fetched Reddit JSON responses. User-pasted Reddit post permalinks and subreddit listing URLs are allowed as saved configuration because the user intentionally provides them.
+Do not persist, rehost, proxy-cache, or store third-party media, Reddit post/listing payloads, thumbnails, media URLs, or fetched Reddit JSON responses. User-pasted Reddit post permalinks and subreddit listing URLs are allowed as saved configuration because the user intentionally provides them. Saved Reddit item exclusions may store only opaque `sha256:` hashes of runtime Reddit item IDs, never raw item/post IDs or media payloads.
 
 Viewer layouts save tab, grid, layer, timer, and source configuration metadata only. Layouts support up to three sequential stacked source layers (`Layer 1`, `Layer 2`, `Layer 3`), with active-layer editing and per-layer source/file counts. Local layouts open from the viewer's layouts overlay without login; signed-in users can also sync layout metadata to account data.
 

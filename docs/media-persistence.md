@@ -19,7 +19,10 @@ Allowed:
 - Runtime logs/rate-limit records that do not contain third-party media payloads
 - User-selected local file byte copies in browser IndexedDB for saved local layouts
 - Layout layer metadata, including layer IDs, names, active layer, and source membership
+- Opaque SHA-256 hashes of Reddit runtime item IDs that the user explicitly hides from a saved source
 
 Runtime feeds fetch source metadata on demand from user-provided post or subreddit listing links. Local image, video, and audio uploads use browser object URLs for the current session only and are revoked on cleanup.
 
 Do not store local upload object URLs or absolute filesystem paths. Browser file paths are not reusable access grants. Saved local layouts may store copied user-selected file bytes as Blob data in browser IndexedDB, plus a metadata-only `cacheSetId` in saved layouts. On refresh, the app rebuilds fresh object URLs from that browser cache. If cached bytes are missing, ask the user to re-upload.
+
+Saved Reddit item exclusions may store only `sha256:` item ID hashes scoped to the source configuration. This allows a user to hide a specific gallery image/video item while still avoiding raw Reddit item/post IDs. Do not store raw Reddit item IDs, raw post IDs, titles, authors, permalinks, media URLs, thumbnails, cached JSON, or normalized runtime items for hidden Reddit content.

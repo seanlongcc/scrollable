@@ -57,8 +57,9 @@ These rules are core product constraints.
 - Never persist third-party media from Reddit or any other site.
 - Never rehost third-party media.
 - Never proxy-cache third-party media as application-owned content.
-- Never persist third-party media URLs, thumbnails, cached Reddit JSON responses, normalized runtime feed/media items, or local upload object URLs.
+- Never persist third-party media URLs, thumbnails, cached Reddit JSON responses, normalized runtime feed/media items, raw Reddit item/post IDs, or local upload object URLs.
 - User-pasted Reddit post permalinks and subreddit listing URLs are allowed as saved configuration data because the user intentionally provides them.
+- User-hidden Reddit listing or post media items may be saved only as opaque `sha256:` hashes of runtime Reddit item IDs scoped to the source configuration. Do not store raw item/post IDs, titles, authors, permalinks, media URLs, thumbnails, payloads, or normalized runtime items for hidden Reddit content.
 - Never persist absolute local filesystem paths.
 - Store only user-created configuration data and operational records needed for the app.
 - Fetch third-party media metadata at runtime through approved APIs where possible.
@@ -76,7 +77,7 @@ Acceptable stored data:
 - Runtime logs or rate-limit records that do not contain third-party media payloads.
 - User-selected local image/video/audio file byte copies in browser IndexedDB for saved local layouts, plus metadata-only local `cacheSetId` references in saved layouts.
 - `display_options` may store display/config preferences only, not third-party media metadata.
-- `viewer_sessions.sessions` must remain metadata-only and must not contain Reddit post IDs, media URLs, thumbnails, listing payloads, normalized runtime items, or local upload object URLs.
+- `viewer_sessions.sessions` must remain metadata-only and must not contain raw Reddit item/post IDs, media URLs, thumbnails, listing payloads, normalized runtime items, or local upload object URLs. Opaque `sha256:` Reddit hidden-item hashes are allowed.
 - Layout layers may store layer IDs, layer names, active layer IDs, and per-source layer membership only.
 
 ## Architecture Direction
@@ -357,7 +358,7 @@ When implementing Reddit integration:
 - Fetch only user-provided Reddit post links and subreddit listing URLs through public JSON endpoints unless product direction changes.
 - Respect Reddit API/public endpoint terms, rate limits, and content restrictions.
 - Treat Reddit responses as runtime source data, not application-owned content.
-- Avoid saving third-party post/listing/media payloads beyond user-pasted post permalinks and subreddit listing URLs.
+- Avoid saving third-party post/listing/media payloads beyond user-pasted post permalinks, subreddit listing URLs, and opaque `sha256:` hashes for user-hidden listing items.
 - Make failure states explicit: invalid post URL, private/deleted/not found post, rate limited, unsupported media, and network error.
 
 ## Testing Priorities

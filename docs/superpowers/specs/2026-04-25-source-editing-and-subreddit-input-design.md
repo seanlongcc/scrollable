@@ -21,7 +21,7 @@ Scrollable will let users add Reddit sources through a split Reddit input and ed
 
 ## Persistence
 
-Saved layouts continue storing metadata only. Reddit saved source configs store user-provided/canonical source URLs, media count, and NSFW allowance. Local saved source configs store file count and optional browser cache set ID. Layout serialization must not store Reddit runtime payloads, Reddit media URLs, local object URLs, thumbnails, or absolute local paths.
+Saved layouts continue storing metadata only. Reddit saved source configs store user-provided/canonical source URLs, media count, NSFW allowance, and optional opaque `sha256:` hashes for user-hidden Reddit runtime item IDs. Local saved source configs store file count and optional browser cache set ID. Layout serialization must not store raw Reddit item/post IDs, Reddit runtime payloads, Reddit media URLs, local object URLs, thumbnails, or absolute local paths.
 
 ## Testing
 

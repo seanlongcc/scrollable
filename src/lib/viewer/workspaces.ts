@@ -22,6 +22,8 @@ export type RedditSourceConfig = {
   urls: string[];
   limit?: number;
   allowNsfw: boolean;
+  hiddenItemIdHashes?: string[];
+  hiddenPostIdHashes?: string[];
 };
 
 export type LocalSourceConfig = {
@@ -43,12 +45,13 @@ export type WorkspaceSessionInput = {
   freeRect: FreeRect;
   sourceConfig: PersistedSourceConfig;
   runtimeItems?: RuntimeFeedItem[];
+  allRuntimeItems?: RuntimeFeedItem[];
   localFiles?: File[];
 };
 
 export type SerializedWorkspaceSession = Omit<
   WorkspaceSessionInput,
-  "runtimeItems"
+  "runtimeItems" | "allRuntimeItems"
 >;
 
 export type SerializedWorkspace = {
