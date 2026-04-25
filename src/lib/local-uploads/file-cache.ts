@@ -26,18 +26,15 @@ export function isLocalFileCacheSupported() {
 export async function saveLocalFiles(id: string, files: File[]) {
   if (!isLocalFileCacheSupported()) return;
 
-  const cachedFiles = await Promise.all(
-    files.map(async (file) => {
-      const bytes = await file.arrayBuffer();
-
-      return {
+  const cachedFiles = files.map(
+    (file) =>
+      ({
         name: file.name,
         type: file.type,
         size: file.size,
         lastModified: file.lastModified,
-        blob: new Blob([bytes], { type: file.type }),
-      } satisfies CachedLocalFile;
-    }),
+        blob: file,
+      }) satisfies CachedLocalFile,
   );
 
   const db = await openDb();

@@ -808,8 +808,13 @@ export function FeedWorkbench({
     if (!canCacheLocalFiles || !files.length) return undefined;
 
     const cacheSetId = createId();
-    await saveLocalFiles(cacheSetId, files);
-    return cacheSetId;
+    try {
+      await saveLocalFiles(cacheSetId, files);
+      return cacheSetId;
+    } catch {
+      toast.warning("Local files will need reload after refresh");
+      return undefined;
+    }
   }
 
   function applyLocalRuntimeItems(

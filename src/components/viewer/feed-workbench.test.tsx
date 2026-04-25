@@ -1551,6 +1551,34 @@ describe("FeedWorkbench", () => {
     expect(saved).not.toContain("blob:upload");
   });
 
+  it("keeps large local videos playable when browser cache rejects the file", async () => {
+    stubObjectUrls();
+    stubRandomUuids(["workspace-1", "local-1", "session-1"]);
+    vi.mocked(isLocalFileCacheSupported).mockReturnValue(true);
+    vi.mocked(saveLocalFiles).mockRejectedValue(
+      new DOMException("File exceeds browser 2GB limit", "QuotaExceededError"),
+    );
+
+    const user = userEvent.setup();
+    const { container } = render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["video"], "large.mp4", { type: "video/mp4" }),
+    );
+
+    await screen.findByText("Local upload");
+
+    expect(container.querySelector("video")).toBeInTheDocument();
+    expect(URL.createObjectURL).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "large.mp4" }),
+    );
+    expect(
+      window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "",
+    ).not.toContain("cacheSetId");
+  });
+
   it("can add local uploads as separate sources", async () => {
     stubObjectUrls();
     stubRandomUuids([
