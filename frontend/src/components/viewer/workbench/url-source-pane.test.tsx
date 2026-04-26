@@ -6,6 +6,7 @@ import { UrlSourcePane } from "./url-source-pane";
 describe("UrlSourcePane", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("remounts YouTube iframes from the remembered playback time without reloading on position ticks", () => {
@@ -38,7 +39,7 @@ describe("UrlSourcePane", () => {
     );
   });
 
-  it("applies YouTube playback time when it arrives after iframe mount", async () => {
+  it("keeps YouTube iframe src stable when playback time arrives after mount", () => {
     const resolution = youtubeResolution();
     const { container, rerender } = render(
       <UrlSourcePane
@@ -54,6 +55,7 @@ describe("UrlSourcePane", () => {
         container.querySelector("iframe")?.getAttribute("src") ?? "",
       ).searchParams.get("start"),
     ).toBeNull();
+    const initialSrc = container.querySelector("iframe")?.getAttribute("src");
 
     rerender(
       <UrlSourcePane
@@ -63,11 +65,6 @@ describe("UrlSourcePane", () => {
         iframePlaybackSeconds={42}
       />,
     );
-    await waitFor(() => {
-      const currentSrc = container.querySelector("iframe")?.getAttribute("src");
-      expect(new URL(currentSrc ?? "").searchParams.get("start")).toBe("42");
-    });
-    const stableSrc = container.querySelector("iframe")?.getAttribute("src");
 
     rerender(
       <UrlSourcePane
@@ -78,7 +75,68 @@ describe("UrlSourcePane", () => {
       />,
     );
 
-    expect(container.querySelector("iframe")).toHaveAttribute("src", stableSrc);
+    expect(container.querySelector("iframe")).toHaveAttribute(
+      "src",
+      initialSrc,
+    );
+  });
+
+  it("seeks YouTube player when playback time arrives after iframe mount", async () => {
+    const player = youtubePlayer();
+    const playerConstructor = vi.fn(function (_element, options) {
+      queueMicrotask(() => options.events?.onReady?.({ target: player }));
+      return player;
+    });
+    vi.stubGlobal("YT", { Player: playerConstructor });
+    const resolution = youtubeResolution();
+    const { rerender } = render(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        iframePlaybackSeconds={0}
+      />,
+    );
+
+    await waitFor(() => expect(playerConstructor).toHaveBeenCalled());
+
+    rerender(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        iframePlaybackSeconds={42}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(player.seekTo).toHaveBeenCalledWith(42, true);
+    });
+    expect(player.playVideo).toHaveBeenCalled();
+  });
+
+  it("reports YouTube player current time before unmount", async () => {
+    const player = youtubePlayer({ currentTime: 55 });
+    const playerConstructor = vi.fn(function (_element, options) {
+      queueMicrotask(() => options.events?.onReady?.({ target: player }));
+      return player;
+    });
+    vi.stubGlobal("YT", { Player: playerConstructor });
+    const onIframePlaybackTimeChange = vi.fn();
+    const { unmount } = render(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={youtubeResolution()}
+        canMountIframe
+        iframePlaybackSeconds={12}
+        onIframePlaybackTimeChange={onIframePlaybackTimeChange}
+      />,
+    );
+
+    await waitFor(() => expect(playerConstructor).toHaveBeenCalled());
+    unmount();
+
+    expect(onIframePlaybackTimeChange).toHaveBeenLastCalledWith(55);
   });
 
   it("reports approximate YouTube playback time before unmount", () => {
@@ -101,6 +159,16 @@ describe("UrlSourcePane", () => {
     expect(onIframePlaybackTimeChange).toHaveBeenLastCalledWith(15);
   });
 });
+
+function youtubePlayer({ currentTime = 0 } = {}) {
+  return {
+    destroy: vi.fn(),
+    getCurrentTime: vi.fn(() => currentTime),
+    mute: vi.fn(),
+    playVideo: vi.fn(),
+    seekTo: vi.fn(),
+  };
+}
 
 function youtubeResolution() {
   return {

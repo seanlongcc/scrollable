@@ -398,8 +398,8 @@ describe("FeedWorkbench URL sources", () => {
     await user.click(screen.getByRole("button", { name: "Open URL" }));
 
     expect(await screen.findByTitle("YouTube video")).toBeInTheDocument();
-    expect(container.querySelector("iframe")).toHaveAttribute(
-      "src",
+    expectYoutubeIframeSrc(
+      container.querySelector("iframe"),
       "https://www.youtube.com/embed/dQw4w9WgXcQ",
     );
     expect(container.querySelector("iframe")).toHaveAttribute(
@@ -445,9 +445,10 @@ describe("FeedWorkbench URL sources", () => {
     await user.click(screen.getByRole("button", { name: "Add layer" }));
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
 
-    expect(
+    expectYoutubeIframeSrc(
       container.querySelector("iframe[title='YouTube video']"),
-    ).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ");
+      "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    );
   });
 
   it("caps active mobile iframe fallback panes", async () => {
@@ -527,3 +528,15 @@ describe("FeedWorkbench URL sources", () => {
     ).toBeInTheDocument();
   });
 });
+
+function expectYoutubeIframeSrc(
+  iframe: Element | null,
+  expectedBaseUrl: string,
+) {
+  expect(iframe).toHaveAttribute("src", expect.any(String));
+  const src = iframe?.getAttribute("src") ?? "";
+  const url = new URL(src);
+
+  expect(`${url.origin}${url.pathname}`).toBe(expectedBaseUrl);
+  expect(url.searchParams.get("enablejsapi")).toBe("1");
+}

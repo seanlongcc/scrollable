@@ -1,5 +1,5 @@
 import { ExternalLink, Globe, Info, Maximize2, Pencil, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { UrlRuntimeResolution } from "@/lib/url-source/types";
@@ -7,6 +7,13 @@ import {
   urlResolutionIframeUrl,
   urlResolutionRequiresDisplayWarning,
 } from "./helpers";
+import {
+  destroyYouTubePlayer,
+  loadYouTubeIframeApi,
+  reportYouTubePlaybackTime,
+  resumeYouTubePlayer,
+  type YouTubePlayer,
+} from "./youtube-iframe-api";
 
 export function UrlSourcePane({
   title,
@@ -207,41 +214,123 @@ function RuntimeIframe({
   initialPlaybackSeconds: number;
   onPlaybackTimeChange?: (seconds: number) => void;
 }) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const onPlaybackTimeChangeRef = useRef(onPlaybackTimeChange);
+  const fallbackPlaybackRef = useRef({
+    startedAt: 0,
+    startSeconds: normalizedPlaybackSeconds(initialPlaybackSeconds),
+  });
+  const lastKnownPlaybackSecondsRef = useRef(
+    normalizedPlaybackSeconds(initialPlaybackSeconds),
+  );
+  const hasAuthoritativeYoutubeTimeRef = useRef(false);
+  const youtubePlayerRef = useRef<YouTubePlayer | null>(null);
+  const youtubePlayerReadyRef = useRef(false);
+  const pendingYoutubeSeekSecondsRef = useRef(
+    normalizedPlaybackSeconds(initialPlaybackSeconds),
+  );
   const [src] = useState(() =>
     iframeUrlWithPlaybackStart(iframeUrl, initialPlaybackSeconds),
   );
-  const [deferredResumeSrc, setDeferredResumeSrc] = useState<string | null>(
-    null,
-  );
-  const mountedSrc = deferredResumeSrc ?? src;
+
+  useEffect(() => {
+    onPlaybackTimeChangeRef.current = onPlaybackTimeChange;
+  }, [onPlaybackTimeChange]);
+
+  useEffect(() => {
+    fallbackPlaybackRef.current = {
+      startedAt: Date.now(),
+      startSeconds: normalizedPlaybackSeconds(initialPlaybackSeconds),
+    };
+  }, [initialPlaybackSeconds]);
 
   useEffect(() => {
     if (!isYoutubeIframeUrl(iframeUrl)) return;
-    if (deferredResumeSrc) return;
-    if (new URL(src).searchParams.has("start")) return;
+    let disposed = false;
+    let player: YouTubePlayer | null = null;
 
-    const startSeconds = normalizedPlaybackSeconds(initialPlaybackSeconds);
-    if (startSeconds <= 0) return;
+    loadYouTubeIframeApi()
+      .then((api) => {
+        if (disposed || !iframeRef.current) return;
 
-    const timeoutId = window.setTimeout(() => {
-      setDeferredResumeSrc(iframeUrlWithPlaybackStart(iframeUrl, startSeconds));
-    }, 0);
+        player = new api.Player(iframeRef.current, {
+          events: {
+            onReady: (event) => {
+              if (disposed) return;
+              player = event.target;
+              youtubePlayerRef.current = event.target;
+              youtubePlayerReadyRef.current = true;
+              resumeYouTubePlayer(
+                event.target,
+                pendingYoutubeSeekSecondsRef.current,
+                true,
+              );
+            },
+          },
+        });
+        youtubePlayerRef.current = player;
+      })
+      .catch(() => {
+        youtubePlayerRef.current = null;
+        youtubePlayerReadyRef.current = false;
+      });
 
-    return () => window.clearTimeout(timeoutId);
-  }, [deferredResumeSrc, iframeUrl, initialPlaybackSeconds, src]);
+    return () => {
+      disposed = true;
+      const playerToDestroy = player ?? youtubePlayerRef.current;
+      if (playerToDestroy) {
+        const reportedSeconds = reportYouTubePlaybackTime(
+          playerToDestroy,
+          onPlaybackTimeChangeRef.current,
+        );
+        if (reportedSeconds !== null) {
+          lastKnownPlaybackSecondsRef.current = reportedSeconds;
+          hasAuthoritativeYoutubeTimeRef.current = true;
+        }
+        destroyYouTubePlayer(playerToDestroy);
+      }
+      if (!playerToDestroy || youtubePlayerRef.current === playerToDestroy) {
+        youtubePlayerRef.current = null;
+        youtubePlayerReadyRef.current = false;
+      }
+    };
+  }, [iframeUrl]);
 
   useEffect(() => {
-    const handlePlaybackTimeChange = onPlaybackTimeChange;
-    if (!isYoutubeIframeUrl(iframeUrl) || !handlePlaybackTimeChange) return;
-    const reportPlaybackTimeChange: (seconds: number) => void =
-      handlePlaybackTimeChange;
+    if (!isYoutubeIframeUrl(iframeUrl)) return;
+    const resumeSeconds = normalizedPlaybackSeconds(initialPlaybackSeconds);
+    pendingYoutubeSeekSecondsRef.current = resumeSeconds;
 
-    const startedAt = Date.now();
-    const startSeconds = normalizedPlaybackSeconds(initialPlaybackSeconds);
+    const player = youtubePlayerRef.current;
+    if (!player || !youtubePlayerReadyRef.current) return;
 
+    resumeYouTubePlayer(player, resumeSeconds, false);
+  }, [iframeUrl, initialPlaybackSeconds]);
+
+  useEffect(() => {
+    if (!isYoutubeIframeUrl(iframeUrl)) return;
     function reportPlaybackTime() {
+      const player = youtubePlayerRef.current;
+      const reportedFromPlayer = player
+        ? reportYouTubePlaybackTime(player, onPlaybackTimeChangeRef.current)
+        : null;
+      if (reportedFromPlayer !== null) {
+        lastKnownPlaybackSecondsRef.current = reportedFromPlayer;
+        hasAuthoritativeYoutubeTimeRef.current = true;
+        return;
+      }
+
+      const reportPlaybackTimeChange = onPlaybackTimeChangeRef.current;
+      if (!reportPlaybackTimeChange) return;
+      if (hasAuthoritativeYoutubeTimeRef.current) {
+        reportPlaybackTimeChange(lastKnownPlaybackSecondsRef.current);
+        return;
+      }
+      const { startedAt, startSeconds } = fallbackPlaybackRef.current;
       const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
-      reportPlaybackTimeChange(startSeconds + elapsedSeconds);
+      const fallbackSeconds = startSeconds + elapsedSeconds;
+      lastKnownPlaybackSecondsRef.current = fallbackSeconds;
+      reportPlaybackTimeChange(fallbackSeconds);
     }
 
     const intervalId = window.setInterval(reportPlaybackTime, 1000);
@@ -250,13 +339,14 @@ function RuntimeIframe({
       window.clearInterval(intervalId);
       reportPlaybackTime();
     };
-  }, [iframeUrl, initialPlaybackSeconds, onPlaybackTimeChange]);
+  }, [iframeUrl]);
 
   return (
     <iframe
       title={title}
-      src={mountedSrc}
+      src={src}
       loading="lazy"
+      ref={iframeRef}
       referrerPolicy="no-referrer-when-downgrade"
       allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
       sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
@@ -269,6 +359,7 @@ function iframeUrlWithPlaybackStart(value: string, seconds: number) {
   if (!isYoutubeIframeUrl(value)) return value;
 
   const url = new URL(value);
+  url.searchParams.set("enablejsapi", "1");
   const startSeconds = normalizedPlaybackSeconds(seconds);
   if (startSeconds > 0) {
     url.searchParams.set("start", String(startSeconds));
