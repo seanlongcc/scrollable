@@ -66,9 +66,7 @@ import {
   type FreeRect,
   countAvailableFreeUnitRects,
   createFixedGrid,
-  createFreeRect,
   findAvailableFreeRectsBySize,
-  validateFreeRects,
 } from "@/lib/viewer/layout";
 import {
   createEmptyWorkspace,
@@ -150,6 +148,12 @@ import {
   hydrateRuntimeSources,
   runtimeHydrationCandidates,
 } from "./workbench/runtime-sources";
+import {
+  occupiedFreeRectsForLayer,
+  restoreTemplateSlotForRemovedSession,
+  updateSessionFreeRectState,
+  updateTemplateSlotFreeRectState,
+} from "./workbench/free-layout-state";
 import {
   placeSessions,
   type SessionPlacementSourceInput,
@@ -261,19 +265,14 @@ export function FeedWorkbench({
     () => sessions.filter((session) => session.layerId === activeLayerId),
     [activeLayerId, sessions],
   );
-  const activeLayerTemplateSlots = useMemo(
-    () =>
-      templateSlots.filter(
-        (slot) => (slot.layerId ?? activeLayerId) === activeLayerId,
-      ),
-    [activeLayerId, templateSlots],
-  );
   const activeLayerFreeRects = useMemo(
-    () => [
-      ...activeLayerSessions.map((session) => session.freeRect),
-      ...activeLayerTemplateSlots.map((slot) => slot.freeRect),
-    ],
-    [activeLayerSessions, activeLayerTemplateSlots],
+    () =>
+      occupiedFreeRectsForLayer({
+        sessions,
+        templateSlots,
+        layerId: activeLayerId,
+      }),
+    [activeLayerId, sessions, templateSlots],
   );
   const layoutModeLocked = sessions.length > 0 || templateSlots.length > 0;
   const selected = useMemo(
@@ -1035,20 +1034,13 @@ export function FeedWorkbench({
     const removed = sessions.find((session) => session.id === id);
     setSessions((current) => current.filter((session) => session.id !== id));
     if (removed?.templateSlotId && layoutMode === "free") {
-      setTemplateSlots((current) => {
-        if (current.some((slot) => slot.id === removed.templateSlotId)) {
-          return current;
-        }
-
-        return [
-          ...current,
-          {
-            id: removed.templateSlotId!,
-            layerId: removed.layerId,
-            freeRect: removed.freeRect,
-          },
-        ];
-      });
+      setTemplateSlots((current) =>
+        restoreTemplateSlotForRemovedSession({
+          templateSlots: current,
+          removedSession: removed,
+          layoutMode,
+        }),
+      );
     }
     setGalleryIndexes((current) => {
       const next = { ...current };
@@ -1070,29 +1062,13 @@ export function FeedWorkbench({
     showError = true,
   ) {
     setSessions((current) => {
-      const session = current.find((candidate) => candidate.id === id);
-      if (!session) return current;
-
       try {
-        const rect = createFreeRect({ ...session.freeRect, ...nextRect });
-        validateFreeRects([
-          ...current
-            .filter(
-              (candidate) =>
-                candidate.id !== id && candidate.layerId === session.layerId,
-            )
-            .map((candidate) => candidate.freeRect),
-          ...templateSlots
-            .filter(
-              (slot) => (slot.layerId ?? session.layerId) === session.layerId,
-            )
-            .map((slot) => slot.freeRect),
-          rect,
-        ]);
-
-        return current.map((candidate) =>
-          candidate.id === id ? { ...candidate, freeRect: rect } : candidate,
-        );
+        return updateSessionFreeRectState({
+          sessions: current,
+          templateSlots,
+          id,
+          nextRect,
+        });
       } catch (error) {
         if (showError) {
           toast.error(
@@ -1110,32 +1086,14 @@ export function FeedWorkbench({
     showError = true,
   ) {
     setTemplateSlots((current) => {
-      const slot = current.find((candidate) => candidate.id === id);
-      if (!slot) return current;
-
-      const layerId = slot.layerId ?? activeLayerId;
-
       try {
-        const rect = createFreeRect({ ...slot.freeRect, ...nextRect });
-        validateFreeRects([
-          ...sessions
-            .filter((session) => session.layerId === layerId)
-            .map((session) => session.freeRect),
-          ...current
-            .filter(
-              (candidate) =>
-                candidate.id !== id &&
-                (candidate.layerId ?? layerId) === layerId,
-            )
-            .map((candidate) => candidate.freeRect),
-          rect,
-        ]);
-
-        return current.map((candidate) =>
-          candidate.id === id
-            ? { ...candidate, layerId, freeRect: rect }
-            : candidate,
-        );
+        return updateTemplateSlotFreeRectState({
+          sessions,
+          templateSlots: current,
+          activeLayerId,
+          id,
+          nextRect,
+        });
       } catch (error) {
         if (showError) {
           toast.error(
