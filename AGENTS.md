@@ -36,7 +36,7 @@ Current package/runtime defaults:
 - Main scripts: `npm run dev`, `npm run build`, `npm start`, `npm run lint`, `npm run format`, `npm run format:check`, `npm run typecheck`, `npm test`, `npm run test:watch`, `npm run e2e`.
 - Supabase local scripts: `npm run supabase:start`, `npm run supabase:stop`, `npm run supabase:reset`, `npm run supabase:test`.
 - `npm test` runs Vitest/jsdom unit tests. It excludes `tests/e2e`.
-- `npm run e2e` runs Playwright desktop Chrome and Pixel 7 mobile projects and starts the dev server through `nvm use 24`.
+- `npm run e2e` runs Playwright desktop Chrome and iPhone 15 mobile projects and starts the dev server through `nvm use 24`.
 - Prettier 3.x is configured. Use `npm run format` to write formatting and `npm run format:check` for verification.
 - Browser tests require Linux browser dependencies in WSL; if Chromium cannot launch, report the missing shared library and do not claim browser verification passed.
 - Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
@@ -98,7 +98,7 @@ Keep data fetching, normalization, persistence, and UI rendering separate enough
 
 ## Mobile-First Development
 
-Build mobile first. Treat the Pixel 7 Playwright project and narrow browser viewport as primary, then enhance for desktop.
+Build mobile first. Treat the iPhone 15 Playwright project and narrow browser viewport as primary, then enhance for desktop.
 
 - Start UI/layout work from the smallest supported viewport and touch workflow, not from desktop.
 - Prefer single-column, thumb-reachable controls and compact progressive disclosure before adding desktop grids or wide toolbars.

@@ -2249,7 +2249,7 @@ export function FeedWorkbench({
                   "relative",
                   isUiHidden
                     ? "h-dvh min-h-0 min-w-0"
-                    : "h-full min-h-[360px] min-w-0 md:min-w-[720px]",
+                    : "h-full min-h-0 min-w-0 md:min-h-[360px] md:min-w-[720px]",
                 )}
               >
                 {layers.map((layer) => {
@@ -2303,7 +2303,7 @@ export function FeedWorkbench({
                   "relative",
                   isUiHidden
                     ? "h-dvh min-h-0 min-w-0"
-                    : "h-full min-h-[360px] min-w-0 md:min-w-[720px]",
+                    : "h-full min-h-0 min-w-0 md:min-h-[360px] md:min-w-[720px]",
                 )}
               >
                 {layers.map((layer) => {
