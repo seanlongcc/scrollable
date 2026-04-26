@@ -1,8 +1,18 @@
 import { createEmptyWorkspace } from "@/lib/viewer/workspaces";
 
-import type { RuntimeWorkspace, SerializedWorkspace } from "./types";
-import type { WorkspaceTab } from "./types";
-import { nextLayoutName, toRuntimeWorkspace } from "./helpers";
+import type {
+  RuntimeWorkspace,
+  SerializedWorkspace,
+  SerializedWorkspaceTemplate,
+  WorkspaceTab,
+} from "./types";
+import {
+  nextLayoutName,
+  toRuntimeWorkspace,
+  toRuntimeWorkspaceWithLocalRuntime,
+  uniqueWorkspaceName,
+  workspaceFromTemplate,
+} from "./helpers";
 import {
   type WorkspaceSnapshotState,
   workspaceSnapshotToState,
@@ -205,4 +215,130 @@ export function prepareCloseWorkspaceTab({
     activeWorkspaceId,
     activeSnapshot,
   };
+}
+
+export function prepareOpenSavedWorkspaces({
+  ids,
+  current,
+  workspaceTabs,
+  workspaceStates,
+  savedWorkspaces,
+}: {
+  ids: string[];
+  current: RuntimeWorkspace;
+  workspaceTabs: WorkspaceTab[];
+  workspaceStates: Record<string, RuntimeWorkspace>;
+  savedWorkspaces: Record<string, SerializedWorkspace>;
+}): WorkspaceTabActionState | null {
+  const snapshots = ids
+    .map((id) => savedWorkspaces[id])
+    .filter((workspace): workspace is SerializedWorkspace =>
+      Boolean(workspace),
+    );
+
+  if (!snapshots.length) return null;
+
+  const currentAwareStates = { ...workspaceStates, [current.id]: current };
+  const nextTabs = [...workspaceTabs];
+  const nextStates = { ...currentAwareStates };
+
+  for (const snapshot of snapshots) {
+    nextStates[snapshot.id] = toRuntimeWorkspaceWithLocalRuntime(
+      snapshot,
+      currentAwareStates[snapshot.id],
+    );
+    if (!nextTabs.some((tab) => tab.id === snapshot.id)) {
+      nextTabs.push({ id: snapshot.id, name: snapshot.name });
+    }
+  }
+
+  const activeWorkspaceId = snapshots[0].id;
+  const activeSnapshot = nextStates[activeWorkspaceId];
+
+  return {
+    nextTabs,
+    nextStates,
+    activeWorkspaceId,
+    activeSnapshot,
+  };
+}
+
+export function prepareOpenSavedTemplates({
+  ids,
+  current,
+  workspaceTabs,
+  workspaceStates,
+  savedWorkspaces,
+  savedTemplates,
+  createId,
+}: {
+  ids: string[];
+  current: RuntimeWorkspace;
+  workspaceTabs: WorkspaceTab[];
+  workspaceStates: Record<string, RuntimeWorkspace>;
+  savedWorkspaces: Record<string, SerializedWorkspace>;
+  savedTemplates: Record<string, SerializedWorkspaceTemplate>;
+  createId: () => string;
+}): WorkspaceTabActionState | null {
+  const templates = ids
+    .map((id) => savedTemplates[id])
+    .filter((template): template is SerializedWorkspaceTemplate =>
+      Boolean(template),
+    );
+
+  if (!templates.length) return null;
+
+  const currentAwareStates = { ...workspaceStates, [current.id]: current };
+  const nextTabs = [...workspaceTabs];
+  const nextStates = { ...currentAwareStates };
+  let activeWorkspaceId = current.id;
+
+  for (const template of templates) {
+    const nextId = createId();
+    const name = uniqueWorkspaceName(template.name, nextTabs, savedWorkspaces);
+    const workspace = workspaceFromTemplate(template, nextId, name);
+
+    nextTabs.push({ id: nextId, name });
+    nextStates[nextId] = workspace;
+    activeWorkspaceId = nextId;
+  }
+
+  const activeSnapshot = nextStates[activeWorkspaceId];
+
+  return {
+    nextTabs,
+    nextStates,
+    activeWorkspaceId,
+    activeSnapshot,
+  };
+}
+
+export function deleteSavedWorkspaceRecord({
+  id,
+  savedWorkspaces,
+}: {
+  id: string;
+  savedWorkspaces: Record<string, SerializedWorkspace>;
+}) {
+  const nextSaved = { ...savedWorkspaces };
+  const deleted = nextSaved[id];
+
+  delete nextSaved[id];
+
+  return { nextSaved, deleted };
+}
+
+export function deleteSavedTemplateRecord({
+  id,
+  savedTemplates,
+}: {
+  id: string;
+  savedTemplates: Record<string, SerializedWorkspaceTemplate>;
+}) {
+  const nextTemplates = { ...savedTemplates };
+  const deleted = nextTemplates[id];
+
+  delete nextTemplates[id];
+
+  return { nextTemplates, deleted };
 }

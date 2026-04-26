@@ -118,9 +118,6 @@ import {
   sessionFileCount,
   splitRedditUrls,
   toMultiTimerState,
-  toRuntimeWorkspaceWithLocalRuntime,
-  uniqueWorkspaceName,
-  workspaceFromTemplate,
 } from "./workbench/helpers";
 import {
   applyLocalRuntimeItemsToSession,
@@ -168,8 +165,12 @@ import {
   writeWorkspaceTemplateStore,
 } from "./workbench/workspace-state";
 import {
+  deleteSavedTemplateRecord,
+  deleteSavedWorkspaceRecord,
   prepareCloseWorkspaceTab,
   prepareCreateWorkspaceTab,
+  prepareOpenSavedTemplates,
+  prepareOpenSavedWorkspaces,
   prepareSelectWorkspaceTab,
   prepareWorkspaceRename,
   prepareWorkspaceSnapshotApply,
@@ -1604,83 +1605,62 @@ export function FeedWorkbench({
   }
 
   function openSavedWorkspaces(ids: string[]) {
-    const snapshots = ids
-      .map((id) => savedWorkspaces[id])
-      .filter((workspace): workspace is SerializedWorkspace =>
-        Boolean(workspace),
-      );
-    if (!snapshots.length) return;
-
     const current = currentWorkspaceState();
-    const currentAwareStates = { ...workspaceStates, [current.id]: current };
-    const nextTabs = [...workspaceTabs];
-    const nextStates = { ...currentAwareStates };
+    const nextState = prepareOpenSavedWorkspaces({
+      ids,
+      current,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+    });
 
-    for (const snapshot of snapshots) {
-      nextStates[snapshot.id] = toRuntimeWorkspaceWithLocalRuntime(
-        snapshot,
-        currentAwareStates[snapshot.id],
-      );
-      if (!nextTabs.some((tab) => tab.id === snapshot.id)) {
-        nextTabs.push({ id: snapshot.id, name: snapshot.name });
-      }
-    }
+    if (!nextState) return;
 
-    const activeId = snapshots[0].id;
-    const activeSnapshot = nextStates[activeId];
-
-    setWorkspaceTabs(nextTabs);
-    setWorkspaceStates(nextStates);
-    setActiveWorkspaceId(activeId);
-    applyWorkspaceSnapshot(activeSnapshot);
-    writeWorkspaceStore(savedWorkspaces, activeId);
-    writeWorkspaceSessionStore(nextTabs, activeId, savedWorkspaces);
+    setWorkspaceTabs(nextState.nextTabs);
+    setWorkspaceStates(nextState.nextStates);
+    setActiveWorkspaceId(nextState.activeWorkspaceId);
+    applyWorkspaceSnapshot(nextState.activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
+    writeWorkspaceSessionStore(
+      nextState.nextTabs,
+      nextState.activeWorkspaceId,
+      savedWorkspaces,
+    );
     setIsLayoutsOpen(false);
   }
 
   function openSavedTemplates(ids: string[]) {
-    const templates = ids
-      .map((id) => savedTemplates[id])
-      .filter((template): template is SerializedWorkspaceTemplate =>
-        Boolean(template),
-      );
-    if (!templates.length) return;
-
     const current = currentWorkspaceState();
-    const currentAwareStates = { ...workspaceStates, [current.id]: current };
-    const nextTabs = [...workspaceTabs];
-    const nextStates = { ...currentAwareStates };
-    let activeId = activeWorkspaceId;
+    const nextState = prepareOpenSavedTemplates({
+      ids,
+      current,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+      savedTemplates,
+      createId,
+    });
 
-    for (const template of templates) {
-      const nextId = createId();
-      const name = uniqueWorkspaceName(
-        template.name,
-        nextTabs,
-        savedWorkspaces,
-      );
-      const workspace = workspaceFromTemplate(template, nextId, name);
+    if (!nextState) return;
 
-      nextTabs.push({ id: nextId, name });
-      nextStates[nextId] = workspace;
-      activeId = nextId;
-    }
-
-    const activeSnapshot = nextStates[activeId];
-
-    setWorkspaceTabs(nextTabs);
-    setWorkspaceStates(nextStates);
-    setActiveWorkspaceId(activeId);
-    applyWorkspaceSnapshot(activeSnapshot);
-    writeWorkspaceStore(savedWorkspaces, activeId);
-    writeWorkspaceSessionStore(nextTabs, activeId, savedWorkspaces);
+    setWorkspaceTabs(nextState.nextTabs);
+    setWorkspaceStates(nextState.nextStates);
+    setActiveWorkspaceId(nextState.activeWorkspaceId);
+    applyWorkspaceSnapshot(nextState.activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
+    writeWorkspaceSessionStore(
+      nextState.nextTabs,
+      nextState.activeWorkspaceId,
+      savedWorkspaces,
+    );
     setIsLayoutsOpen(false);
   }
 
   function deleteSavedWorkspace(id: string) {
-    const nextSaved = { ...savedWorkspaces };
-    const deleted = nextSaved[id];
-    delete nextSaved[id];
+    const { nextSaved, deleted } = deleteSavedWorkspaceRecord({
+      id,
+      savedWorkspaces,
+    });
 
     writeWorkspaceStore(nextSaved, activeWorkspaceId);
     setSavedWorkspaces(nextSaved);
@@ -1689,9 +1669,10 @@ export function FeedWorkbench({
   }
 
   function deleteSavedTemplate(id: string) {
-    const nextTemplates = { ...savedTemplates };
-    const deleted = nextTemplates[id];
-    delete nextTemplates[id];
+    const { nextTemplates, deleted } = deleteSavedTemplateRecord({
+      id,
+      savedTemplates,
+    });
 
     writeWorkspaceTemplateStore(nextTemplates);
     setSavedTemplates(nextTemplates);
