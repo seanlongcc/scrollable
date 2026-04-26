@@ -96,6 +96,17 @@ Prefer these boundaries when implementation starts:
 
 Keep data fetching, normalization, persistence, and UI rendering separate enough that each can be tested independently.
 
+## Mobile-First Development
+
+Build mobile first. Treat the Pixel 7 Playwright project and narrow browser viewport as primary, then enhance for desktop.
+
+- Start UI/layout work from the smallest supported viewport and touch workflow, not from desktop.
+- Prefer single-column, thumb-reachable controls and compact progressive disclosure before adding desktop grids or wide toolbars.
+- Use responsive constraints that prevent overflow, clipped dialogs, hidden controls, and text collisions on mobile.
+- Keep desktop behavior as an enhancement of the mobile workflow, not a separate implementation.
+- When UI, layout, interaction, dialogs, overlays, drag/drop, or fullscreen behavior changes, verify mobile and desktop before completion.
+- If mobile verification cannot run, report the exact blocker and do not claim mobile behavior passed.
+
 ## Brooks-Lint Development Guardrails
 
 Use these rules to prevent the kind of large-file refactors already needed in the workbench. They are based on Brooks-Lint decay risks: cognitive overload, change propagation, knowledge duplication, accidental complexity, dependency disorder, and domain model distortion.
@@ -141,7 +152,7 @@ During implementation:
 1. Prefer existing repo patterns over new abstractions.
 2. Use TypeScript types for persisted config and runtime media items.
 3. Use structured API clients/parsers rather than ad hoc string parsing.
-4. Keep mobile behavior first-class, not a final pass.
+4. Build mobile-first. Do not treat mobile as a final pass after desktop works.
 5. Use `docs/agent/tools.md` and `docs/agent/skills.md` for task-specific tool/skill choices.
 6. Use `docs/agent/testing.md` for detailed test decisions and verification expectations.
 
