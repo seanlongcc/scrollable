@@ -168,11 +168,11 @@ import {
   persistTemplateSnapshot,
   persistWorkspaceSnapshot,
   restoreWorkspaceBootstrap,
-  workspaceSnapshotToState,
   writeWorkspaceSessionStore,
   writeWorkspaceStore,
   writeWorkspaceTemplateStore,
 } from "./workbench/workspace-state";
+import { prepareWorkspaceSnapshotApply } from "./workbench/workspace-actions";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -1735,7 +1735,7 @@ export function FeedWorkbench({
   function applyWorkspaceSnapshot(
     snapshot: SerializedWorkspace | RuntimeWorkspace,
   ) {
-    const nextState = workspaceSnapshotToState(snapshot);
+    const nextState = prepareWorkspaceSnapshotApply(snapshot);
 
     setLayers(nextState.layers);
     setActiveLayerId(nextState.activeLayerId);
@@ -1744,11 +1744,11 @@ export function FeedWorkbench({
     setGlobalSeconds(nextState.globalSeconds);
     setTemplateSlots(nextState.templateSlots);
     setSessions(nextState.sessions);
-    setGalleryIndexes({});
+    setGalleryIndexes(nextState.galleryIndexes);
     setSelectedId(nextState.selectedId);
-    setMaximizedId(null);
-    setPendingTemplateSlotId(null);
-    void hydrateRuntimeItems(nextState.sessions);
+    setMaximizedId(nextState.maximizedId);
+    setPendingTemplateSlotId(nextState.pendingTemplateSlotId);
+    void hydrateRuntimeItems(nextState.hydrateSessions);
   }
 
   async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
