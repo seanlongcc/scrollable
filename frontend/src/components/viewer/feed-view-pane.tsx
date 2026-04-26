@@ -33,7 +33,7 @@ import {
 } from "@/lib/viewer/timer";
 import { MediaRenderer } from "./media-renderer";
 
-const PREFETCH_NEXT_ITEM_COUNT = 3;
+const PREFETCH_NEXT_ITEM_COUNT = 6;
 
 export function FeedViewPane({
   viewId,
@@ -123,6 +123,9 @@ export function FeedViewPane({
       const image = new Image();
       image.decoding = "async";
       image.src = url;
+      if (typeof image.decode === "function") {
+        void image.decode().catch(() => undefined);
+      }
       prefetchedImageUrls.add(url);
     }
   }, [activeGalleryIndex, items, timer.activeIndex]);

@@ -76,6 +76,16 @@ export function isIframeUrlSession(session: FeedSession) {
   );
 }
 
+export function shouldPreserveInactiveUrlIframe(session: FeedSession) {
+  return (
+    session.sourceConfig.kind === "url" &&
+    session.urlResolution?.status === "resolved" &&
+    session.urlResolution.mode === "provider" &&
+    session.urlResolution.provider === "youtube" &&
+    Boolean(session.urlResolution.iframeUrl)
+  );
+}
+
 export function urlResolutionIframeUrl(resolution: UrlRuntimeResolution) {
   if (resolution.status !== "resolved") return null;
   if (resolution.mode === "iframe" || resolution.mode === "provider") {

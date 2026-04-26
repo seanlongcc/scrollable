@@ -37,6 +37,38 @@ export function MediaRenderer({
 
   useEffect(() => {
     const video = videoRef.current;
+    if (
+      !video ||
+      media.type !== "video" ||
+      !onVideoTimeChange ||
+      !shouldLoadPlayback ||
+      hasLoadError
+    ) {
+      return;
+    }
+    const videoElement = video;
+    const handleTimeChange = onVideoTimeChange;
+
+    function reportPosition() {
+      if (Number.isFinite(videoElement.currentTime)) {
+        handleTimeChange(videoElement.currentTime);
+      }
+    }
+
+    videoElement.addEventListener("timeupdate", reportPosition);
+    videoElement.addEventListener("pause", reportPosition);
+    videoElement.addEventListener("seeked", reportPosition);
+
+    return () => {
+      reportPosition();
+      videoElement.removeEventListener("timeupdate", reportPosition);
+      videoElement.removeEventListener("pause", reportPosition);
+      videoElement.removeEventListener("seeked", reportPosition);
+    };
+  }, [hasLoadError, media, onVideoTimeChange, shouldLoadPlayback]);
+
+  useEffect(() => {
+    const video = videoRef.current;
     if (!video || media.type !== "video" || hasLoadError) return;
 
     if (!shouldLoadPlayback) {
@@ -123,38 +155,6 @@ export function MediaRenderer({
       videoElement.removeEventListener("canplay", restorePosition);
     };
   }, [hasLoadError, initialVideoTime, media, shouldLoadPlayback]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (
-      !video ||
-      media.type !== "video" ||
-      !onVideoTimeChange ||
-      !shouldLoadPlayback ||
-      hasLoadError
-    ) {
-      return;
-    }
-    const videoElement = video;
-    const handleTimeChange = onVideoTimeChange;
-
-    function reportPosition() {
-      if (Number.isFinite(videoElement.currentTime)) {
-        handleTimeChange(videoElement.currentTime);
-      }
-    }
-
-    videoElement.addEventListener("timeupdate", reportPosition);
-    videoElement.addEventListener("pause", reportPosition);
-    videoElement.addEventListener("seeked", reportPosition);
-
-    return () => {
-      reportPosition();
-      videoElement.removeEventListener("timeupdate", reportPosition);
-      videoElement.removeEventListener("pause", reportPosition);
-      videoElement.removeEventListener("seeked", reportPosition);
-    };
-  }, [hasLoadError, media, onVideoTimeChange, shouldLoadPlayback]);
 
   function handleMediaError() {
     setFailedMediaKey(mediaKey);

@@ -411,6 +411,41 @@ describe("FeedWorkbench URL sources", () => {
     expect(saved).not.toContain("youtube.com/embed");
   });
 
+  it("keeps YouTube provider iframes mounted while another layer is active", async () => {
+    stubUrlResolveFetch({
+      resolution: {
+        status: "resolved",
+        mode: "provider",
+        hint: "provider:youtube",
+        provider: "youtube",
+        title: "YouTube video",
+        externalUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        iframeUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      },
+      nextResolverHint: "provider:youtube",
+    });
+    stubRandomUuids(["workspace-1", "session-1", "layer-2"]);
+
+    const user = userEvent.setup();
+    const { container } = render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.clear(screen.getByLabelText("URL"));
+    await user.type(
+      screen.getByLabelText("URL"),
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    expect(await screen.findByTitle("YouTube video")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add layer" }));
+    await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
+
+    expect(
+      container.querySelector("iframe[title='YouTube video']"),
+    ).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ");
+  });
+
   it("caps active mobile iframe fallback panes", async () => {
     vi.stubGlobal("innerWidth", 390);
     stubUrlResolveFetch((url) => ({

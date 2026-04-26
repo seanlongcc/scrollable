@@ -6,7 +6,10 @@ import { Label } from "@/components/ui/label";
 import { FeedViewPane } from "@/components/viewer/feed-view-pane";
 import { type TimerMode } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
-import { hasPlayableRuntimeItems } from "./helpers";
+import {
+  hasPlayableRuntimeItems,
+  shouldPreserveInactiveUrlIframe,
+} from "./helpers";
 import { UrlSourcePane } from "./url-source-pane";
 
 export function SessionPane({
@@ -72,7 +75,10 @@ export function SessionPane({
         resolution={session.urlResolution}
         isRuntimeLoading={isRuntimeLoading}
         hideUi={hideUi}
-        canMountIframe={isPlaybackActive && canMountUrlIframe}
+        canMountIframe={
+          canMountUrlIframe &&
+          (isPlaybackActive || shouldPreserveInactiveUrlIframe(session))
+        }
         onMaximize={onMaximize}
         onEdit={onEdit}
         onRemove={onRemove}

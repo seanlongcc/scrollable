@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hlsState = vi.hoisted(() => ({
   configs: [] as unknown[],
@@ -28,6 +28,10 @@ describe("MediaRenderer", () => {
     hlsState.configs = [];
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("autoplays videos muted and inline", () => {
@@ -66,6 +70,33 @@ describe("MediaRenderer", () => {
     unmount();
 
     expect(onVideoTimeChange).toHaveBeenLastCalledWith(11);
+  });
+
+  it("reports video time before browser unload resets the element", () => {
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0",
+    );
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.currentTime = 0;
+    });
+    const onVideoTimeChange = vi.fn();
+    const { container, unmount } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+        onVideoTimeChange={onVideoTimeChange}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    if (video) {
+      video.currentTime = 42;
+    }
+    unmount();
+
+    expect(onVideoTimeChange).toHaveBeenLastCalledWith(42);
   });
 
   it("adds signed HLS params to segment requests", () => {

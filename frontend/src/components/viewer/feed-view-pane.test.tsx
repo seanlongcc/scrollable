@@ -10,13 +10,21 @@ describe("FeedViewPane", () => {
     vi.unstubAllGlobals();
   });
 
-  it("prefetches nearby image media without rendering extra images", async () => {
+  it("prefetches and decodes nearby image media without rendering extra images", async () => {
     const prefetchedUrls: string[] = [];
+    const decodedUrls: string[] = [];
 
     class MockImage {
+      currentSrc = "";
+
       set src(value: string) {
+        this.currentSrc = value;
         prefetchedUrls.push(value);
       }
+
+      decode = vi.fn(async () => {
+        decodedUrls.push(this.currentSrc);
+      });
     }
 
     vi.stubGlobal("Image", MockImage);
@@ -38,8 +46,17 @@ describe("FeedViewPane", () => {
           feedItem("second-next", [
             { type: "image", url: "https://cdn.test/second-next.jpg" },
           ]),
+          feedItem("third-next", [
+            { type: "image", url: "https://cdn.test/third-next.jpg" },
+          ]),
+          feedItem("fourth-next", [
+            { type: "image", url: "https://cdn.test/fourth-next.jpg" },
+          ]),
+          feedItem("fifth-next", [
+            { type: "image", url: "https://cdn.test/fifth-next.jpg" },
+          ]),
         ]}
-        timer={timerState({ activeIndex: 0, itemCount: 4 })}
+        timer={timerState({ activeIndex: 0, itemCount: 7 })}
         galleryIndexes={{ active: 0 }}
         onGalleryChange={vi.fn()}
         onMove={vi.fn()}
@@ -53,8 +70,12 @@ describe("FeedViewPane", () => {
         "https://cdn.test/gallery-next.jpg",
         "https://cdn.test/next.jpg",
         "https://cdn.test/second-next.jpg",
+        "https://cdn.test/third-next.jpg",
+        "https://cdn.test/fourth-next.jpg",
+        "https://cdn.test/fifth-next.jpg",
       ]),
     );
+    await waitFor(() => expect(decodedUrls).toEqual(prefetchedUrls));
     expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 });
