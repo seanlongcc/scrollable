@@ -4,7 +4,17 @@ import Hls from "hls.js";
 import { useEffect, useRef, useState } from "react";
 
 import type { RuntimeMedia } from "@/lib/feed/types";
-import { appendHlsSegmentQuery, chooseVideoPlayback } from "@/lib/viewer/video";
+import {
+  appendHlsSegmentQuery,
+  chooseVideoPlayback,
+  normalizedPlaybackSeconds,
+  shouldSeekToPlaybackTime,
+} from "@/lib/viewer/video";
+
+type VideoRestoreTarget = {
+  key: string;
+  targetSeconds: number;
+};
 
 export function MediaRenderer({
   media,
@@ -22,18 +32,47 @@ export function MediaRenderer({
   onVideoTimeChange?: (seconds: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoRestoreTargetRef = useRef<VideoRestoreTarget | null>(null);
+  const restoredVideoKeyRef = useRef<string | null>(null);
+  const lastReportedVideoSecondRef = useRef<number | null>(null);
   const [hasLoadedPlayback, setHasLoadedPlayback] = useState(false);
   const [failedMediaKey, setFailedMediaKey] = useState<string | null>(null);
   const mediaKey = `${media.type}:${media.url}`;
   const hasLoadError = failedMediaKey === mediaKey;
   const mediaHost = hostFromUrl(media.url);
   const shouldLoadPlayback = shouldPlay || hasLoadedPlayback;
+  const isVideo = media.type === "video";
+  const videoUrl = media.url;
+  const videoIsHls = isVideo ? media.isHls : undefined;
+  const videoHlsSegmentQuery = isVideo ? media.hlsSegmentQuery : undefined;
+  const videoPlaybackKey = isVideo
+    ? `${videoUrl}:${videoIsHls ? "hls" : "native"}:${videoHlsSegmentQuery ?? ""}`
+    : null;
 
   function markPlaybackLoaded() {
     if (!hasLoadedPlayback) {
       setHasLoadedPlayback(true);
     }
   }
+
+  useEffect(() => {
+    if (!videoPlaybackKey) {
+      videoRestoreTargetRef.current = null;
+      restoredVideoKeyRef.current = null;
+      lastReportedVideoSecondRef.current = null;
+      return;
+    }
+
+    videoRestoreTargetRef.current = {
+      key: videoPlaybackKey,
+      targetSeconds: normalizedPlaybackSeconds(initialVideoTime),
+    };
+    restoredVideoKeyRef.current = null;
+    lastReportedVideoSecondRef.current = null;
+    // Capture resume target only when source changes. Live parent time updates
+    // must not reset this value, or playback micro-seeks on every report.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoPlaybackKey]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -49,23 +88,39 @@ export function MediaRenderer({
     const videoElement = video;
     const handleTimeChange = onVideoTimeChange;
 
+    function reportCurrentPosition(force = false) {
+      const seconds = normalizedPlaybackSeconds(videoElement.currentTime);
+      if (!force && lastReportedVideoSecondRef.current === seconds) return;
+
+      lastReportedVideoSecondRef.current = seconds;
+      handleTimeChange(seconds);
+    }
+
     function reportPosition() {
-      if (Number.isFinite(videoElement.currentTime)) {
-        handleTimeChange(videoElement.currentTime);
-      }
+      reportCurrentPosition();
+    }
+
+    function forceReportPosition() {
+      reportCurrentPosition(true);
     }
 
     videoElement.addEventListener("timeupdate", reportPosition);
-    videoElement.addEventListener("pause", reportPosition);
-    videoElement.addEventListener("seeked", reportPosition);
+    videoElement.addEventListener("pause", forceReportPosition);
+    videoElement.addEventListener("seeked", forceReportPosition);
 
     return () => {
-      reportPosition();
+      forceReportPosition();
       videoElement.removeEventListener("timeupdate", reportPosition);
-      videoElement.removeEventListener("pause", reportPosition);
-      videoElement.removeEventListener("seeked", reportPosition);
+      videoElement.removeEventListener("pause", forceReportPosition);
+      videoElement.removeEventListener("seeked", forceReportPosition);
     };
-  }, [hasLoadError, media, onVideoTimeChange, shouldLoadPlayback]);
+  }, [
+    hasLoadError,
+    media.type,
+    onVideoTimeChange,
+    shouldLoadPlayback,
+    videoPlaybackKey,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -78,10 +133,10 @@ export function MediaRenderer({
 
     const nativeHls = video.canPlayType("application/vnd.apple.mpegurl") !== "";
     const playback = chooseVideoPlayback({
-      url: media.url,
-      isHls: media.isHls,
+      url: videoUrl,
+      isHls: videoIsHls,
       canPlayNativeHls: nativeHls,
-      hlsSegmentQuery: media.hlsSegmentQuery,
+      hlsSegmentQuery: videoHlsSegmentQuery,
     });
 
     if (playback.mode === "native") {
@@ -100,15 +155,15 @@ export function MediaRenderer({
       backBufferLength: 30,
       capLevelToPlayerSize: true,
       startFragPrefetch: true,
-      ...(media.hlsSegmentQuery
+      ...(videoHlsSegmentQuery
         ? {
             xhrSetup(xhr, url) {
-              const nextUrl = appendHlsSegmentQuery(url, media.hlsSegmentQuery);
+              const nextUrl = appendHlsSegmentQuery(url, videoHlsSegmentQuery);
               if (nextUrl !== url) xhr.open("GET", nextUrl, true);
             },
             fetchSetup(context, initParams) {
               return new Request(
-                appendHlsSegmentQuery(context.url, media.hlsSegmentQuery),
+                appendHlsSegmentQuery(context.url, videoHlsSegmentQuery),
                 initParams,
               );
             },
@@ -122,7 +177,15 @@ export function MediaRenderer({
       hls.destroy();
       unloadVideo(video);
     };
-  }, [hasLoadError, media, shouldLoadPlayback]);
+  }, [
+    hasLoadError,
+    media.type,
+    shouldLoadPlayback,
+    videoHlsSegmentQuery,
+    videoIsHls,
+    videoPlaybackKey,
+    videoUrl,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -135,12 +198,35 @@ export function MediaRenderer({
       return;
     }
     const videoElement = video;
+    const restoreTarget = videoPlaybackKey
+      ? videoRestoreTargetRef.current
+      : null;
+    if (!restoreTarget || restoreTarget.key !== videoPlaybackKey) return;
+    const restoreKey = restoreTarget.key;
+    const targetSeconds = restoreTarget.targetSeconds;
 
     function restorePosition() {
-      if (!Number.isFinite(initialVideoTime) || initialVideoTime <= 0) return;
+      if (restoredVideoKeyRef.current === restoreKey) return;
+      if (targetSeconds <= 0) {
+        restoredVideoKeyRef.current = restoreKey;
+        lastReportedVideoSecondRef.current = 0;
+        return;
+      }
+      if (
+        !shouldSeekToPlaybackTime({
+          currentSeconds: videoElement.currentTime,
+          targetSeconds,
+        })
+      ) {
+        restoredVideoKeyRef.current = restoreKey;
+        lastReportedVideoSecondRef.current = targetSeconds;
+        return;
+      }
 
       try {
-        videoElement.currentTime = initialVideoTime;
+        videoElement.currentTime = targetSeconds;
+        restoredVideoKeyRef.current = restoreKey;
+        lastReportedVideoSecondRef.current = targetSeconds;
       } catch {
         // Some streamed videos reject seeking before enough metadata is ready.
       }
@@ -154,7 +240,7 @@ export function MediaRenderer({
       videoElement.removeEventListener("loadedmetadata", restorePosition);
       videoElement.removeEventListener("canplay", restorePosition);
     };
-  }, [hasLoadError, initialVideoTime, media, shouldLoadPlayback]);
+  }, [hasLoadError, media.type, shouldLoadPlayback, videoPlaybackKey]);
 
   function handleMediaError() {
     setFailedMediaKey(mediaKey);

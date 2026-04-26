@@ -72,6 +72,61 @@ describe("MediaRenderer", () => {
     expect(onVideoTimeChange).toHaveBeenLastCalledWith(11);
   });
 
+  it("does not seek again when live playback time updates parent state", () => {
+    const media = { type: "video" as const, url: "https://cdn.test/video.mp4" };
+    const { container, rerender } = render(
+      <MediaRenderer
+        media={media}
+        title="Runtime video"
+        initialVideoTime={7}
+        onVideoTimeChange={vi.fn()}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video?.currentTime).toBe(7);
+
+    if (video) {
+      video.currentTime = 7.25;
+    }
+
+    rerender(
+      <MediaRenderer
+        media={media}
+        title="Runtime video"
+        initialVideoTime={11}
+        onVideoTimeChange={vi.fn()}
+      />,
+    );
+
+    expect(video?.currentTime).toBe(7.25);
+  });
+
+  it("reports video time at whole-second boundaries during playback", () => {
+    const onVideoTimeChange = vi.fn();
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+        onVideoTimeChange={onVideoTimeChange}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).toBeInTheDocument();
+
+    video!.currentTime = 3.1;
+    fireEvent.timeUpdate(video!);
+    video!.currentTime = 3.8;
+    fireEvent.timeUpdate(video!);
+    video!.currentTime = 4;
+    fireEvent.timeUpdate(video!);
+
+    expect(onVideoTimeChange).toHaveBeenCalledTimes(2);
+    expect(onVideoTimeChange).toHaveBeenNthCalledWith(1, 3);
+    expect(onVideoTimeChange).toHaveBeenNthCalledWith(2, 4);
+  });
+
   it("reports video time before browser unload resets the element", () => {
     vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
       "Mozilla/5.0",
