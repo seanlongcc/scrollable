@@ -127,7 +127,8 @@ Before adding behavior:
 7. If a helper needs more than 4 parameters, prefer a typed input object with domain names.
 8. If one change touches more than 3 unrelated modules, stop and write/update the implementation plan so the boundaries are explicit.
 9. Avoid speculative abstractions. Extract around current repeated decisions or current complexity, not imagined future providers.
-10. Before completion, state whether any large file grew, why, and what remains to extract.
+10. Treat large test files like large production files: if a test file is over 800 lines, add new scenarios to a focused sibling test file or colocated helper test unless the scenario is truly broad integration coverage.
+11. Before completion, state whether any large file grew, why, and what remains to extract.
 
 Workbench ownership rules:
 
@@ -167,6 +168,14 @@ Use tests intentionally. Do not add tests just to satisfy a process rule.
 - New automated tests are usually not required for purely presentational or documentation-only changes.
 - UI-only changes still need typecheck/lint/format checks where relevant, plus browser/mobile viewport verification when layout, responsiveness, or interaction changed.
 - See `docs/agent/testing.md` for detailed rules, completion wording, and high-value test areas.
+
+Test ownership rules:
+
+- Use the narrowest test owner that proves the behavior. Pure helper tests belong next to helper modules as `*.test.ts` or `*.test.tsx`.
+- Do not add new tests to `frontend/src/components/viewer/feed-workbench.test.tsx` by default. If a test file is over 800 lines, choose or create a focused sibling test file unless broad integration coverage is required.
+- Split workbench integration tests by workflow, for example `feed-workbench-workspaces.test.tsx`, `feed-workbench-layers.test.tsx`, `feed-workbench-local-files.test.tsx`, and `feed-workbench-interactions.test.tsx`.
+- Keep shared render/setup helpers in one test utility module. Do not copy setup helpers across split test files.
+- Before adding to a large integration test file, state why a narrower helper test or focused workflow test would not catch the regression.
 
 ## Git And Completion Workflow
 

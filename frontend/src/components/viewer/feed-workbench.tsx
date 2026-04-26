@@ -1,29 +1,6 @@
 "use client";
 
-import {
-  Copy,
-  Eye,
-  EyeOff,
-  FolderOpen,
-  Globe,
-  Grid2X2,
-  Info,
-  Layers,
-  LayoutGrid,
-  MoveHorizontal,
-  MoveVertical,
-  Pause,
-  Play,
-  Plus,
-  RotateCcw,
-  Save,
-  SkipForward,
-  Trash2,
-  UnfoldHorizontal,
-  UnfoldVertical,
-  UserCircle,
-  X,
-} from "lucide-react";
+import { Eye } from "lucide-react";
 import {
   ChangeEvent,
   DragEvent as ReactDragEvent,
@@ -36,9 +13,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 
-import { SiteLogo } from "@/components/site-logo";
 import { Button } from "@/components/ui/button";
-import { NumberField } from "./workbench/fields";
 import {
   AccountDialog,
   ClearLayoutDialog,
@@ -63,7 +38,6 @@ import {
   FREE_LAYOUT_SIZE,
   type FixedGrid,
   type FreeRect,
-  countAvailableFreeUnitRects,
   createFixedGrid,
 } from "@/lib/viewer/layout";
 import { MAX_WORKSPACE_LAYERS } from "@/lib/viewer/workspaces";
@@ -100,7 +74,6 @@ import {
   createId,
   hasDuplicateLayoutName,
   limitLayoutName,
-  sessionFileCount,
 } from "./workbench/helpers";
 import {
   applyLocalRuntimeItemsToSession,
@@ -137,7 +110,6 @@ import {
   sourceAddPanelPlacement,
 } from "./workbench/source-add-state";
 import {
-  occupiedFreeRectsForLayer,
   restoreTemplateSlotForRemovedSession,
   updateSessionFreeRectState,
   updateTemplateSlotFreeRectState,
@@ -146,7 +118,19 @@ import {
   resolveFreeDragCommitTarget,
   updateFreeDragCurrentRect,
 } from "./workbench/free-drag-state";
-import { deleteActiveLayerState } from "./workbench/layer-state";
+import {
+  prepareAddLayerState,
+  prepareDeleteActiveLayerState,
+  prepareSelectLayerState,
+} from "./workbench/layer-actions";
+import {
+  activeLayerFreeRects as deriveActiveLayerFreeRects,
+  availableSeparateSourceSlots as deriveAvailableSeparateSourceSlots,
+  deriveLayerStats,
+  hiddenFixedSessions as deriveHiddenFixedSessions,
+  selectedActiveLayerSession,
+  visibleFixedEmptySlots,
+} from "./workbench/selection-state";
 import {
   placeSessions,
   type SessionPlacementSourceInput,
@@ -192,6 +176,9 @@ import {
   keyboardTimerMoveDirection,
   moveActiveKeyboardSessionTimer,
 } from "./workbench/workbench-effect-state";
+import { WorkbenchHeader } from "./workbench/workbench-header";
+import { LayerToolbar } from "./workbench/layer-toolbar";
+import { SelectedFreeLayoutControls } from "./workbench/selected-free-layout-controls";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -285,23 +272,24 @@ export function FeedWorkbench({
     workspaceTabs.find((tab) => tab.id === activeWorkspaceId)?.name ??
     "Layout 1";
   const visibleFixedCells = fixedGrid.columns * fixedGrid.rows;
-  const activeLayerSessions = useMemo(
-    () => sessions.filter((session) => session.layerId === activeLayerId),
-    [activeLayerId, sessions],
-  );
   const activeLayerFreeRects = useMemo(
     () =>
-      occupiedFreeRectsForLayer({
+      deriveActiveLayerFreeRects({
         sessions,
         templateSlots,
-        layerId: activeLayerId,
+        activeLayerId,
       }),
     [activeLayerId, sessions, templateSlots],
   );
   const layoutModeLocked = sessions.length > 0 || templateSlots.length > 0;
   const selected = useMemo(
-    () => activeLayerSessions.find((session) => session.id === selectedId),
-    [activeLayerSessions, selectedId],
+    () =>
+      selectedActiveLayerSession({
+        sessions,
+        activeLayerId,
+        selectedId,
+      }),
+    [activeLayerId, selectedId, sessions],
   );
   const maximized = useMemo(
     () => sessions.find((session) => session.id === maximizedId),
@@ -313,28 +301,31 @@ export function FeedWorkbench({
   );
   const hiddenFixedSessions = useMemo(
     () =>
-      layoutMode === "fixed"
-        ? activeLayerSessions.filter(
-            (session) => session.fixedSlot >= visibleFixedCells,
-          )
-        : [],
-    [activeLayerSessions, layoutMode, visibleFixedCells],
+      deriveHiddenFixedSessions({
+        sessions,
+        activeLayerId,
+        layoutMode,
+        visibleFixedCells,
+      }),
+    [activeLayerId, layoutMode, sessions, visibleFixedCells],
   );
-  const visibleEmptySlots = useMemo(() => {
-    const occupied = new Set(
-      activeLayerSessions.map((session) => session.fixedSlot),
-    );
-    return Array.from(
-      { length: visibleFixedCells },
-      (_, index) => index,
-    ).filter((slot) => !occupied.has(slot));
-  }, [activeLayerSessions, visibleFixedCells]);
+  const visibleEmptySlots = useMemo(
+    () =>
+      visibleFixedEmptySlots({
+        sessions,
+        activeLayerId,
+        visibleFixedCells,
+      }),
+    [activeLayerId, sessions, visibleFixedCells],
+  );
   const availableSeparateSourceSlots = useMemo(
     () =>
-      layoutMode === "fixed"
-        ? visibleEmptySlots.length
-        : countAvailableFreeUnitRects(activeLayerFreeRects) +
-          (pendingTemplateSlotId ? 1 : 0),
+      deriveAvailableSeparateSourceSlots({
+        layoutMode,
+        visibleEmptySlots,
+        activeLayerFreeRects,
+        pendingTemplateSlotId,
+      }),
     [
       activeLayerFreeRects,
       layoutMode,
@@ -344,19 +335,9 @@ export function FeedWorkbench({
   );
   const layerStats = useMemo(
     () =>
-      layers.map((layer) => {
-        const layerSessions = sessions.filter(
-          (session) => session.layerId === layer.id,
-        );
-
-        return {
-          ...layer,
-          sourceCount: layerSessions.length,
-          fileCount: layerSessions.reduce(
-            (count, session) => count + sessionFileCount(session),
-            0,
-          ),
-        };
+      deriveLayerStats({
+        layers,
+        sessions,
       }),
     [layers, sessions],
   );
@@ -1100,30 +1081,31 @@ export function FeedWorkbench({
   }
 
   function addLayer() {
-    if (layers.length >= MAX_WORKSPACE_LAYERS) return;
+    const nextState = prepareAddLayerState({ layers, createId });
+    if (!nextState) return;
 
-    const id = createId();
-    const name = `Layer ${layers.length + 1}`;
-    setLayers((current) => [...current, { id, name }]);
-    setActiveLayerId(id);
-    setSelectedId(null);
-    setMaximizedId(null);
-    setPendingFixedSlot(null);
-    setPendingTemplateSlotId(null);
+    setLayers(nextState.layers);
+    setActiveLayerId(nextState.activeLayerId);
+    setSelectedId(nextState.selectedId);
+    setMaximizedId(nextState.maximizedId);
+    setPendingFixedSlot(nextState.pendingFixedSlot);
+    setPendingTemplateSlotId(nextState.pendingTemplateSlotId);
   }
 
   function selectLayer(id: string) {
-    setActiveLayerId(id);
-    setSelectedId(null);
-    setMaximizedId(null);
-    setPendingFixedSlot(null);
-    setPendingTemplateSlotId(null);
+    const nextState = prepareSelectLayerState(id);
+
+    setActiveLayerId(nextState.activeLayerId);
+    setSelectedId(nextState.selectedId);
+    setMaximizedId(nextState.maximizedId);
+    setPendingFixedSlot(nextState.pendingFixedSlot);
+    setPendingTemplateSlotId(nextState.pendingTemplateSlotId);
   }
 
   function deleteActiveLayer() {
     if (layers.length <= 1) return;
 
-    const nextState = deleteActiveLayerState({
+    const nextState = prepareDeleteActiveLayerState({
       layers,
       activeLayerId,
       sessions,
@@ -1139,9 +1121,9 @@ export function FeedWorkbench({
     setVideoPositions(nextState.nextVideoPositions);
     setActiveLayerId(nextState.nextActiveLayerId);
     setSelectedId(nextState.nextSelectedId);
-    setMaximizedId(null);
-    setPendingFixedSlot(null);
-    setPendingTemplateSlotId(null);
+    setMaximizedId(nextState.nextMaximizedId);
+    setPendingFixedSlot(nextState.nextPendingFixedSlot);
+    setPendingTemplateSlotId(nextState.nextPendingTemplateSlotId);
   }
 
   function clearCurrentLayout() {
@@ -1586,246 +1568,49 @@ export function FeedWorkbench({
           Show UI
         </Button>
       ) : (
-        <header className="border-b border-border bg-surface/95 px-3 pt-2 pb-0 shadow-[0_1px_0_rgba(255,255,255,0.025)] backdrop-blur md:px-4">
-          <div className="grid gap-2 min-[1360px]:grid-cols-[minmax(21rem,1fr)_auto_minmax(12rem,1fr)] min-[1360px]:items-center">
-            <div className="flex min-w-0 items-center justify-center min-[1360px]:justify-start">
-              <SiteLogo />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button
-                type="button"
-                size="icon"
-                variant={layoutMode === "fixed" ? "default" : "outline"}
-                onClick={() => changeLayoutMode("fixed")}
-                aria-label="Fixed layout mode"
-                disabled={layoutModeLocked}
-              >
-                <Grid2X2 />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant={layoutMode === "free" ? "default" : "outline"}
-                onClick={() => changeLayoutMode("free")}
-                aria-label="Free layout mode"
-                disabled={layoutModeLocked}
-              >
-                <LayoutGrid />
-              </Button>
-
-              <NumberField
-                label="Fixed columns"
-                icon={<UnfoldHorizontal className="size-3.5" />}
-                value={fixedGrid.columns}
-                min={1}
-                max={16}
-                onChange={(value) => updateFixedGrid({ columns: value })}
-              />
-              <NumberField
-                label="Fixed rows"
-                icon={<UnfoldVertical className="size-3.5" />}
-                value={fixedGrid.rows}
-                min={1}
-                max={16}
-                onChange={(value) => updateFixedGrid({ rows: value })}
-              />
-
-              <div className="flex h-8 items-center gap-1 rounded-lg border border-border/70 bg-surface-elevated/70 px-1">
-                <Globe className="size-3.5 text-primary" />
-                <input
-                  type="number"
-                  value={globalSeconds}
-                  min={1}
-                  max={120}
-                  onChange={(event) =>
-                    setGlobalTimerSeconds(Number(event.target.value))
-                  }
-                  aria-label="Global timer seconds"
-                  className="h-6 w-11 rounded-md border border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground outline-none focus-visible:border-primary"
-                />
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => runGlobalAction("pause")}
-                  aria-label="Global pause"
-                >
-                  {sessions.some((session) => !session.timer.isPaused) ? (
-                    <Pause />
-                  ) : (
-                    <Play />
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => runGlobalAction("next")}
-                  aria-label="Global next"
-                >
-                  <SkipForward />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => runGlobalAction("restart")}
-                  aria-label="Global restart"
-                >
-                  <RotateCcw />
-                </Button>
-              </div>
-
-              {selected && visibleEmptySlots.length ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={fillVisibleCells}
-                  aria-label="Duplicate selected source into empty cells"
-                >
-                  <Copy />
-                  Duplicate
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                size="icon"
-                variant={showAllInfo ? "default" : "outline"}
-                aria-label={
-                  showAllInfo ? "Hide source info" : "Show source info"
-                }
-                onClick={() => setShowAllInfo((current) => !current)}
-              >
-                <Info />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                onClick={() => {
-                  setIsUiRevealVisible(true);
-                  setIsUiHidden(true);
-                }}
-                aria-label="Hide UI"
-              >
-                <EyeOff />
-              </Button>
-              <Button
-                type="button"
-                aria-label="Add source"
-                onClick={() => openSourcePanel()}
-              >
-                <Plus />
-                Add source
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-2 min-[1360px]:justify-end">
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                aria-label="Open layouts"
-                onClick={() => setIsLayoutsOpen(true)}
-              >
-                <FolderOpen />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                onClick={openSaveDialog}
-                aria-label="Save layout"
-              >
-                <Save />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                onClick={() => setIsClearOpen(true)}
-                aria-label="Clear layout"
-                disabled={isClearDisabled}
-              >
-                <Trash2 />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                aria-label={accountButtonLabel}
-                title={accountButtonTitle}
-                onClick={() => setIsAccountOpen(true)}
-              >
-                <UserCircle />
-              </Button>
-            </div>
-          </div>
-
-          <div className="-mb-px mt-4 flex items-center gap-1 overflow-x-auto overflow-y-hidden pb-0">
-            {workspaceTabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={cn(
-                  "flex h-7 min-w-28 overflow-hidden rounded-t-lg border border-border/70 text-muted-foreground transition",
-                  tab.id === activeWorkspaceId
-                    ? "border-primary/50 bg-surface-elevated text-primary"
-                    : "bg-surface-elevated/50 hover:bg-surface-elevated",
-                )}
-              >
-                {editingWorkspaceId === tab.id ? (
-                  <input
-                    aria-label={`Rename ${tab.name}`}
-                    value={editingWorkspaceName}
-                    autoFocus
-                    onChange={(event) =>
-                      setEditingWorkspaceName(
-                        limitLayoutName(event.target.value),
-                      )
-                    }
-                    maxLength={MAX_LAYOUT_NAME_LENGTH}
-                    onBlur={commitWorkspaceRename}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") commitWorkspaceRename();
-                      if (event.key === "Escape") setEditingWorkspaceId(null);
-                    }}
-                    className="h-full min-w-0 flex-1 bg-background/70 px-2 text-left text-xs text-foreground outline-none"
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => selectWorkspace(tab.id)}
-                    onDoubleClick={() => beginWorkspaceRename(tab)}
-                    title={`Open ${tab.name}`}
-                    className="h-full min-w-0 flex-1 cursor-pointer px-3 text-left text-xs"
-                  >
-                    {tab.name}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => closeWorkspaceTab(tab.id)}
-                  aria-label={`Close ${tab.name}`}
-                  title={`Close ${tab.name}`}
-                  className="grid h-full w-7 cursor-pointer place-items-center border-l border-border/70 text-muted-foreground transition hover:bg-surface-elevated hover:text-primary-hover"
-                >
-                  <X className="size-3" />
-                </button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="outline"
-              className="mb-1 self-start rounded-md border-border/70 bg-background/80 shadow-[0_4px_14px_rgba(0,0,0,0.28)]"
-              onClick={createWorkspaceTab}
-              aria-label="New layout"
-            >
-              <Plus />
-            </Button>
-          </div>
-        </header>
+        <WorkbenchHeader
+          layoutMode={layoutMode}
+          layoutModeLocked={layoutModeLocked}
+          fixedGrid={fixedGrid}
+          globalSeconds={globalSeconds}
+          hasRunningSessionTimer={sessions.some(
+            (session) => !session.timer.isPaused,
+          )}
+          showDuplicateButton={Boolean(selected && visibleEmptySlots.length)}
+          showAllInfo={showAllInfo}
+          isClearDisabled={isClearDisabled}
+          accountButtonLabel={accountButtonLabel}
+          accountButtonTitle={accountButtonTitle}
+          workspaceTabs={workspaceTabs}
+          activeWorkspaceId={activeWorkspaceId}
+          editingWorkspaceId={editingWorkspaceId}
+          editingWorkspaceName={editingWorkspaceName}
+          maxLayoutNameLength={MAX_LAYOUT_NAME_LENGTH}
+          onLayoutModeChange={changeLayoutMode}
+          onFixedGridChange={updateFixedGrid}
+          onGlobalTimerSecondsChange={setGlobalTimerSeconds}
+          onGlobalTimerAction={runGlobalAction}
+          onDuplicateSelectedSource={fillVisibleCells}
+          onToggleShowAllInfo={() => setShowAllInfo((current) => !current)}
+          onHideUi={() => {
+            setIsUiRevealVisible(true);
+            setIsUiHidden(true);
+          }}
+          onAddSource={() => openSourcePanel()}
+          onOpenLayouts={() => setIsLayoutsOpen(true)}
+          onOpenSaveDialog={openSaveDialog}
+          onOpenClearDialog={() => setIsClearOpen(true)}
+          onOpenAccount={() => setIsAccountOpen(true)}
+          onSelectWorkspace={selectWorkspace}
+          onBeginWorkspaceRename={beginWorkspaceRename}
+          onEditingWorkspaceNameChange={(value) =>
+            setEditingWorkspaceName(limitLayoutName(value))
+          }
+          onCommitWorkspaceRename={commitWorkspaceRename}
+          onCancelWorkspaceRename={() => setEditingWorkspaceId(null)}
+          onCloseWorkspaceTab={closeWorkspaceTab}
+          onCreateWorkspaceTab={createWorkspaceTab}
+        />
       )}
 
       <SourceDialog
@@ -1964,121 +1749,24 @@ export function FeedWorkbench({
               data-testid="layout-status-row"
               className="grid min-h-8 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
             >
-              <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground md:justify-self-start">
-                <span>
-                  {sessions.length} source{sessions.length === 1 ? "" : "s"}{" "}
-                  active · {layoutMode === "fixed" ? "Fixed" : "Free"} layout
-                </span>
-                <div
-                  role="group"
-                  aria-label="Layout layers"
-                  className="flex flex-wrap items-center gap-1 rounded-lg border border-border/70 bg-surface-elevated/70 p-1"
-                >
-                  <Layers className="size-3.5 text-primary" />
-                  {layers.map((layer) => (
-                    <Button
-                      key={layer.id}
-                      type="button"
-                      size="sm"
-                      variant={layer.id === activeLayerId ? "default" : "ghost"}
-                      aria-label={`Select ${layer.name}`}
-                      aria-pressed={layer.id === activeLayerId}
-                      onClick={() => selectLayer(layer.id)}
-                    >
-                      {layer.name}
-                    </Button>
-                  ))}
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label="Add layer"
-                    onClick={addLayer}
-                    disabled={layers.length >= MAX_WORKSPACE_LAYERS}
-                  >
-                    <Plus />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label="Delete active layer"
-                    onClick={deleteActiveLayer}
-                    disabled={layers.length <= 1}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-1 text-[11px]">
-                  {layerStats.map((layer) => (
-                    <span
-                      key={layer.id}
-                      className={cn(
-                        "rounded-full border border-border/70 bg-background/60 px-2 py-0.5",
-                        layer.id === activeLayerId &&
-                          "border-primary/50 text-primary",
-                      )}
-                    >
-                      {layer.name}: {layer.sourceCount} source
-                      {layer.sourceCount === 1 ? "" : "s"} / {layer.fileCount}{" "}
-                      file{layer.fileCount === 1 ? "" : "s"}
-                    </span>
-                  ))}
-                </div>
-                {hiddenFixedSessions.length ? (
-                  <span className="rounded-full border border-primary/35 bg-surface-elevated px-2 py-0.5 text-xs text-primary">
-                    {hiddenFixedSessions.length} hidden source
-                    {hiddenFixedSessions.length === 1 ? "" : "s"}
-                  </span>
-                ) : null}
-              </div>
+              <LayerToolbar
+                sourceCount={sessions.length}
+                layoutMode={layoutMode}
+                layers={layers}
+                activeLayerId={activeLayerId}
+                layerStats={layerStats}
+                hiddenFixedSessionCount={hiddenFixedSessions.length}
+                isAddLayerDisabled={layers.length >= MAX_WORKSPACE_LAYERS}
+                isDeleteLayerDisabled={layers.length <= 1}
+                onSelectLayer={selectLayer}
+                onAddLayer={addLayer}
+                onDeleteLayer={deleteActiveLayer}
+              />
               {selected && layoutMode === "free" ? (
-                <div
-                  role="group"
-                  aria-label="Selected free layout controls"
-                  className="flex flex-wrap justify-center gap-2 justify-self-center md:col-start-2"
-                >
-                  <NumberField
-                    label="Free column"
-                    icon={<MoveVertical className="size-3.5" />}
-                    value={selected.freeRect.column}
-                    min={1}
-                    max={16}
-                    onChange={(value) =>
-                      updateFreeRect(selected.id, { column: value })
-                    }
-                  />
-                  <NumberField
-                    label="Free row"
-                    icon={<MoveHorizontal className="size-3.5" />}
-                    value={selected.freeRect.row}
-                    min={1}
-                    max={16}
-                    onChange={(value) =>
-                      updateFreeRect(selected.id, { row: value })
-                    }
-                  />
-                  <NumberField
-                    label="Column span"
-                    icon={<UnfoldHorizontal className="size-3.5" />}
-                    value={selected.freeRect.columnSpan}
-                    min={1}
-                    max={16}
-                    onChange={(value) =>
-                      updateFreeRect(selected.id, { columnSpan: value })
-                    }
-                  />
-                  <NumberField
-                    label="Row span"
-                    icon={<UnfoldVertical className="size-3.5" />}
-                    value={selected.freeRect.rowSpan}
-                    min={1}
-                    max={16}
-                    onChange={(value) =>
-                      updateFreeRect(selected.id, { rowSpan: value })
-                    }
-                  />
-                </div>
+                <SelectedFreeLayoutControls
+                  selected={selected}
+                  onFreeRectChange={updateFreeRect}
+                />
               ) : null}
             </div>
           ) : null}
