@@ -29,6 +29,7 @@ import {
   normalizeStoredLayoutNames,
   resolveWorkspaceGlobalSeconds,
   toRuntimeWorkspace,
+  withFirstLayerActive,
 } from "./helpers";
 
 export type WorkspaceBootstrapState = {
@@ -105,7 +106,7 @@ export function restoreWorkspaceBootstrap(
     ...Object.fromEntries(
       openSavedWorkspaces.map((workspace) => [
         workspace.id,
-        toRuntimeWorkspace(workspace),
+        withFirstLayerActive(toRuntimeWorkspace(workspace)),
       ]),
     ),
   };
@@ -320,10 +321,6 @@ export function workspaceSnapshotToState(
     globalSeconds: resolveWorkspaceGlobalSeconds(snapshot),
     templateSlots: "templateSlots" in snapshot ? snapshot.templateSlots : [],
     sessions,
-    selectedId:
-      snapshot.sessions.find(
-        (session) =>
-          (session.layerId ?? snapshotActiveLayerId) === snapshotActiveLayerId,
-      )?.id ?? null,
+    selectedId: null,
   };
 }

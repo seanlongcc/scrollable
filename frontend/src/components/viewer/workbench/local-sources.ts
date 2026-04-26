@@ -1,6 +1,17 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
-import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
-import { saveLocalFiles } from "@/lib/local-uploads/file-cache";
+import type {
+  LocalFileByteCacheConfirmation,
+  LocalFileCacheStorageStatus,
+  LocalFileReference,
+} from "@/lib/local-uploads/file-cache";
+import {
+  estimateLocalFileCacheStorage,
+  formatLocalFileCacheStorageStatus,
+  isLocalFileCacheCancelled,
+  isLocalFileCacheStorageFull,
+  prepareLocalFileByteCacheWrite,
+  saveLocalFiles,
+} from "@/lib/local-uploads/file-cache";
 import { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createTimerState } from "@/lib/viewer/timer";
 import type {
@@ -21,6 +32,15 @@ export type LocalSessionSource = {
   sourceConfig: PersistedSourceConfig;
 };
 
+export type LocalCacheFilesOptions = {
+  skipByteCachePreparation?: boolean;
+};
+
+export type LocalByteCacheBatchPreparation =
+  | "prepared"
+  | "skip-cache"
+  | "not-needed";
+
 export type LocalAddFilesPreparation =
   | {
       status: "slot-error";
@@ -33,6 +53,11 @@ export type LocalAddFilesPreparation =
       uploadableFiles: File[];
       items: RuntimeFeedItem[];
     };
+
+type LocalCacheFailureHandlers = {
+  onCacheRejected: () => void;
+  onStorageFull?: (status: LocalFileCacheStorageStatus) => void;
+};
 
 type WindowWithLocalFilePickers = Window & {
   showOpenFilePicker?: (options?: {
@@ -193,24 +218,92 @@ export async function cacheLocalFiles({
   fileReferences,
   canCacheLocalFiles,
   createCacheSetId,
+  confirmLargeByteCache,
+  skipByteCachePreparation = false,
+  onCacheSaved,
   onCacheRejected,
+  onStorageFull,
 }: {
   fileReferences: LocalFileReference[];
   canCacheLocalFiles: boolean;
   createCacheSetId: () => string;
+  confirmLargeByteCache?: (
+    confirmation: LocalFileByteCacheConfirmation,
+  ) => Promise<boolean> | boolean;
+  skipByteCachePreparation?: boolean;
+  onCacheSaved?: (status: LocalFileCacheStorageStatus) => void;
   onCacheRejected: () => void;
+  onStorageFull?: (status: LocalFileCacheStorageStatus) => void;
 }) {
   const files = filesFromLocalFileReferences(fileReferences);
   if (!canCacheLocalFiles || !files.length) return undefined;
 
   const cacheSetId = createCacheSetId();
   try {
-    await saveLocalFiles(cacheSetId, fileReferences);
+    await saveLocalFiles(cacheSetId, fileReferences, {
+      confirmLargeByteCache,
+      skipByteCachePreparation,
+    });
+    onCacheSaved?.(
+      formatLocalFileCacheStorageStatus(await estimateLocalFileCacheStorage()),
+    );
     return cacheSetId;
-  } catch {
-    onCacheRejected();
+  } catch (error) {
+    handleLocalCacheFailure(error, { onCacheRejected, onStorageFull });
     return undefined;
   }
+}
+
+export async function prepareLocalByteCacheBatch({
+  fileReferences,
+  canCacheLocalFiles,
+  confirmLargeByteCache,
+  onCacheRejected,
+  onStorageFull,
+}: {
+  fileReferences: LocalFileReference[];
+  canCacheLocalFiles: boolean;
+  confirmLargeByteCache?: (
+    confirmation: LocalFileByteCacheConfirmation,
+  ) => Promise<boolean> | boolean;
+  onCacheRejected: () => void;
+  onStorageFull?: (status: LocalFileCacheStorageStatus) => void;
+}): Promise<LocalByteCacheBatchPreparation> {
+  const files = filesFromLocalFileReferences(fileReferences);
+  if (!canCacheLocalFiles || !files.length) return "skip-cache";
+
+  try {
+    const prepared = await prepareLocalFileByteCacheWrite(fileReferences, {
+      confirmLargeByteCache,
+    });
+    return prepared ? "prepared" : "not-needed";
+  } catch (error) {
+    handleLocalCacheFailure(error, { onCacheRejected, onStorageFull });
+    return "skip-cache";
+  }
+}
+
+function handleLocalCacheFailure(
+  error: unknown,
+  { onCacheRejected, onStorageFull }: LocalCacheFailureHandlers,
+) {
+  if (isLocalFileCacheCancelled(error)) return;
+  if (isLocalFileCacheStorageFull(error)) {
+    onStorageFull?.(localCacheStorageFullStatus(error));
+    return;
+  }
+
+  onCacheRejected();
+}
+
+function localCacheStorageFullStatus(
+  error: unknown,
+): LocalFileCacheStorageStatus {
+  if (error instanceof Error && "storageStatus" in error) {
+    return error.storageStatus as LocalFileCacheStorageStatus;
+  }
+
+  return { label: "Local cache: storage full" };
 }
 
 export function createLocalRuntimeItems(
@@ -266,21 +359,35 @@ export async function createLocalSessionSources({
   items,
   sourceGroupingMode,
   cacheFiles,
+  prepareSeparateByteCacheBatch,
 }: {
   fileReferences: LocalFileReference[];
   items: RuntimeFeedItem[];
   sourceGroupingMode: SourceGroupingMode;
   cacheFiles: (
     fileReferences: LocalFileReference[],
+    options?: LocalCacheFilesOptions,
   ) => Promise<string | undefined>;
+  prepareSeparateByteCacheBatch?: (
+    fileReferences: LocalFileReference[],
+  ) => Promise<LocalByteCacheBatchPreparation>;
 }): Promise<LocalSessionSource[]> {
   const files = filesFromLocalFileReferences(fileReferences);
 
   if (sourceGroupingMode === "separate") {
+    const batchPreparation = prepareSeparateByteCacheBatch
+      ? await prepareSeparateByteCacheBatch(fileReferences)
+      : "not-needed";
+
     return Promise.all(
       files.map(async (file, index) => {
         const fileReference = fileReferences[index] ?? file;
-        const cacheSetId = await cacheFiles([fileReference]);
+        const cacheSetId =
+          batchPreparation === "skip-cache"
+            ? undefined
+            : await cacheFiles([fileReference], {
+                skipByteCachePreparation: batchPreparation === "prepared",
+              });
         const item = items[index];
 
         return {

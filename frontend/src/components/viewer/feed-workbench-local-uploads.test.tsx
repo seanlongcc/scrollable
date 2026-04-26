@@ -200,11 +200,15 @@ describe("FeedWorkbench local uploads", () => {
     );
 
     expect(await screen.findByAltText("reuploaded.png")).toBeInTheDocument();
-    expect(saveLocalFiles).toHaveBeenCalledWith("cache-2", [
-      expect.objectContaining({
-        file: expect.objectContaining({ name: "reuploaded.png" }),
-      }),
-    ]);
+    expect(saveLocalFiles).toHaveBeenCalledWith(
+      "cache-2",
+      [
+        expect.objectContaining({
+          file: expect.objectContaining({ name: "reuploaded.png" }),
+        }),
+      ],
+      expect.objectContaining({ confirmLargeByteCache: expect.any(Function) }),
+    );
     expect(
       screen.queryByText("Cached files unavailable"),
     ).not.toBeInTheDocument();
@@ -268,11 +272,15 @@ describe("FeedWorkbench local uploads", () => {
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
 
     const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
-    expect(saveLocalFiles).toHaveBeenCalledWith("local-1", [
-      expect.objectContaining({
-        file: expect.objectContaining({ name: "cached.png" }),
-      }),
-    ]);
+    expect(saveLocalFiles).toHaveBeenCalledWith(
+      "local-1",
+      [
+        expect.objectContaining({
+          file: expect.objectContaining({ name: "cached.png" }),
+        }),
+      ],
+      expect.objectContaining({ confirmLargeByteCache: expect.any(Function) }),
+    );
     expect(saved).toContain('"cacheSetId":"local-1"');
     expect(saved).not.toContain("blob:upload");
   });
@@ -372,11 +380,15 @@ describe("FeedWorkbench local uploads", () => {
     expect(await screen.findByAltText("b.png")).toBeInTheDocument();
     expect(screen.queryByAltText("a.png")).not.toBeInTheDocument();
     expect(screen.getByText("Layer 1: 1 source / 1 file")).toBeInTheDocument();
-    expect(saveLocalFiles).toHaveBeenLastCalledWith("cache-2", [
-      expect.objectContaining({
-        file: expect.objectContaining({ name: "b.png" }),
-      }),
-    ]);
+    expect(saveLocalFiles).toHaveBeenLastCalledWith(
+      "cache-2",
+      [
+        expect.objectContaining({
+          file: expect.objectContaining({ name: "b.png" }),
+        }),
+      ],
+      expect.objectContaining({ confirmLargeByteCache: expect.any(Function) }),
+    );
   });
 
   it("uploads audio files into the current layer as local runtime media", async () => {

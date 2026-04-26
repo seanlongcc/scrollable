@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 
+import { pruneLocalFileCacheSets } from "@/lib/local-uploads/file-cache";
 import type { FixedGrid } from "@/lib/viewer/layout";
 import { hasDuplicateLayoutName, limitLayoutName } from "./helpers";
 import type {
@@ -63,6 +64,7 @@ type WorkspaceHandlersInput = {
   templateSlots: WorkspaceTemplateSlot[];
   createId: () => string;
   hydrateRuntimeItems: (nextSessions: FeedSession[]) => void;
+  getLocalCacheStatusMessage: () => Promise<string | null>;
   setSaveName: Dispatch<SetStateAction<string>>;
   setSaveKind: Dispatch<SetStateAction<SaveKind>>;
   setSaveError: Dispatch<SetStateAction<string | null>>;
@@ -113,6 +115,7 @@ export function useWorkspaceHandlers({
   templateSlots,
   createId,
   hydrateRuntimeItems,
+  getLocalCacheStatusMessage,
   setSaveName,
   setSaveKind,
   setSaveError,
@@ -162,17 +165,29 @@ export function useWorkspaceHandlers({
       activeWorkspaceId,
       name: validation.name,
     });
-    const { store } = persistCurrentWorkspace(validation.name, nextTabs);
+    const { nextSaved, store } = persistCurrentWorkspace(
+      validation.name,
+      nextTabs,
+    );
     const sync = await syncViewerSessionsToAccount({
       workspaces: store.workspaces,
     });
 
     if (sync.status === "error") toast.error(sync.error);
 
+    const cacheStatus = await getLocalCacheStatusMessage();
     toast.success(
-      sync.status === "synced"
-        ? "Layout saved locally and to account"
-        : "Layout saved locally",
+      [
+        sync.status === "synced"
+          ? "Layout saved locally and to account"
+          : "Layout saved locally",
+        cacheStatus,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    );
+    void pruneLocalFileCacheSets(
+      localCacheSetIdsFromWorkspacesAndSessions(nextSaved, sessions),
     );
     setIsSaveOpen(false);
   }
@@ -218,7 +233,7 @@ export function useWorkspaceHandlers({
     setWorkspaceStates(nextStates);
     setSavedWorkspaces(nextSaved);
     writeWorkspaceSessionStore(tabsOverride, current.id, nextSaved);
-    return { snapshot, store };
+    return { snapshot, nextSaved, store };
   }
 
   function persistCurrentTemplate(nameOverride = workspaceName) {
@@ -425,6 +440,9 @@ export function useWorkspaceHandlers({
     writeWorkspaceStore(nextSaved, activeWorkspaceId);
     setSavedWorkspaces(nextSaved);
     writeWorkspaceSessionStore(workspaceTabs, activeWorkspaceId, nextSaved);
+    void pruneLocalFileCacheSets(
+      localCacheSetIdsFromWorkspacesAndSessions(nextSaved, sessions),
+    );
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
 
@@ -473,4 +491,29 @@ export function useWorkspaceHandlers({
     deleteSavedTemplate,
     applyWorkspaceSnapshot,
   };
+}
+
+function localCacheSetIdsFromWorkspacesAndSessions(
+  savedWorkspaces: Record<string, SerializedWorkspace>,
+  sessions: FeedSession[],
+) {
+  const ids = new Set<string>();
+
+  for (const workspace of Object.values(savedWorkspaces)) {
+    for (const session of workspace.sessions) {
+      const sourceConfig = session.sourceConfig;
+      if (sourceConfig.kind === "local" && sourceConfig.cacheSetId) {
+        ids.add(sourceConfig.cacheSetId);
+      }
+    }
+  }
+
+  for (const session of sessions) {
+    const sourceConfig = session.sourceConfig;
+    if (sourceConfig.kind === "local" && sourceConfig.cacheSetId) {
+      ids.add(sourceConfig.cacheSetId);
+    }
+  }
+
+  return ids;
 }

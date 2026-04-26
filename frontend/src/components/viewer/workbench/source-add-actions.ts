@@ -8,6 +8,8 @@ import {
 } from "./runtime-sources";
 import {
   createLocalSessionSources,
+  type LocalByteCacheBatchPreparation,
+  type LocalCacheFilesOptions,
   prepareLocalAddFiles,
 } from "./local-sources";
 import type { SourceAddFormState } from "./source-add-state";
@@ -152,13 +154,18 @@ export async function addPreparedLocalSourceAction({
   items,
   sourceGroupingMode,
   cacheFiles,
+  prepareSeparateByteCacheBatch,
 }: {
   fileReferences: LocalFileReference[];
   items: RuntimeFeedItem[];
   sourceGroupingMode: SourceGroupingMode;
   cacheFiles: (
     fileReferences: LocalFileReference[],
+    options?: LocalCacheFilesOptions,
   ) => Promise<string | undefined>;
+  prepareSeparateByteCacheBatch?: (
+    fileReferences: LocalFileReference[],
+  ) => Promise<LocalByteCacheBatchPreparation>;
 }): Promise<LocalSourceAddActionResult> {
   try {
     return {
@@ -168,6 +175,7 @@ export async function addPreparedLocalSourceAction({
         items,
         sourceGroupingMode,
         cacheFiles,
+        prepareSeparateByteCacheBatch,
       }),
     };
   } catch (error) {

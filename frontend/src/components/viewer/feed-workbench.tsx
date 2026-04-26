@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { accountStateFromUser } from "./workbench/account-actions";
-import { isLocalFileCacheSupported } from "@/lib/local-uploads/file-cache";
+import {
+  clearLocalFileCache,
+  estimateLocalFileCacheStorage,
+  formatLocalFileCacheStorageStatus,
+  isLocalFileCacheSupported,
+  type LocalFileByteCacheConfirmation,
+  type LocalFileCacheStorageStatus,
+} from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
@@ -145,6 +152,15 @@ export function FeedWorkbench({
   const [canCacheLocalFiles, setCanCacheLocalFiles] = useState(() =>
     isLocalFileCacheSupported(),
   );
+  const [largeLocalByteCachePrompt, setLargeLocalByteCachePrompt] =
+    useState<LocalFileByteCacheConfirmation | null>(null);
+  const [localCacheStorageFullStatus, setLocalCacheStorageFullStatus] =
+    useState<LocalFileCacheStorageStatus | null>(null);
+  const [localCacheStatus, setLocalCacheStatus] =
+    useState<LocalFileCacheStorageStatus | null>(null);
+  const largeLocalByteCacheResolverRef = useRef<
+    ((confirmed: boolean) => void) | null
+  >(null);
   const registryRef = useRef<LocalObjectUrlRegistry | null>(null);
   const freeGridRef = useRef<HTMLDivElement | null>(null);
 
@@ -239,6 +255,39 @@ export function FeedWorkbench({
       return { ...current, [key]: seconds };
     });
   }, []);
+  const confirmLargeLocalByteCache = useCallback(
+    (confirmation: LocalFileByteCacheConfirmation) =>
+      new Promise<boolean>((resolve) => {
+        largeLocalByteCacheResolverRef.current = resolve;
+        setLargeLocalByteCachePrompt(confirmation);
+      }),
+    [],
+  );
+  const answerLargeLocalByteCachePrompt = useCallback((confirmed: boolean) => {
+    largeLocalByteCacheResolverRef.current?.(confirmed);
+    largeLocalByteCacheResolverRef.current = null;
+    setLargeLocalByteCachePrompt(null);
+  }, []);
+  const refreshLocalCacheStatus = useCallback(async () => {
+    const status = formatLocalFileCacheStorageStatus(
+      await estimateLocalFileCacheStorage(),
+    );
+    setLocalCacheStatus(status);
+    return status;
+  }, []);
+  const refreshLocalCacheStatusForCurrentLayout = useCallback(async () => {
+    if (!sessions.some((session) => session.sourceConfig.kind === "local")) {
+      setLocalCacheStatus(null);
+      return null;
+    }
+
+    return refreshLocalCacheStatus();
+  }, [refreshLocalCacheStatus, sessions]);
+  const clearLocalCache = useCallback(async () => {
+    await clearLocalFileCache();
+    setLocalCacheStorageFullStatus(null);
+    await refreshLocalCacheStatus();
+  }, [refreshLocalCacheStatus]);
   const {
     fetchRedditFeed,
     openUrlSource,
@@ -275,6 +324,8 @@ export function FeedWorkbench({
     layoutMode,
     sessions,
     canCacheLocalFiles,
+    confirmLargeLocalByteCache,
+    onLocalCacheStorageFull: setLocalCacheStorageFullStatus,
     visibleFixedCells,
     registryRef,
     createId,
@@ -328,6 +379,13 @@ export function FeedWorkbench({
     templateSlots,
     createId,
     hydrateRuntimeItems,
+    getLocalCacheStatusMessage: async () => {
+      const status = await refreshLocalCacheStatusForCurrentLayout();
+      if (!status) return null;
+      return status.freeLabel
+        ? `${status.label} · ${status.freeLabel}`
+        : status.label;
+    },
     setSaveName,
     setSaveKind,
     setSaveError,
@@ -652,9 +710,15 @@ export function FeedWorkbench({
           }}
           onAddSource={() => openSourcePanel()}
           onOpenLayouts={() => setIsLayoutsOpen(true)}
-          onOpenSaveDialog={openSaveDialog}
+          onOpenSaveDialog={() => {
+            openSaveDialog();
+            void refreshLocalCacheStatusForCurrentLayout();
+          }}
           onOpenClearDialog={() => setIsClearOpen(true)}
-          onOpenAccount={() => setIsAccountOpen(true)}
+          onOpenAccount={() => {
+            setIsAccountOpen(true);
+            void refreshLocalCacheStatus();
+          }}
           onSelectWorkspace={selectWorkspace}
           onBeginWorkspaceRename={beginWorkspaceRename}
           onEditingWorkspaceNameChange={(value) =>
@@ -702,6 +766,18 @@ export function FeedWorkbench({
         selectLocalFolderWithHandles={selectLocalFolderWithHandles}
         addDroppedLocalFiles={addDroppedLocalFiles}
         allowLocalFileDrop={allowLocalFileDrop}
+        largeLocalByteCachePrompt={largeLocalByteCachePrompt}
+        onLargeLocalByteCacheOpenChange={(open) => {
+          if (!open) answerLargeLocalByteCachePrompt(false);
+        }}
+        onConfirmLargeLocalByteCache={() =>
+          answerLargeLocalByteCachePrompt(true)
+        }
+        localCacheStorageFullStatus={localCacheStorageFullStatus}
+        onLocalCacheStorageFullOpenChange={(open) => {
+          if (!open) setLocalCacheStorageFullStatus(null);
+        }}
+        onClearLocalCache={clearLocalCache}
         isLayoutsOpen={isLayoutsOpen}
         setIsLayoutsOpen={setIsLayoutsOpen}
         savedWorkspaces={savedWorkspaces}
@@ -716,6 +792,7 @@ export function FeedWorkbench({
         layoutMode={layoutMode}
         saveKind={saveKind}
         saveError={saveError}
+        localCacheStatus={localCacheStatus}
         setSaveName={setSaveName}
         setSaveError={setSaveError}
         setSaveKind={setSaveKind}
@@ -733,6 +810,9 @@ export function FeedWorkbench({
         setIsAccountOpen={setIsAccountOpen}
         account={account}
         signOut={signOut}
+        onRefreshLocalCacheStatus={async () => {
+          await refreshLocalCacheStatus();
+        }}
       />
 
       <WorkbenchStage

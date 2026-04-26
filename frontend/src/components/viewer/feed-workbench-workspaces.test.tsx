@@ -234,6 +234,44 @@ describe("FeedWorkbench workspaces", () => {
     expect(screen.getByText(/1 source active/)).toBeInTheDocument();
   });
 
+  it("restores saved layout tabs on layer one without selecting a source", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "layered-layout",
+        workspaces: [
+          {
+            ...savedLayeredWorkspace(),
+            activeLayerId: "layer-2",
+          },
+        ],
+      }),
+    );
+    window.sessionStorage.setItem(
+      WORKSPACE_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        openWorkspaceIds: ["layered-layout"],
+        activeWorkspaceId: "layered-layout",
+      }),
+    );
+
+    render(<FeedWorkbench />);
+
+    expect(
+      await screen.findByRole("button", { name: "Layered layout" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Select Layer 1" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Select Layer 2" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.queryByRole("button", { name: "Clone selected source" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens multiple selected saved layouts from the compact layout popup", async () => {
     stubRandomUuids(["blank-workspace"]);
     window.localStorage.setItem(
@@ -282,6 +320,42 @@ describe("FeedWorkbench workspaces", () => {
     expect(
       screen.getByRole("button", { name: "Movie wall" }),
     ).toBeInTheDocument();
+  });
+
+  it("opens saved layouts on layer one without selecting a source", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "layered-layout",
+        workspaces: [
+          {
+            ...savedLayeredWorkspace(),
+            activeLayerId: "layer-2",
+          },
+        ],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedLayouts(user, ["Layered layout"]);
+
+    expect(
+      screen.getByRole("button", { name: "Select Layer 1" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Select Layer 2" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.queryByRole("button", { name: "Clone selected source" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Fill empty spaces with selected source",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("clears saved layout selections after opening selected layouts", async () => {

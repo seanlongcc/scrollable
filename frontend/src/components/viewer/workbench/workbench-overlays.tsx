@@ -4,10 +4,16 @@ import type {
   DragEvent as ReactDragEvent,
   SetStateAction,
 } from "react";
+import type {
+  LocalFileByteCacheConfirmation,
+  LocalFileCacheStorageStatus,
+} from "@/lib/local-uploads/file-cache";
 
 import {
   AccountDialog,
   ClearLayoutDialog,
+  LargeLocalCacheDialog,
+  LocalCacheStorageFullDialog,
   LayoutDialog,
   SaveLayoutDialog,
 } from "./dialogs";
@@ -54,6 +60,12 @@ export function WorkbenchOverlays({
   selectLocalFolderWithHandles,
   addDroppedLocalFiles,
   allowLocalFileDrop,
+  largeLocalByteCachePrompt,
+  onLargeLocalByteCacheOpenChange,
+  onConfirmLargeLocalByteCache,
+  localCacheStorageFullStatus,
+  onLocalCacheStorageFullOpenChange,
+  onClearLocalCache,
   isLayoutsOpen,
   setIsLayoutsOpen,
   savedWorkspaces,
@@ -68,6 +80,7 @@ export function WorkbenchOverlays({
   layoutMode,
   saveKind,
   saveError,
+  localCacheStatus,
   setSaveName,
   setSaveError,
   setSaveKind,
@@ -85,6 +98,7 @@ export function WorkbenchOverlays({
   setIsAccountOpen,
   account,
   signOut,
+  onRefreshLocalCacheStatus,
 }: {
   isSourceOpen: boolean;
   onSourceOpenChange: (open: boolean) => void;
@@ -114,6 +128,12 @@ export function WorkbenchOverlays({
   selectLocalFolderWithHandles: () => Promise<boolean>;
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
   allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
+  largeLocalByteCachePrompt: LocalFileByteCacheConfirmation | null;
+  onLargeLocalByteCacheOpenChange: (open: boolean) => void;
+  onConfirmLargeLocalByteCache: () => void;
+  localCacheStorageFullStatus: LocalFileCacheStorageStatus | null;
+  onLocalCacheStorageFullOpenChange: (open: boolean) => void;
+  onClearLocalCache: () => void | Promise<void>;
   isLayoutsOpen: boolean;
   setIsLayoutsOpen: Dispatch<SetStateAction<boolean>>;
   savedWorkspaces: Record<string, SerializedWorkspace>;
@@ -128,6 +148,7 @@ export function WorkbenchOverlays({
   layoutMode: LayoutMode;
   saveKind: SaveKind;
   saveError: string | null;
+  localCacheStatus: LocalFileCacheStorageStatus | null;
   setSaveName: Dispatch<SetStateAction<string>>;
   setSaveError: Dispatch<SetStateAction<string | null>>;
   setSaveKind: Dispatch<SetStateAction<SaveKind>>;
@@ -151,6 +172,7 @@ export function WorkbenchOverlays({
   setIsAccountOpen: Dispatch<SetStateAction<boolean>>;
   account: AccountState;
   signOut: () => void;
+  onRefreshLocalCacheStatus: () => void | Promise<void>;
 }) {
   return (
     <>
@@ -184,6 +206,20 @@ export function WorkbenchOverlays({
         addDroppedLocalFiles={addDroppedLocalFiles}
         allowLocalFileDrop={allowLocalFileDrop}
       />
+      <LargeLocalCacheDialog
+        open={Boolean(largeLocalByteCachePrompt)}
+        totalBytes={largeLocalByteCachePrompt?.totalBytes ?? 0}
+        fileCount={largeLocalByteCachePrompt?.fileCount ?? 0}
+        storageStatus={largeLocalByteCachePrompt?.storageStatus}
+        onOpenChange={onLargeLocalByteCacheOpenChange}
+        onConfirm={onConfirmLargeLocalByteCache}
+      />
+      <LocalCacheStorageFullDialog
+        open={Boolean(localCacheStorageFullStatus)}
+        status={localCacheStorageFullStatus}
+        onOpenChange={onLocalCacheStorageFullOpenChange}
+        onClearCache={onClearLocalCache}
+      />
       {isLayoutsOpen ? (
         <LayoutDialog
           open={isLayoutsOpen}
@@ -203,6 +239,7 @@ export function WorkbenchOverlays({
         layoutMode={layoutMode}
         saveKind={saveKind}
         error={saveError}
+        localCacheStatus={localCacheStatus}
         onNameChange={(value) => {
           setSaveName(value);
           setSaveError(null);
@@ -236,6 +273,9 @@ export function WorkbenchOverlays({
         open={isAccountOpen}
         onOpenChange={setIsAccountOpen}
         account={account}
+        localCacheStatus={localCacheStatus}
+        onRefreshLocalCacheStatus={onRefreshLocalCacheStatus}
+        onClearLocalCache={onClearLocalCache}
         onSignOut={signOut}
       />
     </>

@@ -5,11 +5,28 @@ import { afterEach, beforeEach, vi } from "vitest";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 
 vi.mock("@/lib/local-uploads/file-cache", () => ({
+  clearLocalFileCache: vi.fn(async () => undefined),
+  estimateLocalFileCacheStorage: vi.fn(async () => ({
+    status: "unavailable",
+  })),
+  formatLocalFileCacheStorageStatus: vi.fn(() => ({
+    label: "Local cache: storage usage unavailable",
+  })),
   isLocalFileCacheSupported: vi.fn(() => false),
+  isLocalFileCacheCancelled: vi.fn(
+    (error: unknown) =>
+      error instanceof Error && error.name === "LocalFileCacheCancelledError",
+  ),
+  isLocalFileCacheStorageFull: vi.fn(
+    (error: unknown) =>
+      error instanceof Error && error.name === "LocalFileCacheStorageFullError",
+  ),
   loadLocalFiles: vi.fn(async () => ({
     status: "unavailable",
     files: [],
   })),
+  prepareLocalFileByteCacheWrite: vi.fn(async () => false),
+  pruneLocalFileCacheSets: vi.fn(async () => undefined),
   saveLocalFiles: vi.fn(async () => undefined),
 }));
 
@@ -17,8 +34,15 @@ const fileCache = await import("@/lib/local-uploads/file-cache");
 const feedWorkbench = await import("./feed-workbench");
 
 export const { FeedWorkbench } = feedWorkbench;
-export const { isLocalFileCacheSupported, loadLocalFiles, saveLocalFiles } =
-  fileCache;
+export const {
+  clearLocalFileCache,
+  estimateLocalFileCacheStorage,
+  formatLocalFileCacheStorageStatus,
+  isLocalFileCacheSupported,
+  loadLocalFiles,
+  prepareLocalFileByteCacheWrite,
+  saveLocalFiles,
+} = fileCache;
 
 export const WORKSPACE_STORAGE_KEY = "scrollable.workspaces.v1";
 export const WORKSPACE_TEMPLATE_STORAGE_KEY =
@@ -37,10 +61,18 @@ export function installFeedWorkbenchTestHooks() {
       HTMLElement.prototype.scrollIntoView = vi.fn();
     }
     vi.mocked(isLocalFileCacheSupported).mockReturnValue(false);
+    vi.mocked(estimateLocalFileCacheStorage).mockResolvedValue({
+      status: "unavailable",
+    });
+    vi.mocked(formatLocalFileCacheStorageStatus).mockReturnValue({
+      label: "Local cache: storage usage unavailable",
+    });
+    vi.mocked(clearLocalFileCache).mockResolvedValue(undefined);
     vi.mocked(loadLocalFiles).mockResolvedValue({
       status: "unavailable",
       files: [],
     });
+    vi.mocked(prepareLocalFileByteCacheWrite).mockResolvedValue(false);
     vi.mocked(saveLocalFiles).mockResolvedValue(undefined);
   });
 

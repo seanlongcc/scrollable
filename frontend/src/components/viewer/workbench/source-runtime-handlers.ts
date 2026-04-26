@@ -7,7 +7,11 @@ import type {
 import { toast } from "sonner";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
-import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
+import type {
+  LocalFileByteCacheConfirmation,
+  LocalFileCacheStorageStatus,
+  LocalFileReference,
+} from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import {
@@ -44,6 +48,8 @@ import {
   filesFromLocalFileReferences,
   getUploadableFiles,
   localFileReferencesFromFiles,
+  prepareLocalByteCacheBatch,
+  type LocalCacheFilesOptions,
 } from "./local-sources";
 import {
   requestLocalCacheAccessAction,
@@ -84,6 +90,10 @@ type SourceRuntimeHandlersInput = {
   layoutMode: LayoutMode;
   sessions: FeedSession[];
   canCacheLocalFiles: boolean;
+  confirmLargeLocalByteCache: (
+    confirmation: LocalFileByteCacheConfirmation,
+  ) => Promise<boolean>;
+  onLocalCacheStorageFull: (status: LocalFileCacheStorageStatus) => void;
   visibleFixedCells: number;
   registryRef: { current: LocalObjectUrlRegistry | null };
   createId: () => string;
@@ -124,6 +134,8 @@ export function useSourceRuntimeHandlers({
   layoutMode,
   sessions,
   canCacheLocalFiles,
+  confirmLargeLocalByteCache,
+  onLocalCacheStorageFull,
   visibleFixedCells,
   registryRef,
   createId,
@@ -262,6 +274,7 @@ export function useSourceRuntimeHandlers({
         items: prepared.items,
         sourceGroupingMode,
         cacheFiles: cacheLocalFiles,
+        prepareSeparateByteCacheBatch: prepareLocalByteCacheBatchForWorkbench,
       });
 
       if (result.status !== "ready") {
@@ -303,13 +316,39 @@ export function useSourceRuntimeHandlers({
     }
   }
 
-  async function cacheLocalFiles(fileReferences: LocalFileReference[]) {
+  async function cacheLocalFiles(
+    fileReferences: LocalFileReference[],
+    options: LocalCacheFilesOptions = {},
+  ) {
     return cacheLocalFilesForWorkbench({
       fileReferences,
       canCacheLocalFiles,
       createCacheSetId: createId,
+      confirmLargeByteCache: confirmLargeLocalByteCache,
+      skipByteCachePreparation: options.skipByteCachePreparation,
+      onCacheSaved: (status) => {
+        if (status.freeLabel) {
+          toast.message(`${status.label} · ${status.freeLabel}`);
+        } else {
+          toast.message(status.label);
+        }
+      },
       onCacheRejected: () =>
         toast.warning("Local files will need reload after refresh"),
+      onStorageFull: onLocalCacheStorageFull,
+    });
+  }
+
+  async function prepareLocalByteCacheBatchForWorkbench(
+    fileReferences: LocalFileReference[],
+  ) {
+    return prepareLocalByteCacheBatch({
+      fileReferences,
+      canCacheLocalFiles,
+      confirmLargeByteCache: confirmLargeLocalByteCache,
+      onCacheRejected: () =>
+        toast.warning("Local files will need reload after refresh"),
+      onStorageFull: onLocalCacheStorageFull,
     });
   }
 

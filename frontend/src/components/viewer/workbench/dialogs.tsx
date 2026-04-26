@@ -1,8 +1,9 @@
-import { FolderOpen, LogOut, Save, Trash2 } from "lucide-react";
+import { Database, FolderOpen, LogOut, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { SignInPanel } from "@/components/auth/sign-in-panel";
 import { Button } from "@/components/ui/button";
+import type { LocalFileCacheStorageStatus } from "@/lib/local-uploads/file-cache";
 import {
   Dialog,
   DialogContent,
@@ -284,6 +285,7 @@ export function SaveLayoutDialog({
   layoutMode,
   saveKind,
   error,
+  localCacheStatus,
   onNameChange,
   onSaveKindChange,
   onSaveLayout,
@@ -295,6 +297,7 @@ export function SaveLayoutDialog({
   layoutMode: LayoutMode;
   saveKind: SaveKind;
   error: string | null;
+  localCacheStatus: LocalFileCacheStorageStatus | null;
   onNameChange: (name: string) => void;
   onSaveKindChange: (kind: SaveKind) => void;
   onSaveLayout: () => void;
@@ -347,6 +350,14 @@ export function SaveLayoutDialog({
           </Label>
           {error ? (
             <div className="text-xs text-destructive">{error}</div>
+          ) : null}
+          {localCacheStatus ? (
+            <div className="rounded-md border border-border bg-surface p-2 text-xs text-muted-foreground">
+              <div>{localCacheStatus.label}</div>
+              {localCacheStatus.freeLabel ? (
+                <div>{localCacheStatus.freeLabel}</div>
+              ) : null}
+            </div>
           ) : null}
           <Button type="submit" title="Save as layout">
             <Save />
@@ -401,15 +412,118 @@ export function ClearLayoutDialog({
   );
 }
 
+export function LargeLocalCacheDialog({
+  open,
+  totalBytes,
+  fileCount,
+  storageStatus,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  totalBytes: number;
+  fileCount: number;
+  storageStatus?: LocalFileCacheStorageStatus;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(92vw,26rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+        <DialogHeader>
+          <DialogTitle>Copy local files to browser storage?</DialogTitle>
+          <DialogDescription>
+            This will copy about {formatLocalCacheBytes(totalBytes)} into
+            browser storage for auto-restore. Continue?
+          </DialogDescription>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          {fileCount} file{fileCount === 1 ? "" : "s"} will be cached. Firefox
+          may duplicate large local uploads because persistent file handles are
+          unavailable.
+        </p>
+        {storageStatus ? (
+          <LocalCacheStatusBlock status={storageStatus} />
+        ) : null}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button type="button" onClick={onConfirm}>
+            <Database />
+            Continue
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function LocalCacheStorageFullDialog({
+  open,
+  status,
+  onOpenChange,
+  onClearCache,
+}: {
+  open: boolean;
+  status: LocalFileCacheStorageStatus | null;
+  onOpenChange: (open: boolean) => void;
+  onClearCache: () => void | Promise<void>;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(92vw,26rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+        <DialogHeader>
+          <DialogTitle>Local file cache full</DialogTitle>
+          <DialogDescription>
+            Browser storage is full, so these files will need manual reload
+            after refresh.
+          </DialogDescription>
+        </DialogHeader>
+        {status ? <LocalCacheStatusBlock status={status} /> : null}
+        <div className="grid gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="w-full"
+            onClick={onClearCache}
+          >
+            <Trash2 />
+            Clear local media cache
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function AccountDialog({
   open,
   onOpenChange,
   account,
+  localCacheStatus,
+  onRefreshLocalCacheStatus,
+  onClearLocalCache,
   onSignOut,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   account: AccountState;
+  localCacheStatus: LocalFileCacheStorageStatus | null;
+  onRefreshLocalCacheStatus: () => void | Promise<void>;
+  onClearLocalCache: () => void | Promise<void>;
   onSignOut: () => Promise<void> | void;
 }) {
   return (
@@ -421,6 +535,36 @@ export function AccountDialog({
             View account status and sign-in actions.
           </DialogDescription>
         </DialogHeader>
+        <div className="grid gap-2 rounded-lg border border-border bg-surface p-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Local media cache
+          </p>
+          {localCacheStatus ? (
+            <LocalCacheStatusBlock status={localCacheStatus} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Local cache usage unavailable
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void onRefreshLocalCacheStatus()}
+            >
+              <Database />
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void onClearLocalCache()}
+            >
+              <Trash2 />
+              Clear
+            </Button>
+          </div>
+        </div>
         {account.status === "signed-in" ? (
           <div className="grid gap-3">
             <div className="grid gap-1 rounded-lg border border-border bg-surface p-3">
@@ -446,4 +590,22 @@ export function AccountDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function LocalCacheStatusBlock({
+  status,
+}: {
+  status: LocalFileCacheStorageStatus;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-background p-2 text-sm text-muted-foreground">
+      <div>{status.label}</div>
+      {status.freeLabel ? <div>{status.freeLabel}</div> : null}
+    </div>
+  );
+}
+
+function formatLocalCacheBytes(bytes: number) {
+  const gibibytes = bytes / 1024 ** 3;
+  return `${gibibytes >= 10 ? gibibytes.toFixed(0) : gibibytes.toFixed(1)} GB`;
 }

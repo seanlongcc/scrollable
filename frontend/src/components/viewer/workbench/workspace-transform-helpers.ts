@@ -101,6 +101,15 @@ export function toRuntimeWorkspaceWithLocalRuntime(
   };
 }
 
+export function withFirstLayerActive(
+  workspace: RuntimeWorkspace,
+): RuntimeWorkspace {
+  return {
+    ...workspace,
+    activeLayerId: workspace.layers[0]?.id ?? workspace.activeLayerId,
+  };
+}
+
 export function workspaceFromTemplate(
   template: SerializedWorkspaceTemplate,
   id: string,

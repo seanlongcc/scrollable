@@ -11,6 +11,7 @@ import {
   toRuntimeWorkspace,
   toRuntimeWorkspaceWithLocalRuntime,
   uniqueWorkspaceName,
+  withFirstLayerActive,
   workspaceFromTemplate,
 } from "./helpers";
 import {
@@ -243,9 +244,11 @@ export function prepareOpenSavedWorkspaces({
   const nextStates = { ...currentAwareStates };
 
   for (const snapshot of snapshots) {
-    nextStates[snapshot.id] = toRuntimeWorkspaceWithLocalRuntime(
-      snapshot,
-      currentAwareStates[snapshot.id],
+    nextStates[snapshot.id] = withFirstLayerActive(
+      toRuntimeWorkspaceWithLocalRuntime(
+        snapshot,
+        currentAwareStates[snapshot.id],
+      ),
     );
     if (!nextTabs.some((tab) => tab.id === snapshot.id)) {
       nextTabs.push({ id: snapshot.id, name: snapshot.name });
