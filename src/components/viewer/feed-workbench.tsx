@@ -68,7 +68,6 @@ import {
   createFixedGrid,
   createFreeRect,
   findAvailableFreeRectsBySize,
-  findBestAvailableFreeRects,
   validateFreeRects,
 } from "@/lib/viewer/layout";
 import {
@@ -122,7 +121,6 @@ import {
   isKeyboardEditingTarget,
   keyMoveDirection,
   limitLayoutName,
-  nextFixedSlot,
   nextLayoutName,
   normalizeRedditLimit,
   redditHiddenItemHashes,
@@ -152,6 +150,10 @@ import {
   hydrateRuntimeSources,
   runtimeHydrationCandidates,
 } from "./workbench/runtime-sources";
+import {
+  placeSessions,
+  type SessionPlacementSourceInput,
+} from "./workbench/session-placement";
 import {
   createCurrentWorkspaceState,
   persistTemplateSnapshot,
@@ -797,94 +799,37 @@ export function FeedWorkbench({
     ]);
   }
 
-  function addSessions(
-    sources: Array<{
-      title: string;
-      items: RuntimeFeedItem[];
-      allItems?: RuntimeFeedItem[];
-      urlResolution?: UrlRuntimeResolution;
-      localFiles?: File[];
-      sourceConfig: PersistedSourceConfig;
-    }>,
-  ) {
+  function addSessions(sources: SessionPlacementSourceInput[]) {
     setSessions((current) => {
-      const next = [...current];
-      const pendingTemplateSlot = pendingTemplateSlotId
-        ? templateSlots.find((slot) => slot.id === pendingTemplateSlotId)
-        : null;
-      const occupiedRects = [
-        ...next
-          .filter((session) => session.layerId === activeLayerId)
-          .map((session) => session.freeRect),
-        ...templateSlots
-          .filter(
-            (slot) =>
-              (slot.layerId ?? activeLayerId) === activeLayerId &&
-              slot.id !== pendingTemplateSlot?.id,
-          )
-          .map((slot) => slot.freeRect),
-      ];
-      let preferredSlot = pendingFixedSlot;
-      let selectedSessionId: string | null = null;
-      let consumedTemplateSlotId: string | null = null;
+      const result = placeSessions({
+        current,
+        sources,
+        activeLayerId,
+        globalSeconds,
+        pendingFixedSlot,
+        pendingTemplateSlotId,
+        templateSlots,
+        createId,
+      });
 
-      for (const [index, source] of sources.entries()) {
-        const freeRect =
-          index === 0 && pendingTemplateSlot
-            ? pendingTemplateSlot.freeRect
-            : findBestAvailableFreeRects(occupiedRects, 1)[0];
-
-        if (!freeRect) {
-          toast.error("No space left in free layout");
-          break;
-        }
-
-        const id = createId();
-        const fixedSlot = nextFixedSlot(
-          next.filter((session) => session.layerId === activeLayerId),
-          preferredSlot,
-        );
-        preferredSlot = null;
-        selectedSessionId = id;
-        next.push({
-          id,
-          title: source.title,
-          layerId: activeLayerId,
-          timerMode: "global" as TimerMode,
-          timer: createTimerState({
-            durationSeconds: globalSeconds,
-            itemCount: source.items.length,
-          }),
-          fixedSlot,
-          freeRect,
-          items: source.items,
-          allItems: source.allItems,
-          urlResolution: source.urlResolution,
-          localFiles: source.localFiles,
-          templateSlotId:
-            index === 0 && pendingTemplateSlot
-              ? pendingTemplateSlot.id
-              : undefined,
-          sourceConfig: source.sourceConfig,
-        });
-        occupiedRects.push(freeRect);
-        if (index === 0 && pendingTemplateSlot) {
-          consumedTemplateSlotId = pendingTemplateSlot.id;
-        }
+      if (result.noFreeLayoutSpace) {
+        toast.error("No space left in free layout");
       }
 
-      if (selectedSessionId) {
-        setSelectedId(selectedSessionId);
+      if (result.selectedSessionId) {
+        setSelectedId(result.selectedSessionId);
         setPendingFixedSlot(null);
         setPendingTemplateSlotId(null);
-        if (consumedTemplateSlotId) {
+        if (result.consumedTemplateSlotId) {
           setTemplateSlots((currentSlots) =>
-            currentSlots.filter((slot) => slot.id !== consumedTemplateSlotId),
+            currentSlots.filter(
+              (slot) => slot.id !== result.consumedTemplateSlotId,
+            ),
           );
         }
       }
 
-      return next.sort((first, second) => first.fixedSlot - second.fixedSlot);
+      return result.sessions;
     });
   }
 
