@@ -114,13 +114,11 @@ import {
   createId,
   hasDuplicateLayoutName,
   hasDuplicateTemplateName,
-  hashRedditItemId,
   isKeyboardEditingTarget,
   keyMoveDirection,
   limitLayoutName,
   nextLayoutName,
   normalizeRedditLimit,
-  redditHiddenItemHashes,
   redditLinksTitle,
   sessionFileCount,
   splitRedditUrls,
@@ -147,6 +145,13 @@ import {
   hydrateRuntimeSources,
   runtimeHydrationCandidates,
 } from "./workbench/runtime-sources";
+import {
+  applyEditedRedditSourceToSession,
+  applyEditedUrlSourceToSession,
+  buildEditedUrlSourceConfig,
+  resolveEditedRedditHiddenItemHashes,
+  withSessionRuntimeLoading,
+} from "./workbench/source-edit-state";
 import {
   occupiedFreeRectsForLayer,
   restoreTemplateSlotForRemovedSession,
@@ -903,55 +908,30 @@ export function FeedWorkbench({
     }
 
     const selectedRedditLimit = normalizeRedditLimit(limit);
-    updateSession(id, (session) => ({ ...session, isRuntimeLoading: true }));
+    updateSession(id, (session) => withSessionRuntimeLoading(session, true));
 
     try {
       const currentSource = sessions.find((session) => session.id === id);
-      const existingHiddenHashes =
-        currentSource?.sourceConfig.kind === "reddit"
-          ? redditHiddenItemHashes(currentSource.sourceConfig)
-          : [];
-      const unhidden = new Set(unhiddenItemHashes);
-      const addedHiddenHashes = await Promise.all(
-        hiddenItemIds.map((itemId) => hashRedditItemId(itemId)),
-      );
-      const hiddenItemIdHashes = Array.from(
-        new Set([
-          ...existingHiddenHashes.filter((hash) => !unhidden.has(hash)),
-          ...addedHiddenHashes,
-        ]),
-      );
+      const hiddenItemIdHashes = await resolveEditedRedditHiddenItemHashes({
+        currentSource,
+        hiddenItemIds,
+        unhiddenItemHashes,
+      });
       const allItems = await fetchRedditRuntimeItems(urls, selectedRedditLimit);
       const items = await filterHiddenRedditItems(allItems, hiddenItemIdHashes);
-      updateSession(id, (session) => {
-        const timer = createTimerState({
-          durationSeconds: session.timer.durationSeconds,
-          itemCount: items.length,
-        });
-
-        return {
-          ...session,
+      updateSession(id, (session) =>
+        applyEditedRedditSourceToSession(session, {
           title: redditLinksTitle(urls, allItems),
+          urls,
+          limit: selectedRedditLimit,
           items,
           allItems,
-          localFiles: undefined,
-          isRuntimeLoading: false,
-          sourceConfig: {
-            kind: "reddit",
-            urls,
-            limit: selectedRedditLimit,
-            allowNsfw: true,
-            ...(hiddenItemIdHashes.length ? { hiddenItemIdHashes } : {}),
-          },
-          timer: {
-            ...timer,
-            isPaused: session.timer.isPaused,
-          },
-        };
-      });
+          hiddenItemIdHashes,
+        }),
+      );
       setEditingSourceId(null);
     } catch (error) {
-      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
+      updateSession(id, (session) => withSessionRuntimeLoading(session, false));
       toast.error(
         error instanceof Error ? error.message : "Reddit fetch failed",
       );
@@ -959,48 +939,23 @@ export function FeedWorkbench({
   }
 
   async function saveUrlSourceEdit(id: string, url: string, title?: string) {
-    updateSession(id, (session) => ({ ...session, isRuntimeLoading: true }));
+    updateSession(id, (session) => withSessionRuntimeLoading(session, true));
 
     try {
       const currentSource = sessions.find((session) => session.id === id);
-      const currentConfig =
-        currentSource?.sourceConfig.kind === "url"
-          ? currentSource.sourceConfig
-          : null;
-      const sourceConfig: UrlSourceConfig = {
-        kind: "url",
+      const sourceConfig = buildEditedUrlSourceConfig({
+        currentSource,
         url,
-        ...(title?.trim() ? { title: title.trim() } : {}),
-        ...(currentConfig?.resolverHint
-          ? { resolverHint: currentConfig.resolverHint }
-          : {}),
-      };
+        title,
+      });
       const result = await fetchUrlRuntimeItemsForSource(sourceConfig);
 
-      updateSession(id, (session) => {
-        const timer = createTimerState({
-          durationSeconds: session.timer.durationSeconds,
-          itemCount: result.items.length,
-        });
-
-        return {
-          ...session,
-          title: result.title,
-          items: result.items,
-          allItems: result.allItems,
-          urlResolution: result.urlResolution,
-          localFiles: undefined,
-          isRuntimeLoading: false,
-          sourceConfig: result.sourceConfig,
-          timer: {
-            ...timer,
-            isPaused: session.timer.isPaused,
-          },
-        };
-      });
+      updateSession(id, (session) =>
+        applyEditedUrlSourceToSession(session, result),
+      );
       setEditingSourceId(null);
     } catch (error) {
-      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
+      updateSession(id, (session) => withSessionRuntimeLoading(session, false));
       toast.error(error instanceof Error ? error.message : "URL source failed");
     }
   }
