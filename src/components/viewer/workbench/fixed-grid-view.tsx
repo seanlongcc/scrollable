@@ -1,0 +1,169 @@
+import { Plus } from "lucide-react";
+import { ChangeEvent } from "react";
+
+import { cn } from "@/lib/utils";
+import type { FixedGrid } from "@/lib/viewer/layout";
+import {
+  moveTimerIndex,
+  togglePaused,
+  type TimerMode,
+} from "@/lib/viewer/timer";
+import type { FeedSession } from "./types";
+import { activeIframeFallbackLimit, isIframeUrlSession } from "./helpers";
+import { SessionPane } from "./session-pane";
+
+export function FixedGridView({
+  sessions,
+  visibleCells,
+  fixedGrid,
+  galleryIndexes,
+  videoPositions,
+  selectedId,
+  hideUi,
+  isPlaybackActive,
+  showInfo,
+  openSourcePanel,
+  setSelectedId,
+  setMaximizedId,
+  updateSession,
+  removeSession,
+  changeGallery,
+  onVideoPositionChange,
+  setViewTimerMode,
+  setViewTimerSeconds,
+  onLocalFilesSelected,
+  onEditSource,
+}: {
+  sessions: FeedSession[];
+  visibleCells: number;
+  fixedGrid: FixedGrid;
+  galleryIndexes: Record<string, number>;
+  videoPositions: Record<string, number>;
+  selectedId: string | null;
+  hideUi: boolean;
+  isPlaybackActive: boolean;
+  showInfo: boolean;
+  openSourcePanel: (slot: number | null) => void;
+  setSelectedId: (id: string | null) => void;
+  setMaximizedId: (id: string) => void;
+  updateSession: (
+    id: string,
+    updater: (session: FeedSession) => FeedSession,
+  ) => void;
+  removeSession: (id: string) => void;
+  changeGallery: (itemId: string, direction: 1 | -1) => void;
+  onVideoPositionChange: (key: string, seconds: number) => void;
+  setViewTimerMode: (id: string, mode: TimerMode) => void;
+  setViewTimerSeconds: (id: string, value: number) => void;
+  onLocalFilesSelected: (
+    id: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => void;
+  onEditSource: (id: string) => void;
+}) {
+  let mountedIframeCount = 0;
+  const iframeLimit = activeIframeFallbackLimit();
+
+  return (
+    <div
+      className={cn(
+        "grid",
+        hideUi
+          ? "h-dvh min-h-0 min-w-0 gap-0"
+          : "h-full min-h-0 min-w-0 gap-2 md:min-h-[360px] md:min-w-[720px]",
+      )}
+      style={{
+        gridTemplateColumns: `repeat(${fixedGrid.columns}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${fixedGrid.rows}, minmax(0, 1fr))`,
+      }}
+    >
+      {Array.from({ length: visibleCells }, (_, slot) => {
+        const session = sessions.find(
+          (candidate) => candidate.fixedSlot === slot,
+        );
+
+        return (
+          <div
+            key={slot}
+            data-testid={`fixed-cell-${slot}`}
+            className={cn(
+              "min-h-0 rounded-xl outline outline-1 outline-offset-0 outline-transparent transition",
+              !hideUi &&
+                session?.id === selectedId &&
+                "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/20",
+            )}
+            onClick={(event) => {
+              if (!session) return;
+              if ((event.target as HTMLElement).closest("button,a,input")) {
+                return;
+              }
+              setSelectedId(session.id === selectedId ? null : session.id);
+            }}
+          >
+            {session ? (
+              <SessionPane
+                session={session}
+                canMountUrlIframe={(() => {
+                  if (!isIframeUrlSession(session)) return true;
+                  mountedIframeCount += 1;
+                  return mountedIframeCount <= iframeLimit;
+                })()}
+                galleryIndexes={galleryIndexes}
+                videoPositions={videoPositions}
+                compact={fixedGrid.columns * fixedGrid.rows > 4}
+                isFocused={session.id === selectedId}
+                forceInfoVisible={showInfo}
+                hideUi={hideUi}
+                isPlaybackActive={isPlaybackActive}
+                isRuntimeLoading={session.isRuntimeLoading}
+                onGalleryChange={changeGallery}
+                onVideoPositionChange={onVideoPositionChange}
+                onMove={(direction) =>
+                  updateSession(session.id, (current) => ({
+                    ...current,
+                    timer: moveTimerIndex(current.timer, direction),
+                  }))
+                }
+                onTogglePaused={() =>
+                  updateSession(session.id, (current) => ({
+                    ...current,
+                    timer: togglePaused(current.timer),
+                  }))
+                }
+                onRestart={() =>
+                  updateSession(session.id, (current) => ({
+                    ...current,
+                    timer: { ...current.timer, elapsedMs: 0 },
+                  }))
+                }
+                onMaximize={() => setMaximizedId(session.id)}
+                onEdit={() => onEditSource(session.id)}
+                onRemove={() => removeSession(session.id)}
+                onTimerModeChange={(mode) => setViewTimerMode(session.id, mode)}
+                onTimerSecondsChange={(value) =>
+                  setViewTimerSeconds(session.id, value)
+                }
+                onLocalFilesSelected={(event) =>
+                  onLocalFilesSelected(session.id, event)
+                }
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => openSourcePanel(slot)}
+                aria-label="Add source to empty cell"
+                title="Add source to empty cell"
+                className="grid size-full min-h-0 cursor-pointer place-items-center rounded-lg border border-dashed border-border/70 bg-surface/40 text-sm text-muted-foreground transition hover:border-primary/70 hover:text-primary"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Plus className="size-4" />
+                  Add source
+                </span>
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
