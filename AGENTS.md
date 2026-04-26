@@ -31,13 +31,16 @@ Current installed stack:
 Current package/runtime defaults:
 
 - Use Node 24 via `nvm use 24`.
-- Use npm and the checked-in `package-lock.json`.
+- Use npm workspaces and the checked-in root `package-lock.json`.
+- The Next.js frontend app lives in `frontend/`; root npm scripts delegate to that workspace.
 - The default shell may still expose system Node 18. Always run `nvm use 24` before npm commands; Next.js 16 will not run on Node 18.
 - Main scripts: `npm run dev`, `npm run build`, `npm start`, `npm run lint`, `npm run format`, `npm run format:check`, `npm run typecheck`, `npm test`, `npm run test:watch`, `npm run e2e`.
 - Supabase local scripts: `npm run supabase:start`, `npm run supabase:stop`, `npm run supabase:reset`, `npm run supabase:test`.
-- `npm test` runs Vitest/jsdom unit tests. It excludes `tests/e2e`.
+- `npm test` runs Vitest/jsdom unit tests in `frontend/`. It excludes `frontend/tests/e2e`.
 - `npm run e2e` runs Playwright desktop Chrome and iPhone 15 mobile projects and starts the dev server through `nvm use 24`.
 - Prettier 3.x is configured. Use `npm run format` to write formatting and `npm run format:check` for verification.
+- Keep local app environment files in `frontend/.env.local`; keep `supabase/`, `.beads/`, `.serena/`, and docs at repo root.
+- Vercel deployment should use `frontend/` as the project root directory.
 - Browser tests require Linux browser dependencies in WSL; if Chromium cannot launch, report the missing shared library and do not claim browser verification passed.
 - Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
 - Saved free-layout templates use `viewer_templates` in Supabase and `scrollable.workspace-templates.v1` in localStorage.
@@ -82,17 +85,17 @@ Acceptable stored data:
 
 Prefer these boundaries when implementation starts:
 
-- `sources`: source adapters for Reddit and local uploads.
-- `normalization`: convert source responses into runtime feed items.
-- `viewer`: vertical reels feed, timer, keyboard/touch navigation, and horizontal media carousel.
-- `viewer/workspaces`: local/Supabase workspace tab, layout layer, and layout serialization. Keep this metadata-only.
-- `viewer/templates`: reusable free-layout empty box templates. Keep templates source-empty and metadata-only.
-- `local-uploads`: object URL lifecycle and browser IndexedDB Blob cache for user-selected local files. Do not store local paths.
-- `configurations`: saved feed configs and validation.
-- `collections`: grouping, sharing, tags, NSFW flags, and browse views.
-- `auth`: Supabase auth integration and provider setup.
-- `data-access`: Supabase queries/mutations and RLS-aware access patterns.
-- `ui`: shadcn/ui components, layout primitives, and mobile-first interaction controls.
+- `frontend/src/sources`: source adapters for Reddit and local uploads.
+- `frontend/src/normalization`: convert source responses into runtime feed items.
+- `frontend/src/viewer`: vertical reels feed, timer, keyboard/touch navigation, and horizontal media carousel.
+- `frontend/src/viewer/workspaces`: local/Supabase workspace tab, layout layer, and layout serialization. Keep this metadata-only.
+- `frontend/src/viewer/templates`: reusable free-layout empty box templates. Keep templates source-empty and metadata-only.
+- `frontend/src/local-uploads`: object URL lifecycle and browser IndexedDB Blob cache for user-selected local files. Do not store local paths.
+- `frontend/src/configurations`: saved feed configs and validation.
+- `frontend/src/collections`: grouping, sharing, tags, NSFW flags, and browse views.
+- `frontend/src/auth`: Supabase auth integration and provider setup.
+- `frontend/src/data-access`: Supabase queries/mutations and RLS-aware access patterns.
+- `frontend/src/ui`: shadcn/ui components, layout primitives, and mobile-first interaction controls.
 
 Keep data fetching, normalization, persistence, and UI rendering separate enough that each can be tested independently.
 

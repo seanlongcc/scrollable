@@ -102,7 +102,9 @@ test("local upload layouts restore cached files after refresh", async ({
   await page.goto("/");
 
   await page.getByRole("button", { name: "Add source", exact: true }).click();
-  await page.getByLabel("Image/video files").setInputFiles("test.webp");
+  await page
+    .getByLabel("Image/video files")
+    .setInputFiles("tests/fixtures/test.webp");
   await expect(page.getByAltText("test.webp")).toBeVisible();
 
   await page.getByRole("button", { name: "Save layout" }).click();
@@ -125,7 +127,9 @@ test("free layout templates reopen as empty boxes", async ({ page }) => {
 
   await page.getByRole("button", { name: "Free layout mode" }).click();
   await page.getByRole("button", { name: "Add source", exact: true }).click();
-  await page.getByLabel("Image/video files").setInputFiles("test.webp");
+  await page
+    .getByLabel("Image/video files")
+    .setInputFiles("tests/fixtures/test.webp");
   await expect(page.getByAltText("test.webp")).toBeVisible();
 
   await page.getByRole("button", { name: "Save layout" }).click();
@@ -233,13 +237,18 @@ test("keyboard and wheel move through runtime feed items", async ({ page }) => {
 
   await expect(page.getByText("Runtime image 1")).toBeVisible();
 
+  const runtimePane = page.locator("article").filter({
+    hasText: "Runtime image 1",
+  });
+  await runtimePane.click();
+
   await page.keyboard.press("ArrowDown");
   await expect(page.getByText("Runtime image 2")).toBeVisible();
 
   await page.keyboard.press("ArrowUp");
   await expect(page.getByText("Runtime image 1")).toBeVisible();
 
-  await page.locator("article").filter({ hasText: "Runtime image 1" }).hover();
+  await runtimePane.hover();
   await page.mouse.wheel(0, 500);
   await expect(page.getByText("Runtime image 2")).toBeVisible();
 

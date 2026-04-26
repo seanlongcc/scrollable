@@ -5,7 +5,7 @@ export default defineConfig({
   timeout: 30_000,
   webServer: {
     command:
-      'bash -lc "export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 24 >/dev/null; npm run dev"',
+      'bash -lc "export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 24 >/dev/null; npm run dev -- --hostname 127.0.0.1 --port 3000"',
     url: "http://127.0.0.1:3000",
     reuseExistingServer: true,
     timeout: 120_000,

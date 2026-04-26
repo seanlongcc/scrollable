@@ -6,6 +6,8 @@ Detailed testing decision policy for AI coding agents.
 
 Use tests intentionally. Do not add tests just to satisfy a process rule.
 
+Root npm scripts delegate into the `frontend/` workspace, so run the usual commands from the repo root unless a task specifically needs to execute inside `frontend/`.
+
 ## TDD Required
 
 Use test-driven development for changes that affect:

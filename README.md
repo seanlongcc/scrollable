@@ -2,6 +2,10 @@
 
 Mobile-first reels-style runtime feed viewer for user-provided URLs and local uploads. URL sources accept `http`/`https` links and resolve at runtime as direct media, known provider media/embeds such as Reddit, YouTube, and direct gallery URLs, optional `yt-dlp` extraction, generic metadata, or iframe fallback.
 
+## Repository Layout
+
+The Next.js app lives in `frontend/`. Root `package.json` uses npm workspaces so the usual root commands still work, while `supabase/`, `.beads/`, `.serena/`, and `docs/` remain top-level.
+
 ## Commands
 
 ```bash
@@ -15,7 +19,7 @@ npm run build
 
 Optional arbitrary-site video extraction uses a local `yt-dlp` executable at runtime. Install it on the server or development machine and keep it on `PATH`, or set `YTDLP_PATH` to the executable path.
 
-Optional nHentai gallery API access uses `NHENTAI_API_KEY` server-side at runtime. Keep it in `.env.local` or deployment secrets only; do not expose it as a `NEXT_PUBLIC_` variable.
+Optional nHentai gallery API access uses `NHENTAI_API_KEY` server-side at runtime. Keep local app secrets in `frontend/.env.local` or deployment secrets only; do not expose them as `NEXT_PUBLIC_` variables unless they are intentionally public.
 
 Supabase local verification needs Docker Desktop WSL integration:
 
@@ -24,6 +28,8 @@ npm run supabase:start
 npm run supabase:reset
 npm run supabase:test
 ```
+
+Vercel should be configured with `frontend/` as the project root directory.
 
 ## Data Rule
 
