@@ -106,7 +106,6 @@ import {
   MAX_LAYOUT_NAME_LENGTH,
 } from "./workbench/types";
 import {
-  buildSubredditListingUrls,
   clamp,
   createId,
   hasDuplicateLayoutName,
@@ -116,7 +115,6 @@ import {
   limitLayoutName,
   normalizeRedditLimit,
   sessionFileCount,
-  splitRedditUrls,
   toMultiTimerState,
 } from "./workbench/helpers";
 import {
@@ -144,6 +142,12 @@ import {
   applyEditedUrlSourceToSession,
   withSessionRuntimeLoading,
 } from "./workbench/source-edit-state";
+import {
+  defaultSourceAddFormState,
+  resolveRedditAddInput,
+  separateSourceSlotError,
+  sourceAddPanelPlacement,
+} from "./workbench/source-add-state";
 import {
   occupiedFreeRectsForLayer,
   restoreTemplateSlotForRemovedSession,
@@ -607,31 +611,28 @@ export function FeedWorkbench({
   async function fetchRedditFeed() {
     setIsLoading(true);
     try {
-      const urls =
-        redditInputMode === "subreddit"
-          ? buildSubredditListingUrls(
-              subredditName,
-              redditSort,
-              redditTimeRange,
-            )
-          : splitRedditUrls(redditUrls);
-      const selectedRedditLimit = normalizeRedditLimit(redditLimit);
+      const { urls, limit } = resolveRedditAddInput({
+        redditInputMode,
+        subredditName,
+        redditSort,
+        redditTimeRange,
+        redditUrls,
+        redditLimit,
+      });
 
-      if (
-        sourceGroupingMode === "separate" &&
-        urls.length > availableSeparateSourceSlots
-      ) {
-        toast.error(
-          `Only ${availableSeparateSourceSlots} source slot${
-            availableSeparateSourceSlots === 1 ? "" : "s"
-          } available`,
-        );
+      const slotError = separateSourceSlotError({
+        sourceGroupingMode,
+        requestedCount: urls.length,
+        availableSeparateSourceSlots,
+      });
+      if (slotError) {
+        toast.error(slotError);
         return;
       }
 
       const sources = await createRedditSessionSources({
         urls,
-        limit: selectedRedditLimit,
+        limit,
         sourceGroupingMode,
       });
 
@@ -694,15 +695,13 @@ export function FeedWorkbench({
   async function addLocalFileList(files: File[], onSettled?: () => void) {
     const uploadableFiles = getUploadableFiles(files);
 
-    if (
-      sourceGroupingMode === "separate" &&
-      uploadableFiles.length > availableSeparateSourceSlots
-    ) {
-      toast.error(
-        `Only ${availableSeparateSourceSlots} source slot${
-          availableSeparateSourceSlots === 1 ? "" : "s"
-        } available`,
-      );
+    const slotError = separateSourceSlotError({
+      sourceGroupingMode,
+      requestedCount: uploadableFiles.length,
+      availableSeparateSourceSlots,
+    });
+    if (slotError) {
+      toast.error(slotError);
       onSettled?.();
       return;
     }
@@ -841,21 +840,23 @@ export function FeedWorkbench({
     fixedSlot: number | null = null,
     templateSlotId: string | null = null,
   ) {
-    setPendingFixedSlot(fixedSlot);
-    setPendingTemplateSlotId(templateSlotId);
+    const placement = sourceAddPanelPlacement(fixedSlot, templateSlotId);
+    setPendingFixedSlot(placement.pendingFixedSlot);
+    setPendingTemplateSlotId(placement.pendingTemplateSlotId);
     resetSourceInputs();
     setIsSourceOpen(true);
   }
 
   function resetSourceInputs() {
-    setUrlValue("");
-    setUrlTitle("");
-    setRedditUrls("");
-    setSubredditName("");
-    setRedditInputMode("subreddit");
-    setRedditSort("top");
-    setRedditTimeRange("week");
-    setRedditLimit(DEFAULT_REDDIT_MEDIA_LIMIT);
+    const next = defaultSourceAddFormState();
+    setUrlValue(next.urlValue);
+    setUrlTitle(next.urlTitle);
+    setRedditUrls(next.redditUrls);
+    setSubredditName(next.subredditName);
+    setRedditInputMode(next.redditInputMode);
+    setRedditSort(next.redditSort);
+    setRedditTimeRange(next.redditTimeRange);
+    setRedditLimit(next.redditLimit);
   }
 
   function openEditSource(id: string) {
