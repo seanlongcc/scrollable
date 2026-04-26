@@ -68,10 +68,7 @@ import {
   createFixedGrid,
   findAvailableFreeRectsBySize,
 } from "@/lib/viewer/layout";
-import {
-  createEmptyWorkspace,
-  MAX_WORKSPACE_LAYERS,
-} from "@/lib/viewer/workspaces";
+import { MAX_WORKSPACE_LAYERS } from "@/lib/viewer/workspaces";
 import {
   advanceTimerState,
   applyGlobalDuration,
@@ -117,12 +114,10 @@ import {
   isKeyboardEditingTarget,
   keyMoveDirection,
   limitLayoutName,
-  nextLayoutName,
   normalizeRedditLimit,
   sessionFileCount,
   splitRedditUrls,
   toMultiTimerState,
-  toRuntimeWorkspace,
   toRuntimeWorkspaceWithLocalRuntime,
   uniqueWorkspaceName,
   workspaceFromTemplate,
@@ -172,7 +167,13 @@ import {
   writeWorkspaceStore,
   writeWorkspaceTemplateStore,
 } from "./workbench/workspace-state";
-import { prepareWorkspaceSnapshotApply } from "./workbench/workspace-actions";
+import {
+  prepareCloseWorkspaceTab,
+  prepareCreateWorkspaceTab,
+  prepareSelectWorkspaceTab,
+  prepareWorkspaceRename,
+  prepareWorkspaceSnapshotApply,
+} from "./workbench/workspace-actions";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -1490,48 +1491,48 @@ export function FeedWorkbench({
 
   function createWorkspaceTab() {
     const current = currentWorkspaceState();
-    const nextId = createId();
-    const nextName = nextLayoutName(workspaceTabs, savedWorkspaces);
-    const empty = toRuntimeWorkspace(createEmptyWorkspace(nextId, nextName));
-    const nextTabs = [...workspaceTabs, { id: nextId, name: nextName }];
-    const nextStates = {
-      ...workspaceStates,
-      [current.id]: current,
-      [nextId]: empty,
-    };
+    const nextState = prepareCreateWorkspaceTab({
+      current,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+      createId,
+    });
 
-    setWorkspaceTabs(nextTabs);
-    setWorkspaceStates(nextStates);
-    setActiveWorkspaceId(nextId);
-    applyWorkspaceSnapshot(empty);
-    writeWorkspaceStore(savedWorkspaces, nextId);
-    writeWorkspaceSessionStore(nextTabs, nextId, savedWorkspaces);
+    setWorkspaceTabs(nextState.nextTabs);
+    setWorkspaceStates(nextState.nextStates);
+    setActiveWorkspaceId(nextState.activeWorkspaceId);
+    applyWorkspaceSnapshot(nextState.activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
+    writeWorkspaceSessionStore(
+      nextState.nextTabs,
+      nextState.activeWorkspaceId,
+      savedWorkspaces,
+    );
   }
 
   function selectWorkspace(id: string) {
     if (id === activeWorkspaceId) return;
 
     const current = currentWorkspaceState();
-    const snapshot =
-      workspaceStates[id] ??
-      toRuntimeWorkspace(
-        savedWorkspaces[id] ??
-          createEmptyWorkspace(
-            id,
-            workspaceTabs.find((tab) => tab.id === id)?.name ?? "Layout",
-          ),
-      );
-    const nextStates = {
-      ...workspaceStates,
-      [current.id]: current,
-      [id]: snapshot,
-    };
+    const nextState = prepareSelectWorkspaceTab({
+      id,
+      activeWorkspaceId,
+      current,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+    });
 
-    setWorkspaceStates(nextStates);
-    setActiveWorkspaceId(id);
-    applyWorkspaceSnapshot(snapshot);
-    writeWorkspaceStore(savedWorkspaces, id);
-    writeWorkspaceSessionStore(workspaceTabs, id, savedWorkspaces);
+    setWorkspaceStates(nextState.nextStates);
+    setActiveWorkspaceId(nextState.activeWorkspaceId);
+    applyWorkspaceSnapshot(nextState.activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
+    writeWorkspaceSessionStore(
+      workspaceTabs,
+      nextState.activeWorkspaceId,
+      savedWorkspaces,
+    );
   }
 
   function beginWorkspaceRename(tab: WorkspaceTab) {
@@ -1561,80 +1562,45 @@ export function FeedWorkbench({
       return;
     }
 
-    const nextTabs = workspaceTabs.map((tab) =>
-      tab.id === editingWorkspaceId ? { ...tab, name: nextName } : tab,
-    );
     const current = currentWorkspaceState(
       editingWorkspaceId === activeWorkspaceId ? nextName : workspaceName,
     );
-    const renamedWorkspace =
-      editingWorkspaceId === activeWorkspaceId
-        ? current
-        : {
-            ...(workspaceStates[editingWorkspaceId] ??
-              toRuntimeWorkspace(
-                savedWorkspaces[editingWorkspaceId] ??
-                  createEmptyWorkspace(editingWorkspaceId, nextName),
-              )),
-            name: nextName,
-          };
-    const nextStates = {
-      ...workspaceStates,
-      [current.id]: current,
-      [editingWorkspaceId]: renamedWorkspace,
-    };
-    setWorkspaceTabs(nextTabs);
-    setWorkspaceStates(nextStates);
+    const nextState = prepareWorkspaceRename({
+      editingWorkspaceId,
+      activeWorkspaceId,
+      nextName,
+      current,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+    });
+
+    setWorkspaceTabs(nextState.nextTabs);
+    setWorkspaceStates(nextState.nextStates);
     setEditingWorkspaceId(null);
   }
 
   function closeWorkspaceTab(id: string) {
     const current = currentWorkspaceState();
-    const statesWithCurrent = { ...workspaceStates, [current.id]: current };
+    const nextState = prepareCloseWorkspaceTab({
+      id,
+      current,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+      createId,
+    });
 
-    if (workspaceTabs.length <= 1) {
-      const nextId = createId();
-      const nextTab = { id: nextId, name: "Layout 1" };
-      const empty = toRuntimeWorkspace(
-        createEmptyWorkspace(nextId, nextTab.name),
-      );
-      const nextStates = { [nextId]: empty };
-
-      setWorkspaceTabs([nextTab]);
-      setWorkspaceStates(nextStates);
-      setActiveWorkspaceId(nextId);
-      applyWorkspaceSnapshot(empty);
-      writeWorkspaceStore(savedWorkspaces, nextId);
-      writeWorkspaceSessionStore([nextTab], nextId, savedWorkspaces);
-      return;
-    }
-
-    const closingIndex = workspaceTabs.findIndex((tab) => tab.id === id);
-    const nextTabs = workspaceTabs.filter((tab) => tab.id !== id);
-    const nextActiveId =
-      id === activeWorkspaceId
-        ? (nextTabs[Math.max(0, closingIndex - 1)]?.id ?? nextTabs[0].id)
-        : activeWorkspaceId;
-    const nextStates = { ...statesWithCurrent };
-    if (!savedWorkspaces[id]) {
-      delete nextStates[id];
-    }
-    const nextSnapshot =
-      nextStates[nextActiveId] ??
-      toRuntimeWorkspace(
-        savedWorkspaces[nextActiveId] ??
-          createEmptyWorkspace(
-            nextActiveId,
-            nextTabs.find((tab) => tab.id === nextActiveId)?.name ?? "Layout",
-          ),
-      );
-
-    setWorkspaceTabs(nextTabs);
-    setWorkspaceStates({ ...nextStates, [nextActiveId]: nextSnapshot });
-    setActiveWorkspaceId(nextActiveId);
-    applyWorkspaceSnapshot(nextSnapshot);
-    writeWorkspaceStore(savedWorkspaces, nextActiveId);
-    writeWorkspaceSessionStore(nextTabs, nextActiveId, savedWorkspaces);
+    setWorkspaceTabs(nextState.nextTabs);
+    setWorkspaceStates(nextState.nextStates);
+    setActiveWorkspaceId(nextState.activeWorkspaceId);
+    applyWorkspaceSnapshot(nextState.activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
+    writeWorkspaceSessionStore(
+      nextState.nextTabs,
+      nextState.activeWorkspaceId,
+      savedWorkspaces,
+    );
   }
 
   function openSavedWorkspaces(ids: string[]) {
