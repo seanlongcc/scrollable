@@ -65,11 +65,7 @@ import {
   FALLBACK_INITIAL_WORKSPACE_ID,
   MAX_LAYOUT_NAME_LENGTH,
 } from "./workbench/types";
-import {
-  createId,
-  hasDuplicateLayoutName,
-  limitLayoutName,
-} from "./workbench/helpers";
+import { createId, limitLayoutName } from "./workbench/helpers";
 import { visibleUrlRuntimeHydrationCandidates } from "./workbench/runtime-hydration-actions";
 import {
   restoreTemplateSlotForRemovedSession,
@@ -95,33 +91,10 @@ import {
 } from "./workbench/selection-state";
 import { useSourceRuntimeHandlers } from "./workbench/source-runtime-handlers";
 import {
-  createCurrentWorkspaceState,
-  persistTemplateSnapshot,
-  persistWorkspaceSnapshot,
   restoreWorkspaceBootstrap,
   writeWorkspaceSessionStore,
-  writeWorkspaceStore,
-  writeWorkspaceTemplateStore,
 } from "./workbench/workspace-state";
-import {
-  deleteSavedTemplateRecord,
-  deleteSavedWorkspaceRecord,
-  prepareCloseWorkspaceTab,
-  prepareCreateWorkspaceTab,
-  prepareOpenSavedTemplates,
-  prepareOpenSavedWorkspaces,
-  prepareSelectWorkspaceTab,
-  prepareWorkspaceRename,
-  prepareWorkspaceSnapshotApply,
-} from "./workbench/workspace-actions";
-import {
-  buildViewerSessionUpsertRows,
-  buildViewerTemplateUpsertRows,
-  openSaveDialogState,
-  renameActiveWorkspaceTab,
-  validateLayoutSaveName,
-  validateTemplateSaveName,
-} from "./workbench/workspace-save-state";
+import { useWorkspaceHandlers } from "./workbench/workspace-handler-actions";
 import {
   applyGlobalTimerActionState,
   applyGlobalTimerSecondsState,
@@ -364,6 +337,63 @@ export function FeedWorkbench({
     setPendingFixedSlot,
     setPendingTemplateSlotId,
     setTemplateSlots,
+  });
+  const {
+    openSaveDialog,
+    saveLayoutAs,
+    saveTemplateAs,
+    createWorkspaceTab,
+    selectWorkspace,
+    beginWorkspaceRename,
+    commitWorkspaceRename,
+    closeWorkspaceTab,
+    openSavedWorkspaces,
+    openSavedTemplates,
+    deleteSavedWorkspace,
+    deleteSavedTemplate,
+    applyWorkspaceSnapshot,
+  } = useWorkspaceHandlers({
+    workspaceName,
+    saveName,
+    activeWorkspaceId,
+    workspaceTabs,
+    workspaceStates,
+    savedWorkspaces,
+    savedTemplates,
+    editingWorkspaceId,
+    editingWorkspaceName,
+    layers,
+    activeLayerId,
+    layoutMode,
+    fixedGrid,
+    globalSeconds,
+    sessions,
+    templateSlots,
+    createId,
+    hydrateRuntimeItems,
+    setSaveName,
+    setSaveKind,
+    setSaveError,
+    setIsSaveOpen,
+    setIsLayoutsOpen,
+    setWorkspaceTabs,
+    setWorkspaceStates,
+    setSavedWorkspaces,
+    setSavedTemplates,
+    setActiveWorkspaceId,
+    setEditingWorkspaceId,
+    setEditingWorkspaceName,
+    setLayers,
+    setActiveLayerId,
+    setLayoutMode,
+    setFixedGrid,
+    setGlobalSeconds,
+    setTemplateSlots,
+    setSessions,
+    setGalleryIndexes,
+    setSelectedId,
+    setMaximizedId,
+    setPendingTemplateSlotId,
   });
 
   useEffect(() => {
@@ -841,369 +871,6 @@ export function FeedWorkbench({
     if (result.status === "signed-out") {
       toast.success(result.successMessage);
     }
-  }
-
-  function openSaveDialog() {
-    const nextState = openSaveDialogState(workspaceName);
-    setSaveName(nextState.saveName);
-    setSaveKind(nextState.saveKind);
-    setSaveError(nextState.saveError);
-    setIsSaveOpen(nextState.isSaveOpen);
-  }
-
-  async function saveLayoutAs() {
-    const validation = validateLayoutSaveName({
-      name: saveName,
-      activeWorkspaceId,
-      workspaceTabs,
-      savedWorkspaces,
-    });
-    if (!validation.ok) {
-      setSaveError(validation.error);
-      return;
-    }
-
-    const nextTabs = renameActiveWorkspaceTab({
-      workspaceTabs,
-      activeWorkspaceId,
-      name: validation.name,
-    });
-    const { store } = persistCurrentWorkspace(validation.name, nextTabs);
-    let syncedToAccount = false;
-
-    if (getSupabaseEnv()) {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (user) {
-          const { error } = await supabase.from("viewer_sessions").upsert(
-            buildViewerSessionUpsertRows({
-              workspaces: store.workspaces,
-              userId: user.id,
-            }),
-          );
-
-          if (error) throw error;
-          syncedToAccount = true;
-        }
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Account sync failed",
-        );
-      }
-    }
-
-    toast.success(
-      syncedToAccount
-        ? "Layout saved locally and to account"
-        : "Layout saved locally",
-    );
-    setIsSaveOpen(false);
-  }
-
-  async function saveTemplateAs() {
-    const validation = validateTemplateSaveName({
-      name: saveName,
-      activeWorkspaceId,
-      layoutMode,
-      savedTemplates,
-    });
-    if (!validation.ok) {
-      setSaveError(validation.error);
-      return;
-    }
-
-    const { store } = persistCurrentTemplate(validation.name);
-    let syncedToAccount = false;
-
-    if (getSupabaseEnv()) {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (user) {
-          const { error } = await supabase.from("viewer_templates").upsert(
-            buildViewerTemplateUpsertRows({
-              templates: store.templates,
-              userId: user.id,
-            }),
-          );
-
-          if (error) throw error;
-          syncedToAccount = true;
-        }
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Template sync failed",
-        );
-      }
-    }
-
-    toast.success(
-      syncedToAccount
-        ? "Template saved locally and to account"
-        : "Template saved locally",
-    );
-    setIsSaveOpen(false);
-  }
-
-  function persistCurrentWorkspace(
-    nameOverride = workspaceName,
-    tabsOverride = workspaceTabs,
-  ) {
-    const current = currentWorkspaceState(nameOverride);
-    const { snapshot, nextSaved, store } = persistWorkspaceSnapshot(
-      current,
-      savedWorkspaces,
-    );
-    const nextStates = { ...workspaceStates, [current.id]: current };
-    setWorkspaceTabs(tabsOverride);
-    setWorkspaceStates(nextStates);
-    setSavedWorkspaces(nextSaved);
-    writeWorkspaceSessionStore(tabsOverride, current.id, nextSaved);
-    return { snapshot, store };
-  }
-
-  function persistCurrentTemplate(nameOverride = workspaceName) {
-    const current = currentWorkspaceState(nameOverride);
-    const { snapshot, nextTemplates, store } = persistTemplateSnapshot(
-      current,
-      savedTemplates,
-      templateSlots,
-    );
-    const nextStates = { ...workspaceStates, [current.id]: current };
-    setWorkspaceStates(nextStates);
-    setSavedTemplates(nextTemplates);
-    return { snapshot, store };
-  }
-
-  function currentWorkspaceState(
-    nameOverride = workspaceName,
-  ): RuntimeWorkspace {
-    return createCurrentWorkspaceState({
-      activeWorkspaceId,
-      name: nameOverride,
-      layers,
-      activeLayerId,
-      layoutMode,
-      fixedGrid,
-      globalSeconds,
-      sessions,
-      templateSlots,
-    });
-  }
-
-  function createWorkspaceTab() {
-    const current = currentWorkspaceState();
-    const nextState = prepareCreateWorkspaceTab({
-      current,
-      workspaceTabs,
-      workspaceStates,
-      savedWorkspaces,
-      createId,
-    });
-
-    setWorkspaceTabs(nextState.nextTabs);
-    setWorkspaceStates(nextState.nextStates);
-    setActiveWorkspaceId(nextState.activeWorkspaceId);
-    applyWorkspaceSnapshot(nextState.activeSnapshot);
-    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
-    writeWorkspaceSessionStore(
-      nextState.nextTabs,
-      nextState.activeWorkspaceId,
-      savedWorkspaces,
-    );
-  }
-
-  function selectWorkspace(id: string) {
-    if (id === activeWorkspaceId) return;
-
-    const current = currentWorkspaceState();
-    const nextState = prepareSelectWorkspaceTab({
-      id,
-      activeWorkspaceId,
-      current,
-      workspaceTabs,
-      workspaceStates,
-      savedWorkspaces,
-    });
-
-    setWorkspaceStates(nextState.nextStates);
-    setActiveWorkspaceId(nextState.activeWorkspaceId);
-    applyWorkspaceSnapshot(nextState.activeSnapshot);
-    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
-    writeWorkspaceSessionStore(
-      workspaceTabs,
-      nextState.activeWorkspaceId,
-      savedWorkspaces,
-    );
-  }
-
-  function beginWorkspaceRename(tab: WorkspaceTab) {
-    setEditingWorkspaceId(tab.id);
-    setEditingWorkspaceName(limitLayoutName(tab.name));
-  }
-
-  function commitWorkspaceRename() {
-    if (!editingWorkspaceId) return;
-
-    const nextName = limitLayoutName(editingWorkspaceName).trim();
-    if (!nextName) {
-      setEditingWorkspaceId(null);
-      return;
-    }
-
-    if (
-      hasDuplicateLayoutName(
-        nextName,
-        editingWorkspaceId,
-        workspaceTabs,
-        savedWorkspaces,
-      )
-    ) {
-      toast.error("Layout names must be unique");
-      setEditingWorkspaceId(null);
-      return;
-    }
-
-    const current = currentWorkspaceState(
-      editingWorkspaceId === activeWorkspaceId ? nextName : workspaceName,
-    );
-    const nextState = prepareWorkspaceRename({
-      editingWorkspaceId,
-      activeWorkspaceId,
-      nextName,
-      current,
-      workspaceTabs,
-      workspaceStates,
-      savedWorkspaces,
-    });
-
-    setWorkspaceTabs(nextState.nextTabs);
-    setWorkspaceStates(nextState.nextStates);
-    setEditingWorkspaceId(null);
-  }
-
-  function closeWorkspaceTab(id: string) {
-    const current = currentWorkspaceState();
-    const nextState = prepareCloseWorkspaceTab({
-      id,
-      current,
-      workspaceTabs,
-      workspaceStates,
-      savedWorkspaces,
-      createId,
-    });
-
-    setWorkspaceTabs(nextState.nextTabs);
-    setWorkspaceStates(nextState.nextStates);
-    setActiveWorkspaceId(nextState.activeWorkspaceId);
-    applyWorkspaceSnapshot(nextState.activeSnapshot);
-    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
-    writeWorkspaceSessionStore(
-      nextState.nextTabs,
-      nextState.activeWorkspaceId,
-      savedWorkspaces,
-    );
-  }
-
-  function openSavedWorkspaces(ids: string[]) {
-    const current = currentWorkspaceState();
-    const nextState = prepareOpenSavedWorkspaces({
-      ids,
-      current,
-      workspaceTabs,
-      workspaceStates,
-      savedWorkspaces,
-    });
-
-    if (!nextState) return;
-
-    setWorkspaceTabs(nextState.nextTabs);
-    setWorkspaceStates(nextState.nextStates);
-    setActiveWorkspaceId(nextState.activeWorkspaceId);
-    applyWorkspaceSnapshot(nextState.activeSnapshot);
-    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
-    writeWorkspaceSessionStore(
-      nextState.nextTabs,
-      nextState.activeWorkspaceId,
-      savedWorkspaces,
-    );
-    setIsLayoutsOpen(false);
-  }
-
-  function openSavedTemplates(ids: string[]) {
-    const current = currentWorkspaceState();
-    const nextState = prepareOpenSavedTemplates({
-      ids,
-      current,
-      workspaceTabs,
-      workspaceStates,
-      savedWorkspaces,
-      savedTemplates,
-      createId,
-    });
-
-    if (!nextState) return;
-
-    setWorkspaceTabs(nextState.nextTabs);
-    setWorkspaceStates(nextState.nextStates);
-    setActiveWorkspaceId(nextState.activeWorkspaceId);
-    applyWorkspaceSnapshot(nextState.activeSnapshot);
-    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
-    writeWorkspaceSessionStore(
-      nextState.nextTabs,
-      nextState.activeWorkspaceId,
-      savedWorkspaces,
-    );
-    setIsLayoutsOpen(false);
-  }
-
-  function deleteSavedWorkspace(id: string) {
-    const { nextSaved, deleted } = deleteSavedWorkspaceRecord({
-      id,
-      savedWorkspaces,
-    });
-
-    writeWorkspaceStore(nextSaved, activeWorkspaceId);
-    setSavedWorkspaces(nextSaved);
-    writeWorkspaceSessionStore(workspaceTabs, activeWorkspaceId, nextSaved);
-    if (deleted) toast.success(`Deleted ${deleted.name}`);
-  }
-
-  function deleteSavedTemplate(id: string) {
-    const { nextTemplates, deleted } = deleteSavedTemplateRecord({
-      id,
-      savedTemplates,
-    });
-
-    writeWorkspaceTemplateStore(nextTemplates);
-    setSavedTemplates(nextTemplates);
-    if (deleted) toast.success(`Deleted ${deleted.name}`);
-  }
-
-  function applyWorkspaceSnapshot(
-    snapshot: SerializedWorkspace | RuntimeWorkspace,
-  ) {
-    const nextState = prepareWorkspaceSnapshotApply(snapshot);
-
-    setLayers(nextState.layers);
-    setActiveLayerId(nextState.activeLayerId);
-    setLayoutMode(nextState.layoutMode);
-    setFixedGrid(nextState.fixedGrid);
-    setGlobalSeconds(nextState.globalSeconds);
-    setTemplateSlots(nextState.templateSlots);
-    setSessions(nextState.sessions);
-    setGalleryIndexes(nextState.galleryIndexes);
-    setSelectedId(nextState.selectedId);
-    setMaximizedId(nextState.maximizedId);
-    setPendingTemplateSlotId(nextState.pendingTemplateSlotId);
-    void hydrateRuntimeItems(nextState.hydrateSessions);
   }
 
   return (
