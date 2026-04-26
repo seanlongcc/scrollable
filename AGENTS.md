@@ -103,6 +103,38 @@ Prefer these boundaries when implementation starts:
 
 Keep data fetching, normalization, persistence, and UI rendering separate enough that each can be tested independently.
 
+## Brooks-Lint Development Guardrails
+
+Use these rules to prevent the kind of large-file refactors already needed in the workbench. They are based on Brooks-Lint decay risks: cognitive overload, change propagation, knowledge duplication, accidental complexity, dependency disorder, and domain model distortion.
+
+The 800-line number is not a Brooks-Lint or book rule. It is a local repo guardrail derived from Brooks-Lint's cognitive-overload risk. Brooks-Lint's concrete signals are smaller: mixed-abstraction functions over 20 lines, parameter lists over 4 parameters, boolean expressions with 3 or more combined conditions, nesting deeper than 3, fan-out over 5 imports, and changes that ripple across more than 3 unrelated files.
+
+Before adding behavior:
+
+1. Name the Brooks-Lint risk most likely to grow if the behavior is added inline.
+2. Choose the smallest existing module that owns the behavior, or create a focused module before adding feature logic.
+3. Keep React components responsible for state ownership, effects, side effects, and UI wiring. Move validation, state transitions, serialization, payload building, placement, timer math, drag math, and runtime orchestration into focused helpers.
+4. If a change would add more than 50 lines to a file already over 500 lines, create or extend a helper module in the same branch.
+5. If a file is over 800 lines, add no new feature/business logic there unless the change is only wiring existing helpers. Extract first.
+6. If a function grows past 20 lines while mixing UI, state transitions, persistence, and runtime work, split it before continuing.
+7. If a helper needs more than 4 parameters, prefer a typed input object with domain names.
+8. If one change touches more than 3 unrelated modules, stop and write/update the implementation plan so the boundaries are explicit.
+9. Avoid speculative abstractions. Extract around current repeated decisions or current complexity, not imagined future providers.
+10. Before completion, state whether any large file grew, why, and what remains to extract.
+
+Workbench ownership rules:
+
+- `feed-workbench.tsx`: React state ownership, effects, side-effect boundaries, handler wiring, toasts, and composing dialogs/views.
+- `*-state.ts`: pure state transitions, validation, and calculations.
+- `*-actions.ts`: pure orchestration that returns setter-ready state.
+- `runtime-sources.ts`: runtime source fetching/orchestration only; no persistence.
+- `local-sources.ts`: local upload filtering, local cache helpers, and object URL helpers.
+- `workspace-state.ts`: workspace serialization, localStorage, and sessionStorage state.
+- `workspace-actions.ts`: workspace tab/open/close/library orchestration.
+- `workspace-save-state.ts`: save validation and Supabase payload builders.
+- `free-layout-state.ts` / `free-drag-state.ts`: free-layout rect updates and drag math.
+- `timer-actions.ts`: timer state orchestration.
+
 ## Development Workflow
 
 Before implementation:
