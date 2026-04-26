@@ -80,7 +80,7 @@ describe("FeedWorkbench interactions", () => {
     expect(screen.getByLabelText("Row span")).toHaveValue(4);
   });
 
-  it("defaults global timer to 10 seconds and omits duplicate source timer controls", async () => {
+  it("defaults global timer to 10 seconds and omits per-source timer controls", async () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
@@ -362,6 +362,69 @@ describe("FeedWorkbench interactions", () => {
 
     fireEvent.wheel(pane!, { deltaY: -100 });
     expect(screen.getByText("Runtime image 1")).toBeInTheDocument();
+  });
+
+  it("selects a video source from the media surface", async () => {
+    stubRuntimeFetch([
+      {
+        id: "runtime-video",
+        source: "reddit",
+        title: "Runtime video",
+        subreddit: "pics",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [{ type: "video", url: "https://cdn.test/video.mp4" }],
+      },
+    ]);
+    stubRandomUuids(["workspace-1", "session-1"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await addDefaultSubredditSource(user);
+    await screen.findByRole("button", { name: "Clone selected source" });
+
+    fireEvent.click(screen.getByTestId("fixed-cell-0"));
+    expect(
+      screen.queryByRole("button", { name: "Clone selected source" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByLabelText("Runtime video"));
+
+    expect(
+      screen.getByRole("button", { name: "Clone selected source" }),
+    ).toBeInTheDocument();
+  });
+
+  it("selects a source from the explicit select handle and existing controls", async () => {
+    stubRuntimeFetch();
+    stubRandomUuids(["workspace-1", "session-1"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await addDefaultSubredditSource(user);
+    await screen.findByRole("button", { name: "Clone selected source" });
+
+    await user.click(screen.getByTestId("fixed-cell-0"));
+    expect(
+      screen.queryByRole("button", { name: "Clone selected source" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Select r/pics" }));
+    expect(
+      screen.getByRole("button", { name: "Clone selected source" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("fixed-cell-0"));
+    expect(
+      screen.queryByRole("button", { name: "Clone selected source" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Pause r/pics" }));
+    expect(
+      screen.getByRole("button", { name: "Clone selected source" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the active stack item when switching layout modes", async () => {

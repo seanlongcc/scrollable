@@ -13,7 +13,8 @@ export function WorkbenchHeader({
   fixedGrid,
   globalSeconds,
   hasRunningSessionTimer,
-  showDuplicateButton,
+  showCloneButton,
+  showFillButton,
   showAllInfo,
   isClearDisabled,
   accountButtonLabel,
@@ -27,7 +28,8 @@ export function WorkbenchHeader({
   onFixedGridChange,
   onGlobalTimerSecondsChange,
   onGlobalTimerAction,
-  onDuplicateSelectedSource,
+  onCloneSelectedSource,
+  onFillSelectedSourceSpace,
   onToggleShowAllInfo,
   onHideUi,
   onAddSource,
@@ -48,7 +50,8 @@ export function WorkbenchHeader({
   fixedGrid: FixedGrid;
   globalSeconds: number;
   hasRunningSessionTimer: boolean;
-  showDuplicateButton: boolean;
+  showCloneButton: boolean;
+  showFillButton: boolean;
   showAllInfo: boolean;
   isClearDisabled: boolean;
   accountButtonLabel: string;
@@ -62,7 +65,8 @@ export function WorkbenchHeader({
   onFixedGridChange: (patch: Partial<FixedGrid>) => void;
   onGlobalTimerSecondsChange: (seconds: number) => void;
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
-  onDuplicateSelectedSource: () => void;
+  onCloneSelectedSource: () => void;
+  onFillSelectedSourceSpace: () => void;
   onToggleShowAllInfo: () => void;
   onHideUi: () => void;
   onAddSource: () => void;
@@ -91,13 +95,15 @@ export function WorkbenchHeader({
           fixedGrid={fixedGrid}
           globalSeconds={globalSeconds}
           hasRunningSessionTimer={hasRunningSessionTimer}
-          showDuplicateButton={showDuplicateButton}
+          showCloneButton={showCloneButton}
+          showFillButton={showFillButton}
           showAllInfo={showAllInfo}
           onLayoutModeChange={onLayoutModeChange}
           onFixedGridChange={onFixedGridChange}
           onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
           onGlobalTimerAction={onGlobalTimerAction}
-          onDuplicateSelectedSource={onDuplicateSelectedSource}
+          onCloneSelectedSource={onCloneSelectedSource}
+          onFillSelectedSourceSpace={onFillSelectedSourceSpace}
           onToggleShowAllInfo={onToggleShowAllInfo}
           onHideUi={onHideUi}
           onAddSource={onAddSource}

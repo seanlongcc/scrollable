@@ -2,6 +2,8 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, vi } from "vitest";
 
+import type { RuntimeFeedItem } from "@/lib/feed/types";
+
 vi.mock("@/lib/local-uploads/file-cache", () => ({
   isLocalFileCacheSupported: vi.fn(() => false),
   loadLocalFiles: vi.fn(async () => ({
@@ -61,7 +63,7 @@ export async function addDefaultSubredditSource(
 }
 
 export function stubRuntimeFetch(
-  items = [
+  items: RuntimeFeedItem[] = [
     {
       id: "runtime-1",
       source: "reddit" as const,

@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { UrlSourcePane } from "./url-source-pane";
@@ -157,6 +157,45 @@ describe("UrlSourcePane", () => {
     unmount();
 
     expect(onIframePlaybackTimeChange).toHaveBeenLastCalledWith(15);
+  });
+
+  it("exposes a select control for mounted iframes", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={youtubeResolution()}
+        canMountIframe
+        onSelect={onSelect}
+      />,
+    );
+
+    expect(container.querySelector("iframe")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select YouTube video" }),
+    );
+
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it("selects the source before running existing controls", () => {
+    const onEdit = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={youtubeResolution()}
+        canMountIframe
+        onEdit={onEdit}
+        onSelect={onSelect}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit YouTube video" }));
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onEdit).toHaveBeenCalledOnce();
   });
 });
 

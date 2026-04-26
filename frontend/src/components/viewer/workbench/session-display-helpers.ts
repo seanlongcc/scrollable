@@ -112,6 +112,10 @@ export function activeIframeFallbackLimit() {
   return 4;
 }
 
+export function isVideoPointerTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest("video"));
+}
+
 export function urlHostLabel(value: string) {
   try {
     return new URL(value).host;

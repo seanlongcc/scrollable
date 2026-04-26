@@ -213,6 +213,12 @@ export function FeedWorkbench({
       visibleEmptySlots,
     ],
   );
+  const canCloneOrFillSelectedSource = Boolean(
+    selected?.items.length &&
+    (layoutMode === "fixed"
+      ? visibleEmptySlots.length
+      : availableSeparateSourceSlots),
+  );
   const layerStats = useMemo(
     () =>
       deriveLayerStats({
@@ -357,7 +363,8 @@ export function FeedWorkbench({
     setViewTimerSeconds,
     setViewTimerMode,
     runGlobalAction,
-    fillVisibleCells,
+    cloneSelectedSource,
+    fillSelectedSourceSpace,
     addLayer,
     selectLayer,
     deleteActiveLayer,
@@ -376,7 +383,6 @@ export function FeedWorkbench({
     selectedId,
     maximizedId,
     pendingTemplateSlotId,
-    visibleEmptySlots,
     visibleFixedCells,
     globalSeconds,
     freeDrag,
@@ -619,7 +625,8 @@ export function FeedWorkbench({
           hasRunningSessionTimer={sessions.some(
             (session) => !session.timer.isPaused,
           )}
-          showDuplicateButton={Boolean(selected && visibleEmptySlots.length)}
+          showCloneButton={canCloneOrFillSelectedSource}
+          showFillButton={canCloneOrFillSelectedSource}
           showAllInfo={showAllInfo}
           isClearDisabled={isClearDisabled}
           accountButtonLabel={accountButtonLabel}
@@ -633,7 +640,8 @@ export function FeedWorkbench({
           onFixedGridChange={updateFixedGrid}
           onGlobalTimerSecondsChange={setGlobalTimerSeconds}
           onGlobalTimerAction={runGlobalAction}
-          onDuplicateSelectedSource={fillVisibleCells}
+          onCloneSelectedSource={cloneSelectedSource}
+          onFillSelectedSourceSpace={fillSelectedSourceSpace}
           onToggleShowAllInfo={() => setShowAllInfo((current) => !current)}
           onHideUi={() => {
             setIsUiRevealVisible(true);

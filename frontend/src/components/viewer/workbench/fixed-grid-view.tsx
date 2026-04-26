@@ -9,7 +9,11 @@ import {
   type TimerMode,
 } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
-import { activeIframeFallbackLimit, isIframeUrlSession } from "./helpers";
+import {
+  activeIframeFallbackLimit,
+  isIframeUrlSession,
+  isVideoPointerTarget,
+} from "./helpers";
 import { SessionPane } from "./session-pane";
 
 export function FixedGridView({
@@ -99,6 +103,10 @@ export function FixedGridView({
               }
               setSelectedId(session.id === selectedId ? null : session.id);
             }}
+            onPointerDownCapture={(event) => {
+              if (!session || session.id === selectedId) return;
+              if (isVideoPointerTarget(event.target)) setSelectedId(session.id);
+            }}
           >
             {session ? (
               <SessionPane
@@ -136,6 +144,7 @@ export function FixedGridView({
                     timer: { ...current.timer, elapsedMs: 0 },
                   }))
                 }
+                onSelect={() => setSelectedId(session.id)}
                 onMaximize={() => setMaximizedId(session.id)}
                 onEdit={() => onEditSource(session.id)}
                 onRemove={() => removeSession(session.id)}

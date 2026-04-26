@@ -1,4 +1,12 @@
-import { ExternalLink, Globe, Info, Maximize2, Pencil, X } from "lucide-react";
+import {
+  ExternalLink,
+  Globe,
+  Info,
+  Maximize2,
+  MousePointer2,
+  Pencil,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,9 +28,11 @@ export function UrlSourcePane({
   resolution,
   isRuntimeLoading,
   hideUi,
+  isFocused,
   canMountIframe,
   iframePlaybackSeconds = 0,
   onIframePlaybackTimeChange,
+  onSelect,
   onMaximize,
   onEdit,
   onRemove,
@@ -31,9 +41,11 @@ export function UrlSourcePane({
   resolution?: UrlRuntimeResolution;
   isRuntimeLoading?: boolean;
   hideUi?: boolean;
+  isFocused?: boolean;
   canMountIframe: boolean;
   iframePlaybackSeconds?: number;
   onIframePlaybackTimeChange?: (seconds: number) => void;
+  onSelect?: () => void;
   onMaximize?: () => void;
   onEdit?: () => void;
   onRemove?: () => void;
@@ -59,6 +71,11 @@ export function UrlSourcePane({
     iframeUrl &&
     !shouldShowDisplayWarning &&
     !shouldMountIframe;
+
+  function selectThen(action?: () => void) {
+    onSelect?.();
+    action?.();
+  }
 
   return (
     <article className="group/source relative grid size-full min-h-0 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]">
@@ -133,7 +150,9 @@ export function UrlSourcePane({
             {shouldShowDisplayWarning ? (
               <Button
                 size="sm"
-                onClick={() => setApprovedFallbackIframeUrl(iframeUrl)}
+                onClick={() =>
+                  selectThen(() => setApprovedFallbackIframeUrl(iframeUrl))
+                }
               >
                 <Info />
                 Display site
@@ -141,7 +160,12 @@ export function UrlSourcePane({
             ) : null}
             {externalUrl ? (
               <Button asChild size="sm" variant="outline">
-                <a href={externalUrl} target="_blank" rel="noreferrer">
+                <a
+                  href={externalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={onSelect}
+                >
                   <ExternalLink />
                   Open externally
                 </a>
@@ -151,8 +175,22 @@ export function UrlSourcePane({
         </div>
       )}
 
+      {!hideUi && onSelect ? (
+        <Button
+          type="button"
+          size="icon-sm"
+          variant={isFocused ? "default" : "outline"}
+          className="absolute top-2 left-2 z-30 border-border bg-background/80 text-foreground opacity-90 backdrop-blur hover:opacity-100"
+          onClick={onSelect}
+          aria-label={`Select ${displayTitle}`}
+          aria-pressed={isFocused}
+        >
+          <MousePointer2 />
+        </Button>
+      ) : null}
+
       {hideUi ? null : (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 pl-11 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
           <div className="min-w-0 rounded-md bg-background/75 px-2 py-1.5 backdrop-blur">
             <div className="truncate text-xs font-medium">{displayTitle}</div>
             <div className="font-mono text-[10px] text-muted-foreground">
@@ -166,7 +204,7 @@ export function UrlSourcePane({
                 size="icon-sm"
                 variant="outline"
                 className="border-border bg-background/75 text-foreground"
-                onClick={onMaximize}
+                onClick={() => selectThen(onMaximize)}
                 aria-label={`Maximize ${displayTitle}`}
               >
                 <Maximize2 />
@@ -178,7 +216,7 @@ export function UrlSourcePane({
                 size="icon-sm"
                 variant="outline"
                 className="border-border bg-background/75 text-foreground"
-                onClick={onEdit}
+                onClick={() => selectThen(onEdit)}
                 aria-label={`Edit ${displayTitle}`}
               >
                 <Pencil />
@@ -190,7 +228,7 @@ export function UrlSourcePane({
                 size="icon-sm"
                 variant="outline"
                 className="border-border bg-background/75 text-foreground"
-                onClick={onRemove}
+                onClick={() => selectThen(onRemove)}
                 aria-label={`Remove ${displayTitle}`}
               >
                 <X />

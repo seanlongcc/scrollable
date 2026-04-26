@@ -27,13 +27,15 @@ export function WorkbenchToolbar({
   fixedGrid,
   globalSeconds,
   hasRunningSessionTimer,
-  showDuplicateButton,
+  showCloneButton,
+  showFillButton,
   showAllInfo,
   onLayoutModeChange,
   onFixedGridChange,
   onGlobalTimerSecondsChange,
   onGlobalTimerAction,
-  onDuplicateSelectedSource,
+  onCloneSelectedSource,
+  onFillSelectedSourceSpace,
   onToggleShowAllInfo,
   onHideUi,
   onAddSource,
@@ -43,13 +45,15 @@ export function WorkbenchToolbar({
   fixedGrid: FixedGrid;
   globalSeconds: number;
   hasRunningSessionTimer: boolean;
-  showDuplicateButton: boolean;
+  showCloneButton: boolean;
+  showFillButton: boolean;
   showAllInfo: boolean;
   onLayoutModeChange: (mode: LayoutMode) => void;
   onFixedGridChange: (patch: Partial<FixedGrid>) => void;
   onGlobalTimerSecondsChange: (seconds: number) => void;
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
-  onDuplicateSelectedSource: () => void;
+  onCloneSelectedSource: () => void;
+  onFillSelectedSourceSpace: () => void;
   onToggleShowAllInfo: () => void;
   onHideUi: () => void;
   onAddSource: () => void;
@@ -136,15 +140,26 @@ export function WorkbenchToolbar({
         </Button>
       </div>
 
-      {showDuplicateButton ? (
+      {showCloneButton ? (
         <Button
           type="button"
           variant="outline"
-          onClick={onDuplicateSelectedSource}
-          aria-label="Duplicate selected source into empty cells"
+          onClick={onCloneSelectedSource}
+          aria-label="Clone selected source"
         >
           <Copy />
-          Duplicate
+          Clone
+        </Button>
+      ) : null}
+      {showFillButton ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onFillSelectedSourceSpace}
+          aria-label="Fill empty spaces with selected source"
+        >
+          <Grid2X2 />
+          Fill
         </Button>
       ) : null}
       <Button

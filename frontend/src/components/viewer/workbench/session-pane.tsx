@@ -29,6 +29,7 @@ export function SessionPane({
   onMove,
   onTogglePaused,
   onRestart,
+  onSelect,
   onMaximize,
   onEdit,
   onRemove,
@@ -51,6 +52,7 @@ export function SessionPane({
   onMove: (direction: 1 | -1) => void;
   onTogglePaused: () => void;
   onRestart: () => void;
+  onSelect?: () => void;
   onMaximize?: () => void;
   onEdit?: () => void;
   onRemove?: () => void;
@@ -84,6 +86,7 @@ export function SessionPane({
         resolution={session.urlResolution}
         isRuntimeLoading={isRuntimeLoading}
         hideUi={hideUi}
+        isFocused={isFocused}
         canMountIframe={
           canMountUrlIframe &&
           (isPlaybackActive || shouldPreserveInactiveUrlIframe(session))
@@ -96,6 +99,7 @@ export function SessionPane({
             ? (seconds) => onVideoPositionChange(urlIframePlaybackKey, seconds)
             : undefined
         }
+        onSelect={onSelect}
         onMaximize={onMaximize}
         onEdit={onEdit}
         onRemove={onRemove}
@@ -151,6 +155,7 @@ export function SessionPane({
       onMove={onMove}
       onTogglePaused={onTogglePaused}
       onRestart={onRestart}
+      onSelect={onSelect}
       onMaximize={onMaximize}
       onEdit={onEdit}
       onRemove={onRemove}

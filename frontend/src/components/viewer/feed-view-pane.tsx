@@ -7,6 +7,7 @@ import {
   Globe,
   GlobeOff,
   Maximize2,
+  MousePointer2,
   Pause,
   Pencil,
   Play,
@@ -56,6 +57,7 @@ export function FeedViewPane({
   onMove,
   onTogglePaused,
   onRestart,
+  onSelect,
   onMaximize,
   onEdit,
   onRemove,
@@ -82,6 +84,7 @@ export function FeedViewPane({
   onMove: (direction: 1 | -1) => void;
   onTogglePaused: () => void;
   onRestart: () => void;
+  onSelect?: () => void;
   onMaximize?: () => void;
   onEdit?: () => void;
   onRemove?: () => void;
@@ -159,6 +162,10 @@ export function FeedViewPane({
     },
     [activeItem, onGalleryChange, onMove],
   );
+  function selectThen(action?: () => void) {
+    onSelect?.();
+    action?.();
+  }
 
   return (
     <article
@@ -204,10 +211,24 @@ export function FeedViewPane({
         )}
       </div>
 
+      {!hideUi && onSelect ? (
+        <Button
+          type="button"
+          size="icon-sm"
+          variant={isFocused ? "default" : "outline"}
+          className="absolute top-2 left-2 z-30 border-border bg-background/80 text-foreground opacity-90 backdrop-blur hover:opacity-100"
+          onClick={onSelect}
+          aria-label={`Select ${title}`}
+          aria-pressed={isFocused}
+        >
+          <MousePointer2 />
+        </Button>
+      ) : null}
+
       {hideUi ? null : (
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-between gap-2 p-2",
+            "pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-between gap-2 p-2 pl-11",
             sourceChromeClass,
           )}
         >
@@ -233,7 +254,11 @@ export function FeedViewPane({
                 variant="outline"
                 className="border-border bg-background/75 text-foreground"
                 onClick={() =>
-                  onTimerModeChange(timerMode === "local" ? "global" : "local")
+                  selectThen(() =>
+                    onTimerModeChange(
+                      timerMode === "local" ? "global" : "local",
+                    ),
+                  )
                 }
                 aria-label={`${title} uses ${modeLabel} timer`}
               >
@@ -260,7 +285,7 @@ export function FeedViewPane({
                 size="icon-sm"
                 variant="outline"
                 className="border-border bg-background/75 text-foreground"
-                onClick={onMaximize}
+                onClick={() => selectThen(onMaximize)}
                 aria-label={`Maximize ${title}`}
               >
                 <Maximize2 />
@@ -272,7 +297,7 @@ export function FeedViewPane({
                 size="icon-sm"
                 variant="outline"
                 className="border-border bg-background/75 text-foreground"
-                onClick={onEdit}
+                onClick={() => selectThen(onEdit)}
                 aria-label={`Edit ${title}`}
               >
                 <Pencil />
@@ -284,7 +309,7 @@ export function FeedViewPane({
                 size="icon-sm"
                 variant="outline"
                 className="border-border bg-background/75 text-foreground"
-                onClick={onRemove}
+                onClick={() => selectThen(onRemove)}
                 aria-label={`Remove ${title}`}
               >
                 <X />
@@ -306,7 +331,7 @@ export function FeedViewPane({
             size="icon-sm"
             variant="outline"
             className="pointer-events-auto border-border bg-background/75 text-foreground"
-            onClick={() => onGalleryChange(activeItem.id, -1)}
+            onClick={() => selectThen(() => onGalleryChange(activeItem.id, -1))}
             aria-label={`Previous media for ${title}`}
           >
             <ChevronLeft />
@@ -316,7 +341,7 @@ export function FeedViewPane({
             size="icon-sm"
             variant="outline"
             className="pointer-events-auto border-border bg-background/75 text-foreground"
-            onClick={() => onGalleryChange(activeItem.id, 1)}
+            onClick={() => selectThen(() => onGalleryChange(activeItem.id, 1))}
             aria-label={`Next media for ${title}`}
           >
             <ChevronRight />
@@ -367,7 +392,7 @@ export function FeedViewPane({
               size="icon-sm"
               variant="outline"
               className="border-border bg-background/75 text-foreground"
-              onClick={() => onMove(-1)}
+              onClick={() => selectThen(() => onMove(-1))}
               aria-label={`Previous item for ${title}`}
             >
               <SkipBack />
@@ -377,7 +402,7 @@ export function FeedViewPane({
               size="icon-sm"
               variant="outline"
               className="border-border bg-background/75 text-foreground"
-              onClick={onTogglePaused}
+              onClick={() => selectThen(onTogglePaused)}
               aria-label={timer.isPaused ? `Resume ${title}` : `Pause ${title}`}
             >
               {timer.isPaused ? <Play /> : <Pause />}
@@ -387,7 +412,7 @@ export function FeedViewPane({
               size="icon-sm"
               variant="outline"
               className="border-border bg-background/75 text-foreground"
-              onClick={onRestart}
+              onClick={() => selectThen(onRestart)}
               aria-label={`Restart ${title}`}
             >
               <RotateCcw />
@@ -397,7 +422,7 @@ export function FeedViewPane({
               size="icon-sm"
               variant="outline"
               className="border-border bg-background/75 text-foreground"
-              onClick={() => onMove(1)}
+              onClick={() => selectThen(() => onMove(1))}
               aria-label={`Next item for ${title}`}
             >
               <SkipForward />

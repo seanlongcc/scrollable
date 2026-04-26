@@ -13,7 +13,11 @@ import type {
   FreeDragState,
   WorkspaceTemplateSlot,
 } from "./types";
-import { activeIframeFallbackLimit, isIframeUrlSession } from "./helpers";
+import {
+  activeIframeFallbackLimit,
+  isIframeUrlSession,
+  isVideoPointerTarget,
+} from "./helpers";
 import { SessionPane } from "./session-pane";
 
 export function FreeGridView({
@@ -198,6 +202,11 @@ export function FreeGridView({
                 }
                 setSelectedId(session.id === selectedId ? null : session.id);
               }}
+              onPointerDownCapture={(event) => {
+                if (session.id === selectedId) return;
+                if (isVideoPointerTarget(event.target))
+                  setSelectedId(session.id);
+              }}
             >
               {!hideUi ? (
                 <div
@@ -269,6 +278,7 @@ export function FreeGridView({
                     timer: { ...current.timer, elapsedMs: 0 },
                   }))
                 }
+                onSelect={() => setSelectedId(session.id)}
                 onMaximize={() => setMaximizedId(session.id)}
                 onEdit={() => onEditSource(session.id)}
                 onRemove={() => removeSession(session.id)}

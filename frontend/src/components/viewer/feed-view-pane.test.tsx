@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -77,6 +77,62 @@ describe("FeedViewPane", () => {
     );
     await waitFor(() => expect(decodedUrls).toEqual(prefetchedUrls));
     expect(container.querySelectorAll("img")).toHaveLength(1);
+  });
+
+  it("exposes a select control without blocking video controls", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <FeedViewPane
+        title="Video source"
+        items={[
+          feedItem("video", [
+            { type: "video", url: "https://cdn.test/video.mp4" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+
+    expect(container.querySelector("video")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select Video source" }),
+    );
+
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it("selects the source before running existing controls", () => {
+    const onSelect = vi.fn();
+    const onTogglePaused = vi.fn();
+    render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={onTogglePaused}
+        onRestart={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause r/pics" }));
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onTogglePaused).toHaveBeenCalledOnce();
   });
 });
 

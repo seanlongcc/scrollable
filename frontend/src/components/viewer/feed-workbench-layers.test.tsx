@@ -320,7 +320,7 @@ describe("FeedWorkbench layers", () => {
     ).toBeInTheDocument();
   });
 
-  it("fills empty visible fixed cells by duplicating the selected source", async () => {
+  it("clones the selected source into one empty fixed cell", async () => {
     stubRuntimeFetch([
       {
         id: "runtime-1",
@@ -355,12 +355,12 @@ describe("FeedWorkbench layers", () => {
     await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
     await screen.findByRole("button", {
-      name: "Duplicate selected source into empty cells",
+      name: "Clone selected source",
     });
 
     await user.click(
       screen.getByRole("button", {
-        name: "Duplicate selected source into empty cells",
+        name: "Clone selected source",
       }),
     );
 
@@ -368,7 +368,64 @@ describe("FeedWorkbench layers", () => {
       within(screen.getByTestId("fixed-cell-1")).getAllByText("r/pics")[0],
     ).toBeInTheDocument();
     expect(
-      within(screen.getByTestId("fixed-cell-1")).getByText(/2\/2/),
+      within(screen.getByTestId("fixed-cell-2")).getByRole("button", {
+        name: "Add source to empty cell",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("fills empty visible fixed cells with the selected source", async () => {
+    stubRuntimeFetch([
+      {
+        id: "runtime-1",
+        source: "reddit",
+        title: "Runtime image 1",
+        subreddit: "pics",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [{ type: "image", url: "https://cdn.test/one.jpg" }],
+      },
+      {
+        id: "runtime-2",
+        source: "reddit",
+        title: "Runtime image 2",
+        subreddit: "pics",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [{ type: "image", url: "https://cdn.test/two.jpg" }],
+      },
+    ]);
+    stubRandomUuids(["workspace-1", "session-1", "session-2", "session-3"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    fireEvent.change(screen.getByLabelText("Fixed columns"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText("Fixed rows"), {
+      target: { value: "1" },
+    });
+    await addDefaultSubredditSource(user);
+    await screen.findByRole("button", { name: "Remove r/pics" });
+    await screen.findByRole("button", {
+      name: "Fill empty spaces with selected source",
+    });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Fill empty spaces with selected source",
+      }),
+    );
+
+    expect(
+      within(screen.getByTestId("fixed-cell-1")).getAllByText("r/pics")[0],
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("fixed-cell-2")).getAllByText("r/pics")[0],
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("fixed-cell-1")).getByText(/1\/2/),
     ).toBeInTheDocument();
   });
 });

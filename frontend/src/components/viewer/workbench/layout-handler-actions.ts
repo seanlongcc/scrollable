@@ -16,7 +16,10 @@ import {
 } from "@/lib/viewer/layout";
 import type { TimerMode } from "@/lib/viewer/timer";
 import { signOutAccountAction } from "./account-actions";
-import { fillVisibleCellsState } from "./fill-visible-cells-state";
+import {
+  cloneSelectedSourceState,
+  fillSelectedSourceSpaceState,
+} from "./source-clone-state";
 import {
   resolveFreeDragCommitTarget,
   updateFreeDragCurrentRect,
@@ -60,7 +63,6 @@ type LayoutHandlersInput = {
   selectedId: string | null;
   maximizedId: string | null;
   pendingTemplateSlotId: string | null;
-  visibleEmptySlots: number[];
   visibleFixedCells: number;
   globalSeconds: number;
   freeDrag: FreeDragState | null;
@@ -97,7 +99,6 @@ export function useLayoutHandlers({
   selectedId,
   maximizedId,
   pendingTemplateSlotId,
-  visibleEmptySlots,
   visibleFixedCells,
   globalSeconds,
   freeDrag,
@@ -322,14 +323,28 @@ export function useLayoutHandlers({
     );
   }
 
-  function fillVisibleCells() {
-    if (!selected || !visibleEmptySlots.length || !selected.items.length)
-      return;
+  function cloneSelectedSource() {
+    if (!selected?.items.length) return;
 
     setSessions((current) =>
-      fillVisibleCellsState({
+      cloneSelectedSourceState({
         sessions: current,
         selectedId: selected.id,
+        layoutMode,
+        visibleFixedCells,
+        createId,
+      }),
+    );
+  }
+
+  function fillSelectedSourceSpace() {
+    if (!selected?.items.length) return;
+
+    setSessions((current) =>
+      fillSelectedSourceSpaceState({
+        sessions: current,
+        selectedId: selected.id,
+        layoutMode,
         visibleFixedCells,
         createId,
       }),
@@ -426,7 +441,8 @@ export function useLayoutHandlers({
     setViewTimerSeconds,
     setViewTimerMode,
     runGlobalAction,
-    fillVisibleCells,
+    cloneSelectedSource,
+    fillSelectedSourceSpace,
     addLayer,
     selectLayer,
     deleteActiveLayer,
