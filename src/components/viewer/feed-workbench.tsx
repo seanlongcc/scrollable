@@ -54,10 +54,7 @@ import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import type { Json } from "@/lib/supabase/database.types";
-import type {
-  UrlRuntimeResolution,
-  UrlSourceConfig,
-} from "@/lib/url-source/types";
+import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_FIXED_GRID,
@@ -126,10 +123,11 @@ import {
   getUploadableFiles,
 } from "./workbench/local-sources";
 import {
+  buildUrlAddSourceConfig,
   createRedditSessionSources,
+  createUrlSessionSource,
   fetchEditedRedditSource,
   fetchEditedUrlSource,
-  fetchUrlRuntimeItemsForSource,
   hydrateRuntimeSources,
 } from "./workbench/runtime-sources";
 import {
@@ -650,20 +648,11 @@ export function FeedWorkbench({
   async function openUrlSource() {
     setIsLoading(true);
     try {
-      const sourceConfig: UrlSourceConfig = {
-        kind: "url",
-        url: urlValue.trim(),
-        ...(urlTitle.trim() ? { title: urlTitle.trim() } : {}),
-      };
-      const result = await fetchUrlRuntimeItemsForSource(sourceConfig);
+      const source = await createUrlSessionSource(
+        buildUrlAddSourceConfig({ urlValue, urlTitle }),
+      );
 
-      addSession({
-        title: result.title,
-        sourceConfig: result.sourceConfig,
-        items: result.items,
-        allItems: result.allItems,
-        urlResolution: result.urlResolution,
-      });
+      addSession(source);
       setIsSourceOpen(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "URL source failed");

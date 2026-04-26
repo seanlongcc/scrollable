@@ -45,6 +45,34 @@ export type RuntimeHydrationResult = {
   sourceConfig?: PersistedSourceConfig;
 };
 
+export function buildUrlAddSourceConfig({
+  urlValue,
+  urlTitle,
+}: {
+  urlValue: string;
+  urlTitle: string;
+}): UrlSourceConfig {
+  return {
+    kind: "url",
+    url: urlValue.trim(),
+    ...(urlTitle.trim() ? { title: urlTitle.trim() } : {}),
+  };
+}
+
+export async function createUrlSessionSource(
+  sourceConfig: UrlSourceConfig,
+): Promise<RuntimeSessionSource> {
+  const result = await fetchUrlRuntimeItemsForSource(sourceConfig);
+
+  return {
+    title: result.title,
+    sourceConfig: result.sourceConfig,
+    items: result.items,
+    allItems: result.allItems,
+    urlResolution: result.urlResolution,
+  };
+}
+
 export async function createRedditSessionSources({
   urls,
   limit,
