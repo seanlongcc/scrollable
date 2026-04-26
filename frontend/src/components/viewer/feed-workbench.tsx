@@ -1,15 +1,7 @@
 "use client";
 
 import { Eye } from "lucide-react";
-import {
-  PointerEvent as ReactPointerEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,10 +10,7 @@ import {
   LayoutDialog,
   SaveLayoutDialog,
 } from "./workbench/dialogs";
-import {
-  accountStateFromUser,
-  signOutAccountAction,
-} from "./workbench/account-actions";
+import { accountStateFromUser } from "./workbench/account-actions";
 import { EditSourceDialog, SourceDialog } from "./workbench/source-dialogs";
 import { FixedGridView, FocusLayout, FreeGridView } from "./workbench/views";
 import { isLocalFileCacheSupported } from "@/lib/local-uploads/file-cache";
@@ -29,19 +18,9 @@ import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { cn } from "@/lib/utils";
-import {
-  DEFAULT_FIXED_GRID,
-  FREE_LAYOUT_SIZE,
-  type FixedGrid,
-  type FreeRect,
-  createFixedGrid,
-} from "@/lib/viewer/layout";
+import { DEFAULT_FIXED_GRID, type FixedGrid } from "@/lib/viewer/layout";
 import { MAX_WORKSPACE_LAYERS } from "@/lib/viewer/workspaces";
-import {
-  moveTimerIndex,
-  togglePaused,
-  type TimerMode,
-} from "@/lib/viewer/timer";
+import { moveTimerIndex, togglePaused } from "@/lib/viewer/timer";
 import type {
   AccountState,
   FeedSession,
@@ -68,20 +47,6 @@ import {
 import { createId, limitLayoutName } from "./workbench/helpers";
 import { visibleUrlRuntimeHydrationCandidates } from "./workbench/runtime-hydration-actions";
 import {
-  restoreTemplateSlotForRemovedSession,
-  updateSessionFreeRectState,
-  updateTemplateSlotFreeRectState,
-} from "./workbench/free-layout-state";
-import {
-  resolveFreeDragCommitTarget,
-  updateFreeDragCurrentRect,
-} from "./workbench/free-drag-state";
-import {
-  prepareAddLayerState,
-  prepareDeleteActiveLayerState,
-  prepareSelectLayerState,
-} from "./workbench/layer-actions";
-import {
   activeLayerFreeRects as deriveActiveLayerFreeRects,
   availableSeparateSourceSlots as deriveAvailableSeparateSourceSlots,
   deriveLayerStats,
@@ -95,13 +60,7 @@ import {
   writeWorkspaceSessionStore,
 } from "./workbench/workspace-state";
 import { useWorkspaceHandlers } from "./workbench/workspace-handler-actions";
-import {
-  applyGlobalTimerActionState,
-  applyGlobalTimerSecondsState,
-  applyViewTimerModeState,
-  applyViewTimerSecondsState,
-} from "./workbench/timer-actions";
-import { fillVisibleCellsState } from "./workbench/fill-visible-cells-state";
+import { useLayoutHandlers } from "./workbench/layout-handler-actions";
 import {
   HIDDEN_UI_REVEAL_TIMEOUT_MS,
   advanceSessionTimers,
@@ -395,6 +354,62 @@ export function FeedWorkbench({
     setMaximizedId,
     setPendingTemplateSlotId,
   });
+  const {
+    updateFixedGrid,
+    changeLayoutMode,
+    removeSession,
+    updateFreeRect,
+    removeTemplateSlot,
+    beginFreeDrag,
+    commitFreeDrag,
+    updateFreeDrag,
+    changeGallery,
+    setGlobalTimerSeconds,
+    setViewTimerSeconds,
+    setViewTimerMode,
+    runGlobalAction,
+    fillVisibleCells,
+    addLayer,
+    selectLayer,
+    deleteActiveLayer,
+    clearCurrentLayout,
+    signOut,
+  } = useLayoutHandlers({
+    layoutMode,
+    layoutModeLocked,
+    activeLayerId,
+    layers,
+    sessions,
+    templateSlots,
+    galleryIndexes,
+    videoPositions,
+    selected: selected ?? null,
+    selectedId,
+    maximizedId,
+    pendingTemplateSlotId,
+    visibleEmptySlots,
+    visibleFixedCells,
+    globalSeconds,
+    freeDrag,
+    freeGridRef,
+    createId,
+    setFixedGrid,
+    setLayoutMode,
+    setSessions,
+    setTemplateSlots,
+    setGalleryIndexes,
+    setVideoPositions,
+    setSelectedId,
+    setMaximizedId,
+    setPendingFixedSlot,
+    setPendingTemplateSlotId,
+    setFreeDrag,
+    setGlobalSeconds,
+    setLayers,
+    setActiveLayerId,
+    setIsClearOpen,
+    setAccount,
+  });
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setHasHydrated(true));
@@ -488,24 +503,11 @@ export function FeedWorkbench({
     const drag = freeDrag;
 
     function onPointerMove(event: PointerEvent) {
-      setFreeDrag((current) =>
-        updateFreeDragCurrentRect({
-          current,
-          id: drag.id,
-          clientX: event.clientX,
-          clientY: event.clientY,
-        }),
-      );
+      updateFreeDrag(event, drag);
     }
 
     function onPointerUp() {
-      const target = resolveFreeDragCommitTarget(drag);
-      if (target.targetType === "template-slot") {
-        updateTemplateSlotRect(target.id, target.rect);
-      } else {
-        updateFreeRect(target.id, target.rect);
-      }
-      setFreeDrag(null);
+      commitFreeDrag(drag);
     }
 
     window.addEventListener("pointermove", onPointerMove);
@@ -602,276 +604,6 @@ export function FeedWorkbench({
       window.removeEventListener("keydown", revealTemporarily);
     };
   }, [isUiHidden]);
-
-  function updateFixedGrid(next: Partial<FixedGrid>) {
-    try {
-      setFixedGrid((current) =>
-        createFixedGrid(
-          next.columns ?? current.columns,
-          next.rows ?? current.rows,
-        ),
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Invalid grid");
-    }
-  }
-
-  function changeLayoutMode(nextMode: LayoutMode) {
-    if (layoutModeLocked && nextMode !== layoutMode) {
-      toast.error("Clear sources and template boxes before switching layouts");
-      return;
-    }
-
-    setLayoutMode(nextMode);
-  }
-
-  function removeSession(id: string) {
-    const removed = sessions.find((session) => session.id === id);
-    setSessions((current) => current.filter((session) => session.id !== id));
-    if (removed?.templateSlotId && layoutMode === "free") {
-      setTemplateSlots((current) =>
-        restoreTemplateSlotForRemovedSession({
-          templateSlots: current,
-          removedSession: removed,
-          layoutMode,
-        }),
-      );
-    }
-    setGalleryIndexes((current) => {
-      const next = { ...current };
-      removed?.items.forEach((item) => delete next[item.id]);
-      return next;
-    });
-    setVideoPositions((current) =>
-      Object.fromEntries(
-        Object.entries(current).filter(([key]) => !key.startsWith(`${id}:`)),
-      ),
-    );
-    if (selectedId === id) setSelectedId(null);
-    if (maximizedId === id) setMaximizedId(null);
-  }
-
-  function updateFreeRect(
-    id: string,
-    nextRect: Partial<FreeRect>,
-    showError = true,
-  ) {
-    setSessions((current) => {
-      try {
-        return updateSessionFreeRectState({
-          sessions: current,
-          templateSlots,
-          id,
-          nextRect,
-        });
-      } catch (error) {
-        if (showError) {
-          toast.error(
-            error instanceof Error ? error.message : "Invalid free layout",
-          );
-        }
-        return current;
-      }
-    });
-  }
-
-  function updateTemplateSlotRect(
-    id: string,
-    nextRect: Partial<FreeRect>,
-    showError = true,
-  ) {
-    setTemplateSlots((current) => {
-      try {
-        return updateTemplateSlotFreeRectState({
-          sessions,
-          templateSlots: current,
-          activeLayerId,
-          id,
-          nextRect,
-        });
-      } catch (error) {
-        if (showError) {
-          toast.error(
-            error instanceof Error ? error.message : "Invalid free layout",
-          );
-        }
-        return current;
-      }
-    });
-  }
-
-  function removeTemplateSlot(id: string) {
-    setTemplateSlots((current) =>
-      current.filter((candidate) => candidate.id !== id),
-    );
-    if (pendingTemplateSlotId === id) setPendingTemplateSlotId(null);
-  }
-
-  function beginFreeDrag(
-    event: ReactPointerEvent<HTMLButtonElement>,
-    target: { id: string; freeRect: FreeRect },
-    mode: "move" | "resize",
-    targetType: FreeDragState["targetType"] = "session",
-  ) {
-    const bounds = freeGridRef.current?.getBoundingClientRect();
-    if (!bounds) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    setSelectedId(targetType === "session" ? target.id : null);
-    setFreeDrag({
-      id: target.id,
-      targetType,
-      mode,
-      startX: event.clientX,
-      startY: event.clientY,
-      cellWidth: bounds.width / FREE_LAYOUT_SIZE,
-      cellHeight: bounds.height / FREE_LAYOUT_SIZE,
-      startRect: target.freeRect,
-      currentRect: target.freeRect,
-    });
-  }
-
-  function changeGallery(itemId: string, direction: 1 | -1) {
-    const item = sessions
-      .flatMap((session) => session.items)
-      .find((candidate) => candidate.id === itemId);
-    if (!item) return;
-
-    setGalleryIndexes((state) => {
-      const current = state[itemId] ?? 0;
-      const next =
-        (current + direction + item.media.length) % item.media.length;
-      return { ...state, [itemId]: next };
-    });
-  }
-
-  function setGlobalTimerSeconds(value: number) {
-    const { globalSeconds: durationSeconds } = applyGlobalTimerSecondsState({
-      sessions: [],
-      value,
-    });
-    setGlobalSeconds(durationSeconds);
-    setSessions(
-      (current) =>
-        applyGlobalTimerSecondsState({
-          sessions: current,
-          value: durationSeconds,
-        }).sessions,
-    );
-  }
-
-  function setViewTimerSeconds(id: string, value: number) {
-    setSessions((current) =>
-      applyViewTimerSecondsState({ sessions: current, id, value }),
-    );
-  }
-
-  function setViewTimerMode(id: string, mode: TimerMode) {
-    setSessions((current) =>
-      applyViewTimerModeState({
-        sessions: current,
-        id,
-        mode,
-        globalSeconds,
-      }),
-    );
-  }
-
-  function runGlobalAction(action: "next" | "pause" | "restart") {
-    setSessions((current) =>
-      applyGlobalTimerActionState({ sessions: current, action }),
-    );
-  }
-
-  function fillVisibleCells() {
-    if (!selected || !visibleEmptySlots.length || !selected.items.length)
-      return;
-
-    setSessions((current) =>
-      fillVisibleCellsState({
-        sessions: current,
-        selectedId: selected.id,
-        visibleFixedCells,
-        createId,
-      }),
-    );
-  }
-
-  function addLayer() {
-    const nextState = prepareAddLayerState({ layers, createId });
-    if (!nextState) return;
-
-    setLayers(nextState.layers);
-    setActiveLayerId(nextState.activeLayerId);
-    setSelectedId(nextState.selectedId);
-    setMaximizedId(nextState.maximizedId);
-    setPendingFixedSlot(nextState.pendingFixedSlot);
-    setPendingTemplateSlotId(nextState.pendingTemplateSlotId);
-  }
-
-  function selectLayer(id: string) {
-    const nextState = prepareSelectLayerState(id);
-
-    setActiveLayerId(nextState.activeLayerId);
-    setSelectedId(nextState.selectedId);
-    setMaximizedId(nextState.maximizedId);
-    setPendingFixedSlot(nextState.pendingFixedSlot);
-    setPendingTemplateSlotId(nextState.pendingTemplateSlotId);
-  }
-
-  function deleteActiveLayer() {
-    if (layers.length <= 1) return;
-
-    const nextState = prepareDeleteActiveLayerState({
-      layers,
-      activeLayerId,
-      sessions,
-      templateSlots,
-      galleryIndexes,
-      videoPositions,
-    });
-
-    setLayers(nextState.nextLayers);
-    setSessions(nextState.nextSessions);
-    setTemplateSlots(nextState.nextTemplateSlots);
-    setGalleryIndexes(nextState.nextGalleryIndexes);
-    setVideoPositions(nextState.nextVideoPositions);
-    setActiveLayerId(nextState.nextActiveLayerId);
-    setSelectedId(nextState.nextSelectedId);
-    setMaximizedId(nextState.nextMaximizedId);
-    setPendingFixedSlot(nextState.nextPendingFixedSlot);
-    setPendingTemplateSlotId(nextState.nextPendingTemplateSlotId);
-  }
-
-  function clearCurrentLayout() {
-    setSessions([]);
-    setTemplateSlots([]);
-    setGalleryIndexes({});
-    setVideoPositions({});
-    setSelectedId(null);
-    setMaximizedId(null);
-    setPendingFixedSlot(null);
-    setPendingTemplateSlotId(null);
-    setIsClearOpen(false);
-  }
-
-  async function signOut() {
-    const result = await signOutAccountAction({
-      isConfigured: Boolean(getSupabaseEnv()),
-      signOut: async () => createSupabaseBrowserClient().auth.signOut(),
-    });
-
-    if (result.status === "error") {
-      toast.error(result.error);
-      return;
-    }
-
-    setAccount(result.account);
-    if (result.status === "signed-out") {
-      toast.success(result.successMessage);
-    }
-  }
 
   return (
     <main
