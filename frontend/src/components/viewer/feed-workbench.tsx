@@ -1,26 +1,14 @@
 "use client";
 
-import { Eye } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import {
-  AccountDialog,
-  ClearLayoutDialog,
-  LayoutDialog,
-  SaveLayoutDialog,
-} from "./workbench/dialogs";
 import { accountStateFromUser } from "./workbench/account-actions";
-import { EditSourceDialog, SourceDialog } from "./workbench/source-dialogs";
-import { FixedGridView, FocusLayout, FreeGridView } from "./workbench/views";
 import { isLocalFileCacheSupported } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { cn } from "@/lib/utils";
 import { DEFAULT_FIXED_GRID, type FixedGrid } from "@/lib/viewer/layout";
-import { MAX_WORKSPACE_LAYERS } from "@/lib/viewer/workspaces";
-import { moveTimerIndex, togglePaused } from "@/lib/viewer/timer";
 import type {
   AccountState,
   FeedSession,
@@ -55,6 +43,7 @@ import {
   visibleFixedEmptySlots,
 } from "./workbench/selection-state";
 import { useSourceRuntimeHandlers } from "./workbench/source-runtime-handlers";
+import { HiddenUiRevealButton } from "./workbench/hidden-ui-reveal-button";
 import {
   restoreWorkspaceBootstrap,
   writeWorkspaceSessionStore,
@@ -68,8 +57,8 @@ import {
   moveActiveKeyboardSessionTimer,
 } from "./workbench/workbench-effect-state";
 import { WorkbenchHeader } from "./workbench/workbench-header";
-import { LayerToolbar } from "./workbench/layer-toolbar";
-import { SelectedFreeLayoutControls } from "./workbench/selected-free-layout-controls";
+import { WorkbenchOverlays } from "./workbench/workbench-overlays";
+import { WorkbenchStage } from "./workbench/workbench-stage";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -614,24 +603,13 @@ export function FeedWorkbench({
       )}
     >
       {isUiHidden ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className={cn(
-            "fixed right-3 top-3 z-50 border-border bg-background/95 text-foreground shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur transition-opacity duration-300",
-            !isUiRevealVisible && "pointer-events-none opacity-0",
-          )}
-          onClick={() => {
+        <HiddenUiRevealButton
+          isVisible={isUiRevealVisible}
+          onReveal={() => {
             setIsUiRevealVisible(true);
             setIsUiHidden(false);
           }}
-          onFocus={() => setIsUiRevealVisible(true)}
-          aria-label="Show UI"
-        >
-          <Eye />
-          Show UI
-        </Button>
+        />
       ) : (
         <WorkbenchHeader
           layoutMode={layoutMode}
@@ -678,9 +656,9 @@ export function FeedWorkbench({
         />
       )}
 
-      <SourceDialog
-        open={isSourceOpen}
-        onOpenChange={(open) => {
+      <WorkbenchOverlays
+        isSourceOpen={isSourceOpen}
+        onSourceOpenChange={(open) => {
           setIsSourceOpen(open);
           if (!open) {
             setPendingFixedSlot(null);
@@ -711,255 +689,76 @@ export function FeedWorkbench({
         addLocalFiles={addLocalFiles}
         addDroppedLocalFiles={addDroppedLocalFiles}
         allowLocalFileDrop={allowLocalFileDrop}
-      />
-      {isLayoutsOpen ? (
-        <LayoutDialog
-          open={isLayoutsOpen}
-          onOpenChange={setIsLayoutsOpen}
-          workspaces={Object.values(savedWorkspaces)}
-          templates={Object.values(savedTemplates)}
-          onOpenWorkspaces={openSavedWorkspaces}
-          onOpenTemplates={openSavedTemplates}
-          onDeleteWorkspace={deleteSavedWorkspace}
-          onDeleteTemplate={deleteSavedTemplate}
-        />
-      ) : null}
-      <SaveLayoutDialog
-        open={isSaveOpen}
-        onOpenChange={setIsSaveOpen}
-        name={saveName}
+        isLayoutsOpen={isLayoutsOpen}
+        setIsLayoutsOpen={setIsLayoutsOpen}
+        savedWorkspaces={savedWorkspaces}
+        savedTemplates={savedTemplates}
+        openSavedWorkspaces={openSavedWorkspaces}
+        openSavedTemplates={openSavedTemplates}
+        deleteSavedWorkspace={deleteSavedWorkspace}
+        deleteSavedTemplate={deleteSavedTemplate}
+        isSaveOpen={isSaveOpen}
+        setIsSaveOpen={setIsSaveOpen}
+        saveName={saveName}
         layoutMode={layoutMode}
         saveKind={saveKind}
-        error={saveError}
-        onNameChange={(value) => {
-          setSaveName(value);
-          setSaveError(null);
-        }}
-        onSaveKindChange={(value) => {
-          setSaveKind(value);
-          setSaveError(null);
-        }}
-        onSaveLayout={saveLayoutAs}
-        onSaveTemplate={saveTemplateAs}
-      />
-      <ClearLayoutDialog
-        open={isClearOpen}
-        onOpenChange={setIsClearOpen}
-        onConfirm={clearCurrentLayout}
-      />
-      {editingSource ? (
-        <EditSourceDialog
-          key={editingSource.id}
-          source={editingSource}
-          open
-          onOpenChange={(open) => {
-            if (!open) setEditingSourceId(null);
-          }}
-          onSaveReddit={saveRedditSourceEdit}
-          onSaveUrl={saveUrlSourceEdit}
-          onSaveLocal={saveLocalSourceEdit}
-        />
-      ) : null}
-      <AccountDialog
-        open={isAccountOpen}
-        onOpenChange={setIsAccountOpen}
+        saveError={saveError}
+        setSaveName={setSaveName}
+        setSaveError={setSaveError}
+        setSaveKind={setSaveKind}
+        saveLayoutAs={saveLayoutAs}
+        saveTemplateAs={saveTemplateAs}
+        isClearOpen={isClearOpen}
+        setIsClearOpen={setIsClearOpen}
+        clearCurrentLayout={clearCurrentLayout}
+        editingSource={editingSource}
+        setEditingSourceId={setEditingSourceId}
+        saveRedditSourceEdit={saveRedditSourceEdit}
+        saveUrlSourceEdit={saveUrlSourceEdit}
+        saveLocalSourceEdit={saveLocalSourceEdit}
+        isAccountOpen={isAccountOpen}
+        setIsAccountOpen={setIsAccountOpen}
         account={account}
-        onSignOut={signOut}
+        signOut={signOut}
       />
 
-      {maximized ? (
-        <FocusLayout
-          focused={maximized}
-          sessions={sessions}
-          galleryIndexes={galleryIndexes}
-          videoPositions={videoPositions}
-          hideUi={isUiHidden}
-          showInfo={showAllInfo}
-          onRestore={() => setMaximizedId(null)}
-          onFocus={setMaximizedId}
-          onGalleryChange={changeGallery}
-          onVideoPositionChange={rememberVideoPosition}
-          onMove={(id, direction) =>
-            updateSession(id, (session) => ({
-              ...session,
-              timer: moveTimerIndex(session.timer, direction),
-            }))
-          }
-          onTogglePaused={(id) =>
-            updateSession(id, (session) => ({
-              ...session,
-              timer: togglePaused(session.timer),
-            }))
-          }
-          onRestart={(id) =>
-            updateSession(id, (session) => ({
-              ...session,
-              timer: { ...session.timer, elapsedMs: 0 },
-            }))
-          }
-          onTimerModeChange={setViewTimerMode}
-          onTimerSecondsChange={setViewTimerSeconds}
-          onLocalFilesSelected={replaceLocalSessionFiles}
-          onEditSource={openEditSource}
-        />
-      ) : (
-        <section
-          className={cn(
-            "grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3",
-            isUiHidden ? "p-0" : "p-3",
-          )}
-        >
-          {!isUiHidden ? (
-            <div
-              data-testid="layout-status-row"
-              className="grid min-h-8 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
-            >
-              <LayerToolbar
-                sourceCount={sessions.length}
-                layoutMode={layoutMode}
-                layers={layers}
-                activeLayerId={activeLayerId}
-                layerStats={layerStats}
-                hiddenFixedSessionCount={hiddenFixedSessions.length}
-                isAddLayerDisabled={layers.length >= MAX_WORKSPACE_LAYERS}
-                isDeleteLayerDisabled={layers.length <= 1}
-                onSelectLayer={selectLayer}
-                onAddLayer={addLayer}
-                onDeleteLayer={deleteActiveLayer}
-              />
-              {selected && layoutMode === "free" ? (
-                <SelectedFreeLayoutControls
-                  selected={selected}
-                  onFreeRectChange={updateFreeRect}
-                />
-              ) : null}
-            </div>
-          ) : null}
-
-          <div
-            className={cn(
-              "h-full min-h-0 overflow-auto border-border/70 bg-background bg-[linear-gradient(rgba(255,255,255,.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.008)_1px,transparent_1px)]",
-              isUiHidden
-                ? "rounded-none border-0 p-0"
-                : "rounded-lg border p-2",
-              layoutMode === "free" && "bg-[size:6.25%_6.25%]",
-            )}
-          >
-            {layoutMode === "fixed" ? (
-              <div
-                className={cn(
-                  "relative",
-                  isUiHidden
-                    ? "h-dvh min-h-0 min-w-0"
-                    : "h-full min-h-0 min-w-0 md:min-h-[360px] md:min-w-[720px]",
-                )}
-              >
-                {layers.map((layer) => {
-                  const isActiveLayer = layer.id === activeLayerId;
-
-                  return (
-                    <div
-                      key={layer.id}
-                      aria-hidden={!isActiveLayer}
-                      style={{
-                        visibility: isActiveLayer ? "visible" : "hidden",
-                      }}
-                      className={cn(
-                        isActiveLayer
-                          ? "relative z-10 size-full"
-                          : "pointer-events-none absolute inset-0 opacity-0",
-                      )}
-                    >
-                      <FixedGridView
-                        sessions={sessions.filter(
-                          (session) => session.layerId === layer.id,
-                        )}
-                        visibleCells={visibleFixedCells}
-                        fixedGrid={fixedGrid}
-                        galleryIndexes={galleryIndexes}
-                        videoPositions={videoPositions}
-                        selectedId={isActiveLayer ? selectedId : null}
-                        hideUi={isUiHidden}
-                        isPlaybackActive={isActiveLayer}
-                        showInfo={isActiveLayer && showAllInfo}
-                        openSourcePanel={openSourcePanel}
-                        setSelectedId={setSelectedId}
-                        setMaximizedId={setMaximizedId}
-                        updateSession={updateSession}
-                        removeSession={removeSession}
-                        changeGallery={changeGallery}
-                        onVideoPositionChange={rememberVideoPosition}
-                        setViewTimerMode={setViewTimerMode}
-                        setViewTimerSeconds={setViewTimerSeconds}
-                        onLocalFilesSelected={replaceLocalSessionFiles}
-                        onEditSource={openEditSource}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div
-                ref={freeGridRef}
-                className={cn(
-                  "relative",
-                  isUiHidden
-                    ? "h-dvh min-h-0 min-w-0"
-                    : "h-full min-h-0 min-w-0 md:min-h-[360px] md:min-w-[720px]",
-                )}
-              >
-                {layers.map((layer) => {
-                  const isActiveLayer = layer.id === activeLayerId;
-
-                  return (
-                    <div
-                      key={layer.id}
-                      aria-hidden={!isActiveLayer}
-                      style={{
-                        visibility: isActiveLayer ? "visible" : "hidden",
-                      }}
-                      className={cn(
-                        isActiveLayer
-                          ? "relative z-10 size-full"
-                          : "pointer-events-none absolute inset-0 opacity-0",
-                      )}
-                    >
-                      <FreeGridView
-                        sessions={sessions.filter(
-                          (session) => session.layerId === layer.id,
-                        )}
-                        templateSlots={templateSlots.filter(
-                          (slot) => (slot.layerId ?? layer.id) === layer.id,
-                        )}
-                        galleryIndexes={galleryIndexes}
-                        videoPositions={videoPositions}
-                        selectedId={isActiveLayer ? selectedId : null}
-                        hideUi={isUiHidden}
-                        isPlaybackActive={isActiveLayer}
-                        showInfo={isActiveLayer && showAllInfo}
-                        freeDrag={isActiveLayer ? freeDrag : null}
-                        setSelectedId={setSelectedId}
-                        setMaximizedId={setMaximizedId}
-                        updateSession={updateSession}
-                        removeSession={removeSession}
-                        removeTemplateSlot={removeTemplateSlot}
-                        openSourcePanel={openSourcePanel}
-                        changeGallery={changeGallery}
-                        onVideoPositionChange={rememberVideoPosition}
-                        setViewTimerMode={setViewTimerMode}
-                        setViewTimerSeconds={setViewTimerSeconds}
-                        beginFreeDrag={beginFreeDrag}
-                        onLocalFilesSelected={replaceLocalSessionFiles}
-                        onEditSource={openEditSource}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+      <WorkbenchStage
+        maximized={maximized ?? null}
+        sessions={sessions}
+        galleryIndexes={galleryIndexes}
+        videoPositions={videoPositions}
+        isUiHidden={isUiHidden}
+        showAllInfo={showAllInfo}
+        setMaximizedId={setMaximizedId}
+        changeGallery={changeGallery}
+        rememberVideoPosition={rememberVideoPosition}
+        updateSession={updateSession}
+        setViewTimerMode={setViewTimerMode}
+        setViewTimerSeconds={setViewTimerSeconds}
+        replaceLocalSessionFiles={replaceLocalSessionFiles}
+        openEditSource={openEditSource}
+        selected={selected ?? null}
+        layoutMode={layoutMode}
+        layers={layers}
+        activeLayerId={activeLayerId}
+        layerStats={layerStats}
+        hiddenFixedSessionCount={hiddenFixedSessions.length}
+        selectLayer={selectLayer}
+        addLayer={addLayer}
+        deleteActiveLayer={deleteActiveLayer}
+        updateFreeRect={updateFreeRect}
+        fixedGrid={fixedGrid}
+        visibleFixedCells={visibleFixedCells}
+        selectedId={selectedId}
+        openSourcePanel={openSourcePanel}
+        setSelectedId={setSelectedId}
+        removeSession={removeSession}
+        freeGridRef={freeGridRef}
+        templateSlots={templateSlots}
+        freeDrag={freeDrag}
+        removeTemplateSlot={removeTemplateSlot}
+        beginFreeDrag={beginFreeDrag}
+      />
     </main>
   );
 }
