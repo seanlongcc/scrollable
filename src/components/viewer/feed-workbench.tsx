@@ -136,14 +136,17 @@ import {
   getUploadableFiles,
 } from "./workbench/local-sources";
 import {
-  applyRuntimeHydrationResults,
   createRedditSessionSources,
   fetchEditedRedditSource,
   fetchEditedUrlSource,
   fetchUrlRuntimeItemsForSource,
   hydrateRuntimeSources,
-  runtimeHydrationCandidates,
 } from "./workbench/runtime-sources";
+import {
+  applyHydratedRuntimeSessions,
+  runtimeHydrationCandidates,
+  visibleUnresolvedUrlHydrationSessions,
+} from "./workbench/runtime-hydration-state";
 import {
   applyEditedRedditSourceToSession,
   applyEditedUrlSourceToSession,
@@ -528,14 +531,12 @@ export function FeedWorkbench({
   }, [isUiHidden]);
 
   useEffect(() => {
-    const visibleUnresolvedUrlSessions = sessions.filter(
-      (session) =>
-        session.sourceConfig.kind === "url" &&
-        session.isRuntimeLoading &&
-        session.items.length === 0 &&
-        !session.urlResolution &&
-        isSessionVisibleForUrlHydration(session),
-    );
+    const visibleUnresolvedUrlSessions = visibleUnresolvedUrlHydrationSessions({
+      sessions,
+      activeLayerId,
+      layoutMode,
+      visibleFixedCells,
+    });
 
     if (!visibleUnresolvedUrlSessions.length) return;
 
@@ -1751,10 +1752,12 @@ export function FeedWorkbench({
   }
 
   async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
-    const sessionsToHydrate = runtimeHydrationCandidates(
-      nextSessions,
-      isSessionVisibleForUrlHydration,
-    );
+    const sessionsToHydrate = runtimeHydrationCandidates({
+      sessions: nextSessions,
+      activeLayerId,
+      layoutMode,
+      visibleFixedCells,
+    });
 
     if (!sessionsToHydrate.length) return;
 
@@ -1769,15 +1772,7 @@ export function FeedWorkbench({
         ),
     });
 
-    setSessions((current) => applyRuntimeHydrationResults(current, hydrated));
-  }
-
-  function isSessionVisibleForUrlHydration(session: FeedSession) {
-    if (session.sourceConfig.kind !== "url") return true;
-    if (session.layerId !== activeLayerId) return false;
-    if (layoutMode !== "fixed") return true;
-
-    return session.fixedSlot < visibleFixedCells;
+    setSessions((current) => applyHydratedRuntimeSessions(current, hydrated));
   }
 
   return (

@@ -299,22 +299,6 @@ export async function fetchLocalRuntimeItemsForSource({
   };
 }
 
-export function runtimeHydrationCandidates(
-  sessions: FeedSession[],
-  isUrlSessionVisible: (session: FeedSession) => boolean,
-) {
-  return sessions.filter(
-    (session) =>
-      session.items.length === 0 &&
-      (session.sourceConfig.kind === "reddit" ||
-        (session.sourceConfig.kind === "url" &&
-          !session.urlResolution &&
-          isUrlSessionVisible(session)) ||
-        (session.sourceConfig.kind === "local" &&
-          Boolean(session.sourceConfig.cacheSetId))),
-  );
-}
-
 export async function hydrateRuntimeSources({
   sessions,
   createLocalRuntimeItems,
