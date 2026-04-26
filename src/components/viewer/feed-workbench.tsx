@@ -53,7 +53,6 @@ import { isLocalFileCacheSupported } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
-import type { Json } from "@/lib/supabase/database.types";
 import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import { cn } from "@/lib/utils";
 import {
@@ -63,18 +62,11 @@ import {
   type FreeRect,
   countAvailableFreeUnitRects,
   createFixedGrid,
-  findAvailableFreeRectsBySize,
 } from "@/lib/viewer/layout";
 import { MAX_WORKSPACE_LAYERS } from "@/lib/viewer/workspaces";
 import {
   advanceTimerState,
-  applyGlobalDuration,
-  createTimerState,
-  globalMoveTimerIndexes,
-  globalRestartTimers,
-  globalTogglePaused,
   moveTimerIndex,
-  syncTimerToGlobal,
   togglePaused,
   type TimerMode,
 } from "@/lib/viewer/timer";
@@ -103,16 +95,13 @@ import {
   MAX_LAYOUT_NAME_LENGTH,
 } from "./workbench/types";
 import {
-  clamp,
   createId,
   hasDuplicateLayoutName,
-  hasDuplicateTemplateName,
   isKeyboardEditingTarget,
   keyMoveDirection,
   limitLayoutName,
   normalizeRedditLimit,
   sessionFileCount,
-  toMultiTimerState,
 } from "./workbench/helpers";
 import {
   applyLocalRuntimeItemsToSession,
@@ -153,6 +142,10 @@ import {
   updateSessionFreeRectState,
   updateTemplateSlotFreeRectState,
 } from "./workbench/free-layout-state";
+import {
+  resolveFreeDragCommitTarget,
+  updateFreeDragCurrentRect,
+} from "./workbench/free-drag-state";
 import { deleteActiveLayerState } from "./workbench/layer-state";
 import {
   placeSessions,
@@ -178,6 +171,21 @@ import {
   prepareWorkspaceRename,
   prepareWorkspaceSnapshotApply,
 } from "./workbench/workspace-actions";
+import {
+  buildViewerSessionUpsertRows,
+  buildViewerTemplateUpsertRows,
+  openSaveDialogState,
+  renameActiveWorkspaceTab,
+  validateLayoutSaveName,
+  validateTemplateSaveName,
+} from "./workbench/workspace-save-state";
+import {
+  applyGlobalTimerActionState,
+  applyGlobalTimerSecondsState,
+  applyViewTimerModeState,
+  applyViewTimerSecondsState,
+} from "./workbench/timer-actions";
+import { fillVisibleCellsState } from "./workbench/fill-visible-cells-state";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -458,53 +466,22 @@ export function FeedWorkbench({
     const drag = freeDrag;
 
     function onPointerMove(event: PointerEvent) {
-      const deltaColumns = Math.round(
-        (event.clientX - drag.startX) / drag.cellWidth,
-      );
-      const deltaRows = Math.round(
-        (event.clientY - drag.startY) / drag.cellHeight,
-      );
-      const nextRect =
-        drag.mode === "move"
-          ? {
-              ...drag.startRect,
-              column: clamp(
-                drag.startRect.column + deltaColumns,
-                1,
-                FREE_LAYOUT_SIZE + 1 - drag.startRect.columnSpan,
-              ),
-              row: clamp(
-                drag.startRect.row + deltaRows,
-                1,
-                FREE_LAYOUT_SIZE + 1 - drag.startRect.rowSpan,
-              ),
-            }
-          : {
-              ...drag.startRect,
-              columnSpan: clamp(
-                drag.startRect.columnSpan + deltaColumns,
-                1,
-                FREE_LAYOUT_SIZE + 1 - drag.startRect.column,
-              ),
-              rowSpan: clamp(
-                drag.startRect.rowSpan + deltaRows,
-                1,
-                FREE_LAYOUT_SIZE + 1 - drag.startRect.row,
-              ),
-            };
-
       setFreeDrag((current) =>
-        current && current.id === drag.id
-          ? { ...current, currentRect: nextRect }
-          : current,
+        updateFreeDragCurrentRect({
+          current,
+          id: drag.id,
+          clientX: event.clientX,
+          clientY: event.clientY,
+        }),
       );
     }
 
     function onPointerUp() {
-      if (drag.targetType === "template-slot") {
-        updateTemplateSlotRect(drag.id, drag.currentRect);
+      const target = resolveFreeDragCommitTarget(drag);
+      if (target.targetType === "template-slot") {
+        updateTemplateSlotRect(target.id, target.rect);
       } else {
-        updateFreeRect(drag.id, drag.currentRect);
+        updateFreeRect(target.id, target.rect);
       }
       setFreeDrag(null);
     }
@@ -1088,62 +1065,40 @@ export function FeedWorkbench({
   }
 
   function setGlobalTimerSeconds(value: number) {
-    const durationSeconds = clamp(value, 1, 120);
+    const { globalSeconds: durationSeconds } = applyGlobalTimerSecondsState({
+      sessions: [],
+      value,
+    });
     setGlobalSeconds(durationSeconds);
-    const timers = applyGlobalDuration(
-      toMultiTimerState(sessions),
-      durationSeconds,
-    );
-    setSessions((current) =>
-      current.map((session) => ({
-        ...session,
-        timer: timers[session.id]?.timer ?? session.timer,
-      })),
+    setSessions(
+      (current) =>
+        applyGlobalTimerSecondsState({
+          sessions: current,
+          value: durationSeconds,
+        }).sessions,
     );
   }
 
   function setViewTimerSeconds(id: string, value: number) {
-    updateSession(id, (session) => ({
-      ...session,
-      timerMode: "local",
-      timer: {
-        ...session.timer,
-        durationSeconds: clamp(value, 1, 120),
-        elapsedMs: 0,
-      },
-    }));
+    setSessions((current) =>
+      applyViewTimerSecondsState({ sessions: current, id, value }),
+    );
   }
 
   function setViewTimerMode(id: string, mode: TimerMode) {
-    const globalTimer =
-      sessions.find(
-        (session) => session.id !== id && session.timerMode === "global",
-      )?.timer ?? null;
-
-    updateSession(id, (session) => ({
-      ...session,
-      timerMode: mode,
-      timer:
-        mode === "global"
-          ? syncTimerToGlobal(session.timer, globalTimer, globalSeconds)
-          : session.timer,
-    }));
+    setSessions((current) =>
+      applyViewTimerModeState({
+        sessions: current,
+        id,
+        mode,
+        globalSeconds,
+      }),
+    );
   }
 
   function runGlobalAction(action: "next" | "pause" | "restart") {
-    const timers = toMultiTimerState(sessions);
-    const nextTimers =
-      action === "next"
-        ? globalMoveTimerIndexes(timers, 1)
-        : action === "pause"
-          ? globalTogglePaused(timers)
-          : globalRestartTimers(timers);
-
     setSessions((current) =>
-      current.map((session) => ({
-        ...session,
-        timer: nextTimers[session.id]?.timer ?? session.timer,
-      })),
+      applyGlobalTimerActionState({ sessions: current, action }),
     );
   }
 
@@ -1151,62 +1106,14 @@ export function FeedWorkbench({
     if (!selected || !visibleEmptySlots.length || !selected.items.length)
       return;
 
-    setSessions((current) => {
-      const sourceSession = current.find(
-        (session) => session.id === selected.id,
-      );
-      if (!sourceSession?.items.length) return current;
-      const layerSessions = current.filter(
-        (session) => session.layerId === sourceSession.layerId,
-      );
-
-      let cloneIndex = 0;
-      const emptySlots = Array.from(
-        { length: visibleFixedCells },
-        (_, index) => index,
-      ).filter(
-        (slot) => !layerSessions.some((session) => session.fixedSlot === slot),
-      );
-      const freeRects = findAvailableFreeRectsBySize(
-        layerSessions.map((session) => session.freeRect),
-        emptySlots.length,
-        {
-          columnSpan: sourceSession.freeRect.columnSpan,
-          rowSpan: sourceSession.freeRect.rowSpan,
-        },
-      );
-      const clones = emptySlots.flatMap((fixedSlot, index) => {
-        const freeRect = freeRects[index];
-        if (!freeRect) return [];
-
-        cloneIndex += 1;
-        const id = createId();
-        const timer = createTimerState({
-          durationSeconds: sourceSession.timer.durationSeconds,
-          itemCount: sourceSession.items.length,
-        });
-
-        return {
-          ...sourceSession,
-          id,
-          fixedSlot,
-          freeRect,
-          timer: {
-            ...timer,
-            activeIndex:
-              sourceSession.items.length > 0
-                ? (sourceSession.timer.activeIndex + cloneIndex) %
-                  sourceSession.items.length
-                : 0,
-          },
-          templateSlotId: undefined,
-        };
-      });
-
-      return [...current, ...clones].sort(
-        (first, second) => first.fixedSlot - second.fixedSlot,
-      );
-    });
+    setSessions((current) =>
+      fillVisibleCellsState({
+        sessions: current,
+        selectedId: selected.id,
+        visibleFixedCells,
+        createId,
+      }),
+    );
   }
 
   function addLayer() {
@@ -1287,43 +1194,31 @@ export function FeedWorkbench({
   }
 
   function openSaveDialog() {
-    setSaveName(limitLayoutName(workspaceName));
-    setSaveKind("layout");
-    setSaveError(null);
-    setIsSaveOpen(true);
+    const nextState = openSaveDialogState(workspaceName);
+    setSaveName(nextState.saveName);
+    setSaveKind(nextState.saveKind);
+    setSaveError(nextState.saveError);
+    setIsSaveOpen(nextState.isSaveOpen);
   }
 
   async function saveLayoutAs() {
-    const nextName = saveName.trim();
-
-    if (!nextName) {
-      setSaveError("Layout name is required");
+    const validation = validateLayoutSaveName({
+      name: saveName,
+      activeWorkspaceId,
+      workspaceTabs,
+      savedWorkspaces,
+    });
+    if (!validation.ok) {
+      setSaveError(validation.error);
       return;
     }
 
-    if (nextName.length > MAX_LAYOUT_NAME_LENGTH) {
-      setSaveError(
-        `Layout name must be ${MAX_LAYOUT_NAME_LENGTH} characters or fewer`,
-      );
-      return;
-    }
-
-    if (
-      hasDuplicateLayoutName(
-        nextName,
-        activeWorkspaceId,
-        workspaceTabs,
-        savedWorkspaces,
-      )
-    ) {
-      setSaveError("Layout names must be unique");
-      return;
-    }
-
-    const nextTabs = workspaceTabs.map((tab) =>
-      tab.id === activeWorkspaceId ? { ...tab, name: nextName } : tab,
-    );
-    const { store } = persistCurrentWorkspace(nextName, nextTabs);
+    const nextTabs = renameActiveWorkspaceTab({
+      workspaceTabs,
+      activeWorkspaceId,
+      name: validation.name,
+    });
+    const { store } = persistCurrentWorkspace(validation.name, nextTabs);
     let syncedToAccount = false;
 
     if (getSupabaseEnv()) {
@@ -1335,17 +1230,10 @@ export function FeedWorkbench({
 
         if (user) {
           const { error } = await supabase.from("viewer_sessions").upsert(
-            store.workspaces.map((workspace) => ({
-              id: workspace.id,
-              owner_id: user.id,
-              name: workspace.name,
-              layout_mode: workspace.layoutMode,
-              fixed_columns: workspace.fixedGrid.columns,
-              fixed_rows: workspace.fixedGrid.rows,
-              global_timer_seconds: workspace.globalTimerSeconds,
-              sessions: workspace.sessions as unknown as Json,
-              updated_at: new Date().toISOString(),
-            })),
+            buildViewerSessionUpsertRows({
+              workspaces: store.workspaces,
+              userId: user.id,
+            }),
           );
 
           if (error) throw error;
@@ -1367,31 +1255,18 @@ export function FeedWorkbench({
   }
 
   async function saveTemplateAs() {
-    const nextName = saveName.trim();
-
-    if (layoutMode !== "free") {
-      setSaveError("Templates are only available for free layouts");
+    const validation = validateTemplateSaveName({
+      name: saveName,
+      activeWorkspaceId,
+      layoutMode,
+      savedTemplates,
+    });
+    if (!validation.ok) {
+      setSaveError(validation.error);
       return;
     }
 
-    if (!nextName) {
-      setSaveError("Template name is required");
-      return;
-    }
-
-    if (nextName.length > MAX_LAYOUT_NAME_LENGTH) {
-      setSaveError(
-        `Template name must be ${MAX_LAYOUT_NAME_LENGTH} characters or fewer`,
-      );
-      return;
-    }
-
-    if (hasDuplicateTemplateName(nextName, activeWorkspaceId, savedTemplates)) {
-      setSaveError("Template names must be unique");
-      return;
-    }
-
-    const { store } = persistCurrentTemplate(nextName);
+    const { store } = persistCurrentTemplate(validation.name);
     let syncedToAccount = false;
 
     if (getSupabaseEnv()) {
@@ -1403,16 +1278,10 @@ export function FeedWorkbench({
 
         if (user) {
           const { error } = await supabase.from("viewer_templates").upsert(
-            store.templates.map((template) => ({
-              id: template.id,
-              owner_id: user.id,
-              name: template.name,
-              layers: template.layers as unknown as Json,
-              active_layer_id: template.activeLayerId,
-              global_timer_seconds: template.globalTimerSeconds,
-              slots: template.slots as unknown as Json,
-              updated_at: new Date().toISOString(),
-            })),
+            buildViewerTemplateUpsertRows({
+              templates: store.templates,
+              userId: user.id,
+            }),
           );
 
           if (error) throw error;
