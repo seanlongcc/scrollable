@@ -94,12 +94,11 @@ export function FocusLayout({
           </div>
           {satellites.length ? (
             satellites.map((session) => (
-              <button
+              <div
                 key={session.id}
-                type="button"
-                onClick={() => onFocus(session.id)}
                 title={`Focus ${session.title}`}
-                className="h-32 min-h-0 text-left"
+                data-testid={`satellite-pane-${session.id}`}
+                className="relative h-32 min-h-0 text-left"
               >
                 <SessionPane
                   session={session}
@@ -107,7 +106,8 @@ export function FocusLayout({
                   videoPositions={videoPositions}
                   compact
                   forceInfoVisible={showInfo}
-                  isPlaybackActive={false}
+                  hideUi
+                  isPlaybackActive
                   isRuntimeLoading={session.isRuntimeLoading}
                   onGalleryChange={onGalleryChange}
                   onVideoPositionChange={onVideoPositionChange}
@@ -121,7 +121,13 @@ export function FocusLayout({
                     onTimerSecondsChange(session.id, value)
                   }
                 />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onFocus(session.id)}
+                  aria-label={`Focus ${session.title}`}
+                  className="absolute inset-0 z-30 rounded-lg bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                />
+              </div>
             ))
           ) : (
             <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
