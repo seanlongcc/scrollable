@@ -1,27 +1,70 @@
 # Scrollable
 
-Mobile-first reels-style runtime feed viewer for user-provided URLs and local uploads. URL sources accept `http`/`https` links and resolve at runtime as direct media, known provider media/embeds such as Reddit, YouTube, and direct gallery URLs, optional `yt-dlp` extraction, generic metadata, or iframe fallback.
+[![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![ESLint](https://img.shields.io/badge/ESLint-4B32C3?style=for-the-badge&logo=eslint&logoColor=white)](https://eslint.org/)
+[![Prettier](https://img.shields.io/badge/Prettier-F7B93E?style=for-the-badge&logo=prettier&logoColor=black)](https://prettier.io/)
+[![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
+[![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
 
-## Repository Layout
+# About
 
-The Next.js app lives in `frontend/`. Root `package.json` uses npm workspaces so the usual root commands still work, while `supabase/`, `.beads/`, `.serena/`, and `docs/` remain top-level.
+Scrollable is a mobile-first reels-style feed viewer for user-provided URLs and local uploads. It turns pasted sources into runtime image, video, audio, gallery, Reddit, and provider-embed feeds, then lets you arrange them in fixed or free-form layouts.
 
-## Commands
+The app is built around one hard privacy rule: third-party media stays runtime-only. Scrollable can save user-created configuration, workspace layout metadata, and local browser file-cache references, but it does not persist, rehost, or proxy-cache third-party media payloads, thumbnails, extracted URLs, Reddit JSON, provider responses, or raw runtime item IDs.
+
+# Features
+
+- mobile-first multi-feed viewing
+- fixed-grid and free-layout workspace modes
+- stacked layout layers
+- global and per-view timers
+- keyboard, wheel, and touch-friendly feed navigation
+- local image, video, and audio uploads
+- browser IndexedDB cache for user-selected local files
+- runtime Reddit post and subreddit listing sources
+- runtime URL resolver for direct media, galleries, provider embeds, and optional `yt-dlp`
+- reusable empty free-layout templates
+- saved local layouts without login
+- optional Supabase auth and account-synced layout metadata
+- strict metadata-only persistence boundaries for third-party media
+
+# Repository
+
+The frontend lives in [`frontend/`](./frontend). Root npm scripts delegate into that workspace so common commands still run from the repository root.
+
+- [`frontend/src`](./frontend/src) - Next.js app, components, source adapters, runtime normalization, workspace logic, and tests
+- [`frontend/tests/e2e`](./frontend/tests/e2e) - Playwright desktop and mobile browser flows
+- [`supabase`](./supabase) - local Supabase config, migrations, and database tests
+- [`docs`](./docs) - product notes, testing policy, tool guidance, specs, and plans
+- [`.beads`](./.beads) - bead issue tracking state
+- [`.serena`](./.serena) - Serena project configuration
+
+# Development
+
+Use Node 24 and npm:
 
 ```bash
 nvm use 24
+npm install
 npm run dev
+```
+
+Useful checks:
+
+```bash
+npm run format:check
 npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run e2e
 ```
 
-Optional arbitrary-site video extraction uses a local `yt-dlp` executable at runtime. Install it on the server or development machine and keep it on `PATH`, or set `YTDLP_PATH` to the executable path.
-
-Optional nHentai gallery API access uses `NHENTAI_API_KEY` server-side at runtime. Keep local app secrets in `frontend/.env.local` or deployment secrets only; do not expose them as `NEXT_PUBLIC_` variables unless they are intentionally public.
-
-Supabase local verification needs Docker Desktop WSL integration:
+Supabase local verification needs Docker Desktop with WSL integration:
 
 ```bash
 npm run supabase:start
@@ -29,12 +72,12 @@ npm run supabase:reset
 npm run supabase:test
 ```
 
-Vercel should be configured with `frontend/` as the project root directory.
+# Runtime configuration
 
-## Data Rule
+Copy [`frontend/.env.example`](./frontend/.env.example) to `frontend/.env.local` for local app secrets.
 
-Do not persist, rehost, proxy-cache, or store third-party media, provider payloads, thumbnails, extracted media URLs, gallery image URLs, screenshots, cookies, HTML, API keys, runtime request headers, or fetched Reddit JSON responses. User-pasted URL sources, including Reddit post permalinks, subreddit listing URLs, and direct gallery URLs, are allowed as saved configuration because the user intentionally provides them. Saved URL sources may store only the user-entered URL/title/settings and the last successful resolver hint. Saved Reddit item exclusions may store only opaque `sha256:` hashes of runtime Reddit item IDs, never raw item/post IDs or media payloads.
+Vercel should use `frontend/` as the project root directory.
 
-Viewer layouts save tab, grid, layer, timer, and source configuration metadata only. Free-layout templates save only empty box geometry, layer metadata, and timer metadata; they never contain source configuration or runtime media. Layouts support up to three sequential stacked source layers (`Layer 1`, `Layer 2`, `Layer 3`), with active-layer editing and per-layer source/file counts. Local layouts and templates open from the viewer's layouts overlay without login; signed-in users can also sync metadata to account data.
+# Data privacy
 
-Local image, video, and audio media renders through session-only object URLs. Browsers do not expose reusable absolute file paths, so Scrollable copies user-selected local file bytes into browser IndexedDB when available, stores only a `cacheSetId` in saved layout metadata, and rebuilds fresh object URLs from that browser cache after refresh.
+Third-party media stays runtime-only. Scrollable stores user-created configuration and metadata-only layouts, not fetched media payloads, thumbnails, extracted URLs, provider JSON, raw Reddit item IDs, or local object URLs. More detail: [`docs/media-persistence.md`](./docs/media-persistence.md).
