@@ -7,6 +7,7 @@ import type {
 import { toast } from "sonner";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import {
@@ -40,8 +41,15 @@ import {
   cacheLocalFiles as cacheLocalFilesForWorkbench,
   createLocalRuntimeItems as createLocalRuntimeItemsForWorkbench,
   filesFromDataTransfer,
+  filesFromLocalFileReferences,
   getUploadableFiles,
+  localFileReferencesFromFiles,
 } from "./local-sources";
+import {
+  requestLocalCacheAccessAction,
+  selectLocalFilesWithHandlesAction,
+  selectLocalFolderWithHandlesAction,
+} from "./local-runtime-actions";
 import {
   placeSessions,
   type SessionPlacementSourceInput,
@@ -181,16 +189,36 @@ export function useSourceRuntimeHandlers({
 
   async function addLocalFiles(event: ChangeEvent<HTMLInputElement>) {
     const input = event.target;
-    const files = Array.from(event.target.files ?? []);
-    await addLocalFileList(files, () => {
-      input.value = "";
-    });
+    await addLocalFileReferences(
+      localFileReferencesFromFiles(Array.from(event.target.files ?? [])),
+      () => {
+        input.value = "";
+      },
+    );
   }
 
   async function addDroppedLocalFiles(event: ReactDragEvent<HTMLElement>) {
     event.preventDefault();
     event.stopPropagation();
-    await addLocalFileList(await filesFromDataTransfer(event.dataTransfer));
+    await addLocalFileReferences(
+      localFileReferencesFromFiles(
+        await filesFromDataTransfer(event.dataTransfer),
+      ),
+    );
+  }
+
+  async function selectLocalFilesWithHandles() {
+    return selectLocalFilesWithHandlesAction({
+      addFileReferences: addLocalFileReferences,
+      onError: localPickerError("Local file picker failed"),
+    });
+  }
+
+  async function selectLocalFolderWithHandles() {
+    return selectLocalFolderWithHandlesAction({
+      addFileReferences: addLocalFileReferences,
+      onError: localPickerError("Local folder picker failed"),
+    });
   }
 
   function allowLocalFileDrop(event: ReactDragEvent<HTMLElement>) {
@@ -199,7 +227,11 @@ export function useSourceRuntimeHandlers({
     event.dataTransfer.dropEffect = "copy";
   }
 
-  async function addLocalFileList(files: File[], onSettled?: () => void) {
+  async function addLocalFileReferences(
+    fileReferences: LocalFileReference[],
+    onSettled?: () => void,
+  ) {
+    const files = filesFromLocalFileReferences(fileReferences);
     const prepared = prepareLocalSourceAddAction({
       files,
       sourceGroupingMode,
@@ -222,7 +254,11 @@ export function useSourceRuntimeHandlers({
 
     try {
       const result = await addPreparedLocalSourceAction({
-        uploadableFiles: prepared.uploadableFiles,
+        fileReferences: fileReferences.filter((reference) =>
+          prepared.uploadableFiles.includes(
+            reference instanceof File ? reference : reference.file,
+          ),
+        ),
         items: prepared.items,
         sourceGroupingMode,
         cacheFiles: cacheLocalFiles,
@@ -253,7 +289,12 @@ export function useSourceRuntimeHandlers({
     if (!items.length) return;
 
     try {
-      applyLocalRuntimeItems(id, items, await cacheLocalFiles(files), files);
+      applyLocalRuntimeItems(
+        id,
+        items,
+        await cacheLocalFiles(localFileReferencesFromFiles(files)),
+        files,
+      );
     } catch (error) {
       updateSession(id, (current) => ({ ...current, isRuntimeLoading: false }));
       toast.error(
@@ -262,9 +303,9 @@ export function useSourceRuntimeHandlers({
     }
   }
 
-  async function cacheLocalFiles(files: File[]) {
+  async function cacheLocalFiles(fileReferences: LocalFileReference[]) {
     return cacheLocalFilesForWorkbench({
-      files,
+      fileReferences,
       canCacheLocalFiles,
       createCacheSetId: createId,
       onCacheRejected: () =>
@@ -445,7 +486,7 @@ export function useSourceRuntimeHandlers({
     }
 
     const result = await editPreparedLocalSourceAction({
-      files: prepared.files,
+      fileReferences: localFileReferencesFromFiles(prepared.files),
       createRuntimeItems: createLocalRuntimeItems,
       cacheFiles: cacheLocalFiles,
     });
@@ -458,6 +499,16 @@ export function useSourceRuntimeHandlers({
 
     applyLocalRuntimeItems(id, result.items, result.cacheSetId, result.files);
     setEditingSourceId(null);
+  }
+
+  async function requestLocalCacheAccess(id: string) {
+    await requestLocalCacheAccessAction({
+      id,
+      sessions,
+      updateSession,
+      createLocalRuntimeItems,
+      onError: localPickerError("Local file access failed"),
+    });
   }
 
   async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
@@ -487,8 +538,11 @@ export function useSourceRuntimeHandlers({
     openUrlSource,
     addLocalFiles,
     addDroppedLocalFiles,
+    selectLocalFilesWithHandles,
+    selectLocalFolderWithHandles,
     allowLocalFileDrop,
     replaceLocalSessionFiles,
+    requestLocalCacheAccess,
     openSourcePanel,
     openEditSource,
     updateSession,
@@ -497,4 +551,9 @@ export function useSourceRuntimeHandlers({
     saveLocalSourceEdit,
     hydrateRuntimeItems,
   };
+}
+
+function localPickerError(fallback: string) {
+  return (error: unknown) =>
+    toast.error(error instanceof Error ? error.message : fallback);
 }

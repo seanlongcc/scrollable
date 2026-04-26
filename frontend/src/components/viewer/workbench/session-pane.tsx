@@ -1,6 +1,7 @@
 import { Upload } from "lucide-react";
 import { ChangeEvent } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FeedViewPane } from "@/components/viewer/feed-view-pane";
@@ -36,6 +37,7 @@ export function SessionPane({
   onTimerModeChange,
   onTimerSecondsChange,
   onLocalFilesSelected,
+  onLocalCacheAccessRequested,
 }: {
   session: FeedSession;
   canMountUrlIframe?: boolean;
@@ -59,6 +61,7 @@ export function SessionPane({
   onTimerModeChange: (mode: TimerMode) => void;
   onTimerSecondsChange: (seconds: number) => void;
   onLocalFilesSelected?: (event: ChangeEvent<HTMLInputElement>) => void;
+  onLocalCacheAccessRequested?: () => void;
 }) {
   const localSourceConfig =
     session.sourceConfig.kind === "local" ? session.sourceConfig : null;
@@ -67,6 +70,12 @@ export function SessionPane({
   );
   const hasCachedLocalFiles =
     needsLocalReload && Boolean(localSourceConfig?.cacheSetId);
+  const needsLocalAccess =
+    needsLocalReload && session.localRestoreStatus === "permission-needed";
+  const localRestoreUnsupportedMessage =
+    needsLocalReload && !hasCachedLocalFiles
+      ? localFileRestoreUnsupportedMessage()
+      : null;
   const urlIframePlaybackKey =
     session.sourceConfig.kind === "url" &&
     session.urlResolution?.status === "resolved" &&
@@ -123,14 +132,31 @@ export function SessionPane({
       isPlaybackActive={isPlaybackActive}
       isRuntimeLoading={isRuntimeLoading}
       emptyMessage={
-        hasCachedLocalFiles
-          ? "Cached files unavailable"
-          : needsLocalReload
-            ? "Local files need reload"
-            : undefined
+        needsLocalAccess
+          ? "Local file access needed"
+          : localRestoreUnsupportedMessage
+            ? localRestoreUnsupportedMessage
+            : hasCachedLocalFiles
+              ? "Cached files unavailable"
+              : needsLocalReload
+                ? "Local files need reload"
+                : undefined
       }
       emptyAction={
-        needsLocalReload && onLocalFilesSelected && !hideUi ? (
+        needsLocalAccess && onLocalCacheAccessRequested && !hideUi ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={(event) => {
+              event.stopPropagation();
+              onLocalCacheAccessRequested();
+            }}
+          >
+            <Upload className="size-3.5" />
+            Allow access
+          </Button>
+        ) : needsLocalReload && onLocalFilesSelected && !hideUi ? (
           <div className="flex flex-wrap justify-center gap-2">
             <Label
               className="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:bg-muted"
@@ -163,4 +189,23 @@ export function SessionPane({
       onTimerSecondsChange={onTimerSecondsChange}
     />
   );
+}
+
+function localFileRestoreUnsupportedMessage() {
+  if (typeof window === "undefined") return null;
+  if (
+    typeof (window as Window & { showOpenFilePicker?: unknown })
+      .showOpenFilePicker === "function"
+  ) {
+    return null;
+  }
+
+  return isFirefox()
+    ? "Firefox cannot auto-restore large local files. Use Chromium for proper support."
+    : "This browser cannot auto-restore large local files. Use Chromium for proper support.";
+}
+
+function isFirefox() {
+  if (typeof navigator === "undefined") return false;
+  return navigator.userAgent.toLowerCase().includes("firefox");
 }

@@ -36,6 +36,7 @@ export function FixedGridView({
   setViewTimerMode,
   setViewTimerSeconds,
   onLocalFilesSelected,
+  onLocalCacheAccessRequested,
   onEditSource,
 }: {
   sessions: FeedSession[];
@@ -63,6 +64,7 @@ export function FixedGridView({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  onLocalCacheAccessRequested?: (id: string) => void;
   onEditSource: (id: string) => void;
 }) {
   let mountedIframeCount = 0;
@@ -154,6 +156,9 @@ export function FixedGridView({
                 }
                 onLocalFilesSelected={(event) =>
                   onLocalFilesSelected(session.id, event)
+                }
+                onLocalCacheAccessRequested={() =>
+                  onLocalCacheAccessRequested?.(session.id)
                 }
               />
             ) : (

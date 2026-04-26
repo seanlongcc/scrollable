@@ -42,6 +42,7 @@ export function FreeGridView({
   setViewTimerSeconds,
   beginFreeDrag,
   onLocalFilesSelected,
+  onLocalCacheAccessRequested,
   onEditSource,
 }: {
   sessions: FeedSession[];
@@ -79,6 +80,7 @@ export function FreeGridView({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  onLocalCacheAccessRequested?: (id: string) => void;
   onEditSource: (id: string) => void;
 }) {
   let mountedIframeCount = 0;
@@ -288,6 +290,9 @@ export function FreeGridView({
                 }
                 onLocalFilesSelected={(event) =>
                   onLocalFilesSelected(session.id, event)
+                }
+                onLocalCacheAccessRequested={() =>
+                  onLocalCacheAccessRequested?.(session.id)
                 }
               />
             </div>

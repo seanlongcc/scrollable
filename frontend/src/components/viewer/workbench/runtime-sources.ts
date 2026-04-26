@@ -7,6 +7,7 @@ import type {
 } from "@/lib/url-source/types";
 import type {
   FeedSession,
+  LocalRestoreStatus,
   PersistedSourceConfig,
   SourceGroupingMode,
 } from "./types";
@@ -42,6 +43,7 @@ export type RuntimeHydrationResult = {
   allItems?: RuntimeFeedItem[];
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
+  localRestoreStatus?: LocalRestoreStatus;
   sourceConfig?: PersistedSourceConfig;
 };
 
@@ -306,17 +308,31 @@ export async function fetchUrlRuntimeItemsForSource(
 export async function fetchLocalRuntimeItemsForSource({
   sourceConfig,
   createLocalRuntimeItems,
+  requestPermission = false,
 }: {
   sourceConfig: PersistedSourceConfig;
   createLocalRuntimeItems: (files: File[]) => RuntimeFeedItem[];
+  requestPermission?: boolean;
 }) {
   if (sourceConfig.kind !== "local" || !sourceConfig.cacheSetId) {
-    return { items: [], allItems: undefined, localFiles: undefined };
+    return {
+      items: [],
+      allItems: undefined,
+      localFiles: undefined,
+      localRestoreStatus: "unavailable" as const,
+    };
   }
 
-  const result = await loadLocalFiles(sourceConfig.cacheSetId);
+  const result = requestPermission
+    ? await loadLocalFiles(sourceConfig.cacheSetId, { requestPermission })
+    : await loadLocalFiles(sourceConfig.cacheSetId);
   if (result.status !== "loaded") {
-    return { items: [], allItems: undefined, localFiles: undefined };
+    return {
+      items: [],
+      allItems: undefined,
+      localFiles: undefined,
+      localRestoreStatus: result.status,
+    };
   }
 
   const localFiles = getUploadableFiles(result.files);
@@ -324,6 +340,7 @@ export async function fetchLocalRuntimeItemsForSource({
     items: createLocalRuntimeItems(localFiles),
     allItems: undefined,
     localFiles,
+    localRestoreStatus: undefined,
   };
 }
 
@@ -382,7 +399,8 @@ export function applyRuntimeHydrationResults(
   return sessions.map((session) => {
     const hydratedSession = hydratedBySession.get(session.id);
     if (!hydratedSession) return session;
-    const { items, allItems, localFiles, urlResolution } = hydratedSession;
+    const { items, allItems, localFiles, urlResolution, localRestoreStatus } =
+      hydratedSession;
     const { sourceConfig, title } = hydratedSession;
 
     return {
@@ -392,6 +410,7 @@ export function applyRuntimeHydrationResults(
       allItems,
       urlResolution,
       localFiles,
+      localRestoreStatus,
       isRuntimeLoading: false,
       sourceConfig: sourceConfig ?? session.sourceConfig,
       timer: {

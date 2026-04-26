@@ -1,4 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
 import { normalizeRedditLimit } from "./helpers";
 import { getUploadableFiles } from "./local-sources";
 import {
@@ -154,19 +155,25 @@ export function prepareLocalSourceEditAction({
 }
 
 export async function editPreparedLocalSourceAction({
-  files,
+  fileReferences,
   createRuntimeItems,
   cacheFiles,
 }: {
-  files: File[];
+  fileReferences: LocalFileReference[];
   createRuntimeItems: (files: File[]) => RuntimeFeedItem[];
-  cacheFiles: (files: File[]) => Promise<string | undefined>;
+  cacheFiles: (
+    fileReferences: LocalFileReference[],
+  ) => Promise<string | undefined>;
 }): Promise<LocalSourceEditActionResult> {
+  const files = fileReferences.map((reference) =>
+    reference instanceof File ? reference : reference.file,
+  );
+
   try {
     return {
       status: "ready",
       items: createRuntimeItems(files),
-      cacheSetId: await cacheFiles(files),
+      cacheSetId: await cacheFiles(fileReferences),
       files,
     };
   } catch (error) {

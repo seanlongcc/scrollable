@@ -244,8 +244,11 @@ export function FeedWorkbench({
     openUrlSource,
     addLocalFiles,
     addDroppedLocalFiles,
+    selectLocalFilesWithHandles,
+    selectLocalFolderWithHandles,
     allowLocalFileDrop,
     replaceLocalSessionFiles,
+    requestLocalCacheAccess,
     openSourcePanel,
     openEditSource,
     updateSession,
@@ -695,6 +698,8 @@ export function FeedWorkbench({
         openUrlSource={openUrlSource}
         fetchRedditFeed={fetchRedditFeed}
         addLocalFiles={addLocalFiles}
+        selectLocalFilesWithHandles={selectLocalFilesWithHandles}
+        selectLocalFolderWithHandles={selectLocalFolderWithHandles}
         addDroppedLocalFiles={addDroppedLocalFiles}
         allowLocalFileDrop={allowLocalFileDrop}
         isLayoutsOpen={isLayoutsOpen}
@@ -744,6 +749,7 @@ export function FeedWorkbench({
         setViewTimerMode={setViewTimerMode}
         setViewTimerSeconds={setViewTimerSeconds}
         replaceLocalSessionFiles={replaceLocalSessionFiles}
+        requestLocalCacheAccess={requestLocalCacheAccess}
         openEditSource={openEditSource}
         selected={selected ?? null}
         layoutMode={layoutMode}

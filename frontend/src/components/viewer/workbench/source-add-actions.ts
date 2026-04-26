@@ -1,4 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
 import type { SessionPlacementSourceInput } from "./session-placement";
 import {
   buildUrlAddSourceConfig,
@@ -147,21 +148,23 @@ export function prepareLocalSourceAddAction({
 }
 
 export async function addPreparedLocalSourceAction({
-  uploadableFiles,
+  fileReferences,
   items,
   sourceGroupingMode,
   cacheFiles,
 }: {
-  uploadableFiles: File[];
+  fileReferences: LocalFileReference[];
   items: RuntimeFeedItem[];
   sourceGroupingMode: SourceGroupingMode;
-  cacheFiles: (files: File[]) => Promise<string | undefined>;
+  cacheFiles: (
+    fileReferences: LocalFileReference[],
+  ) => Promise<string | undefined>;
 }): Promise<LocalSourceAddActionResult> {
   try {
     return {
       status: "ready",
       sources: await createLocalSessionSources({
-        files: uploadableFiles,
+        fileReferences,
         items,
         sourceGroupingMode,
         cacheFiles,

@@ -24,6 +24,7 @@ export function FocusLayout({
   onTimerModeChange,
   onTimerSecondsChange,
   onLocalFilesSelected,
+  onLocalCacheAccessRequested,
   onEditSource,
 }: {
   focused: FeedSession;
@@ -45,6 +46,7 @@ export function FocusLayout({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  onLocalCacheAccessRequested?: (id: string) => void;
   onEditSource: (id: string) => void;
 }) {
   const satellites = sessions.filter((session) => session.id !== focused.id);
@@ -77,6 +79,9 @@ export function FocusLayout({
           onEdit={() => onEditSource(focused.id)}
           onLocalFilesSelected={(event) =>
             onLocalFilesSelected(focused.id, event)
+          }
+          onLocalCacheAccessRequested={() =>
+            onLocalCacheAccessRequested?.(focused.id)
           }
         />
       </div>

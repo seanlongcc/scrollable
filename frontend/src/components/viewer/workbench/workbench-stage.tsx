@@ -40,6 +40,7 @@ export function WorkbenchStage({
   setViewTimerMode,
   setViewTimerSeconds,
   replaceLocalSessionFiles,
+  requestLocalCacheAccess,
   openEditSource,
   selected,
   layoutMode,
@@ -82,6 +83,7 @@ export function WorkbenchStage({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  requestLocalCacheAccess: (id: string) => void;
   openEditSource: (id: string) => void;
   selected: FeedSession | null;
   layoutMode: LayoutMode;
@@ -147,6 +149,7 @@ export function WorkbenchStage({
         onTimerModeChange={setViewTimerMode}
         onTimerSecondsChange={setViewTimerSeconds}
         onLocalFilesSelected={replaceLocalSessionFiles}
+        onLocalCacheAccessRequested={requestLocalCacheAccess}
         onEditSource={openEditSource}
       />
     );
@@ -215,6 +218,7 @@ export function WorkbenchStage({
             setViewTimerMode={setViewTimerMode}
             setViewTimerSeconds={setViewTimerSeconds}
             replaceLocalSessionFiles={replaceLocalSessionFiles}
+            requestLocalCacheAccess={requestLocalCacheAccess}
             openEditSource={openEditSource}
           />
         ) : (
@@ -242,6 +246,7 @@ export function WorkbenchStage({
             setViewTimerSeconds={setViewTimerSeconds}
             beginFreeDrag={beginFreeDrag}
             replaceLocalSessionFiles={replaceLocalSessionFiles}
+            requestLocalCacheAccess={requestLocalCacheAccess}
             openEditSource={openEditSource}
           />
         )}
@@ -271,6 +276,7 @@ function FixedLayerStage({
   setViewTimerMode,
   setViewTimerSeconds,
   replaceLocalSessionFiles,
+  requestLocalCacheAccess,
   openEditSource,
 }: {
   layers: WorkspaceLayer[];
@@ -299,6 +305,7 @@ function FixedLayerStage({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  requestLocalCacheAccess: (id: string) => void;
   openEditSource: (id: string) => void;
 }) {
   return (
@@ -348,6 +355,7 @@ function FixedLayerStage({
               setViewTimerMode={setViewTimerMode}
               setViewTimerSeconds={setViewTimerSeconds}
               onLocalFilesSelected={replaceLocalSessionFiles}
+              onLocalCacheAccessRequested={requestLocalCacheAccess}
               onEditSource={openEditSource}
             />
           </div>
@@ -381,6 +389,7 @@ function FreeLayerStage({
   setViewTimerSeconds,
   beginFreeDrag,
   replaceLocalSessionFiles,
+  requestLocalCacheAccess,
   openEditSource,
 }: {
   freeGridRef: RefObject<HTMLDivElement | null>;
@@ -420,6 +429,7 @@ function FreeLayerStage({
     id: string,
     event: ChangeEvent<HTMLInputElement>,
   ) => void;
+  requestLocalCacheAccess: (id: string) => void;
   openEditSource: (id: string) => void;
 }) {
   return (
@@ -474,6 +484,7 @@ function FreeLayerStage({
               setViewTimerSeconds={setViewTimerSeconds}
               beginFreeDrag={beginFreeDrag}
               onLocalFilesSelected={replaceLocalSessionFiles}
+              onLocalCacheAccessRequested={requestLocalCacheAccess}
               onEditSource={openEditSource}
             />
           </div>

@@ -33,10 +33,16 @@ export type FeedSession = {
   allItems?: RuntimeFeedItem[];
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
+  localRestoreStatus?: LocalRestoreStatus;
   isRuntimeLoading?: boolean;
   templateSlotId?: string;
   sourceConfig: PersistedSourceConfig;
 };
+
+export type LocalRestoreStatus =
+  | "missing"
+  | "unavailable"
+  | "permission-needed";
 
 export type WorkspaceTab = {
   id: string;

@@ -50,6 +50,8 @@ export function WorkbenchOverlays({
   openUrlSource,
   fetchRedditFeed,
   addLocalFiles,
+  selectLocalFilesWithHandles,
+  selectLocalFolderWithHandles,
   addDroppedLocalFiles,
   allowLocalFileDrop,
   isLayoutsOpen,
@@ -108,6 +110,8 @@ export function WorkbenchOverlays({
   openUrlSource: () => void;
   fetchRedditFeed: () => void;
   addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
+  selectLocalFilesWithHandles: () => Promise<boolean>;
+  selectLocalFolderWithHandles: () => Promise<boolean>;
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
   allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
   isLayoutsOpen: boolean;
@@ -175,6 +179,8 @@ export function WorkbenchOverlays({
         openUrlSource={openUrlSource}
         fetchRedditFeed={fetchRedditFeed}
         addLocalFiles={addLocalFiles}
+        selectLocalFilesWithHandles={selectLocalFilesWithHandles}
+        selectLocalFolderWithHandles={selectLocalFolderWithHandles}
         addDroppedLocalFiles={addDroppedLocalFiles}
         allowLocalFileDrop={allowLocalFileDrop}
       />

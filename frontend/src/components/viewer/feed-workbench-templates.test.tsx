@@ -6,17 +6,22 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   addDefaultSubredditSource,
   FeedWorkbench,
   installFeedWorkbenchTestHooks,
+  isLocalFileCacheSupported,
+  loadLocalFiles,
+  openSavedLayouts,
   openSavedTemplates,
   savedWorkspaceTemplate,
   stubGridBounds,
+  stubObjectUrls,
   stubRandomUuids,
   stubRuntimeFetch,
+  WORKSPACE_STORAGE_KEY,
   WORKSPACE_TEMPLATE_STORAGE_KEY,
 } from "./feed-workbench-test-utils";
 
@@ -245,6 +250,50 @@ describe("FeedWorkbench workspace templates", () => {
     expect(
       screen.getAllByRole("button", { name: "Add source to template box" }),
     ).toHaveLength(2);
+  });
+
+  it("restores local video handles from saved layouts created with templates", async () => {
+    stubObjectUrls();
+    stubRandomUuids(["opened-template", "local-item", "cache-1", "session-1"]);
+    vi.mocked(isLocalFileCacheSupported).mockReturnValue(true);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    const { unmount } = render(<FeedWorkbench />);
+
+    await openSavedTemplates(user, ["Poster wall"]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Add source to template box" })[0],
+    );
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["video"], "large.mp4", { type: "video/mp4" }),
+    );
+    expect(await screen.findByLabelText("large.mp4")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    expect(window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "").toContain(
+      '"cacheSetId":"cache-1"',
+    );
+    unmount();
+
+    vi.mocked(loadLocalFiles).mockResolvedValue({
+      status: "loaded",
+      files: [new File(["video"], "large.mp4", { type: "video/mp4" })],
+    });
+    render(<FeedWorkbench />);
+    await openSavedLayouts(userEvent.setup(), ["Poster wall"]);
+    await waitFor(() => expect(loadLocalFiles).toHaveBeenCalled());
+
+    expect(await screen.findByLabelText("large.mp4")).toBeInTheDocument();
+    expect(loadLocalFiles).toHaveBeenCalledWith("cache-1");
+    expect(
+      window.localStorage.getItem(WORKSPACE_TEMPLATE_STORAGE_KEY) ?? "",
+    ).not.toContain("sourceConfig");
   });
 
   it("toolbar-added sources do not consume template boxes", async () => {

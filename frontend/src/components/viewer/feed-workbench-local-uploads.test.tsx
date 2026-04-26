@@ -75,6 +75,7 @@ describe("FeedWorkbench local uploads", () => {
   it("reloads saved local upload sources after page refresh when files are selected again", async () => {
     stubObjectUrls();
     stubRandomUuids(["blank-workspace", "local-1"]);
+    vi.stubGlobal("showOpenFilePicker", vi.fn());
     window.localStorage.setItem(
       WORKSPACE_STORAGE_KEY,
       JSON.stringify({
@@ -100,6 +101,45 @@ describe("FeedWorkbench local uploads", () => {
       screen.queryByText("Local files need reload"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
+  });
+
+  it("explains Firefox local file restore limits when persistent handles are unavailable", async () => {
+    stubObjectUrls();
+    stubRandomUuids(["blank-workspace", "local-1"]);
+    const originalUserAgent = window.navigator.userAgent;
+    Object.defineProperty(window.navigator, "userAgent", {
+      value: "Mozilla/5.0 Firefox/125.0",
+      configurable: true,
+    });
+
+    try {
+      window.localStorage.setItem(
+        WORKSPACE_STORAGE_KEY,
+        JSON.stringify({
+          activeWorkspaceId: "saved-local",
+          workspaces: [savedLocalUploadWorkspace()],
+        }),
+      );
+
+      const user = userEvent.setup();
+      render(<FeedWorkbench />);
+
+      await openSavedLayouts(user, ["Saved local"]);
+
+      expect(
+        screen.getByText(
+          "Firefox cannot auto-restore large local files. Use Chromium for proper support.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("Local files need reload"),
+      ).not.toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window.navigator, "userAgent", {
+        value: originalUserAgent,
+        configurable: true,
+      });
+    }
   });
 
   it("restores cached local upload files after refresh", async () => {
@@ -161,10 +201,51 @@ describe("FeedWorkbench local uploads", () => {
 
     expect(await screen.findByAltText("reuploaded.png")).toBeInTheDocument();
     expect(saveLocalFiles).toHaveBeenCalledWith("cache-2", [
-      expect.objectContaining({ name: "reuploaded.png" }),
+      expect.objectContaining({
+        file: expect.objectContaining({ name: "reuploaded.png" }),
+      }),
     ]);
     expect(
       screen.queryByText("Cached files unavailable"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("asks for local file access and restores cached file handles", async () => {
+    stubObjectUrls();
+    stubRandomUuids(["blank-workspace", "local-1"]);
+    vi.mocked(loadLocalFiles)
+      .mockResolvedValueOnce({
+        status: "permission-needed",
+        files: [],
+      })
+      .mockResolvedValueOnce({
+        status: "loaded",
+        files: [new File(["video"], "large.mp4", { type: "video/mp4" })],
+      });
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "saved-local",
+        workspaces: [savedLocalUploadWorkspace("cache-1")],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openSavedLayouts(user, ["Saved local"]);
+    expect(
+      await screen.findByText("Local file access needed"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Allow access" }));
+
+    expect(await screen.findByLabelText("large.mp4")).toBeInTheDocument();
+    expect(loadLocalFiles).toHaveBeenLastCalledWith("cache-1", {
+      requestPermission: true,
+    });
+    expect(
+      screen.queryByText("Local file access needed"),
     ).not.toBeInTheDocument();
   });
 
@@ -188,7 +269,9 @@ describe("FeedWorkbench local uploads", () => {
 
     const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
     expect(saveLocalFiles).toHaveBeenCalledWith("local-1", [
-      expect.objectContaining({ name: "cached.png" }),
+      expect.objectContaining({
+        file: expect.objectContaining({ name: "cached.png" }),
+      }),
     ]);
     expect(saved).toContain('"cacheSetId":"local-1"');
     expect(saved).not.toContain("blob:upload");
@@ -290,7 +373,9 @@ describe("FeedWorkbench local uploads", () => {
     expect(screen.queryByAltText("a.png")).not.toBeInTheDocument();
     expect(screen.getByText("Layer 1: 1 source / 1 file")).toBeInTheDocument();
     expect(saveLocalFiles).toHaveBeenLastCalledWith("cache-2", [
-      expect.objectContaining({ name: "b.png" }),
+      expect.objectContaining({
+        file: expect.objectContaining({ name: "b.png" }),
+      }),
     ]);
   });
 

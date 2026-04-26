@@ -1,4 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
 import { saveLocalFiles } from "@/lib/local-uploads/file-cache";
 import { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createTimerState } from "@/lib/viewer/timer";
@@ -33,6 +34,17 @@ export type LocalAddFilesPreparation =
       items: RuntimeFeedItem[];
     };
 
+type WindowWithLocalFilePickers = Window & {
+  showOpenFilePicker?: (options?: {
+    multiple?: boolean;
+  }) => Promise<FileSystemFileHandle[]>;
+  showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+};
+
+type IterableFileSystemDirectoryHandle = FileSystemDirectoryHandle & {
+  values?: () => AsyncIterable<FileSystemHandle>;
+};
+
 export function getUploadableFiles(files: File[]) {
   return files.filter(isUploadableFile);
 }
@@ -60,6 +72,80 @@ export async function filesFromDataTransfer(dataTransfer: DataTransfer) {
   }
 
   return Array.from(dataTransfer.files ?? []);
+}
+
+export function localFileReferencesFromFiles(
+  files: File[],
+): LocalFileReference[] {
+  return files.map((file) => ({ file }));
+}
+
+export function filesFromLocalFileReferences(references: LocalFileReference[]) {
+  return references.map((reference) =>
+    reference instanceof File ? reference : reference.file,
+  );
+}
+
+export function canSelectLocalFilesWithHandles() {
+  return (
+    typeof window !== "undefined" &&
+    typeof (window as WindowWithLocalFilePickers).showOpenFilePicker ===
+      "function"
+  );
+}
+
+export function canSelectLocalFoldersWithHandles() {
+  return (
+    typeof window !== "undefined" &&
+    typeof (window as WindowWithLocalFilePickers).showDirectoryPicker ===
+      "function"
+  );
+}
+
+export async function localFileReferencesFromPicker() {
+  const picker = (window as WindowWithLocalFilePickers).showOpenFilePicker;
+  if (!picker) return [];
+
+  const handles = await picker({ multiple: true });
+
+  return Promise.all(
+    handles.map(async (handle) => ({
+      file: await handle.getFile(),
+      handle,
+    })),
+  );
+}
+
+export async function localFileReferencesFromDirectoryPicker() {
+  const picker = (window as WindowWithLocalFilePickers).showDirectoryPicker;
+  if (!picker) return [];
+
+  return localFileReferencesFromDirectoryHandle(await picker());
+}
+
+async function localFileReferencesFromDirectoryHandle(
+  directory: FileSystemDirectoryHandle,
+): Promise<LocalFileReference[]> {
+  const iterableDirectory = directory as IterableFileSystemDirectoryHandle;
+  const values = iterableDirectory.values?.();
+  if (!values) return [];
+
+  const references: LocalFileReference[] = [];
+  for await (const handle of values) {
+    if (handle.kind === "file") {
+      const fileHandle = handle as FileSystemFileHandle;
+      references.push({ file: await fileHandle.getFile(), handle: fileHandle });
+      continue;
+    }
+
+    references.push(
+      ...(await localFileReferencesFromDirectoryHandle(
+        handle as FileSystemDirectoryHandle,
+      )),
+    );
+  }
+
+  return references;
 }
 
 export async function filesFromFileSystemEntry(
@@ -104,21 +190,22 @@ export async function entriesFromDirectoryEntry(
 }
 
 export async function cacheLocalFiles({
-  files,
+  fileReferences,
   canCacheLocalFiles,
   createCacheSetId,
   onCacheRejected,
 }: {
-  files: File[];
+  fileReferences: LocalFileReference[];
   canCacheLocalFiles: boolean;
   createCacheSetId: () => string;
   onCacheRejected: () => void;
 }) {
+  const files = filesFromLocalFileReferences(fileReferences);
   if (!canCacheLocalFiles || !files.length) return undefined;
 
   const cacheSetId = createCacheSetId();
   try {
-    await saveLocalFiles(cacheSetId, files);
+    await saveLocalFiles(cacheSetId, fileReferences);
     return cacheSetId;
   } catch {
     onCacheRejected();
@@ -175,20 +262,25 @@ export function prepareLocalAddFiles({
 }
 
 export async function createLocalSessionSources({
-  files,
+  fileReferences,
   items,
   sourceGroupingMode,
   cacheFiles,
 }: {
-  files: File[];
+  fileReferences: LocalFileReference[];
   items: RuntimeFeedItem[];
   sourceGroupingMode: SourceGroupingMode;
-  cacheFiles: (files: File[]) => Promise<string | undefined>;
+  cacheFiles: (
+    fileReferences: LocalFileReference[],
+  ) => Promise<string | undefined>;
 }): Promise<LocalSessionSource[]> {
+  const files = filesFromLocalFileReferences(fileReferences);
+
   if (sourceGroupingMode === "separate") {
     return Promise.all(
       files.map(async (file, index) => {
-        const cacheSetId = await cacheFiles([file]);
+        const fileReference = fileReferences[index] ?? file;
+        const cacheSetId = await cacheFiles([fileReference]);
         const item = items[index];
 
         return {
@@ -205,7 +297,7 @@ export async function createLocalSessionSources({
     );
   }
 
-  const cacheSetId = await cacheFiles(files);
+  const cacheSetId = await cacheFiles(fileReferences);
 
   return [
     {
@@ -251,6 +343,7 @@ export function applyLocalRuntimeItemsToSession({
         : session.title,
     items,
     localFiles: files,
+    localRestoreStatus: undefined,
     isRuntimeLoading: false,
     sourceConfig: {
       kind: "local",

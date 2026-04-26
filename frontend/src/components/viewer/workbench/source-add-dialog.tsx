@@ -53,6 +53,8 @@ export function SourceDialog({
   openUrlSource,
   fetchRedditFeed,
   addLocalFiles,
+  selectLocalFilesWithHandles,
+  selectLocalFolderWithHandles,
   addDroppedLocalFiles,
   allowLocalFileDrop,
 }: {
@@ -80,6 +82,8 @@ export function SourceDialog({
   openUrlSource: () => void;
   fetchRedditFeed: () => void;
   addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
+  selectLocalFilesWithHandles: () => Promise<boolean>;
+  selectLocalFolderWithHandles: () => Promise<boolean>;
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
   allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
 }) {
@@ -196,6 +200,12 @@ export function SourceDialog({
                     onDragOver={isLoading ? undefined : allowLocalFileDrop}
                     onDragEnter={isLoading ? undefined : allowLocalFileDrop}
                     onDrop={isLoading ? undefined : addDroppedLocalFiles}
+                    onClick={(event) => {
+                      if (isLoading) return;
+                      if (!("showOpenFilePicker" in window)) return;
+                      event.preventDefault();
+                      void selectLocalFilesWithHandles();
+                    }}
                     className="size-full min-h-0 cursor-pointer justify-center rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <span className="flex flex-col items-center justify-center gap-2">
@@ -227,6 +237,12 @@ export function SourceDialog({
                     onDragOver={isLoading ? undefined : allowLocalFileDrop}
                     onDragEnter={isLoading ? undefined : allowLocalFileDrop}
                     onDrop={isLoading ? undefined : addDroppedLocalFiles}
+                    onClick={(event) => {
+                      if (isLoading) return;
+                      if (!("showDirectoryPicker" in window)) return;
+                      event.preventDefault();
+                      void selectLocalFolderWithHandles();
+                    }}
                     className="size-full min-h-0 cursor-pointer justify-center rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <span className="flex flex-col items-center justify-center gap-2">
