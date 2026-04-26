@@ -11,6 +11,7 @@ import type {
   PersistedSourceConfig,
   SourceGroupingMode,
 } from "./types";
+import { separateSourceSlotError } from "./source-add-state";
 
 export type LocalSessionSource = {
   title: string;
@@ -18,6 +19,19 @@ export type LocalSessionSource = {
   localFiles: File[];
   sourceConfig: PersistedSourceConfig;
 };
+
+export type LocalAddFilesPreparation =
+  | {
+      status: "slot-error";
+      error: string;
+      uploadableFiles: File[];
+      items: RuntimeFeedItem[];
+    }
+  | {
+      status: "empty" | "ready";
+      uploadableFiles: File[];
+      items: RuntimeFeedItem[];
+    };
 
 export function getUploadableFiles(files: File[]) {
   return files.filter(isUploadableFile);
@@ -122,6 +136,42 @@ export function createLocalRuntimeItems(
   }
 
   return files.map((file) => registryRef.current!.add(file));
+}
+
+export function prepareLocalAddFiles({
+  files,
+  sourceGroupingMode,
+  availableSeparateSourceSlots,
+  createRuntimeItems,
+}: {
+  files: File[];
+  sourceGroupingMode: SourceGroupingMode;
+  availableSeparateSourceSlots: number;
+  createRuntimeItems: (files: File[]) => RuntimeFeedItem[];
+}): LocalAddFilesPreparation {
+  const uploadableFiles = getUploadableFiles(files);
+  const slotError = separateSourceSlotError({
+    sourceGroupingMode,
+    requestedCount: uploadableFiles.length,
+    availableSeparateSourceSlots,
+  });
+
+  if (slotError) {
+    return {
+      status: "slot-error",
+      error: slotError,
+      uploadableFiles,
+      items: [],
+    };
+  }
+
+  const items = createRuntimeItems(uploadableFiles);
+
+  return {
+    status: items.length ? "ready" : "empty",
+    uploadableFiles,
+    items,
+  };
 }
 
 export async function createLocalSessionSources({

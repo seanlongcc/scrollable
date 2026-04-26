@@ -121,6 +121,7 @@ import {
   createLocalSessionSources,
   filesFromDataTransfer,
   getUploadableFiles,
+  prepareLocalAddFiles,
 } from "./workbench/local-sources";
 import {
   buildUrlAddSourceConfig,
@@ -682,22 +683,20 @@ export function FeedWorkbench({
   }
 
   async function addLocalFileList(files: File[], onSettled?: () => void) {
-    const uploadableFiles = getUploadableFiles(files);
-
-    const slotError = separateSourceSlotError({
+    const prepared = prepareLocalAddFiles({
+      files,
       sourceGroupingMode,
-      requestedCount: uploadableFiles.length,
       availableSeparateSourceSlots,
+      createRuntimeItems: createLocalRuntimeItems,
     });
-    if (slotError) {
-      toast.error(slotError);
+
+    if (prepared.status === "slot-error") {
+      toast.error(prepared.error);
       onSettled?.();
       return;
     }
 
-    const items = createLocalRuntimeItems(uploadableFiles);
-
-    if (!items.length) {
+    if (prepared.status === "empty") {
       onSettled?.();
       return;
     }
@@ -706,8 +705,8 @@ export function FeedWorkbench({
 
     try {
       const sources = await createLocalSessionSources({
-        files: uploadableFiles,
-        items,
+        files: prepared.uploadableFiles,
+        items: prepared.items,
         sourceGroupingMode,
         cacheFiles: cacheLocalFiles,
       });
