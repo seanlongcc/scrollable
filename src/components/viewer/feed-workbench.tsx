@@ -100,7 +100,6 @@ import {
   isKeyboardEditingTarget,
   keyMoveDirection,
   limitLayoutName,
-  normalizeRedditLimit,
   sessionFileCount,
 } from "./workbench/helpers";
 import {
@@ -110,11 +109,7 @@ import {
   filesFromDataTransfer,
   getUploadableFiles,
 } from "./workbench/local-sources";
-import {
-  fetchEditedRedditSource,
-  fetchEditedUrlSource,
-  hydrateRuntimeSources,
-} from "./workbench/runtime-sources";
+import { hydrateRuntimeSources } from "./workbench/runtime-sources";
 import {
   addPreparedLocalSourceAction,
   addRedditSourceAction,
@@ -131,6 +126,13 @@ import {
   applyEditedUrlSourceToSession,
   withSessionRuntimeLoading,
 } from "./workbench/source-edit-state";
+import {
+  editPreparedLocalSourceAction,
+  editPreparedRedditSourceAction,
+  editUrlSourceAction,
+  prepareLocalSourceEditAction,
+  prepareRedditSourceEditAction,
+} from "./workbench/source-edit-actions";
 import {
   defaultSourceAddFormState,
   sourceAddPanelPlacement,
@@ -855,79 +857,78 @@ export function FeedWorkbench({
     hiddenItemIds: string[],
     unhiddenItemHashes: string[],
   ) {
-    if (!urls.length) {
-      toast.error("Keep at least one Reddit source");
+    const prepared = prepareRedditSourceEditAction({ urls, limit });
+
+    if (prepared.status !== "ready") {
+      toast.error(prepared.error);
       return;
     }
 
-    const selectedRedditLimit = normalizeRedditLimit(limit);
     updateSession(id, (session) => withSessionRuntimeLoading(session, true));
 
-    try {
-      const currentSource = sessions.find((session) => session.id === id);
-      const result = await fetchEditedRedditSource({
-        currentSource,
-        urls,
-        limit: selectedRedditLimit,
-        hiddenItemIds,
-        unhiddenItemHashes,
-      });
-      updateSession(id, (session) =>
-        applyEditedRedditSourceToSession(session, result),
-      );
-      setEditingSourceId(null);
-    } catch (error) {
+    const result = await editPreparedRedditSourceAction({
+      currentSource: sessions.find((session) => session.id === id),
+      urls: prepared.urls,
+      limit: prepared.limit,
+      hiddenItemIds,
+      unhiddenItemHashes,
+    });
+
+    if (result.status !== "ready") {
       updateSession(id, (session) => withSessionRuntimeLoading(session, false));
-      toast.error(
-        error instanceof Error ? error.message : "Reddit fetch failed",
-      );
+      toast.error(result.error);
+      return;
     }
+
+    updateSession(id, (session) =>
+      applyEditedRedditSourceToSession(session, result.result),
+    );
+    setEditingSourceId(null);
   }
 
   async function saveUrlSourceEdit(id: string, url: string, title?: string) {
     updateSession(id, (session) => withSessionRuntimeLoading(session, true));
 
-    try {
-      const currentSource = sessions.find((session) => session.id === id);
-      const result = await fetchEditedUrlSource({
-        currentSource,
-        url,
-        title,
-      });
+    const result = await editUrlSourceAction({
+      currentSource: sessions.find((session) => session.id === id),
+      url,
+      title,
+    });
 
-      updateSession(id, (session) =>
-        applyEditedUrlSourceToSession(session, result),
-      );
-      setEditingSourceId(null);
-    } catch (error) {
+    if (result.status !== "ready") {
       updateSession(id, (session) => withSessionRuntimeLoading(session, false));
-      toast.error(error instanceof Error ? error.message : "URL source failed");
-    }
-  }
-
-  async function saveLocalSourceEdit(id: string, files: File[]) {
-    const uploadableFiles = getUploadableFiles(files);
-
-    if (!uploadableFiles.length) {
-      toast.error("Keep at least one local file");
+      toast.error(result.error);
       return;
     }
 
-    try {
-      const items = createLocalRuntimeItems(uploadableFiles);
-      applyLocalRuntimeItems(
-        id,
-        items,
-        await cacheLocalFiles(uploadableFiles),
-        uploadableFiles,
-      );
-      setEditingSourceId(null);
-    } catch (error) {
-      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
-      toast.error(
-        error instanceof Error ? error.message : "Local file cache failed",
-      );
+    updateSession(id, (session) =>
+      applyEditedUrlSourceToSession(session, result.result),
+    );
+    setEditingSourceId(null);
+  }
+
+  async function saveLocalSourceEdit(id: string, files: File[]) {
+    const prepared = prepareLocalSourceEditAction({ files });
+
+    if (prepared.status !== "ready") {
+      toast.error(prepared.error);
+      return;
     }
+
+    const result = await editPreparedLocalSourceAction({
+      files: prepared.files,
+      createRuntimeItems: createLocalRuntimeItems,
+      cacheFiles: cacheLocalFiles,
+    });
+
+    if (result.status !== "ready") {
+      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
+      toast.error(result.error);
+      return;
+    }
+
+    applyLocalRuntimeItems(id, result.items, result.cacheSetId, result.files);
+    setEditingSourceId(null);
   }
 
   function removeSession(id: string) {
