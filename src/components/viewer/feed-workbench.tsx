@@ -107,19 +107,20 @@ import {
   applyLocalRuntimeItemsToSession,
   cacheLocalFiles as cacheLocalFilesForWorkbench,
   createLocalRuntimeItems as createLocalRuntimeItemsForWorkbench,
-  createLocalSessionSources,
   filesFromDataTransfer,
   getUploadableFiles,
-  prepareLocalAddFiles,
 } from "./workbench/local-sources";
 import {
-  buildUrlAddSourceConfig,
-  createRedditSessionSources,
-  createUrlSessionSource,
   fetchEditedRedditSource,
   fetchEditedUrlSource,
   hydrateRuntimeSources,
 } from "./workbench/runtime-sources";
+import {
+  addPreparedLocalSourceAction,
+  addRedditSourceAction,
+  addUrlSourceAction,
+  prepareLocalSourceAddAction,
+} from "./workbench/source-add-actions";
 import {
   applyHydratedRuntimeSessions,
   runtimeHydrationCandidates,
@@ -132,8 +133,6 @@ import {
 } from "./workbench/source-edit-state";
 import {
   defaultSourceAddFormState,
-  resolveRedditAddInput,
-  separateSourceSlotError,
   sourceAddPanelPlacement,
 } from "./workbench/source-add-state";
 import {
@@ -587,37 +586,24 @@ export function FeedWorkbench({
   async function fetchRedditFeed() {
     setIsLoading(true);
     try {
-      const { urls, limit } = resolveRedditAddInput({
+      const result = await addRedditSourceAction({
         redditInputMode,
         subredditName,
         redditSort,
         redditTimeRange,
         redditUrls,
         redditLimit,
-      });
-
-      const slotError = separateSourceSlotError({
         sourceGroupingMode,
-        requestedCount: urls.length,
         availableSeparateSourceSlots,
       });
-      if (slotError) {
-        toast.error(slotError);
+
+      if (result.status !== "ready") {
+        toast.error(result.error);
         return;
       }
 
-      const sources = await createRedditSessionSources({
-        urls,
-        limit,
-        sourceGroupingMode,
-      });
-
-      addSessions(sources);
+      addSessions(result.sources);
       setIsSourceOpen(false);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Reddit fetch failed",
-      );
     } finally {
       setIsLoading(false);
     }
@@ -626,14 +612,15 @@ export function FeedWorkbench({
   async function openUrlSource() {
     setIsLoading(true);
     try {
-      const source = await createUrlSessionSource(
-        buildUrlAddSourceConfig({ urlValue, urlTitle }),
-      );
+      const result = await addUrlSourceAction({ urlValue, urlTitle });
 
-      addSession(source);
+      if (result.status !== "ready") {
+        toast.error(result.error);
+        return;
+      }
+
+      addSession(result.source);
       setIsSourceOpen(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "URL source failed");
     } finally {
       setIsLoading(false);
     }
@@ -660,7 +647,7 @@ export function FeedWorkbench({
   }
 
   async function addLocalFileList(files: File[], onSettled?: () => void) {
-    const prepared = prepareLocalAddFiles({
+    const prepared = prepareLocalSourceAddAction({
       files,
       sourceGroupingMode,
       availableSeparateSourceSlots,
@@ -681,20 +668,20 @@ export function FeedWorkbench({
     setIsLoading(true);
 
     try {
-      const sources = await createLocalSessionSources({
-        files: prepared.uploadableFiles,
+      const result = await addPreparedLocalSourceAction({
+        uploadableFiles: prepared.uploadableFiles,
         items: prepared.items,
         sourceGroupingMode,
         cacheFiles: cacheLocalFiles,
       });
 
-      addSessions(sources);
+      if (result.status !== "ready") {
+        toast.error(result.error);
+        return;
+      }
 
+      addSessions(result.sources);
       setIsSourceOpen(false);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Local file cache failed",
-      );
     } finally {
       setIsLoading(false);
       onSettled?.();
