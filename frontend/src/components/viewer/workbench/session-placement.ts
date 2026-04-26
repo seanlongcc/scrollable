@@ -7,7 +7,6 @@ import type {
   PersistedSourceConfig,
   WorkspaceTemplateSlot,
 } from "./types";
-import { nextFixedSlot } from "./helpers";
 
 export type SessionPlacementSourceInput = {
   title: string;
@@ -35,6 +34,20 @@ export type SessionPlacementResult = {
   consumedTemplateSlotId: string | null;
   noFreeLayoutSpace: boolean;
 };
+
+export function nextFixedSlot(
+  sessions: FeedSession[],
+  preferredSlot: number | null,
+) {
+  const occupied = new Set(sessions.map((session) => session.fixedSlot));
+  if (preferredSlot !== null && !occupied.has(preferredSlot)) {
+    return preferredSlot;
+  }
+
+  let slot = 0;
+  while (occupied.has(slot)) slot += 1;
+  return slot;
+}
 
 export function placeSessions({
   current,
