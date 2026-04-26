@@ -124,6 +124,52 @@ describe("MediaRenderer", () => {
     expect(hlsState.configs).toHaveLength(0);
   });
 
+  it("keeps started video loaded when playback becomes inactive", () => {
+    const { container, rerender } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Layer video"
+      />,
+    );
+    const video = container.querySelector("video");
+
+    expect(video).toHaveAttribute("src", "https://cdn.test/video.mp4");
+    fireEvent.loadedMetadata(video!);
+
+    rerender(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Layer video"
+        shouldPlay={false}
+      />,
+    );
+
+    expect(video).toHaveAttribute("src", "https://cdn.test/video.mp4");
+  });
+
+  it("keeps started audio loaded when playback becomes inactive", () => {
+    const { container, rerender } = render(
+      <MediaRenderer
+        media={{ type: "audio", url: "https://cdn.test/sound.mp3" }}
+        title="Layer audio"
+      />,
+    );
+    const audio = container.querySelector("audio");
+
+    expect(audio).toHaveAttribute("src", "https://cdn.test/sound.mp3");
+    fireEvent.loadedMetadata(audio!);
+
+    rerender(
+      <MediaRenderer
+        media={{ type: "audio", url: "https://cdn.test/sound.mp3" }}
+        title="Layer audio"
+        shouldPlay={false}
+      />,
+    );
+
+    expect(audio).toHaveAttribute("src", "https://cdn.test/sound.mp3");
+  });
+
   it("shows a load error screen when direct media is blocked", () => {
     const { container } = render(
       <MediaRenderer

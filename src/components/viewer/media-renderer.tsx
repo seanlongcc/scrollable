@@ -22,16 +22,24 @@ export function MediaRenderer({
   onVideoTimeChange?: (seconds: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [hasLoadedPlayback, setHasLoadedPlayback] = useState(false);
   const [failedMediaKey, setFailedMediaKey] = useState<string | null>(null);
   const mediaKey = `${media.type}:${media.url}`;
   const hasLoadError = failedMediaKey === mediaKey;
   const mediaHost = hostFromUrl(media.url);
+  const shouldLoadPlayback = shouldPlay || hasLoadedPlayback;
+
+  function markPlaybackLoaded() {
+    if (!hasLoadedPlayback) {
+      setHasLoadedPlayback(true);
+    }
+  }
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || media.type !== "video" || hasLoadError) return;
 
-    if (!shouldPlay) {
+    if (!shouldLoadPlayback) {
       unloadVideo(video);
       return;
     }
@@ -82,11 +90,16 @@ export function MediaRenderer({
       hls.destroy();
       unloadVideo(video);
     };
-  }, [hasLoadError, media, shouldPlay]);
+  }, [hasLoadError, media, shouldLoadPlayback]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || media.type !== "video" || !shouldPlay || hasLoadError) {
+    if (
+      !video ||
+      media.type !== "video" ||
+      !shouldLoadPlayback ||
+      hasLoadError
+    ) {
       return;
     }
     const videoElement = video;
@@ -109,7 +122,7 @@ export function MediaRenderer({
       videoElement.removeEventListener("loadedmetadata", restorePosition);
       videoElement.removeEventListener("canplay", restorePosition);
     };
-  }, [hasLoadError, initialVideoTime, media, shouldPlay]);
+  }, [hasLoadError, initialVideoTime, media, shouldLoadPlayback]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -117,7 +130,7 @@ export function MediaRenderer({
       !video ||
       media.type !== "video" ||
       !onVideoTimeChange ||
-      !shouldPlay ||
+      !shouldLoadPlayback ||
       hasLoadError
     ) {
       return;
@@ -141,7 +154,7 @@ export function MediaRenderer({
       videoElement.removeEventListener("pause", reportPosition);
       videoElement.removeEventListener("seeked", reportPosition);
     };
-  }, [hasLoadError, media, onVideoTimeChange, shouldPlay]);
+  }, [hasLoadError, media, onVideoTimeChange, shouldLoadPlayback]);
 
   function handleMediaError() {
     setFailedMediaKey(mediaKey);
@@ -182,13 +195,16 @@ export function MediaRenderer({
     return (
       <div className="grid size-full place-items-center bg-background px-6">
         <audio
-          src={shouldPlay ? media.url : undefined}
+          src={shouldLoadPlayback ? media.url : undefined}
           aria-label={title}
           className="w-full max-w-md"
-          autoPlay={shouldPlay}
-          preload={shouldPlay ? "auto" : "metadata"}
+          autoPlay={shouldLoadPlayback}
+          preload={shouldLoadPlayback ? "auto" : "metadata"}
           controls={showControls}
           loop
+          onLoadedMetadata={markPlaybackLoaded}
+          onCanPlay={markPlaybackLoaded}
+          onPlay={markPlaybackLoaded}
           onError={handleMediaError}
         />
       </div>
@@ -200,12 +216,15 @@ export function MediaRenderer({
       ref={videoRef}
       aria-label={title}
       className="h-full w-full object-contain"
-      autoPlay={shouldPlay}
+      autoPlay={shouldLoadPlayback}
       controls={showControls}
       playsInline
       muted
-      preload={shouldPlay ? "auto" : "metadata"}
+      preload={shouldLoadPlayback ? "auto" : "metadata"}
       loop
+      onLoadedMetadata={markPlaybackLoaded}
+      onCanPlay={markPlaybackLoaded}
+      onPlay={markPlaybackLoaded}
       onError={handleMediaError}
     />
   );
