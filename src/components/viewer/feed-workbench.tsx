@@ -300,9 +300,7 @@ export function FeedWorkbench({
   );
   const layoutModeLocked = sessions.length > 0 || templateSlots.length > 0;
   const selected = useMemo(
-    () =>
-      activeLayerSessions.find((session) => session.id === selectedId) ??
-      activeLayerSessions[0],
+    () => activeLayerSessions.find((session) => session.id === selectedId),
     [activeLayerSessions, selectedId],
   );
   const maximized = useMemo(
@@ -1116,8 +1114,7 @@ export function FeedWorkbench({
 
   function selectLayer(id: string) {
     setActiveLayerId(id);
-    const nextSelected = sessions.find((session) => session.layerId === id);
-    setSelectedId(nextSelected?.id ?? null);
+    setSelectedId(null);
     setMaximizedId(null);
     setPendingFixedSlot(null);
     setPendingTemplateSlotId(null);

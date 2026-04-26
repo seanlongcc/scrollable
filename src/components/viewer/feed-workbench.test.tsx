@@ -2759,6 +2759,50 @@ describe("FeedWorkbench", () => {
     expect(screen.getByAltText("background.png")).not.toBeVisible();
   });
 
+  it("does not auto-select a source when switching layers", async () => {
+    stubObjectUrls();
+    stubRandomUuids([
+      "workspace-1",
+      "local-1",
+      "session-1",
+      "layer-2",
+      "local-2",
+      "session-2",
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Free layout mode" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["a"], "foreground.png", { type: "image/png" }),
+    );
+    expect(await screen.findByAltText("foreground.png")).toBeVisible();
+    expect(
+      screen.getByRole("group", { name: "Selected free layout controls" }),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Add layer" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["b"], "background.png", { type: "image/png" }),
+    );
+    expect(await screen.findByAltText("background.png")).toBeVisible();
+    expect(
+      screen.getByRole("group", { name: "Selected free layout controls" }),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
+
+    expect(screen.getByAltText("foreground.png")).toBeVisible();
+    expect(
+      screen.queryByRole("group", { name: "Selected free layout controls" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("continues advancing inactive layer timers while another layer is active", async () => {
     stubObjectUrls();
     stubRandomUuids([
