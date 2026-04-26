@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 
 import type { RuntimeFeedItem, RuntimeMedia } from "@/lib/feed/types";
+import { youtubeEmbedUrlFromId } from "./youtube-embed";
 
 type YtDlpObject = Record<string, unknown>;
 
@@ -76,11 +77,12 @@ export function ytDlpInfoToRuntimeResolution(
   const title = stringValue(info.title) ?? titleFromUrl(sourceUrl);
   if (isYoutubeInfo(info)) {
     const videoId = stringValue(info.id);
-    if (videoId) {
+    const iframeUrl = youtubeEmbedUrlFromId(videoId);
+    if (iframeUrl) {
       return {
         provider: "youtube",
         title,
-        iframeUrl: `https://www.youtube.com/embed/${videoId}`,
+        iframeUrl,
         metadata: {
           ...(stringValue(info.thumbnail)
             ? { thumbnailUrl: stringValue(info.thumbnail) }

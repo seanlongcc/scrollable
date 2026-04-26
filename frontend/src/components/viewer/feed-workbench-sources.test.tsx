@@ -402,6 +402,10 @@ describe("FeedWorkbench URL sources", () => {
       "src",
       "https://www.youtube.com/embed/dQw4w9WgXcQ",
     );
+    expect(container.querySelector("iframe")).toHaveAttribute(
+      "allow",
+      expect.stringContaining("autoplay"),
+    );
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
     await user.click(screen.getByRole("button", { name: "Save as layout" }));

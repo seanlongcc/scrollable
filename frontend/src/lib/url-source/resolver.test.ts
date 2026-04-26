@@ -135,7 +135,8 @@ describe("resolveUrlSource", () => {
       hint: "provider:youtube",
       provider: "youtube",
       title: "YouTube video",
-      iframeUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      iframeUrl:
+        "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&playsinline=1",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -633,7 +634,8 @@ describe("resolveUrlSource", () => {
     expect(result.resolution).toMatchObject({
       status: "resolved",
       hint: "provider:youtube",
-      iframeUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      iframeUrl:
+        "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&playsinline=1",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

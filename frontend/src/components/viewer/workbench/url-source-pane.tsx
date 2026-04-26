@@ -57,6 +57,7 @@ export function UrlSourcePane({
           src={iframeUrl ?? ""}
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
           sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
           className="absolute inset-0 z-0 size-full border-0 bg-background"
         />

@@ -27,7 +27,8 @@ describe("ytDlpInfoToRuntimeItems", () => {
     expect(resolution).toEqual({
       provider: "youtube",
       title: "LE SSERAFIM SAKURA - CELEBRATION (Dance Challenge)",
-      iframeUrl: "https://www.youtube.com/embed/sr_8I7Pia6U",
+      iframeUrl:
+        "https://www.youtube.com/embed/sr_8I7Pia6U?autoplay=1&mute=1&playsinline=1",
       metadata: {
         thumbnailUrl: "https://i.ytimg.com/vi/sr_8I7Pia6U/maxresdefault.jpg",
       },
