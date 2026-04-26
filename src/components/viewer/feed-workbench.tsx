@@ -44,8 +44,11 @@ import {
   ClearLayoutDialog,
   LayoutDialog,
   SaveLayoutDialog,
-  accountStateFromUser,
 } from "./workbench/dialogs";
+import {
+  accountStateFromUser,
+  signOutAccountAction,
+} from "./workbench/account-actions";
 import { EditSourceDialog, SourceDialog } from "./workbench/source-dialogs";
 import { FixedGridView, FocusLayout, FreeGridView } from "./workbench/views";
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -65,7 +68,6 @@ import {
 } from "@/lib/viewer/layout";
 import { MAX_WORKSPACE_LAYERS } from "@/lib/viewer/workspaces";
 import {
-  advanceTimerState,
   moveTimerIndex,
   togglePaused,
   type TimerMode,
@@ -97,8 +99,6 @@ import {
 import {
   createId,
   hasDuplicateLayoutName,
-  isKeyboardEditingTarget,
-  keyMoveDirection,
   limitLayoutName,
   sessionFileCount,
 } from "./workbench/helpers";
@@ -109,7 +109,6 @@ import {
   filesFromDataTransfer,
   getUploadableFiles,
 } from "./workbench/local-sources";
-import { hydrateRuntimeSources } from "./workbench/runtime-sources";
 import {
   addPreparedLocalSourceAction,
   addRedditSourceAction,
@@ -117,10 +116,10 @@ import {
   prepareLocalSourceAddAction,
 } from "./workbench/source-add-actions";
 import {
-  applyHydratedRuntimeSessions,
-  runtimeHydrationCandidates,
-  visibleUnresolvedUrlHydrationSessions,
-} from "./workbench/runtime-hydration-state";
+  applyRuntimeHydrationAction,
+  hydrateRuntimeSessionsAction,
+  visibleUrlRuntimeHydrationCandidates,
+} from "./workbench/runtime-hydration-actions";
 import {
   applyEditedRedditSourceToSession,
   applyEditedUrlSourceToSession,
@@ -187,6 +186,12 @@ import {
   applyViewTimerSecondsState,
 } from "./workbench/timer-actions";
 import { fillVisibleCellsState } from "./workbench/fill-visible-cells-state";
+import {
+  HIDDEN_UI_REVEAL_TIMEOUT_MS,
+  advanceSessionTimers,
+  keyboardTimerMoveDirection,
+  moveActiveKeyboardSessionTimer,
+} from "./workbench/workbench-effect-state";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -451,12 +456,7 @@ export function FeedWorkbench({
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      setSessions((current) =>
-        current.map((session) => ({
-          ...session,
-          timer: advanceTimerState(session.timer, 250),
-        })),
-      );
+      setSessions((current) => advanceSessionTimers(current));
     }, 250);
 
     return () => window.clearInterval(interval);
@@ -514,11 +514,13 @@ export function FeedWorkbench({
   }, [isUiHidden]);
 
   useEffect(() => {
-    const visibleUnresolvedUrlSessions = visibleUnresolvedUrlHydrationSessions({
+    const visibleUnresolvedUrlSessions = visibleUrlRuntimeHydrationCandidates({
       sessions,
-      activeLayerId,
-      layoutMode,
-      visibleFixedCells,
+      visibility: {
+        activeLayerId,
+        layoutMode,
+        visibleFixedCells,
+      },
     });
 
     if (!visibleUnresolvedUrlSessions.length) return;
@@ -532,26 +534,18 @@ export function FeedWorkbench({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      const direction = keyMoveDirection(event.key);
-      if (
-        !direction ||
-        !activeKeyboardSessionId ||
-        event.defaultPrevented ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        isKeyboardEditingTarget(event.target)
-      ) {
+      const direction = keyboardTimerMoveDirection(event);
+      if (!direction || !activeKeyboardSessionId) {
         return;
       }
 
       event.preventDefault();
       setSessions((current) =>
-        current.map((session) =>
-          session.id === activeKeyboardSessionId
-            ? { ...session, timer: moveTimerIndex(session.timer, direction) }
-            : session,
-        ),
+        moveActiveKeyboardSessionTimer({
+          sessions: current,
+          activeSessionId: activeKeyboardSessionId,
+          direction,
+        }),
       );
     }
 
@@ -567,7 +561,10 @@ export function FeedWorkbench({
     function revealTemporarily() {
       setIsUiRevealVisible(true);
       window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(() => setIsUiRevealVisible(false), 1800);
+      timeoutId = window.setTimeout(
+        () => setIsUiRevealVisible(false),
+        HIDDEN_UI_REVEAL_TIMEOUT_MS,
+      );
     }
 
     revealTemporarily();
@@ -1163,21 +1160,19 @@ export function FeedWorkbench({
   }
 
   async function signOut() {
-    if (!getSupabaseEnv()) {
-      setAccount({ status: "unconfigured" });
+    const result = await signOutAccountAction({
+      isConfigured: Boolean(getSupabaseEnv()),
+      signOut: async () => createSupabaseBrowserClient().auth.signOut(),
+    });
+
+    if (result.status === "error") {
+      toast.error(result.error);
       return;
     }
 
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signOut();
-
-      if (error) throw error;
-
-      setAccount({ status: "signed-out" });
-      toast.success("Signed out");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Sign out failed");
+    setAccount(result.account);
+    if (result.status === "signed-out") {
+      toast.success(result.successMessage);
     }
   }
 
@@ -1545,27 +1540,25 @@ export function FeedWorkbench({
   }
 
   async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
-    const sessionsToHydrate = runtimeHydrationCandidates({
+    const result = await hydrateRuntimeSessionsAction({
       sessions: nextSessions,
-      activeLayerId,
-      layoutMode,
-      visibleFixedCells,
-    });
-
-    if (!sessionsToHydrate.length) return;
-
-    const hydrated = await hydrateRuntimeSources({
-      sessions: sessionsToHydrate,
+      visibility: {
+        activeLayerId,
+        layoutMode,
+        visibleFixedCells,
+      },
       createLocalRuntimeItems,
-      onError: (session, error) =>
-        toast.error(
-          error instanceof Error
-            ? `Could not load ${session.title}: ${error.message}`
-            : `Could not load ${session.title}`,
-        ),
+      onError: (message) => toast.error(message),
     });
 
-    setSessions((current) => applyHydratedRuntimeSessions(current, hydrated));
+    if (result.status === "empty") return;
+
+    setSessions((current) =>
+      applyRuntimeHydrationAction({
+        sessions: current,
+        hydrated: result.hydrated,
+      }),
+    );
   }
 
   return (

@@ -27,17 +27,7 @@ import {
   workspaceFileCount,
   workspaceLayerSummaries,
 } from "./helpers";
-
-export function accountStateFromUser(
-  user: { email?: string | null } | null,
-): AccountState {
-  if (!user) return { status: "signed-out" };
-
-  return {
-    status: "signed-in",
-    email: user.email ?? "Signed-in account",
-  };
-}
+export { accountStateFromUser } from "./account-actions";
 
 export function LayoutDialog({
   open,
