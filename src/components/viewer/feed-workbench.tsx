@@ -2341,7 +2341,7 @@ export function FeedWorkbench({
                         galleryIndexes={galleryIndexes}
                         videoPositions={videoPositions}
                         selectedId={isActiveLayer ? selectedId : null}
-                        hideUi={isUiHidden || !isActiveLayer}
+                        hideUi={isUiHidden}
                         isPlaybackActive={isActiveLayer}
                         showInfo={isActiveLayer && showAllInfo}
                         openSourcePanel={openSourcePanel}
@@ -2396,7 +2396,7 @@ export function FeedWorkbench({
                         galleryIndexes={galleryIndexes}
                         videoPositions={videoPositions}
                         selectedId={isActiveLayer ? selectedId : null}
-                        hideUi={isUiHidden || !isActiveLayer}
+                        hideUi={isUiHidden}
                         isPlaybackActive={isActiveLayer}
                         showInfo={isActiveLayer && showAllInfo}
                         freeDrag={isActiveLayer ? freeDrag : null}

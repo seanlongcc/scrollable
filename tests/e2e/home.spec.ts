@@ -48,6 +48,54 @@ test("home renders multi-view wall without media previews", async ({
   expect(hydrationErrors).toEqual([]);
 });
 
+test("keeps multi-layer workbench within the viewport", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Add layer" }).click();
+  await expect(
+    page.getByRole("button", { name: "Select Layer 2" }),
+  ).toBeVisible();
+
+  const metrics = await page.evaluate(() => {
+    const main = document.querySelector("main");
+    const statusRow = document.querySelector(
+      '[data-testid="layout-status-row"]',
+    );
+    const sourceArea = statusRow?.nextElementSibling;
+
+    if (!(main instanceof HTMLElement)) {
+      throw new Error("Missing workbench main");
+    }
+    if (!(sourceArea instanceof HTMLElement)) {
+      throw new Error("Missing workbench source area");
+    }
+
+    return {
+      documentClientHeight: document.documentElement.clientHeight,
+      documentScrollHeight: document.documentElement.scrollHeight,
+      mainClientHeight: main.clientHeight,
+      mainScrollHeight: main.scrollHeight,
+      sourceAreaClientHeight: sourceArea.clientHeight,
+      sourceAreaScrollHeight: sourceArea.scrollHeight,
+      sourceAreaBottom: sourceArea.getBoundingClientRect().bottom,
+      viewportHeight: window.innerHeight,
+    };
+  });
+
+  expect(metrics.documentScrollHeight).toBeLessThanOrEqual(
+    metrics.documentClientHeight + 1,
+  );
+  expect(metrics.mainScrollHeight).toBeLessThanOrEqual(
+    metrics.mainClientHeight + 1,
+  );
+  expect(metrics.sourceAreaScrollHeight).toBeLessThanOrEqual(
+    metrics.sourceAreaClientHeight + 1,
+  );
+  expect(metrics.sourceAreaBottom).toBeLessThanOrEqual(
+    metrics.viewportHeight + 1,
+  );
+});
+
 test("local upload layouts restore cached files after refresh", async ({
   page,
 }) => {
