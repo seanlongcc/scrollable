@@ -2,9 +2,17 @@
 
 Guidance for AI coding agents working in this repository.
 
-## Project State
+This file is the hard-rules and orientation index. Longer reference material lives in:
 
-This repository now contains the initial Scrollable web app implementation. The immediate source of truth is this file, `README.md`, `docs/media-persistence.md`, Supabase migrations, and future specs/plans committed in the repo.
+- `README.md` - project overview.
+- `docs/media-persistence.md` - media persistence policy details.
+- `docs/agent/product.md` - product intent plus Reddit/NSFW notes.
+- `docs/agent/testing.md` - detailed testing decision policy and test priorities.
+- `docs/agent/tools.md` - MCP/tool-server usage map.
+- `docs/agent/skills.md` - skill usage map.
+- Supabase migrations and committed specs/plans - source of truth for schema and approved work.
+
+## Project State
 
 Current installed stack:
 
@@ -36,26 +44,11 @@ Current package/runtime defaults:
 
 ## Product Intent
 
-Build a reels-like scrollable image/video feed viewer.
-
-Planned capabilities:
-
-- Accept user-provided Reddit post permalinks and subreddit listing URLs, then fetch media metadata at runtime.
-- Do not require Reddit API/OAuth keys for runtime Reddit post-link or subreddit-listing fetching.
-- Provide a configurable timer for feed advancement.
-- Provide a slice/filter input for excluding items from the initial listing, since sticky posts count in listing limits.
-- Support posts with multiple images by presenting those images as a horizontal left-to-right sequence inside the vertical feed.
-- Support user-uploaded local image/video/audio files as a general scrollable feed.
-- Support multiple feeds displayed in a grid-like view.
-- Support up to three stacked layout layers so background or overlay sources can persist behind the active editing layer.
-- Support saved feed configurations and collections of configurations.
-- Support sharing configurations and collections.
-- Support collection tags and NSFW marking.
-- Require sign-in before viewing NSFW collections.
+Build a reels-like scrollable image/video feed viewer. Full product direction and Reddit/NSFW implementation notes live in `docs/agent/product.md`.
 
 ## Data And Privacy Rules
 
-These rules are core product constraints.
+These rules are core product constraints. Keep them visible here because violations are high risk.
 
 - Never persist third-party media from Reddit or any other site.
 - Never rehost third-party media.
@@ -149,88 +142,26 @@ During implementation:
 2. Use TypeScript types for persisted config and runtime media items.
 3. Use structured API clients/parsers rather than ad hoc string parsing.
 4. Keep mobile behavior first-class, not a final pass.
-5. Add focused tests around feed normalization, sticky filtering/slicing, timer behavior, carousel behavior, sharing rules, and NSFW access.
+5. Use `docs/agent/tools.md` and `docs/agent/skills.md` for task-specific tool/skill choices.
+6. Use `docs/agent/testing.md` for detailed test decisions and verification expectations.
 
-## Testing Decision Policy
+## Testing Summary
 
 Use tests intentionally. Do not add tests just to satisfy a process rule.
 
-### TDD Required
+- TDD is required for business logic, normalization/parsing, validation, auth/RLS/privacy, persistence, API routes/server actions, state transitions, timers, feed advancement, carousel behavior, error handling, accessibility-relevant interaction, and bug fixes where a regression test can reproduce the issue.
+- New automated tests are usually not required for purely presentational or documentation-only changes.
+- UI-only changes still need typecheck/lint/format checks where relevant, plus browser/mobile viewport verification when layout, responsiveness, or interaction changed.
+- See `docs/agent/testing.md` for detailed rules, completion wording, and high-value test areas.
 
-Use test-driven development for changes that affect:
-
-- Business logic.
-- Data normalization or parsing.
-- Validation.
-- Authentication, authorization, RLS, or privacy constraints.
-- Persistence behavior.
-- API routes or server actions.
-- State transitions.
-- Timer behavior.
-- Feed advancement logic.
-- Carousel behavior.
-- Error handling.
-- Accessibility-relevant interaction.
-- Bug fixes where a regression test can reproduce the issue.
-
-For these changes, write or update a failing test first when practical, then implement the smallest change needed to pass.
-
-### Tests Usually Not Required
-
-Do not add new automated tests for purely presentational changes, including:
-
-- Spacing.
-- Colors.
-- Typography.
-- Copy-only edits.
-- Icon swaps.
-- Static layout adjustments.
-- Tailwind/className-only changes.
-- Non-interactive visual polish.
-- Reordering static UI content.
-- Documentation-only changes.
-
-For these changes, implement directly and verify with the cheapest appropriate checks.
-
-### UI-Only Verification
-
-For visual-only or presentational UI changes:
-
-1. Run `npm run typecheck` when TypeScript may be affected.
-2. Run `npm run lint` when source files changed.
-3. Run `npm run format:check` to verify formatting; use `npm run format` when intentionally fixing formatting.
-4. Use browser/mobile viewport verification when the change affects layout, responsiveness, or interaction.
-5. When verifying modals, dialogs, overlays, popovers, sheets, menus, or loading blockers, do not treat "a screenshot was captured" as sufficient. Inspect the screenshot and/or browser DOM measurements on desktop and mobile to confirm the surface is actually inside the viewport, not attached to the wrong edge, not clipped, not hidden behind the overlay, and not using a conflicting positioning class such as `relative` overriding `fixed`.
-6. During browser/mobile verification, explicitly inspect for unnecessary empty space: stretched grid rows, oversized wrappers, excessive padding/margins, large blank areas below compact controls, and content that should shrink to fit its actual height.
-7. Do not create new tests unless behavior changed.
-
-In the completion summary, state one of:
-
-- `No new tests added because this was a presentational-only change.`
-- `Updated tests because this changed behavior.`
-- `Skipped browser verification because <specific blocker>.`
-
-### Existing Tests
-
-If relevant tests already exist, update them only when the expected behavior changed. Do not rewrite snapshots or assertions for cosmetic-only changes unless the project intentionally uses visual regression testing for that area.
-
-### Snapshot Tests
-
-Avoid broad snapshot tests for UI polish. Prefer focused assertions for behavior, accessibility, and meaningful rendered states.
-
-Git workflow:
+## Git And Completion Workflow
 
 1. Use Conventional Commits for commit messages, for example `feat: add feed timer` or `fix: prevent media persistence`.
 2. Do not create branches with the `codex/` prefix. Use descriptive feature branches without that prefix.
-
-Before completion:
-
-1. Run lint, typecheck, tests, and build when available.
-2. Ensure the lint pass includes ESLint, and run the configured Prettier check when available, such as `npm run format:check` or `npm run prettier:check`.
-3. If ESLint or Prettier check scripts do not exist yet, add them as part of project setup work or clearly note that they could not be run.
-4. Run browser verification for UI changes, including mobile viewport checks.
-5. For overlay-style UI changes, include a viewport-bounds check in browser verification: compare the relevant element's `getBoundingClientRect()` against the viewport or inspect an equivalent browser snapshot/screenshot with that specific question in mind.
-6. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases.
+3. Before completion, run lint, typecheck, tests, build, and browser verification when applicable.
+4. Ensure the lint pass includes ESLint and run the configured Prettier check.
+5. For overlay-style UI changes, include a viewport-bounds check in browser verification.
+6. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases when those areas changed.
 7. Check `git status --short --branch`.
 8. Summarize changed files and any checks that could not be run.
 
@@ -268,152 +199,8 @@ Use the AGENTS.md maintenance subagent after substantial setup or workflow chang
 - Changes to Vercel deployment, environment variables, or runtime architecture.
 - New product constraints that future agents must preserve.
 
-## MCP And Tool Servers
+## Tools And Skills
 
-Use MCP/tool servers according to the task. Prefer official or local project sources for current facts.
-
-| Server or tool family           | Use in this repo                                                                                                                                                       |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `serena`                        | Project activation, onboarding memories, semantic code navigation, symbol-aware edits, and project guidance. Activate this repo before code work and check onboarding. |
-| `tool_search`                   | Discover deferred MCP tools for GitHub, Vercel, shadcn, Playwright/browser, context7, and other available servers. Use this before assuming a server is unavailable.   |
-| `github`                        | Use for issues, pull requests, branch metadata, and repository collaboration when GitHub tasks are requested.                                                          |
-| `vercel` / `codex_apps__vercel` | Use for Vercel docs, deployments, deployment logs, domains, env vars, and project management when deployment work is requested.                                        |
-| `context7`                      | Use for current library documentation when available, especially Next.js, Supabase, shadcn/ui, Tailwind, or testing libraries.                                         |
-| `shadcn`                        | Use for shadcn/ui component discovery, installation guidance, and registry/component patterns.                                                                         |
-| `playwright` / browser tools    | Use for end-to-end and visual verification of the app, especially feed scrolling, carousel navigation, auth flows, and mobile layouts.                                 |
-| Local shell/tools               | Use `rg`, `rg --files`, package scripts, git commands, and project CLIs for ordinary repository work.                                                                  |
-
-No Supabase-specific MCP server is currently assumed. If one becomes available, use it for schema inspection, migrations, RLS checks, and auth configuration. Otherwise use Supabase CLI, local migrations, and official Supabase documentation.
-
-## Skills
-
-When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task.
-
-Core project/process skills:
-
-| Skill                                        | Use                                                                                                           |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `superpowers:using-superpowers`              | Start-of-conversation skill discovery and workflow discipline.                                                |
-| `superpowers:brainstorming`                  | Product/design exploration before creative feature work.                                                      |
-| `superpowers:writing-plans`                  | Create implementation plans after a design/spec is approved.                                                  |
-| `superpowers:executing-plans`                | Execute an existing implementation plan with checkpoints.                                                     |
-| `superpowers:test-driven-development`        | Behavior changes and bug fixes where tests should drive the change; skip for purely presentational UI polish. |
-| `superpowers:systematic-debugging`           | Bug investigation, test failures, or unexpected behavior.                                                     |
-| `superpowers:verification-before-completion` | Final verification before claiming work is done.                                                              |
-| `superpowers:requesting-code-review`         | Request a review after substantial implementation.                                                            |
-| `superpowers:receiving-code-review`          | Process review feedback before making changes.                                                                |
-| `superpowers:finishing-a-development-branch` | Decide how to finish, integrate, or hand off a completed branch.                                              |
-| `superpowers:using-git-worktrees`            | Isolate larger feature work in a worktree when appropriate.                                                   |
-| `superpowers:dispatching-parallel-agents`    | Coordinate independent parallel agent tasks.                                                                  |
-| `superpowers:subagent-driven-development`    | Use subagents to implement independent parts of an approved plan.                                             |
-| `superpowers:writing-skills`                 | Create or update skills.                                                                                      |
-
-Frontend, React, and design skills:
-
-| Skill                           | Use                                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------------------- |
-| `frontend-design`               | Build production-grade UI and mobile-first frontend experiences.                    |
-| `web-design-guidelines`         | Audit UI accessibility, layout, responsiveness, and design quality.                 |
-| `webapp-testing`                | Interact with and test local web apps using Playwright-style workflows.             |
-| `browser-use:browser`           | Inspect or operate a local browser target when requested.                           |
-| `vercel:agent-browser`          | Browser automation for local targets and web app verification.                      |
-| `vercel:agent-browser-verify`   | Visual gut-check after starting a dev server.                                       |
-| `vercel:verification`           | End-to-end app flow verification across browser, API, data, and rendering.          |
-| `vercel-react-best-practices`   | React and Next.js performance guidance from Vercel Engineering.                     |
-| `vercel:react-best-practices`   | TSX review checklist after editing multiple React components.                       |
-| `vercel-composition-patterns`   | React composition patterns for flexible components.                                 |
-| `vercel-react-view-transitions` | Smooth native-feeling React view transitions.                                       |
-| `vercel-react-native-skills`    | React Native/Expo guidance, only if the project direction changes to native mobile. |
-| `vercel:shadcn`                 | shadcn/ui CLI, composition, theming, and Tailwind integration.                      |
-| `vercel:geist`                  | Geist typography setup for precise Next.js interfaces.                              |
-
-Next.js, Vercel, and platform skills:
-
-| Skill                       | Use                                                                             |
-| --------------------------- | ------------------------------------------------------------------------------- |
-| `vercel:nextjs`             | Next.js App Router architecture, routing, server components, and data fetching. |
-| `vercel:deployments-cicd`   | Vercel deployment, promotion, rollback, logs, and CI/CD.                        |
-| `deploy-to-vercel`          | Deploy an app to Vercel when the user asks.                                     |
-| `vercel-cli-with-tokens`    | Use Vercel CLI with token-based authentication.                                 |
-| `vercel:vercel-cli`         | Vercel CLI workflows.                                                           |
-| `vercel:vercel-api`         | Vercel REST API and project/deployment management.                              |
-| `vercel:env-vars`           | Vercel environment variables and secrets.                                       |
-| `vercel:vercel-functions`   | Serverless/Edge Functions, streaming, and runtime config.                       |
-| `vercel:routing-middleware` | Middleware, rewrites, redirects, and request interception.                      |
-| `vercel:runtime-cache`      | Runtime cache patterns. Do not use for third-party media persistence.           |
-| `vercel:cron-jobs`          | Scheduled tasks if later needed.                                                |
-| `vercel:turbopack`          | Next.js bundler configuration and build debugging.                              |
-| `vercel:turborepo`          | Monorepo build/caching if the repo becomes a monorepo.                          |
-| `vercel:next-forge`         | next-forge guidance only if the project adopts that starter.                    |
-| `vercel:vercel-services`    | Multi-service Vercel projects if needed later.                                  |
-| `vercel:observability`      | Logs, traces, analytics, and speed insights.                                    |
-| `vercel:vercel-firewall`    | WAF, rate limiting, bot filtering, and IP rules.                                |
-| `vercel:vercel-flags`       | Feature flags and gradual rollouts.                                             |
-| `vercel:vercel-storage`     | Blob, Edge Config, and marketplace storage. Do not store third-party media.     |
-| `vercel:vercel-queues`      | Durable event streaming if later needed.                                        |
-| `vercel:vercel-sandbox`     | Isolated execution for untrusted code if ever needed.                           |
-| `vercel:workflow`           | Durable workflows and long-running tasks.                                       |
-| `vercel:marketplace`        | Vercel Marketplace integrations.                                                |
-| `vercel:bootstrap`          | Bootstrapping repos that depend on Vercel-linked resources.                     |
-| `vercel:investigation-mode` | Orchestrated debugging for stuck or broken Vercel/app issues.                   |
-
-AI, auth, content, and integration skills:
-
-| Skill                              | Use                                                                                               |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `openai-docs`                      | Current official OpenAI API/product docs when OpenAI features are discussed.                      |
-| `vercel:ai-sdk`                    | Vercel AI SDK features if AI is introduced.                                                       |
-| `vercel:ai-elements`               | AI UI components if AI chat/generation UI is introduced.                                          |
-| `vercel:ai-gateway`                | Model routing and provider failover if AI is introduced.                                          |
-| `vercel:ai-generation-persistence` | Persistence for AI generations if AI is introduced.                                               |
-| `vercel:chat-sdk`                  | Multi-platform chat bots if introduced.                                                           |
-| `vercel:json-render`               | Rendering AI chat response parts and tool states.                                                 |
-| `vercel:v0-dev`                    | v0 code generation workflows if requested.                                                        |
-| `vercel:auth`                      | Clerk, Descope, Auth0 guidance. For this repo, prefer Supabase unless the user changes direction. |
-| `vercel:sign-in-with-vercel`       | Vercel OAuth/OIDC sign-in if requested.                                                           |
-| `vercel:cms`                       | CMS integrations if content management is added.                                                  |
-| `vercel:email`                     | Transactional email patterns, likely Resend, if needed.                                           |
-| `vercel:payments`                  | Stripe payments if monetization is added.                                                         |
-| `vercel:micro`                     | Lightweight HTTP services if needed outside Next.js.                                              |
-| `vercel:ncc`                       | Bundle Node.js modules into a single file if needed.                                              |
-| `vercel:satori`                    | Dynamic OG image generation if needed.                                                            |
-| `vercel:geistdocs`                 | Docs site template if project docs become a site.                                                 |
-| `vercel:vercel-agent`              | Vercel Agent code review/incident investigation if requested.                                     |
-
-Creation, assets, and utility skills:
-
-| Skill             | Use                                                                |
-| ----------------- | ------------------------------------------------------------------ |
-| `imagegen`        | Generate or edit raster images when AI-created visuals are needed. |
-| `plugin-creator`  | Create Codex plugins.                                              |
-| `skill-creator`   | Create or update Codex skills.                                     |
-| `skill-installer` | Install Codex skills.                                              |
-| `brooks-lint`     | Code quality review using classic engineering-book heuristics.     |
-| `caveman`         | Ultra-compressed communication mode only when requested.           |
-
-## Reddit And NSFW Notes
-
-When implementing Reddit integration:
-
-- Fetch only user-provided Reddit post links and subreddit listing URLs through public JSON endpoints unless product direction changes.
-- Respect Reddit API/public endpoint terms, rate limits, and content restrictions.
-- Treat Reddit responses as runtime source data, not application-owned content.
-- Avoid saving third-party post/listing/media payloads beyond user-pasted post permalinks, subreddit listing URLs, and opaque `sha256:` hashes for user-hidden listing items.
-- Make failure states explicit: invalid post URL, private/deleted/not found post, rate limited, unsupported media, and network error.
-
-## Testing Priorities
-
-High-value test areas:
-
-- Feed config validation.
-- Reddit post-link and subreddit-listing parsing and normalization.
-- Sticky-post filtering and list slicing.
-- Runtime media item construction without persistence.
-- Multi-image carousel ordering.
-- Timer pause/resume/advance behavior.
-- Local upload feed behavior.
-- Multiple-feed grid layout.
-- Collection sharing permissions.
-- NSFW collection visibility for signed-out vs signed-in users.
-- Supabase RLS policies.
-- Mobile viewport layout and touch gestures.
+- Use MCP/tool servers according to the task. Prefer official or local project sources for current facts. See `docs/agent/tools.md`.
+- When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task. See `docs/agent/skills.md`.
+- No Supabase-specific MCP server is currently assumed. If one becomes available, use it for schema inspection, migrations, RLS checks, and auth configuration. Otherwise use Supabase CLI, local migrations, and official Supabase documentation.
