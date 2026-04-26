@@ -210,6 +210,25 @@ function RuntimeIframe({
   const [src] = useState(() =>
     iframeUrlWithPlaybackStart(iframeUrl, initialPlaybackSeconds),
   );
+  const [deferredResumeSrc, setDeferredResumeSrc] = useState<string | null>(
+    null,
+  );
+  const mountedSrc = deferredResumeSrc ?? src;
+
+  useEffect(() => {
+    if (!isYoutubeIframeUrl(iframeUrl)) return;
+    if (deferredResumeSrc) return;
+    if (new URL(src).searchParams.has("start")) return;
+
+    const startSeconds = normalizedPlaybackSeconds(initialPlaybackSeconds);
+    if (startSeconds <= 0) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setDeferredResumeSrc(iframeUrlWithPlaybackStart(iframeUrl, startSeconds));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [deferredResumeSrc, iframeUrl, initialPlaybackSeconds, src]);
 
   useEffect(() => {
     const handlePlaybackTimeChange = onPlaybackTimeChange;
@@ -236,7 +255,7 @@ function RuntimeIframe({
   return (
     <iframe
       title={title}
-      src={src}
+      src={mountedSrc}
       loading="lazy"
       referrerPolicy="no-referrer-when-downgrade"
       allow="autoplay; encrypted-media; picture-in-picture; fullscreen"

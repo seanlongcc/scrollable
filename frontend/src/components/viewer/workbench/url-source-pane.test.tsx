@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { UrlSourcePane } from "./url-source-pane";
@@ -36,6 +36,49 @@ describe("UrlSourcePane", () => {
       "src",
       initialSrc,
     );
+  });
+
+  it("applies YouTube playback time when it arrives after iframe mount", async () => {
+    const resolution = youtubeResolution();
+    const { container, rerender } = render(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        iframePlaybackSeconds={0}
+      />,
+    );
+
+    expect(
+      new URL(
+        container.querySelector("iframe")?.getAttribute("src") ?? "",
+      ).searchParams.get("start"),
+    ).toBeNull();
+
+    rerender(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        iframePlaybackSeconds={42}
+      />,
+    );
+    await waitFor(() => {
+      const currentSrc = container.querySelector("iframe")?.getAttribute("src");
+      expect(new URL(currentSrc ?? "").searchParams.get("start")).toBe("42");
+    });
+    const stableSrc = container.querySelector("iframe")?.getAttribute("src");
+
+    rerender(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        iframePlaybackSeconds={43}
+      />,
+    );
+
+    expect(container.querySelector("iframe")).toHaveAttribute("src", stableSrc);
   });
 
   it("reports approximate YouTube playback time before unmount", () => {
