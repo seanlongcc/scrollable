@@ -71,7 +71,6 @@ import {
 import {
   createEmptyWorkspace,
   MAX_WORKSPACE_LAYERS,
-  normalizeWorkspaceLayers,
 } from "@/lib/viewer/workspaces";
 import {
   advanceTimerState,
@@ -154,6 +153,7 @@ import {
   updateSessionFreeRectState,
   updateTemplateSlotFreeRectState,
 } from "./workbench/free-layout-state";
+import { deleteActiveLayerState } from "./workbench/layer-state";
 import {
   placeSessions,
   type SessionPlacementSourceInput,
@@ -1298,50 +1298,22 @@ export function FeedWorkbench({
   function deleteActiveLayer() {
     if (layers.length <= 1) return;
 
-    const deleteIndex = layers.findIndex((layer) => layer.id === activeLayerId);
-    const nextLayers = normalizeWorkspaceLayers(
-      layers.filter((layer) => layer.id !== activeLayerId),
-    );
-    const nextActiveLayer =
-      nextLayers[Math.min(deleteIndex, nextLayers.length - 1)] ?? nextLayers[0];
-
-    setLayers(nextLayers);
-    setSessions((current) =>
-      current.filter((session) => session.layerId !== activeLayerId),
-    );
-    setTemplateSlots((current) =>
-      current.filter(
-        (slot) => (slot.layerId ?? activeLayerId) !== activeLayerId,
-      ),
-    );
-    setGalleryIndexes((current) => {
-      const removedItemIds = new Set(
-        sessions
-          .filter((session) => session.layerId === activeLayerId)
-          .flatMap((session) => session.items.map((item) => item.id)),
-      );
-      return Object.fromEntries(
-        Object.entries(current).filter(
-          ([itemId]) => !removedItemIds.has(itemId),
-        ),
-      );
+    const nextState = deleteActiveLayerState({
+      layers,
+      activeLayerId,
+      sessions,
+      templateSlots,
+      galleryIndexes,
+      videoPositions,
     });
-    setVideoPositions((current) =>
-      Object.fromEntries(
-        Object.entries(current).filter(([key]) => {
-          const sessionId = key.split(":")[0];
-          return !sessions.some(
-            (session) =>
-              session.id === sessionId && session.layerId === activeLayerId,
-          );
-        }),
-      ),
-    );
-    setActiveLayerId(nextActiveLayer.id);
-    setSelectedId(
-      sessions.find((session) => session.layerId === nextActiveLayer.id)?.id ??
-        null,
-    );
+
+    setLayers(nextState.nextLayers);
+    setSessions(nextState.nextSessions);
+    setTemplateSlots(nextState.nextTemplateSlots);
+    setGalleryIndexes(nextState.nextGalleryIndexes);
+    setVideoPositions(nextState.nextVideoPositions);
+    setActiveLayerId(nextState.nextActiveLayerId);
+    setSelectedId(nextState.nextSelectedId);
     setMaximizedId(null);
     setPendingFixedSlot(null);
     setPendingTemplateSlotId(null);
