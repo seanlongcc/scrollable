@@ -19,6 +19,12 @@ import {
   urlHostLabel,
 } from "./helpers";
 import { getUploadableFiles } from "./local-sources";
+import {
+  buildEditedUrlSourceConfig,
+  resolveEditedRedditHiddenItemHashes,
+  type EditedRedditSourceState,
+  type EditedUrlSourceState,
+} from "./source-edit-state";
 
 export type RuntimeSessionSource = {
   title: string;
@@ -140,6 +146,55 @@ export async function filterHiddenRedditItems(
   return hashPairs
     .filter(({ hashes }) => hashes.every((hash) => !hidden.has(hash)))
     .map(({ item }) => item);
+}
+
+export async function fetchEditedRedditSource({
+  currentSource,
+  urls,
+  limit,
+  hiddenItemIds,
+  unhiddenItemHashes,
+}: {
+  currentSource?: FeedSession;
+  urls: string[];
+  limit: number;
+  hiddenItemIds: string[];
+  unhiddenItemHashes: string[];
+}): Promise<EditedRedditSourceState> {
+  const hiddenItemIdHashes = await resolveEditedRedditHiddenItemHashes({
+    currentSource,
+    hiddenItemIds,
+    unhiddenItemHashes,
+  });
+  const allItems = await fetchRedditRuntimeItems(urls, limit);
+  const items = await filterHiddenRedditItems(allItems, hiddenItemIdHashes);
+
+  return {
+    title: redditLinksTitle(urls, allItems),
+    urls,
+    limit,
+    items,
+    allItems,
+    hiddenItemIdHashes,
+  };
+}
+
+export async function fetchEditedUrlSource({
+  currentSource,
+  url,
+  title,
+}: {
+  currentSource?: FeedSession;
+  url: string;
+  title?: string;
+}): Promise<EditedUrlSourceState> {
+  return fetchUrlRuntimeItemsForSource(
+    buildEditedUrlSourceConfig({
+      currentSource,
+      url,
+      title,
+    }),
+  );
 }
 
 export async function fetchRuntimeItemsForSource(

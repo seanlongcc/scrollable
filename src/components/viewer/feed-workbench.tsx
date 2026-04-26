@@ -119,7 +119,6 @@ import {
   limitLayoutName,
   nextLayoutName,
   normalizeRedditLimit,
-  redditLinksTitle,
   sessionFileCount,
   splitRedditUrls,
   toMultiTimerState,
@@ -139,17 +138,15 @@ import {
 import {
   applyRuntimeHydrationResults,
   createRedditSessionSources,
-  fetchRedditRuntimeItems,
+  fetchEditedRedditSource,
+  fetchEditedUrlSource,
   fetchUrlRuntimeItemsForSource,
-  filterHiddenRedditItems,
   hydrateRuntimeSources,
   runtimeHydrationCandidates,
 } from "./workbench/runtime-sources";
 import {
   applyEditedRedditSourceToSession,
   applyEditedUrlSourceToSession,
-  buildEditedUrlSourceConfig,
-  resolveEditedRedditHiddenItemHashes,
   withSessionRuntimeLoading,
 } from "./workbench/source-edit-state";
 import {
@@ -912,22 +909,15 @@ export function FeedWorkbench({
 
     try {
       const currentSource = sessions.find((session) => session.id === id);
-      const hiddenItemIdHashes = await resolveEditedRedditHiddenItemHashes({
+      const result = await fetchEditedRedditSource({
         currentSource,
+        urls,
+        limit: selectedRedditLimit,
         hiddenItemIds,
         unhiddenItemHashes,
       });
-      const allItems = await fetchRedditRuntimeItems(urls, selectedRedditLimit);
-      const items = await filterHiddenRedditItems(allItems, hiddenItemIdHashes);
       updateSession(id, (session) =>
-        applyEditedRedditSourceToSession(session, {
-          title: redditLinksTitle(urls, allItems),
-          urls,
-          limit: selectedRedditLimit,
-          items,
-          allItems,
-          hiddenItemIdHashes,
-        }),
+        applyEditedRedditSourceToSession(session, result),
       );
       setEditingSourceId(null);
     } catch (error) {
@@ -943,12 +933,11 @@ export function FeedWorkbench({
 
     try {
       const currentSource = sessions.find((session) => session.id === id);
-      const sourceConfig = buildEditedUrlSourceConfig({
+      const result = await fetchEditedUrlSource({
         currentSource,
         url,
         title,
       });
-      const result = await fetchUrlRuntimeItemsForSource(sourceConfig);
 
       updateSession(id, (session) =>
         applyEditedUrlSourceToSession(session, result),
