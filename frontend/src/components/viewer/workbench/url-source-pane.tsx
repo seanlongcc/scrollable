@@ -1,5 +1,5 @@
 import { ExternalLink, Globe, Info, Maximize2, Pencil, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { UrlRuntimeResolution } from "@/lib/url-source/types";
@@ -14,6 +14,8 @@ export function UrlSourcePane({
   isRuntimeLoading,
   hideUi,
   canMountIframe,
+  iframePlaybackSeconds = 0,
+  onIframePlaybackTimeChange,
   onMaximize,
   onEdit,
   onRemove,
@@ -23,6 +25,8 @@ export function UrlSourcePane({
   isRuntimeLoading?: boolean;
   hideUi?: boolean;
   canMountIframe: boolean;
+  iframePlaybackSeconds?: number;
+  onIframePlaybackTimeChange?: (seconds: number) => void;
   onMaximize?: () => void;
   onEdit?: () => void;
   onRemove?: () => void;
@@ -52,14 +56,12 @@ export function UrlSourcePane({
   return (
     <article className="group/source relative grid size-full min-h-0 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]">
       {shouldMountIframe ? (
-        <iframe
+        <RuntimeIframe
+          key={iframeUrl}
           title={displayTitle}
-          src={iframeUrl ?? ""}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-          className="absolute inset-0 z-0 size-full border-0 bg-background"
+          iframeUrl={iframeUrl ?? ""}
+          initialPlaybackSeconds={iframePlaybackSeconds}
+          onPlaybackTimeChange={onIframePlaybackTimeChange}
         />
       ) : (
         <div className="absolute inset-0 z-0 grid place-items-center bg-background p-4">
@@ -192,4 +194,83 @@ export function UrlSourcePane({
       )}
     </article>
   );
+}
+
+function RuntimeIframe({
+  title,
+  iframeUrl,
+  initialPlaybackSeconds,
+  onPlaybackTimeChange,
+}: {
+  title: string;
+  iframeUrl: string;
+  initialPlaybackSeconds: number;
+  onPlaybackTimeChange?: (seconds: number) => void;
+}) {
+  const [src] = useState(() =>
+    iframeUrlWithPlaybackStart(iframeUrl, initialPlaybackSeconds),
+  );
+
+  useEffect(() => {
+    const handlePlaybackTimeChange = onPlaybackTimeChange;
+    if (!isYoutubeIframeUrl(iframeUrl) || !handlePlaybackTimeChange) return;
+    const reportPlaybackTimeChange: (seconds: number) => void =
+      handlePlaybackTimeChange;
+
+    const startedAt = Date.now();
+    const startSeconds = normalizedPlaybackSeconds(initialPlaybackSeconds);
+
+    function reportPlaybackTime() {
+      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+      reportPlaybackTimeChange(startSeconds + elapsedSeconds);
+    }
+
+    const intervalId = window.setInterval(reportPlaybackTime, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+      reportPlaybackTime();
+    };
+  }, [iframeUrl, initialPlaybackSeconds, onPlaybackTimeChange]);
+
+  return (
+    <iframe
+      title={title}
+      src={src}
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+      sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+      className="absolute inset-0 z-0 size-full border-0 bg-background"
+    />
+  );
+}
+
+function iframeUrlWithPlaybackStart(value: string, seconds: number) {
+  if (!isYoutubeIframeUrl(value)) return value;
+
+  const url = new URL(value);
+  const startSeconds = normalizedPlaybackSeconds(seconds);
+  if (startSeconds > 0) {
+    url.searchParams.set("start", String(startSeconds));
+  }
+
+  return url.toString();
+}
+
+function isYoutubeIframeUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    return (
+      (host === "youtube.com" || host === "youtube-nocookie.com") &&
+      url.pathname.startsWith("/embed/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function normalizedPlaybackSeconds(seconds: number) {
+  return Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
 }

@@ -9,6 +9,7 @@ import type { FeedSession } from "./types";
 import {
   hasPlayableRuntimeItems,
   shouldPreserveInactiveUrlIframe,
+  urlResolutionIframeUrl,
 } from "./helpers";
 import { UrlSourcePane } from "./url-source-pane";
 
@@ -64,6 +65,14 @@ export function SessionPane({
   );
   const hasCachedLocalFiles =
     needsLocalReload && Boolean(localSourceConfig?.cacheSetId);
+  const urlIframePlaybackKey =
+    session.sourceConfig.kind === "url" &&
+    session.urlResolution?.status === "resolved" &&
+    session.urlResolution.mode === "provider" &&
+    session.urlResolution.provider === "youtube" &&
+    urlResolutionIframeUrl(session.urlResolution)
+      ? `${session.id}:url-iframe`
+      : null;
 
   if (
     session.sourceConfig.kind === "url" &&
@@ -78,6 +87,14 @@ export function SessionPane({
         canMountIframe={
           canMountUrlIframe &&
           (isPlaybackActive || shouldPreserveInactiveUrlIframe(session))
+        }
+        iframePlaybackSeconds={
+          urlIframePlaybackKey ? (videoPositions[urlIframePlaybackKey] ?? 0) : 0
+        }
+        onIframePlaybackTimeChange={
+          urlIframePlaybackKey
+            ? (seconds) => onVideoPositionChange(urlIframePlaybackKey, seconds)
+            : undefined
         }
         onMaximize={onMaximize}
         onEdit={onEdit}
