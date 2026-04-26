@@ -59,6 +59,8 @@ export function fillVisibleCellsState({
             ? (sourceSession.timer.activeIndex + cloneIndex) %
               sourceSession.items.length
             : 0,
+        elapsedMs: sourceSession.timer.elapsedMs,
+        isPaused: sourceSession.timer.isPaused,
       },
       templateSlotId: undefined,
     };

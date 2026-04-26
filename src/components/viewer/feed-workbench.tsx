@@ -1862,16 +1862,18 @@ export function FeedWorkbench({
         addDroppedLocalFiles={addDroppedLocalFiles}
         allowLocalFileDrop={allowLocalFileDrop}
       />
-      <LayoutDialog
-        open={isLayoutsOpen}
-        onOpenChange={setIsLayoutsOpen}
-        workspaces={Object.values(savedWorkspaces)}
-        templates={Object.values(savedTemplates)}
-        onOpenWorkspaces={openSavedWorkspaces}
-        onOpenTemplates={openSavedTemplates}
-        onDeleteWorkspace={deleteSavedWorkspace}
-        onDeleteTemplate={deleteSavedTemplate}
-      />
+      {isLayoutsOpen ? (
+        <LayoutDialog
+          open={isLayoutsOpen}
+          onOpenChange={setIsLayoutsOpen}
+          workspaces={Object.values(savedWorkspaces)}
+          templates={Object.values(savedTemplates)}
+          onOpenWorkspaces={openSavedWorkspaces}
+          onOpenTemplates={openSavedTemplates}
+          onDeleteWorkspace={deleteSavedWorkspace}
+          onDeleteTemplate={deleteSavedTemplate}
+        />
+      ) : null}
       <SaveLayoutDialog
         open={isSaveOpen}
         onOpenChange={setIsSaveOpen}

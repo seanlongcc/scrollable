@@ -2327,6 +2327,56 @@ describe("FeedWorkbench", () => {
     ).toBeInTheDocument();
   });
 
+  it("clears saved layout selections after opening selected layouts", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "saved-local",
+        workspaces: [
+          savedLocalUploadWorkspace(undefined, "Saved local"),
+          {
+            ...savedLocalUploadWorkspace(undefined, "Movie wall"),
+            id: "movie-wall",
+          },
+        ],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    const firstDialog = screen.getByRole("dialog", { name: "Saved layouts" });
+    await user.click(
+      within(firstDialog).getByRole("checkbox", { name: "Select Saved local" }),
+    );
+    await user.click(
+      within(firstDialog).getByRole("button", {
+        name: "Open selected layouts",
+      }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Saved local" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    const reopenedDialog = screen.getByRole("dialog", {
+      name: "Saved layouts",
+    });
+
+    expect(
+      within(reopenedDialog).getByRole("checkbox", {
+        name: "Select Saved local",
+      }),
+    ).not.toBeChecked();
+    expect(
+      within(reopenedDialog).getByRole("button", {
+        name: "Open selected layouts",
+      }),
+    ).toBeDisabled();
+  });
+
   it("gives the automatic blank layout a name that does not collide with saved layouts", async () => {
     stubRandomUuids(["blank-workspace"]);
     window.localStorage.setItem(

@@ -10,6 +10,8 @@ describe("fill visible cells state", () => {
       id: "source",
       fixedSlot: 2,
       activeIndex: 1,
+      elapsedMs: 4200,
+      isPaused: true,
       templateSlotId: "slot-1",
     });
     const ids = ["clone-1", "clone-2"];
@@ -32,7 +34,12 @@ describe("fill visible cells state", () => {
       layerId: "layer-1",
       fixedSlot: 0,
       freeRect: { column: 5, row: 1, columnSpan: 4, rowSpan: 4 },
-      timer: { activeIndex: 2, durationSeconds: 10 },
+      timer: {
+        activeIndex: 2,
+        durationSeconds: 10,
+        elapsedMs: 4200,
+        isPaused: true,
+      },
       templateSlotId: undefined,
       sourceConfig: source.sourceConfig,
     });
@@ -82,12 +89,16 @@ function session({
   id,
   fixedSlot,
   activeIndex = 0,
+  elapsedMs = 0,
+  isPaused = false,
   itemCount = 3,
   templateSlotId,
 }: {
   id: string;
   fixedSlot: number;
   activeIndex?: number;
+  elapsedMs?: number;
+  isPaused?: boolean;
   itemCount?: number;
   templateSlotId?: string;
 }): FeedSession {
@@ -108,6 +119,8 @@ function session({
     timer: {
       ...createTimerState({ durationSeconds: 10, itemCount }),
       activeIndex,
+      elapsedMs,
+      isPaused,
     },
     fixedSlot,
     freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
