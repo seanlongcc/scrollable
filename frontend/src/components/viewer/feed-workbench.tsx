@@ -2,8 +2,6 @@
 
 import { Eye } from "lucide-react";
 import {
-  ChangeEvent,
-  DragEvent as ReactDragEvent,
   PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -26,12 +24,10 @@ import {
 } from "./workbench/account-actions";
 import { EditSourceDialog, SourceDialog } from "./workbench/source-dialogs";
 import { FixedGridView, FocusLayout, FreeGridView } from "./workbench/views";
-import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { isLocalFileCacheSupported } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
-import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_FIXED_GRID,
@@ -51,7 +47,6 @@ import type {
   FeedSession,
   FreeDragState,
   LayoutMode,
-  PersistedSourceConfig,
   RedditInputMode,
   RedditListingSort,
   RedditTimeRange,
@@ -75,40 +70,7 @@ import {
   hasDuplicateLayoutName,
   limitLayoutName,
 } from "./workbench/helpers";
-import {
-  applyLocalRuntimeItemsToSession,
-  cacheLocalFiles as cacheLocalFilesForWorkbench,
-  createLocalRuntimeItems as createLocalRuntimeItemsForWorkbench,
-  filesFromDataTransfer,
-  getUploadableFiles,
-} from "./workbench/local-sources";
-import {
-  addPreparedLocalSourceAction,
-  addRedditSourceAction,
-  addUrlSourceAction,
-  prepareLocalSourceAddAction,
-} from "./workbench/source-add-actions";
-import {
-  applyRuntimeHydrationAction,
-  hydrateRuntimeSessionsAction,
-  visibleUrlRuntimeHydrationCandidates,
-} from "./workbench/runtime-hydration-actions";
-import {
-  applyEditedRedditSourceToSession,
-  applyEditedUrlSourceToSession,
-  withSessionRuntimeLoading,
-} from "./workbench/source-edit-state";
-import {
-  editPreparedLocalSourceAction,
-  editPreparedRedditSourceAction,
-  editUrlSourceAction,
-  prepareLocalSourceEditAction,
-  prepareRedditSourceEditAction,
-} from "./workbench/source-edit-actions";
-import {
-  defaultSourceAddFormState,
-  sourceAddPanelPlacement,
-} from "./workbench/source-add-state";
+import { visibleUrlRuntimeHydrationCandidates } from "./workbench/runtime-hydration-actions";
 import {
   restoreTemplateSlotForRemovedSession,
   updateSessionFreeRectState,
@@ -131,10 +93,7 @@ import {
   selectedActiveLayerSession,
   visibleFixedEmptySlots,
 } from "./workbench/selection-state";
-import {
-  placeSessions,
-  type SessionPlacementSourceInput,
-} from "./workbench/session-placement";
+import { useSourceRuntimeHandlers } from "./workbench/source-runtime-handlers";
 import {
   createCurrentWorkspaceState,
   persistTemplateSnapshot,
@@ -353,6 +312,59 @@ export function FeedWorkbench({
       return { ...current, [key]: seconds };
     });
   }, []);
+  const {
+    fetchRedditFeed,
+    openUrlSource,
+    addLocalFiles,
+    addDroppedLocalFiles,
+    allowLocalFileDrop,
+    replaceLocalSessionFiles,
+    openSourcePanel,
+    openEditSource,
+    updateSession,
+    saveRedditSourceEdit,
+    saveUrlSourceEdit,
+    saveLocalSourceEdit,
+    hydrateRuntimeItems,
+  } = useSourceRuntimeHandlers({
+    redditInputMode,
+    subredditName,
+    redditSort,
+    redditTimeRange,
+    redditUrls,
+    redditLimit,
+    sourceGroupingMode,
+    availableSeparateSourceSlots,
+    urlValue,
+    urlTitle,
+    activeLayerId,
+    globalSeconds,
+    pendingFixedSlot,
+    pendingTemplateSlotId,
+    templateSlots,
+    layoutMode,
+    sessions,
+    canCacheLocalFiles,
+    visibleFixedCells,
+    registryRef,
+    createId,
+    setIsLoading,
+    setIsSourceOpen,
+    setUrlValue,
+    setUrlTitle,
+    setRedditUrls,
+    setRedditInputMode,
+    setSubredditName,
+    setRedditSort,
+    setRedditTimeRange,
+    setRedditLimit,
+    setSessions,
+    setSelectedId,
+    setEditingSourceId,
+    setPendingFixedSlot,
+    setPendingTemplateSlotId,
+    setTemplateSlots,
+  });
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setHasHydrated(true));
@@ -561,238 +573,6 @@ export function FeedWorkbench({
     };
   }, [isUiHidden]);
 
-  async function fetchRedditFeed() {
-    setIsLoading(true);
-    try {
-      const result = await addRedditSourceAction({
-        redditInputMode,
-        subredditName,
-        redditSort,
-        redditTimeRange,
-        redditUrls,
-        redditLimit,
-        sourceGroupingMode,
-        availableSeparateSourceSlots,
-      });
-
-      if (result.status !== "ready") {
-        toast.error(result.error);
-        return;
-      }
-
-      addSessions(result.sources);
-      setIsSourceOpen(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function openUrlSource() {
-    setIsLoading(true);
-    try {
-      const result = await addUrlSourceAction({ urlValue, urlTitle });
-
-      if (result.status !== "ready") {
-        toast.error(result.error);
-        return;
-      }
-
-      addSession(result.source);
-      setIsSourceOpen(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function addLocalFiles(event: ChangeEvent<HTMLInputElement>) {
-    const input = event.target;
-    const files = Array.from(event.target.files ?? []);
-    await addLocalFileList(files, () => {
-      input.value = "";
-    });
-  }
-
-  async function addDroppedLocalFiles(event: ReactDragEvent<HTMLElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    await addLocalFileList(await filesFromDataTransfer(event.dataTransfer));
-  }
-
-  function allowLocalFileDrop(event: ReactDragEvent<HTMLElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "copy";
-  }
-
-  async function addLocalFileList(files: File[], onSettled?: () => void) {
-    const prepared = prepareLocalSourceAddAction({
-      files,
-      sourceGroupingMode,
-      availableSeparateSourceSlots,
-      createRuntimeItems: createLocalRuntimeItems,
-    });
-
-    if (prepared.status === "slot-error") {
-      toast.error(prepared.error);
-      onSettled?.();
-      return;
-    }
-
-    if (prepared.status === "empty") {
-      onSettled?.();
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const result = await addPreparedLocalSourceAction({
-        uploadableFiles: prepared.uploadableFiles,
-        items: prepared.items,
-        sourceGroupingMode,
-        cacheFiles: cacheLocalFiles,
-      });
-
-      if (result.status !== "ready") {
-        toast.error(result.error);
-        return;
-      }
-
-      addSessions(result.sources);
-      setIsSourceOpen(false);
-    } finally {
-      setIsLoading(false);
-      onSettled?.();
-    }
-  }
-
-  async function replaceLocalSessionFiles(
-    id: string,
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const input = event.target;
-    const files = getUploadableFiles(Array.from(event.target.files ?? []));
-    const items = createLocalRuntimeItems(files);
-    input.value = "";
-
-    if (!items.length) return;
-
-    try {
-      applyLocalRuntimeItems(id, items, await cacheLocalFiles(files), files);
-    } catch (error) {
-      updateSession(id, (current) => ({ ...current, isRuntimeLoading: false }));
-      toast.error(
-        error instanceof Error ? error.message : "Local file cache failed",
-      );
-    }
-  }
-
-  async function cacheLocalFiles(files: File[]) {
-    return cacheLocalFilesForWorkbench({
-      files,
-      canCacheLocalFiles,
-      createCacheSetId: createId,
-      onCacheRejected: () =>
-        toast.warning("Local files will need reload after refresh"),
-    });
-  }
-
-  function applyLocalRuntimeItems(
-    id: string,
-    items: RuntimeFeedItem[],
-    cacheSetId?: string,
-    files?: File[],
-  ) {
-    updateSession(id, (session) =>
-      applyLocalRuntimeItemsToSession({ session, items, cacheSetId, files }),
-    );
-  }
-
-  function createLocalRuntimeItems(files: File[]) {
-    return createLocalRuntimeItemsForWorkbench(files, registryRef);
-  }
-
-  function addSession({
-    title,
-    items,
-    allItems,
-    urlResolution,
-    localFiles,
-    sourceConfig,
-  }: {
-    title: string;
-    items: RuntimeFeedItem[];
-    allItems?: RuntimeFeedItem[];
-    urlResolution?: UrlRuntimeResolution;
-    localFiles?: File[];
-    sourceConfig: PersistedSourceConfig;
-  }) {
-    addSessions([
-      { title, items, allItems, urlResolution, localFiles, sourceConfig },
-    ]);
-  }
-
-  function addSessions(sources: SessionPlacementSourceInput[]) {
-    setSessions((current) => {
-      const result = placeSessions({
-        current,
-        sources,
-        activeLayerId,
-        globalSeconds,
-        pendingFixedSlot,
-        pendingTemplateSlotId,
-        templateSlots,
-        createId,
-      });
-
-      if (result.noFreeLayoutSpace) {
-        toast.error("No space left in free layout");
-      }
-
-      if (result.selectedSessionId) {
-        setSelectedId(result.selectedSessionId);
-        setPendingFixedSlot(null);
-        setPendingTemplateSlotId(null);
-        if (result.consumedTemplateSlotId) {
-          setTemplateSlots((currentSlots) =>
-            currentSlots.filter(
-              (slot) => slot.id !== result.consumedTemplateSlotId,
-            ),
-          );
-        }
-      }
-
-      return result.sessions;
-    });
-  }
-
-  function openSourcePanel(
-    fixedSlot: number | null = null,
-    templateSlotId: string | null = null,
-  ) {
-    const placement = sourceAddPanelPlacement(fixedSlot, templateSlotId);
-    setPendingFixedSlot(placement.pendingFixedSlot);
-    setPendingTemplateSlotId(placement.pendingTemplateSlotId);
-    resetSourceInputs();
-    setIsSourceOpen(true);
-  }
-
-  function resetSourceInputs() {
-    const next = defaultSourceAddFormState();
-    setUrlValue(next.urlValue);
-    setUrlTitle(next.urlTitle);
-    setRedditUrls(next.redditUrls);
-    setSubredditName(next.subredditName);
-    setRedditInputMode(next.redditInputMode);
-    setRedditSort(next.redditSort);
-    setRedditTimeRange(next.redditTimeRange);
-    setRedditLimit(next.redditLimit);
-  }
-
-  function openEditSource(id: string) {
-    setEditingSourceId(id);
-  }
-
   function updateFixedGrid(next: Partial<FixedGrid>) {
     try {
       setFixedGrid((current) =>
@@ -813,98 +593,6 @@ export function FeedWorkbench({
     }
 
     setLayoutMode(nextMode);
-  }
-
-  function updateSession(
-    id: string,
-    updater: (session: FeedSession) => FeedSession,
-  ) {
-    setSessions((current) =>
-      current.map((session) =>
-        session.id === id ? updater(session) : session,
-      ),
-    );
-  }
-
-  async function saveRedditSourceEdit(
-    id: string,
-    urls: string[],
-    limit: number,
-    hiddenItemIds: string[],
-    unhiddenItemHashes: string[],
-  ) {
-    const prepared = prepareRedditSourceEditAction({ urls, limit });
-
-    if (prepared.status !== "ready") {
-      toast.error(prepared.error);
-      return;
-    }
-
-    updateSession(id, (session) => withSessionRuntimeLoading(session, true));
-
-    const result = await editPreparedRedditSourceAction({
-      currentSource: sessions.find((session) => session.id === id),
-      urls: prepared.urls,
-      limit: prepared.limit,
-      hiddenItemIds,
-      unhiddenItemHashes,
-    });
-
-    if (result.status !== "ready") {
-      updateSession(id, (session) => withSessionRuntimeLoading(session, false));
-      toast.error(result.error);
-      return;
-    }
-
-    updateSession(id, (session) =>
-      applyEditedRedditSourceToSession(session, result.result),
-    );
-    setEditingSourceId(null);
-  }
-
-  async function saveUrlSourceEdit(id: string, url: string, title?: string) {
-    updateSession(id, (session) => withSessionRuntimeLoading(session, true));
-
-    const result = await editUrlSourceAction({
-      currentSource: sessions.find((session) => session.id === id),
-      url,
-      title,
-    });
-
-    if (result.status !== "ready") {
-      updateSession(id, (session) => withSessionRuntimeLoading(session, false));
-      toast.error(result.error);
-      return;
-    }
-
-    updateSession(id, (session) =>
-      applyEditedUrlSourceToSession(session, result.result),
-    );
-    setEditingSourceId(null);
-  }
-
-  async function saveLocalSourceEdit(id: string, files: File[]) {
-    const prepared = prepareLocalSourceEditAction({ files });
-
-    if (prepared.status !== "ready") {
-      toast.error(prepared.error);
-      return;
-    }
-
-    const result = await editPreparedLocalSourceAction({
-      files: prepared.files,
-      createRuntimeItems: createLocalRuntimeItems,
-      cacheFiles: cacheLocalFiles,
-    });
-
-    if (result.status !== "ready") {
-      updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
-      toast.error(result.error);
-      return;
-    }
-
-    applyLocalRuntimeItems(id, result.items, result.cacheSetId, result.files);
-    setEditingSourceId(null);
   }
 
   function removeSession(id: string) {
@@ -1516,28 +1204,6 @@ export function FeedWorkbench({
     setMaximizedId(nextState.maximizedId);
     setPendingTemplateSlotId(nextState.pendingTemplateSlotId);
     void hydrateRuntimeItems(nextState.hydrateSessions);
-  }
-
-  async function hydrateRuntimeItems(nextSessions: FeedSession[]) {
-    const result = await hydrateRuntimeSessionsAction({
-      sessions: nextSessions,
-      visibility: {
-        activeLayerId,
-        layoutMode,
-        visibleFixedCells,
-      },
-      createLocalRuntimeItems,
-      onError: (message) => toast.error(message),
-    });
-
-    if (result.status === "empty") return;
-
-    setSessions((current) =>
-      applyRuntimeHydrationAction({
-        sessions: current,
-        hydrated: result.hydrated,
-      }),
-    );
   }
 
   return (
