@@ -31,24 +31,23 @@ export function WorkbenchHeader({
 }) {
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-3 md:px-4">
-      <div className="pointer-events-auto relative hidden h-12 w-full md:block">
+      <div className="pointer-events-auto hidden w-full grid-cols-[minmax(19rem,30vw)_minmax(0,40vw)_minmax(19rem,30vw)] items-center gap-7 md:grid">
         <SiteLogo className="h-auto shrink-0 px-0 text-4xl leading-none" />
-        <div className="absolute top-1 left-1/2 w-[min(32rem,42vw)] -translate-x-1/2">
-          <WorkspaceTabs
-            tabs={workspaceTabs}
-            activeWorkspaceId={activeWorkspaceId}
-            editingWorkspaceId={editingWorkspaceId}
-            editingWorkspaceName={editingWorkspaceName}
-            maxNameLength={maxLayoutNameLength}
-            onSelectWorkspace={onSelectWorkspace}
-            onBeginWorkspaceRename={onBeginWorkspaceRename}
-            onEditingWorkspaceNameChange={onEditingWorkspaceNameChange}
-            onCommitWorkspaceRename={onCommitWorkspaceRename}
-            onCancelWorkspaceRename={onCancelWorkspaceRename}
-            onCloseWorkspaceTab={onCloseWorkspaceTab}
-            onCreateWorkspaceTab={onCreateWorkspaceTab}
-          />
-        </div>
+        <WorkspaceTabs
+          tabs={workspaceTabs}
+          activeWorkspaceId={activeWorkspaceId}
+          editingWorkspaceId={editingWorkspaceId}
+          editingWorkspaceName={editingWorkspaceName}
+          maxNameLength={maxLayoutNameLength}
+          onSelectWorkspace={onSelectWorkspace}
+          onBeginWorkspaceRename={onBeginWorkspaceRename}
+          onEditingWorkspaceNameChange={onEditingWorkspaceNameChange}
+          onCommitWorkspaceRename={onCommitWorkspaceRename}
+          onCancelWorkspaceRename={onCancelWorkspaceRename}
+          onCloseWorkspaceTab={onCloseWorkspaceTab}
+          onCreateWorkspaceTab={onCreateWorkspaceTab}
+        />
+        <div aria-hidden="true" />
       </div>
     </header>
   );
