@@ -4,7 +4,7 @@
 
 Redesign the main Scrollable workbench as a production-ready visual shell while preserving existing product behavior and privacy boundaries. The overhaul covers the media stage, mobile floating rail, bottom navigation, desktop contextual panel, empty fixed/free cells, layer status, selected-source chrome, and hidden-UI recovery.
 
-The goal is to make Scrollable feel like a precise media instrument with memorable signal language, not a generic dark dashboard. This first slice excludes source dialogs, library/save dialogs, shared pages, auth surfaces, and deep media loading changes.
+The goal is to make Scrollable feel like a precise media instrument, not a generic dark dashboard and not a colorful control panel. This first slice excludes source dialogs, library/save dialogs, shared pages, auth surfaces, and deep media loading changes.
 
 ## Primary User Action
 
@@ -14,16 +14,17 @@ The user should understand that the media stage is primary, then quickly add sou
 
 Register: product.
 
-Visual lane: Signal Studio, Layered Signal.
+Visual lane: Night Instrument.
 
 Workbench approach: Stage + Signal Rail.
 
-Emotional target: sharper control with some kinetic status energy. The surface should feel technical, private, direct, and active, with media remaining dominant.
+Emotional target: sharper control with a small amount of kinetic status energy. The surface should feel technical, private, direct, and calm under motion, with media remaining dominant.
 
 Color strategy:
 
 - Cyan marks primary commands, active source selection, progress, focus, and immediate action.
-- Lime marks layout structure, layer identity, template/placement affordances, and non-destructive workspace organization.
+- Neutral structure, spacing, outlines, labels, and hierarchy mark layout and layer state. Do not give layers broad saturated surfaces.
+- Lime is not part of the first-pass visible workbench language. It may appear later as a tiny secondary signal only if cyan-only hierarchy proves insufficient.
 - Rose is reserved for destructive, risk, and failure states.
 - Near-black deck surfaces continue to dominate the app so runtime media remains the stage.
 
@@ -68,7 +69,7 @@ Mobile starts with the media stage. Controls stay thumb-reachable and easy to hi
 
 Desktop keeps a left contextual command deck, but the panel should become visually lighter and more structured. The stage should receive more apparent priority through tighter panel contrast, clearer layer/status grouping, and stronger empty-cell composition. Workspace tabs remain near the top center, but should feel more like session strips than generic browser tabs.
 
-Empty cells should be quiet but unmistakably interactive. Fixed layout slots use low-contrast stage frames with cyan add affordances. Free layout should use lime placement language so layout/editing is visually distinct from source playback.
+Empty cells should be quiet but unmistakably interactive. Fixed layout slots use low-contrast stage frames with cyan add affordances. Free layout should use neutral placement language so layout/editing is visually distinct from source playback without adding another dominant accent.
 
 ## Key States
 
@@ -91,8 +92,8 @@ Selected source:
 
 Active layer:
 
-- Lime is the active layer identity.
-- Layer state must not rely on color alone; include shape, outline, label, or contrast changes.
+- Active layer is expressed through shape, outline, label weight, and contrast.
+- Layer state must not rely on color alone. Avoid broad lime or multi-color layer treatments in this pass.
 
 Hidden UI:
 
@@ -185,7 +186,7 @@ Before claiming completion:
 ## Recommended Impeccable References
 
 - `layout` for stage and workbench composition.
-- `colorize` for Signal Studio C2 token usage.
+- `colorize` only if the cyan-only Night Instrument direction needs minor accent tuning after implementation.
 - `adapt` for mobile and desktop responsive behavior.
 - `harden` for focus, reduced motion, edge states, and accessibility polish.
 - `polish` after implementation.
@@ -193,5 +194,4 @@ Before claiming completion:
 ## Open Questions
 
 - Should mobile free-layout editing remain out of scope, or should this visual pass introduce a minimal mobile placement control?
-- Should C2 lime identify all layers equally, or only the active layer and template/free-layout affordances?
-- Should the final implementation update `DESIGN.md` immediately, or wait until the workbench direction is built and visually verified?
+- Should the final implementation update `DESIGN.md` immediately, or wait until the Night Instrument workbench direction is built and visually verified?
