@@ -697,9 +697,22 @@ export function AccountDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={anchoredDialogClass}>
+      <DialogContent className={anchoredDialogClass} showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle className="font-semibold">Account</DialogTitle>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle className="font-semibold">Account</DialogTitle>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close dialog"
+                className="size-12 min-h-12 min-w-12 md:size-8 md:min-h-0 md:min-w-0"
+              >
+                <X />
+              </Button>
+            </DialogClose>
+          </div>
           <DialogDescription className="sr-only">
             View account status and sign-in actions.
           </DialogDescription>
