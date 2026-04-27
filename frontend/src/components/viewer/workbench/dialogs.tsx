@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { LocalFileCacheStorageStatus } from "@/lib/local-uploads/file-cache";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -153,9 +154,22 @@ export function LayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className={anchoredDialogClass}>
-        <DialogHeader className="pr-8">
-          <DialogTitle className="font-semibold">Library</DialogTitle>
+      <DialogContent className={anchoredDialogClass} showCloseButton={false}>
+        <DialogHeader>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle className="font-semibold">Library</DialogTitle>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close dialog"
+                className="size-12 min-h-12 min-w-12 md:size-8 md:min-h-0 md:min-w-0"
+              >
+                <X />
+              </Button>
+            </DialogClose>
+          </div>
           <DialogDescription className="sr-only">
             Browse saved metadata-only layouts and templates.
           </DialogDescription>
