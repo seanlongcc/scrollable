@@ -273,7 +273,7 @@ export function SourceDialog({
                       value={subredditName}
                       disabled={isLoading}
                       onChange={(event) => setSubredditName(event.target.value)}
-                      placeholder="kpop, pics, aww"
+                      placeholder="popular, pics, aww"
                       className="h-9 font-mono"
                     />
                   </Label>

@@ -72,7 +72,7 @@ function SheetContent({
           <SheetPrimitive.Close data-slot="sheet-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2 size-8 min-h-0 min-w-0"
+              className="absolute top-2 right-2 size-12 min-h-12 min-w-12 rounded-full md:size-8 md:min-h-0 md:min-w-0 md:rounded-lg"
               size="icon-sm"
               aria-label="Close sheet"
             >

@@ -166,7 +166,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     expect(within(dialog).getByLabelText("Subreddit name")).toHaveValue("");
     expect(within(dialog).getByLabelText("Subreddit name")).toHaveAttribute(
       "placeholder",
-      "kpop, pics, aww",
+      "popular, pics, aww",
     );
     await user.type(within(dialog).getByLabelText("Subreddit name"), "kpop");
     await user.click(within(dialog).getByRole("combobox", { name: "Sort" }));
