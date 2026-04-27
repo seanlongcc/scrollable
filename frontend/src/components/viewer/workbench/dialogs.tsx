@@ -38,6 +38,29 @@ const EMPTY_WORKSPACE_STATS: WorkspaceStats = {
   fileCount: 0,
 };
 
+const anchoredDialogClass =
+  "top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(0,0,0,0.62)] sm:max-w-none md:top-[7.25rem] md:right-auto md:bottom-3 md:left-3 md:h-auto md:max-h-none md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-2xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]";
+
+const centeredDialogClass =
+  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(0,0,0,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]";
+
+const sectionLabelClass =
+  "font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase";
+
+const libraryTabsListClass =
+  "grid min-h-14 w-full grid-cols-2 rounded-2xl border border-border/70 bg-background/70 p-1 md:min-h-0 md:h-9";
+
+const libraryTabTriggerClass = "min-h-12 rounded-xl md:min-h-0";
+
+const libraryRowClass =
+  "grid h-14 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
+
+const emptyStateClass =
+  "rounded-2xl border border-dashed border-border/70 bg-background/55 p-3 text-sm text-muted-foreground";
+
+const metadataBlockClass =
+  "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
+
 export function LayoutDialog({
   open,
   onOpenChange,
@@ -130,9 +153,9 @@ export function LayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-auto md:right-auto md:bottom-3 md:left-3 md:h-auto md:max-h-[calc(100dvh-5rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className={anchoredDialogClass}>
         <DialogHeader className="pr-8">
-          <DialogTitle>Library</DialogTitle>
+          <DialogTitle className="font-semibold">Library</DialogTitle>
           <DialogDescription className="sr-only">
             Browse saved metadata-only layouts and templates.
           </DialogDescription>
@@ -152,9 +175,7 @@ export function LayoutDialog({
           </Button>
         </div>
         <section className="grid gap-2">
-          <h2 className="text-xs font-semibold text-muted-foreground">
-            Open layouts
-          </h2>
+          <h2 className={sectionLabelClass}>Open layouts</h2>
           <div className="grid gap-1">
             {workspaceTabs.map((tab) => (
               <OpenWorkspaceRow
@@ -173,9 +194,13 @@ export function LayoutDialog({
           onValueChange={(value) => setLibraryKind(value as LibraryKind)}
           className="gap-3"
         >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="layouts">Layouts</TabsTrigger>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
+          <TabsList className={libraryTabsListClass}>
+            <TabsTrigger value="layouts" className={libraryTabTriggerClass}>
+              Layouts
+            </TabsTrigger>
+            <TabsTrigger value="templates" className={libraryTabTriggerClass}>
+              Templates
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="layouts" className="grid gap-3">
             <div
@@ -189,10 +214,7 @@ export function LayoutDialog({
                   const fileCount = workspaceFileCount(workspace);
 
                   return (
-                    <label
-                      key={workspace.id}
-                      className="grid h-12 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2 transition-colors hover:bg-muted/45"
-                    >
+                    <label key={workspace.id} className={libraryRowClass}>
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(workspace.id)}
@@ -209,7 +231,7 @@ export function LayoutDialog({
                         >
                           {workspace.name}
                         </div>
-                        <div className="truncate text-xs text-muted-foreground">
+                        <div className="truncate font-mono text-[11px] text-muted-foreground">
                           {workspace.layoutMode} · {sourceCount} source
                           {sourceCount === 1 ? "" : "s"} · {fileCount} file
                           {fileCount === 1 ? "" : "s"}
@@ -232,7 +254,7 @@ export function LayoutDialog({
                   );
                 })
               ) : (
-                <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                <div className={emptyStateClass}>
                   No saved layouts yet. Use Save layout first.
                 </div>
               )}
@@ -261,10 +283,7 @@ export function LayoutDialog({
                   const boxCount = template.slots.length;
 
                   return (
-                    <label
-                      key={template.id}
-                      className="grid h-12 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2 transition-colors hover:bg-muted/45"
-                    >
+                    <label key={template.id} className={libraryRowClass}>
                       <input
                         type="checkbox"
                         checked={selectedTemplateIds.includes(template.id)}
@@ -284,7 +303,7 @@ export function LayoutDialog({
                         >
                           {template.name}
                         </div>
-                        <div className="truncate text-xs text-muted-foreground">
+                        <div className="truncate font-mono text-[11px] text-muted-foreground">
                           free template · {layerCount} layer
                           {layerCount === 1 ? "" : "s"} · {boxCount} box
                           {boxCount === 1 ? "" : "es"}
@@ -307,7 +326,7 @@ export function LayoutDialog({
                   );
                 })
               ) : (
-                <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                <div className={emptyStateClass}>
                   No saved templates yet. Save a free layout as a template
                   first.
                 </div>
@@ -345,18 +364,18 @@ function OpenWorkspaceRow({
   onCloseWorkspaceTab: (id: string) => void;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5">
       <Button
         type="button"
         variant={isActive ? "default" : "outline"}
-        className="h-auto min-h-12 min-w-0 justify-start px-2 py-1.5 text-left"
+        className="h-auto min-h-12 min-w-0 justify-start rounded-2xl px-2.5 py-1.5 text-left"
         onClick={() => onSelectWorkspace(tab.id)}
       >
         <span className="min-w-0">
           <span className="block truncate font-medium">{tab.name}</span>
           <span
             className={cn(
-              "block truncate text-[11px] leading-4",
+              "block truncate font-mono text-[11px] leading-4",
               isActive ? "text-primary-foreground/70" : "text-muted-foreground",
             )}
           >
@@ -372,7 +391,7 @@ function OpenWorkspaceRow({
         aria-label={`Close ${tab.name}`}
         title={`Close ${tab.name}`}
         onClick={() => onCloseWorkspaceTab(tab.id)}
-        className="hidden h-12 w-9 shrink-0 md:inline-flex"
+        className="hidden h-12 w-10 shrink-0 rounded-2xl md:inline-flex"
       >
         <X />
       </Button>
@@ -409,9 +428,14 @@ export function SaveLayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:w-[min(92vw,24rem)] md:max-w-[24rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent
+        className={cn(
+          centeredDialogClass,
+          "max-h-[82dvh] md:w-[min(92vw,24rem)] md:max-w-[24rem]",
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Save layout as</DialogTitle>
+          <DialogTitle className="font-semibold">Save layout as</DialogTitle>
           <DialogDescription className="sr-only">
             Name the current layout and save its configuration metadata.
           </DialogDescription>
@@ -433,13 +457,20 @@ export function SaveLayoutDialog({
               onValueChange={(value) => onSaveKindChange(value as SaveKind)}
               className="gap-2"
             >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="layout">Layout</TabsTrigger>
-                <TabsTrigger value="template">Template</TabsTrigger>
+              <TabsList className={libraryTabsListClass}>
+                <TabsTrigger value="layout" className={libraryTabTriggerClass}>
+                  Layout
+                </TabsTrigger>
+                <TabsTrigger
+                  value="template"
+                  className={libraryTabTriggerClass}
+                >
+                  Template
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           ) : null}
-          <Label className="grid gap-1 text-sm">
+          <Label className="grid gap-1.5 text-sm font-medium">
             {activeSaveKind === "template" ? "Template name" : "Layout name"}
             <Input
               value={name}
@@ -454,7 +485,7 @@ export function SaveLayoutDialog({
             <div className="text-xs text-destructive">{error}</div>
           ) : null}
           {localCacheStatus ? (
-            <div className="rounded-md border border-border bg-surface p-2 text-xs text-muted-foreground">
+            <div className="rounded-2xl border border-border/70 bg-background/65 p-3 font-mono text-[11px] text-muted-foreground">
               <div>{localCacheStatus.label}</div>
               {localCacheStatus.freeLabel ? (
                 <div>{localCacheStatus.freeLabel}</div>
@@ -484,9 +515,14 @@ export function ClearLayoutDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-auto bottom-0 left-0 h-auto w-full max-w-none translate-x-0 translate-y-0 content-start rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:w-[min(92vw,24rem)] md:max-w-[24rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent
+        className={cn(
+          centeredDialogClass,
+          "h-auto md:w-[min(92vw,24rem)] md:max-w-[24rem]",
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Clear layout?</DialogTitle>
+          <DialogTitle className="font-semibold">Clear layout?</DialogTitle>
           <DialogDescription>
             Remove all sources from the current layout.
           </DialogDescription>
@@ -531,9 +567,16 @@ export function LargeLocalCacheDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:left-1/2 md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent
+        className={cn(
+          centeredDialogClass,
+          "md:w-[min(92vw,26rem)] md:max-w-[26rem]",
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Copy local files to browser storage?</DialogTitle>
+          <DialogTitle className="font-semibold">
+            Copy local files to browser storage?
+          </DialogTitle>
           <DialogDescription>
             This will copy about {formatLocalCacheBytes(totalBytes)} into
             browser storage for auto-restore. Continue?
@@ -578,9 +621,16 @@ export function LocalCacheStorageFullDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:left-1/2 md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent
+        className={cn(
+          centeredDialogClass,
+          "md:w-[min(92vw,26rem)] md:max-w-[26rem]",
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Local file cache full</DialogTitle>
+          <DialogTitle className="font-semibold">
+            Local file cache full
+          </DialogTitle>
           <DialogDescription>
             Browser storage is full, so these files will need manual reload
             after refresh.
@@ -630,17 +680,15 @@ export function AccountDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-auto md:right-auto md:bottom-3 md:left-3 md:h-auto md:max-h-[calc(100dvh-5rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className={anchoredDialogClass}>
         <DialogHeader>
-          <DialogTitle>Account</DialogTitle>
+          <DialogTitle className="font-semibold">Account</DialogTitle>
           <DialogDescription className="sr-only">
             View account status and sign-in actions.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-2 rounded-lg border border-border bg-surface p-3">
-          <p className="text-xs font-medium text-muted-foreground">
-            Local media cache
-          </p>
+        <div className={cn(metadataBlockClass, "grid gap-2")}>
+          <p className={sectionLabelClass}>Local media cache</p>
           {localCacheStatus ? (
             <LocalCacheStatusBlock status={localCacheStatus} />
           ) : (
@@ -669,10 +717,8 @@ export function AccountDialog({
         </div>
         {account.status === "signed-in" ? (
           <div className="grid gap-3">
-            <div className="grid gap-1 rounded-lg border border-border bg-surface p-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                Signed in
-              </p>
+            <div className={cn(metadataBlockClass, "grid gap-1")}>
+              <p className={sectionLabelClass}>Signed in</p>
               <p className="break-all text-sm font-medium">{account.email}</p>
             </div>
             <Button
@@ -700,7 +746,7 @@ function LocalCacheStatusBlock({
   status: LocalFileCacheStorageStatus;
 }) {
   return (
-    <div className="rounded-md border border-border bg-background p-2 text-sm text-muted-foreground">
+    <div className={metadataBlockClass}>
       <div>{status.label}</div>
       {status.freeLabel ? <div>{status.freeLabel}</div> : null}
     </div>
