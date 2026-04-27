@@ -25,7 +25,7 @@ When a skill is available and its trigger matches the task, read its `SKILL.md` 
 
 | Skill                           | Use                                                                                 |
 | ------------------------------- | ----------------------------------------------------------------------------------- |
-| `frontend-design`               | Build production-grade UI and mobile-first frontend experiences.                    |
+| `impeccable`                    | Design, critique, polish, audit, and improve frontend interfaces.                   |
 | `web-design-guidelines`         | Audit UI accessibility, layout, responsiveness, and design quality.                 |
 | `webapp-testing`                | Interact with and test local web apps using Playwright-style workflows.             |
 | `browser-use:browser`           | Inspect or operate a local browser target when requested.                           |
