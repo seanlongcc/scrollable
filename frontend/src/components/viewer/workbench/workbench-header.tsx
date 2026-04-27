@@ -1,42 +1,13 @@
-import { FolderOpen, Save, Trash2, UserCircle } from "lucide-react";
-
 import { SiteLogo } from "@/components/site-logo";
-import { Button } from "@/components/ui/button";
-import type { FixedGrid } from "@/lib/viewer/layout";
-import type { LayoutMode, WorkspaceTab } from "./types";
-import { WorkbenchToolbar, type GlobalTimerAction } from "./workbench-toolbar";
+import type { WorkspaceTab } from "./types";
 import { WorkspaceTabs } from "./workspace-tabs";
 
 export function WorkbenchHeader({
-  layoutMode,
-  layoutModeLocked,
-  fixedGrid,
-  globalSeconds,
-  hasRunningSessionTimer,
-  showCloneButton,
-  showFillButton,
-  showAllInfo,
-  isClearDisabled,
-  accountButtonLabel,
-  accountButtonTitle,
   workspaceTabs,
   activeWorkspaceId,
   editingWorkspaceId,
   editingWorkspaceName,
   maxLayoutNameLength,
-  onLayoutModeChange,
-  onFixedGridChange,
-  onGlobalTimerSecondsChange,
-  onGlobalTimerAction,
-  onCloneSelectedSource,
-  onFillSelectedSourceSpace,
-  onToggleShowAllInfo,
-  onHideUi,
-  onAddSource,
-  onOpenLayouts,
-  onOpenSaveDialog,
-  onOpenClearDialog,
-  onOpenAccount,
   onSelectWorkspace,
   onBeginWorkspaceRename,
   onEditingWorkspaceNameChange,
@@ -45,35 +16,11 @@ export function WorkbenchHeader({
   onCloseWorkspaceTab,
   onCreateWorkspaceTab,
 }: {
-  layoutMode: LayoutMode;
-  layoutModeLocked: boolean;
-  fixedGrid: FixedGrid;
-  globalSeconds: number;
-  hasRunningSessionTimer: boolean;
-  showCloneButton: boolean;
-  showFillButton: boolean;
-  showAllInfo: boolean;
-  isClearDisabled: boolean;
-  accountButtonLabel: string;
-  accountButtonTitle: string;
   workspaceTabs: WorkspaceTab[];
   activeWorkspaceId: string;
   editingWorkspaceId: string | null;
   editingWorkspaceName: string;
   maxLayoutNameLength: number;
-  onLayoutModeChange: (mode: LayoutMode) => void;
-  onFixedGridChange: (patch: Partial<FixedGrid>) => void;
-  onGlobalTimerSecondsChange: (seconds: number) => void;
-  onGlobalTimerAction: (action: GlobalTimerAction) => void;
-  onCloneSelectedSource: () => void;
-  onFillSelectedSourceSpace: () => void;
-  onToggleShowAllInfo: () => void;
-  onHideUi: () => void;
-  onAddSource: () => void;
-  onOpenLayouts: () => void;
-  onOpenSaveDialog: () => void;
-  onOpenClearDialog: () => void;
-  onOpenAccount: () => void;
   onSelectWorkspace: (id: string) => void;
   onBeginWorkspaceRename: (tab: WorkspaceTab) => void;
   onEditingWorkspaceNameChange: (name: string) => void;
@@ -82,89 +29,40 @@ export function WorkbenchHeader({
   onCloseWorkspaceTab: (id: string) => void;
   onCreateWorkspaceTab: () => void;
 }) {
+  const workspaceName =
+    workspaceTabs.find((tab) => tab.id === activeWorkspaceId)?.name ??
+    "Untitled layout";
+
   return (
-    <header className="border-b border-border bg-surface/95 px-3 pt-2 pb-0 shadow-[0_1px_0_rgba(255,255,255,0.025)] backdrop-blur md:px-4">
-      <div className="grid gap-2 min-[1360px]:grid-cols-[minmax(21rem,1fr)_auto_minmax(12rem,1fr)] min-[1360px]:items-center">
-        <div className="flex min-w-0 items-center justify-center min-[1360px]:justify-start">
-          <SiteLogo />
-        </div>
-
-        <WorkbenchToolbar
-          layoutMode={layoutMode}
-          layoutModeLocked={layoutModeLocked}
-          fixedGrid={fixedGrid}
-          globalSeconds={globalSeconds}
-          hasRunningSessionTimer={hasRunningSessionTimer}
-          showCloneButton={showCloneButton}
-          showFillButton={showFillButton}
-          showAllInfo={showAllInfo}
-          onLayoutModeChange={onLayoutModeChange}
-          onFixedGridChange={onFixedGridChange}
-          onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
-          onGlobalTimerAction={onGlobalTimerAction}
-          onCloneSelectedSource={onCloneSelectedSource}
-          onFillSelectedSourceSpace={onFillSelectedSourceSpace}
-          onToggleShowAllInfo={onToggleShowAllInfo}
-          onHideUi={onHideUi}
-          onAddSource={onAddSource}
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-3 md:px-4">
+      <div className="pointer-events-auto hidden w-full grid-cols-[minmax(19rem,30vw)_minmax(0,40vw)_minmax(19rem,30vw)] items-center gap-7 md:grid">
+        <SiteLogo className="h-auto shrink-0 px-0 text-4xl leading-none" />
+        <WorkspaceTabs
+          tabs={workspaceTabs}
+          activeWorkspaceId={activeWorkspaceId}
+          editingWorkspaceId={editingWorkspaceId}
+          editingWorkspaceName={editingWorkspaceName}
+          maxNameLength={maxLayoutNameLength}
+          onSelectWorkspace={onSelectWorkspace}
+          onBeginWorkspaceRename={onBeginWorkspaceRename}
+          onEditingWorkspaceNameChange={onEditingWorkspaceNameChange}
+          onCommitWorkspaceRename={onCommitWorkspaceRename}
+          onCancelWorkspaceRename={onCancelWorkspaceRename}
+          onCloseWorkspaceTab={onCloseWorkspaceTab}
+          onCreateWorkspaceTab={onCreateWorkspaceTab}
         />
-
-        <div className="flex flex-wrap items-center justify-center gap-2 min-[1360px]:justify-end">
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            aria-label="Open layouts"
-            onClick={onOpenLayouts}
-          >
-            <FolderOpen />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            onClick={onOpenSaveDialog}
-            aria-label="Save layout"
-          >
-            <Save />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            onClick={onOpenClearDialog}
-            aria-label="Clear layout"
-            disabled={isClearDisabled}
-          >
-            <Trash2 />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            aria-label={accountButtonLabel}
-            title={accountButtonTitle}
-            onClick={onOpenAccount}
-          >
-            <UserCircle />
-          </Button>
-        </div>
+        <div aria-hidden="true" />
       </div>
 
-      <WorkspaceTabs
-        tabs={workspaceTabs}
-        activeWorkspaceId={activeWorkspaceId}
-        editingWorkspaceId={editingWorkspaceId}
-        editingWorkspaceName={editingWorkspaceName}
-        maxNameLength={maxLayoutNameLength}
-        onSelectWorkspace={onSelectWorkspace}
-        onBeginWorkspaceRename={onBeginWorkspaceRename}
-        onEditingWorkspaceNameChange={onEditingWorkspaceNameChange}
-        onCommitWorkspaceRename={onCommitWorkspaceRename}
-        onCancelWorkspaceRename={onCancelWorkspaceRename}
-        onCloseWorkspaceTab={onCloseWorkspaceTab}
-        onCreateWorkspaceTab={onCreateWorkspaceTab}
-      />
+      <div className="flex items-center justify-between gap-3 md:hidden">
+        <SiteLogo className="pointer-events-auto h-auto px-0 text-base leading-none" />
+        <span
+          className="min-w-0 truncate rounded-full border border-border bg-background/72 px-2.5 py-1 text-[11px] text-muted-foreground shadow-[0_8px_20px_rgba(0,0,0,0.36)] backdrop-blur"
+          title={workspaceName}
+        >
+          {workspaceName}
+        </span>
+      </div>
     </header>
   );
 }

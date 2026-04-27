@@ -29,6 +29,7 @@ import type {
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
   SourceGroupingMode,
+  WorkspaceTab,
 } from "./types";
 
 export function WorkbenchOverlays({
@@ -74,6 +75,13 @@ export function WorkbenchOverlays({
   openSavedTemplates,
   deleteSavedWorkspace,
   deleteSavedTemplate,
+  workspaceTabs,
+  openWorkspaceStats,
+  activeWorkspaceId,
+  selectWorkspace,
+  createWorkspaceTab,
+  closeWorkspaceTab,
+  openSaveDialog,
   isSaveOpen,
   setIsSaveOpen,
   saveName,
@@ -142,6 +150,16 @@ export function WorkbenchOverlays({
   openSavedTemplates: (ids: string[]) => void;
   deleteSavedWorkspace: (id: string) => void;
   deleteSavedTemplate: (id: string) => void;
+  workspaceTabs: WorkspaceTab[];
+  openWorkspaceStats: Record<
+    string,
+    { sourceCount: number; fileCount: number }
+  >;
+  activeWorkspaceId: string;
+  selectWorkspace: (id: string) => void;
+  createWorkspaceTab: () => void;
+  closeWorkspaceTab: (id: string) => void;
+  openSaveDialog: () => void;
   isSaveOpen: boolean;
   setIsSaveOpen: Dispatch<SetStateAction<boolean>>;
   saveName: string;
@@ -230,6 +248,13 @@ export function WorkbenchOverlays({
           onOpenTemplates={openSavedTemplates}
           onDeleteWorkspace={deleteSavedWorkspace}
           onDeleteTemplate={deleteSavedTemplate}
+          workspaceTabs={workspaceTabs}
+          openWorkspaceStats={openWorkspaceStats}
+          activeWorkspaceId={activeWorkspaceId}
+          onSelectWorkspace={selectWorkspace}
+          onCreateWorkspaceTab={createWorkspaceTab}
+          onCloseWorkspaceTab={closeWorkspaceTab}
+          onSaveCurrentLayout={openSaveDialog}
         />
       ) : null}
       <SaveLayoutDialog

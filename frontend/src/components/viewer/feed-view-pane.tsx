@@ -8,12 +8,6 @@ import {
   GlobeOff,
   Maximize2,
   MousePointer2,
-  Pause,
-  Pencil,
-  Play,
-  RotateCcw,
-  SkipBack,
-  SkipForward,
   X,
 } from "lucide-react";
 import {
@@ -55,14 +49,9 @@ export function FeedViewPane({
   onGalleryChange,
   onVideoPositionChange,
   onMove,
-  onTogglePaused,
-  onRestart,
   onSelect,
   onMaximize,
-  onEdit,
   onRemove,
-  onTimerModeChange,
-  onTimerSecondsChange,
 }: {
   viewId?: string;
   title: string;
@@ -211,24 +200,10 @@ export function FeedViewPane({
         )}
       </div>
 
-      {!hideUi && onSelect ? (
-        <Button
-          type="button"
-          size="icon-sm"
-          variant={isFocused ? "default" : "outline"}
-          className="absolute top-2 left-2 z-30 border-border bg-background/80 text-foreground opacity-90 backdrop-blur hover:opacity-100"
-          onClick={onSelect}
-          aria-label={`Select ${title}`}
-          aria-pressed={isFocused}
-        >
-          <MousePointer2 />
-        </Button>
-      ) : null}
-
-      {hideUi ? null : (
+      {!hideUi && forceInfoVisible ? (
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-between gap-2 p-2 pl-11",
+            "pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-between gap-2 p-2",
             sourceChromeClass,
           )}
         >
@@ -246,78 +221,8 @@ export function FeedViewPane({
               />
             </div>
           </div>
-          <div className="pointer-events-auto flex max-w-full shrink-0 flex-wrap justify-end gap-1">
-            {onTimerModeChange ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                className="border-border bg-background/75 text-foreground"
-                onClick={() =>
-                  selectThen(() =>
-                    onTimerModeChange(
-                      timerMode === "local" ? "global" : "local",
-                    ),
-                  )
-                }
-                aria-label={`${title} uses ${modeLabel} timer`}
-              >
-                <TimerModeIcon />
-              </Button>
-            ) : null}
-            {onTimerSecondsChange && timerMode === "local" ? (
-              <input
-                type="number"
-                value={timer.durationSeconds}
-                min={1}
-                max={120}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  if (Number.isFinite(next)) onTimerSecondsChange(next);
-                }}
-                aria-label={`${title} local timer seconds`}
-                className="h-7 w-14 rounded-lg border border-border bg-background/75 px-1.5 text-center font-mono text-[11px] text-foreground outline-none focus-visible:border-primary"
-              />
-            ) : null}
-            {onMaximize ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                className="border-border bg-background/75 text-foreground"
-                onClick={() => selectThen(onMaximize)}
-                aria-label={`Maximize ${title}`}
-              >
-                <Maximize2 />
-              </Button>
-            ) : null}
-            {onEdit ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                className="border-border bg-background/75 text-foreground"
-                onClick={() => selectThen(onEdit)}
-                aria-label={`Edit ${title}`}
-              >
-                <Pencil />
-              </Button>
-            ) : null}
-            {onRemove ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                className="border-border bg-background/75 text-foreground"
-                onClick={() => selectThen(onRemove)}
-                aria-label={`Remove ${title}`}
-              >
-                <X />
-              </Button>
-            ) : null}
-          </div>
         </div>
-      )}
+      ) : null}
 
       {!hideUi && activeItem?.media.length && activeItem.media.length > 1 ? (
         <div
@@ -349,7 +254,54 @@ export function FeedViewPane({
         </div>
       ) : null}
 
-      {hideUi ? null : (
+      {!hideUi && (onRemove || onMaximize || onSelect) ? (
+        <div
+          className={cn(
+            "pointer-events-none absolute top-2 right-2 z-30 grid gap-1",
+            sourceChromeClass,
+          )}
+        >
+          {onRemove ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              className="pointer-events-auto border-border bg-background/75 text-foreground"
+              onClick={() => selectThen(onRemove)}
+              aria-label={`Remove ${title}`}
+            >
+              <X />
+            </Button>
+          ) : null}
+          {onMaximize ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              className="pointer-events-auto border-border bg-background/75 text-foreground"
+              onClick={() => selectThen(onMaximize)}
+              aria-label={`Maximize ${title}`}
+            >
+              <Maximize2 />
+            </Button>
+          ) : null}
+          {onSelect ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant={isFocused ? "default" : "outline"}
+              className="pointer-events-auto border-border bg-background/75 text-foreground"
+              onClick={onSelect}
+              aria-label={`Select ${title}`}
+              aria-pressed={isFocused}
+            >
+              <MousePointer2 />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!hideUi && forceInfoVisible ? (
         <div
           className={cn(
             "pointer-events-none absolute inset-x-0 z-20 p-2",
@@ -385,51 +337,8 @@ export function FeedViewPane({
               </div>
             </div>
           ) : null}
-
-          <div className="pointer-events-auto flex items-center justify-center gap-1">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              className="border-border bg-background/75 text-foreground"
-              onClick={() => selectThen(() => onMove(-1))}
-              aria-label={`Previous item for ${title}`}
-            >
-              <SkipBack />
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              className="border-border bg-background/75 text-foreground"
-              onClick={() => selectThen(onTogglePaused)}
-              aria-label={timer.isPaused ? `Resume ${title}` : `Pause ${title}`}
-            >
-              {timer.isPaused ? <Play /> : <Pause />}
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              className="border-border bg-background/75 text-foreground"
-              onClick={() => selectThen(onRestart)}
-              aria-label={`Restart ${title}`}
-            >
-              <RotateCcw />
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              className="border-border bg-background/75 text-foreground"
-              onClick={() => selectThen(() => onMove(1))}
-              aria-label={`Next item for ${title}`}
-            >
-              <SkipForward />
-            </Button>
-          </div>
         </div>
-      )}
+      ) : null}
     </article>
   );
 }

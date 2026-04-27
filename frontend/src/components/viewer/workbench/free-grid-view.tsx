@@ -111,7 +111,7 @@ export function FreeGridView({
             key={slot.id}
             data-testid={`template-slot-${slot.id}`}
             className={cn(
-              "group/template-slot relative grid min-h-0 cursor-pointer place-items-center rounded-xl border border-dashed border-primary/45 bg-surface/35 p-2 text-center text-xs text-muted-foreground transition hover:border-primary hover:bg-surface-elevated/70 hover:text-primary",
+              "group/template-slot relative grid min-h-0 cursor-pointer place-items-center rounded-xl border border-dashed border-primary/45 bg-surface/35 p-2 text-center text-xs text-muted-foreground transition hover:border-primary hover:bg-surface-elevated/70 hover:text-primary max-md:pointer-events-none",
               freeDrag?.targetType === "template-slot" &&
                 freeDrag.id === slot.id &&
                 "z-40 scale-[1.01]",
@@ -127,7 +127,7 @@ export function FreeGridView({
             }}
           >
             {!hideUi ? (
-              <div className="absolute bottom-2 right-2 z-30 flex flex-col gap-1 opacity-0 transition-opacity duration-200 group-hover/template-slot:opacity-100 group-focus-within/template-slot:opacity-100">
+              <div className="absolute right-2 bottom-2 z-30 hidden flex-col gap-1 opacity-0 transition-opacity duration-200 group-hover/template-slot:opacity-100 group-focus-within/template-slot:opacity-100 md:flex">
                 <button
                   type="button"
                   aria-label={`Move source box ${boxNumber}`}
@@ -166,11 +166,16 @@ export function FreeGridView({
               aria-label="Add source to template box"
               title="Add source to template box"
               onClick={() => openSourcePanel(null, slot.id)}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-background/70 px-2 py-1 backdrop-blur transition hover:bg-background hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+              className="hidden cursor-pointer items-center gap-2 rounded-md bg-background/70 px-2 py-1 backdrop-blur transition hover:bg-background hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none md:inline-flex"
             >
               <Plus className="size-4" />
               Add source
             </button>
+            {!hideUi ? (
+              <span className="rounded-md bg-background/70 px-2 py-1 text-[11px] backdrop-blur md:hidden">
+                Edit free layout on desktop.
+              </span>
+            ) : null}
           </div>
         );
       })}
@@ -213,7 +218,7 @@ export function FreeGridView({
               {!hideUi ? (
                 <div
                   className={cn(
-                    "absolute bottom-2 right-2 z-30 flex flex-col gap-1 transition-opacity duration-200",
+                    "absolute right-2 bottom-2 z-30 hidden flex-col gap-1 transition-opacity duration-200 md:flex",
                     session.id !== selectedId &&
                       "opacity-0 group-hover/free:opacity-100 group-focus-within/free:opacity-100",
                   )}
@@ -300,13 +305,18 @@ export function FreeGridView({
         })
       ) : templateSlots.length ? null : (
         <div
-          className="grid place-items-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground"
+          className="grid place-items-center rounded-lg border border-dashed border-border/60 px-4 text-center text-sm text-muted-foreground"
           style={{
             gridColumn: `1 / span ${FREE_LAYOUT_SIZE}`,
             gridRow: `1 / span ${FREE_LAYOUT_SIZE}`,
           }}
         >
-          Add a source, then drag and resize it here.
+          <span>
+            <span className="hidden md:inline">
+              Add a source, then drag and resize it here.
+            </span>
+            <span className="md:hidden">Edit free layout on desktop.</span>
+          </span>
         </div>
       )}
     </div>

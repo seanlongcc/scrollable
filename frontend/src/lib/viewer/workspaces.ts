@@ -26,6 +26,8 @@ export type WorkspaceLayer = {
 
 export const DEFAULT_WORKSPACE_LAYERS: WorkspaceLayer[] = [
   { id: "layer-1", name: "Layer 1" },
+  { id: "layer-2", name: "Layer 2" },
+  { id: "layer-3", name: "Layer 3" },
 ];
 
 export type RedditSourceConfig = {

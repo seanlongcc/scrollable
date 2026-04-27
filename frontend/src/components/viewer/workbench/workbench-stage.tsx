@@ -13,11 +13,7 @@ import {
   togglePaused,
   type TimerMode,
 } from "@/lib/viewer/timer";
-import { MAX_WORKSPACE_LAYERS } from "@/lib/viewer/workspaces";
 import { FixedGridView, FocusLayout, FreeGridView } from "./views";
-import { LayerToolbar } from "./layer-toolbar";
-import { SelectedFreeLayoutControls } from "./selected-free-layout-controls";
-import type { LayerStats } from "./selection-state";
 import type {
   FeedSession,
   FreeDragState,
@@ -42,16 +38,9 @@ export function WorkbenchStage({
   replaceLocalSessionFiles,
   requestLocalCacheAccess,
   openEditSource,
-  selected,
   layoutMode,
   layers,
   activeLayerId,
-  layerStats,
-  hiddenFixedSessionCount,
-  selectLayer,
-  addLayer,
-  deleteActiveLayer,
-  updateFreeRect,
   fixedGrid,
   visibleFixedCells,
   selectedId,
@@ -85,16 +74,9 @@ export function WorkbenchStage({
   ) => void;
   requestLocalCacheAccess: (id: string) => void;
   openEditSource: (id: string) => void;
-  selected: FeedSession | null;
   layoutMode: LayoutMode;
   layers: WorkspaceLayer[];
   activeLayerId: string;
-  layerStats: LayerStats[];
-  hiddenFixedSessionCount: number;
-  selectLayer: (id: string) => void;
-  addLayer: () => void;
-  deleteActiveLayer: () => void;
-  updateFreeRect: (id: string, nextRect: Partial<FreeRect>) => void;
   fixedGrid: FixedGrid;
   visibleFixedCells: number;
   selectedId: string | null;
@@ -158,41 +140,16 @@ export function WorkbenchStage({
   return (
     <section
       className={cn(
-        "grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3",
-        isUiHidden ? "p-0" : "p-3",
+        "grid min-h-0 grid-rows-[minmax(0,1fr)]",
+        isUiHidden
+          ? "p-0"
+          : "px-2 pt-[3.25rem] pb-[4.5rem] md:pt-16 md:pr-4 md:pb-4 md:pl-[20.5rem]",
       )}
     >
-      {!isUiHidden ? (
-        <div
-          data-testid="layout-status-row"
-          className="grid min-h-8 items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
-        >
-          <LayerToolbar
-            sourceCount={sessions.length}
-            layoutMode={layoutMode}
-            layers={layers}
-            activeLayerId={activeLayerId}
-            layerStats={layerStats}
-            hiddenFixedSessionCount={hiddenFixedSessionCount}
-            isAddLayerDisabled={layers.length >= MAX_WORKSPACE_LAYERS}
-            isDeleteLayerDisabled={layers.length <= 1}
-            onSelectLayer={selectLayer}
-            onAddLayer={addLayer}
-            onDeleteLayer={deleteActiveLayer}
-          />
-          {selected && layoutMode === "free" ? (
-            <SelectedFreeLayoutControls
-              selected={selected}
-              onFreeRectChange={updateFreeRect}
-            />
-          ) : null}
-        </div>
-      ) : null}
-
       <div
         className={cn(
           "h-full min-h-0 overflow-auto border-border/70 bg-background bg-[linear-gradient(rgba(255,255,255,.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.008)_1px,transparent_1px)]",
-          isUiHidden ? "rounded-none border-0 p-0" : "rounded-lg border p-2",
+          isUiHidden ? "rounded-none border-0 p-0" : "rounded-xl border p-1",
           layoutMode === "free" && "bg-[size:6.25%_6.25%]",
         )}
       >

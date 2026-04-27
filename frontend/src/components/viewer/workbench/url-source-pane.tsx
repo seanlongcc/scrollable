@@ -4,7 +4,6 @@ import {
   Info,
   Maximize2,
   MousePointer2,
-  Pencil,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -34,7 +33,6 @@ export function UrlSourcePane({
   onIframePlaybackTimeChange,
   onSelect,
   onMaximize,
-  onEdit,
   onRemove,
 }: {
   title: string;
@@ -175,68 +173,58 @@ export function UrlSourcePane({
         </div>
       )}
 
-      {!hideUi && onSelect ? (
-        <Button
-          type="button"
-          size="icon-sm"
-          variant={isFocused ? "default" : "outline"}
-          className="absolute top-2 left-2 z-30 border-border bg-background/80 text-foreground opacity-90 backdrop-blur hover:opacity-100"
-          onClick={onSelect}
-          aria-label={`Select ${displayTitle}`}
-          aria-pressed={isFocused}
-        >
-          <MousePointer2 />
-        </Button>
+      {!hideUi && (onRemove || onMaximize || onSelect) ? (
+        <div className="pointer-events-none absolute top-2 right-2 z-30 grid gap-1 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
+          {onRemove ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              className="pointer-events-auto border-border bg-background/75 text-foreground"
+              onClick={() => selectThen(onRemove)}
+              aria-label={`Remove ${displayTitle}`}
+            >
+              <X />
+            </Button>
+          ) : null}
+          {onMaximize ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              className="pointer-events-auto border-border bg-background/75 text-foreground"
+              onClick={() => selectThen(onMaximize)}
+              aria-label={`Maximize ${displayTitle}`}
+            >
+              <Maximize2 />
+            </Button>
+          ) : null}
+          {onSelect ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant={isFocused ? "default" : "outline"}
+              className="pointer-events-auto border-border bg-background/75 text-foreground"
+              onClick={onSelect}
+              aria-label={`Select ${displayTitle}`}
+              aria-pressed={isFocused}
+            >
+              <MousePointer2 />
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
-      {hideUi ? null : (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 pl-11 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
+      {!hideUi && isFocused ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
           <div className="min-w-0 rounded-md bg-background/75 px-2 py-1.5 backdrop-blur">
             <div className="truncate text-xs font-medium">{displayTitle}</div>
             <div className="font-mono text-[10px] text-muted-foreground">
               URL source
             </div>
           </div>
-          <div className="pointer-events-auto flex shrink-0 flex-wrap justify-end gap-1">
-            {onMaximize ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                className="border-border bg-background/75 text-foreground"
-                onClick={() => selectThen(onMaximize)}
-                aria-label={`Maximize ${displayTitle}`}
-              >
-                <Maximize2 />
-              </Button>
-            ) : null}
-            {onEdit ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                className="border-border bg-background/75 text-foreground"
-                onClick={() => selectThen(onEdit)}
-                aria-label={`Edit ${displayTitle}`}
-              >
-                <Pencil />
-              </Button>
-            ) : null}
-            {onRemove ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                className="border-border bg-background/75 text-foreground"
-                onClick={() => selectThen(onRemove)}
-                aria-label={`Remove ${displayTitle}`}
-              >
-                <X />
-              </Button>
-            ) : null}
-          </div>
         </div>
-      )}
+      ) : null}
     </article>
   );
 }

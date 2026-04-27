@@ -16,6 +16,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { cn } from "@/lib/utils";
 import { DEFAULT_FIXED_GRID, type FixedGrid } from "@/lib/viewer/layout";
+import { moveTimerIndex, togglePaused } from "@/lib/viewer/timer";
+import { DEFAULT_WORKSPACE_LAYERS } from "@/lib/viewer/workspaces";
 import type {
   AccountState,
   FeedSession,
@@ -39,13 +41,16 @@ import {
   FALLBACK_INITIAL_WORKSPACE_ID,
   MAX_LAYOUT_NAME_LENGTH,
 } from "./workbench/types";
-import { createId, limitLayoutName } from "./workbench/helpers";
+import {
+  createId,
+  limitLayoutName,
+  sessionFileCount,
+} from "./workbench/helpers";
 import { visibleUrlRuntimeHydrationCandidates } from "./workbench/runtime-hydration-actions";
 import {
   activeLayerFreeRects as deriveActiveLayerFreeRects,
   availableSeparateSourceSlots as deriveAvailableSeparateSourceSlots,
   deriveLayerStats,
-  hiddenFixedSessions as deriveHiddenFixedSessions,
   selectedActiveLayerSession,
   visibleFixedEmptySlots,
 } from "./workbench/selection-state";
@@ -66,6 +71,7 @@ import {
 import { WorkbenchHeader } from "./workbench/workbench-header";
 import { WorkbenchOverlays } from "./workbench/workbench-overlays";
 import { WorkbenchStage } from "./workbench/workbench-stage";
+import { WorkbenchChrome } from "./workbench/workbench-chrome";
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -73,7 +79,7 @@ export function FeedWorkbench({
   initialWorkspaceId?: string;
 } = {}) {
   const initialWorkspace = useMemo(
-    () => ({ id: initialWorkspaceId, name: "Layout 1" }),
+    () => ({ id: initialWorkspaceId, name: "Untitled layout" }),
     [initialWorkspaceId],
   );
   const [workspaceTabs, setWorkspaceTabs] = useState<WorkspaceTab[]>([
@@ -105,9 +111,9 @@ export function FeedWorkbench({
   const [globalSeconds, setGlobalSeconds] = useState(DEFAULT_TIMER_SECONDS);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
-  const [layers, setLayers] = useState<WorkspaceLayer[]>([
-    { id: "layer-1", name: "Layer 1" },
-  ]);
+  const [layers, setLayers] = useState<WorkspaceLayer[]>(() =>
+    DEFAULT_WORKSPACE_LAYERS.map((layer) => ({ ...layer })),
+  );
   const [activeLayerId, setActiveLayerId] = useState("layer-1");
   const [sessions, setSessions] = useState<FeedSession[]>([]);
   const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>(
@@ -139,7 +145,6 @@ export function FeedWorkbench({
   );
   const [editingWorkspaceName, setEditingWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [hasHydrated, setHasHydrated] = useState(false);
   const [isUiHidden, setIsUiHidden] = useState(false);
   const [isUiRevealVisible, setIsUiRevealVisible] = useState(true);
   const [showAllInfo, setShowAllInfo] = useState(false);
@@ -195,16 +200,6 @@ export function FeedWorkbench({
     () => sessions.find((session) => session.id === editingSourceId) ?? null,
     [editingSourceId, sessions],
   );
-  const hiddenFixedSessions = useMemo(
-    () =>
-      deriveHiddenFixedSessions({
-        sessions,
-        activeLayerId,
-        layoutMode,
-        visibleFixedCells,
-      }),
-    [activeLayerId, layoutMode, sessions, visibleFixedCells],
-  );
   const visibleEmptySlots = useMemo(
     () =>
       visibleFixedEmptySlots({
@@ -235,20 +230,46 @@ export function FeedWorkbench({
       ? visibleEmptySlots.length
       : availableSeparateSourceSlots),
   );
-  const layerStats = useMemo(
-    () =>
-      deriveLayerStats({
-        layers,
-        sessions,
-      }),
-    [layers, sessions],
-  );
   const accountButtonLabel =
     account.status === "signed-in" ? "Account" : "Sign in";
   const accountButtonTitle =
     account.status === "signed-in" ? account.email : accountButtonLabel;
-  const isClearDisabled =
-    hasHydrated && sessions.length === 0 && templateSlots.length === 0;
+  const isClearDisabled = sessions.length === 0 && templateSlots.length === 0;
+  const layerStats = useMemo(
+    () => deriveLayerStats({ layers, sessions }),
+    [layers, sessions],
+  );
+  const openWorkspaceStats = useMemo(
+    () =>
+      Object.fromEntries(
+        workspaceTabs.map((tab) => {
+          const tabSessions =
+            tab.id === activeWorkspaceId
+              ? sessions
+              : (workspaceStates[tab.id]?.sessions ??
+                savedWorkspaces[tab.id]?.sessions ??
+                []);
+
+          return [
+            tab.id,
+            {
+              sourceCount: tabSessions.length,
+              fileCount: tabSessions.reduce(
+                (count, session) => count + sessionFileCount(session),
+                0,
+              ),
+            },
+          ];
+        }),
+      ),
+    [
+      activeWorkspaceId,
+      savedWorkspaces,
+      sessions,
+      workspaceStates,
+      workspaceTabs,
+    ],
+  );
   const rememberVideoPosition = useCallback((key: string, seconds: number) => {
     setVideoPositions((current) => {
       if (current[key] === seconds) return current;
@@ -426,9 +447,7 @@ export function FeedWorkbench({
     runGlobalAction,
     cloneSelectedSource,
     fillSelectedSourceSpace,
-    addLayer,
     selectLayer,
-    deleteActiveLayer,
     clearCurrentLayout,
     signOut,
   } = useLayoutHandlers({
@@ -466,12 +485,6 @@ export function FeedWorkbench({
     setIsClearOpen,
     setAccount,
   });
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setHasHydrated(true));
-
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
 
   useEffect(() => {
     const registry = registryRef;
@@ -632,6 +645,57 @@ export function FeedWorkbench({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeKeyboardSessionId]);
 
+  const isAnySheetOpen =
+    isSourceOpen ||
+    isLayoutsOpen ||
+    isAccountOpen ||
+    isSaveOpen ||
+    isClearOpen ||
+    Boolean(editingSource) ||
+    Boolean(largeLocalByteCachePrompt) ||
+    Boolean(localCacheStorageFullStatus);
+
+  const moveSelectedSource = useCallback(
+    (direction: 1 | -1) => {
+      if (!selected) return;
+      updateSession(selected.id, (session) => ({
+        ...session,
+        timer: moveTimerIndex(session.timer, direction),
+      }));
+    },
+    [selected, updateSession],
+  );
+
+  const toggleSelectedSourcePaused = useCallback(() => {
+    if (!selected) return;
+    updateSession(selected.id, (session) => ({
+      ...session,
+      timer: togglePaused(session.timer),
+    }));
+  }, [selected, updateSession]);
+
+  const restartSelectedSource = useCallback(() => {
+    if (!selected) return;
+    updateSession(selected.id, (session) => ({
+      ...session,
+      timer: { ...session.timer, elapsedMs: 0 },
+    }));
+  }, [selected, updateSession]);
+
+  const setSelectedTimerMode = useCallback(
+    (mode: FeedSession["timerMode"]) => {
+      if (selected) setViewTimerMode(selected.id, mode);
+    },
+    [selected, setViewTimerMode],
+  );
+
+  const setSelectedTimerSeconds = useCallback(
+    (seconds: number) => {
+      if (selected) setViewTimerSeconds(selected.id, seconds);
+    },
+    [selected, setViewTimerSeconds],
+  );
+
   useEffect(() => {
     if (!isUiHidden) return;
 
@@ -664,8 +728,7 @@ export function FeedWorkbench({
   return (
     <main
       className={cn(
-        "grid h-dvh overflow-hidden bg-background text-foreground",
-        isUiHidden ? "grid-rows-[1fr]" : "grid-rows-[auto_1fr]",
+        "grid h-dvh grid-rows-[1fr] overflow-hidden bg-background text-foreground",
         (isUiHidden || maximizedId) && "select-none",
       )}
     >
@@ -677,48 +740,13 @@ export function FeedWorkbench({
             setIsUiHidden(false);
           }}
         />
-      ) : (
+      ) : !maximized ? (
         <WorkbenchHeader
-          layoutMode={layoutMode}
-          layoutModeLocked={layoutModeLocked}
-          fixedGrid={fixedGrid}
-          globalSeconds={globalSeconds}
-          hasRunningSessionTimer={sessions.some(
-            (session) => !session.timer.isPaused,
-          )}
-          showCloneButton={canCloneOrFillSelectedSource}
-          showFillButton={canCloneOrFillSelectedSource}
-          showAllInfo={showAllInfo}
-          isClearDisabled={isClearDisabled}
-          accountButtonLabel={accountButtonLabel}
-          accountButtonTitle={accountButtonTitle}
           workspaceTabs={workspaceTabs}
           activeWorkspaceId={activeWorkspaceId}
           editingWorkspaceId={editingWorkspaceId}
           editingWorkspaceName={editingWorkspaceName}
           maxLayoutNameLength={MAX_LAYOUT_NAME_LENGTH}
-          onLayoutModeChange={changeLayoutMode}
-          onFixedGridChange={updateFixedGrid}
-          onGlobalTimerSecondsChange={setGlobalTimerSeconds}
-          onGlobalTimerAction={runGlobalAction}
-          onCloneSelectedSource={cloneSelectedSource}
-          onFillSelectedSourceSpace={fillSelectedSourceSpace}
-          onToggleShowAllInfo={() => setShowAllInfo((current) => !current)}
-          onHideUi={() => {
-            setIsUiRevealVisible(true);
-            setIsUiHidden(true);
-          }}
-          onAddSource={() => openSourcePanel()}
-          onOpenLayouts={() => setIsLayoutsOpen(true)}
-          onOpenSaveDialog={() => {
-            openSaveDialog();
-            void refreshLocalCacheStatusForCurrentLayout();
-          }}
-          onOpenClearDialog={() => setIsClearOpen(true)}
-          onOpenAccount={() => {
-            setIsAccountOpen(true);
-            void refreshLocalCacheStatus();
-          }}
           onSelectWorkspace={selectWorkspace}
           onBeginWorkspaceRename={beginWorkspaceRename}
           onEditingWorkspaceNameChange={(value) =>
@@ -729,7 +757,7 @@ export function FeedWorkbench({
           onCloseWorkspaceTab={closeWorkspaceTab}
           onCreateWorkspaceTab={createWorkspaceTab}
         />
-      )}
+      ) : null}
 
       <WorkbenchOverlays
         isSourceOpen={isSourceOpen}
@@ -786,6 +814,17 @@ export function FeedWorkbench({
         openSavedTemplates={openSavedTemplates}
         deleteSavedWorkspace={deleteSavedWorkspace}
         deleteSavedTemplate={deleteSavedTemplate}
+        workspaceTabs={workspaceTabs}
+        openWorkspaceStats={openWorkspaceStats}
+        activeWorkspaceId={activeWorkspaceId}
+        selectWorkspace={selectWorkspace}
+        createWorkspaceTab={createWorkspaceTab}
+        closeWorkspaceTab={closeWorkspaceTab}
+        openSaveDialog={() => {
+          setIsLayoutsOpen(false);
+          openSaveDialog();
+          void refreshLocalCacheStatusForCurrentLayout();
+        }}
         isSaveOpen={isSaveOpen}
         setIsSaveOpen={setIsSaveOpen}
         saveName={saveName}
@@ -831,16 +870,9 @@ export function FeedWorkbench({
         replaceLocalSessionFiles={replaceLocalSessionFiles}
         requestLocalCacheAccess={requestLocalCacheAccess}
         openEditSource={openEditSource}
-        selected={selected ?? null}
         layoutMode={layoutMode}
         layers={layers}
         activeLayerId={activeLayerId}
-        layerStats={layerStats}
-        hiddenFixedSessionCount={hiddenFixedSessions.length}
-        selectLayer={selectLayer}
-        addLayer={addLayer}
-        deleteActiveLayer={deleteActiveLayer}
-        updateFreeRect={updateFreeRect}
         fixedGrid={fixedGrid}
         visibleFixedCells={visibleFixedCells}
         selectedId={selectedId}
@@ -853,6 +885,66 @@ export function FeedWorkbench({
         removeTemplateSlot={removeTemplateSlot}
         beginFreeDrag={beginFreeDrag}
       />
+      {!isUiHidden && !maximized ? (
+        <WorkbenchChrome
+          workspaceName={workspaceName}
+          layoutMode={layoutMode}
+          layoutModeLocked={layoutModeLocked}
+          fixedGrid={fixedGrid}
+          globalSeconds={globalSeconds}
+          hasRunningSessionTimer={sessions.some(
+            (session) => !session.timer.isPaused,
+          )}
+          selected={selected ?? null}
+          canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
+          showAllInfo={showAllInfo}
+          isClearDisabled={isClearDisabled}
+          isAnySheetOpen={isAnySheetOpen}
+          layers={layers}
+          layerStats={layerStats}
+          activeLayerId={activeLayerId}
+          accountButtonLabel={accountButtonLabel}
+          accountButtonTitle={accountButtonTitle}
+          onLayoutModeChange={changeLayoutMode}
+          onFixedGridChange={updateFixedGrid}
+          onGlobalTimerSecondsChange={setGlobalTimerSeconds}
+          onGlobalTimerAction={runGlobalAction}
+          onCloneSelectedSource={cloneSelectedSource}
+          onFillSelectedSourceSpace={fillSelectedSourceSpace}
+          onRemoveSelectedSource={() => {
+            if (selected) removeSession(selected.id);
+          }}
+          onSelectedTimerModeChange={setSelectedTimerMode}
+          onSelectedTimerSecondsChange={setSelectedTimerSeconds}
+          onSelectedMove={moveSelectedSource}
+          onSelectedTogglePaused={toggleSelectedSourcePaused}
+          onSelectedRestart={restartSelectedSource}
+          onEditSelectedSource={() => {
+            if (selected) openEditSource(selected.id);
+          }}
+          onOpenSatellite={() => {
+            if (selected) setMaximizedId(selected.id);
+          }}
+          onToggleShowAllInfo={() => setShowAllInfo((current) => !current)}
+          onHideUi={() => {
+            setIsUiRevealVisible(true);
+            setIsUiHidden(true);
+          }}
+          onAddSource={() => openSourcePanel()}
+          onOpenLibrary={() => setIsLayoutsOpen(true)}
+          onOpenSaveDialog={() => {
+            openSaveDialog();
+            void refreshLocalCacheStatusForCurrentLayout();
+          }}
+          onOpenClearDialog={() => setIsClearOpen(true)}
+          onOpenAccount={() => {
+            setIsAccountOpen(true);
+            void refreshLocalCacheStatus();
+          }}
+          onSelectLayer={selectLayer}
+          onFreeRectChange={updateFreeRect}
+        />
+      ) : null}
     </main>
   );
 }

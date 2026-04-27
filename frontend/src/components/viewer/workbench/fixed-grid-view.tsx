@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { ChangeEvent } from "react";
+import { ChangeEvent, type CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
 import type { FixedGrid } from "@/lib/viewer/layout";
@@ -69,18 +69,28 @@ export function FixedGridView({
 }) {
   let mountedIframeCount = 0;
   const iframeLimit = activeIframeFallbackLimit();
+  const shouldStackMobile =
+    fixedGrid.rows === 1 && fixedGrid.columns >= 2 && fixedGrid.columns <= 4;
+  const mobileColumns = shouldStackMobile ? 1 : fixedGrid.columns;
+  const mobileRows = shouldStackMobile ? fixedGrid.columns : fixedGrid.rows;
+  const gridStyle = {
+    "--mobile-grid-columns": mobileColumns,
+    "--mobile-grid-rows": mobileRows,
+    "--desktop-grid-columns": fixedGrid.columns,
+    "--desktop-grid-rows": fixedGrid.rows,
+  } as CSSProperties;
 
   return (
     <div
       className={cn(
-        "grid",
+        "grid [grid-template-columns:repeat(var(--mobile-grid-columns),minmax(0,1fr))] [grid-template-rows:repeat(var(--mobile-grid-rows),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--desktop-grid-columns),minmax(0,1fr))] md:[grid-template-rows:repeat(var(--desktop-grid-rows),minmax(0,1fr))]",
         hideUi
           ? "h-dvh min-h-0 min-w-0 gap-0"
-          : "h-full min-h-0 min-w-0 gap-2 md:min-h-[360px] md:min-w-[720px]",
+          : "h-full min-h-0 min-w-0 gap-1 md:min-h-[360px] md:min-w-[720px] md:gap-2",
       )}
-      style={{
-        gridTemplateColumns: `repeat(${fixedGrid.columns}, minmax(0, 1fr))`,
-        gridTemplateRows: `repeat(${fixedGrid.rows}, minmax(0, 1fr))`,
+      style={gridStyle}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) setSelectedId(null);
       }}
     >
       {Array.from({ length: visibleCells }, (_, slot) => {
@@ -161,6 +171,8 @@ export function FixedGridView({
                   onLocalCacheAccessRequested?.(session.id)
                 }
               />
+            ) : hideUi ? (
+              <div className="size-full bg-background" />
             ) : (
               <button
                 type="button"

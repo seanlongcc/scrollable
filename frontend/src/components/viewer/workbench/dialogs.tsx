@@ -1,4 +1,4 @@
-import { Database, FolderOpen, LogOut, Save, Trash2 } from "lucide-react";
+import { Database, FolderOpen, LogOut, Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import { SignInPanel } from "@/components/auth/sign-in-panel";
@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import type {
   AccountState,
   LayoutMode,
@@ -21,14 +22,21 @@ import type {
   SaveKind,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
+  WorkspaceTab,
 } from "./types";
 import { MAX_LAYOUT_NAME_LENGTH } from "./types";
-import {
-  limitLayoutName,
-  workspaceFileCount,
-  workspaceLayerSummaries,
-} from "./helpers";
+import { limitLayoutName, workspaceFileCount } from "./helpers";
 export { accountStateFromUser } from "./account-actions";
+
+type WorkspaceStats = {
+  sourceCount: number;
+  fileCount: number;
+};
+
+const EMPTY_WORKSPACE_STATS: WorkspaceStats = {
+  sourceCount: 0,
+  fileCount: 0,
+};
 
 export function LayoutDialog({
   open,
@@ -39,6 +47,13 @@ export function LayoutDialog({
   onOpenTemplates,
   onDeleteWorkspace,
   onDeleteTemplate,
+  workspaceTabs,
+  openWorkspaceStats,
+  activeWorkspaceId,
+  onSelectWorkspace,
+  onCreateWorkspaceTab,
+  onCloseWorkspaceTab,
+  onSaveCurrentLayout,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,6 +63,13 @@ export function LayoutDialog({
   onOpenTemplates: (ids: string[]) => void;
   onDeleteWorkspace: (id: string) => void;
   onDeleteTemplate: (id: string) => void;
+  workspaceTabs: WorkspaceTab[];
+  openWorkspaceStats: Record<string, WorkspaceStats>;
+  activeWorkspaceId: string;
+  onSelectWorkspace: (id: string) => void;
+  onCreateWorkspaceTab: () => void;
+  onCloseWorkspaceTab: (id: string) => void;
+  onSaveCurrentLayout: () => void;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
@@ -108,13 +130,44 @@ export function LayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[85dvh] w-[min(94vw,34rem)] gap-3 overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-auto md:right-auto md:bottom-3 md:left-3 md:h-auto md:max-h-[calc(100dvh-5rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader className="pr-8">
-          <DialogTitle>Saved layouts</DialogTitle>
+          <DialogTitle>Library</DialogTitle>
           <DialogDescription className="sr-only">
             Browse saved metadata-only layouts and templates.
           </DialogDescription>
         </DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" onClick={onSaveCurrentLayout}>
+            <Save />
+            Save layout
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCreateWorkspaceTab}
+          >
+            <FolderOpen />
+            New blank
+          </Button>
+        </div>
+        <section className="grid gap-2">
+          <h2 className="text-xs font-semibold text-muted-foreground">
+            Open layouts
+          </h2>
+          <div className="grid gap-1">
+            {workspaceTabs.map((tab) => (
+              <OpenWorkspaceRow
+                key={tab.id}
+                tab={tab}
+                stats={openWorkspaceStats[tab.id] ?? EMPTY_WORKSPACE_STATS}
+                isActive={tab.id === activeWorkspaceId}
+                onSelectWorkspace={onSelectWorkspace}
+                onCloseWorkspaceTab={onCloseWorkspaceTab}
+              />
+            ))}
+          </div>
+        </section>
         <Tabs
           value={libraryKind}
           onValueChange={(value) => setLibraryKind(value as LibraryKind)}
@@ -132,7 +185,6 @@ export function LayoutDialog({
             >
               {sortedWorkspaces.length ? (
                 sortedWorkspaces.map((workspace) => {
-                  const layerSummaries = workspaceLayerSummaries(workspace);
                   const sourceCount = workspace.sessions.length;
                   const fileCount = workspaceFileCount(workspace);
 
@@ -158,10 +210,9 @@ export function LayoutDialog({
                           {workspace.name}
                         </div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {workspace.layoutMode} · {layerSummaries.length} layer
-                          {layerSummaries.length === 1 ? "" : "s"} ·{" "}
-                          {sourceCount} source{sourceCount === 1 ? "" : "s"} ·{" "}
-                          {fileCount} file{fileCount === 1 ? "" : "s"}
+                          {workspace.layoutMode} · {sourceCount} source
+                          {sourceCount === 1 ? "" : "s"} · {fileCount} file
+                          {fileCount === 1 ? "" : "s"}
                         </div>
                       </div>
                       <Button
@@ -278,6 +329,55 @@ export function LayoutDialog({
   );
 }
 
+function OpenWorkspaceRow({
+  tab,
+  stats,
+  isActive,
+  onSelectWorkspace,
+  onCloseWorkspaceTab,
+}: {
+  tab: WorkspaceTab;
+  stats: WorkspaceStats;
+  isActive: boolean;
+  onSelectWorkspace: (id: string) => void;
+  onCloseWorkspaceTab: (id: string) => void;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1">
+      <Button
+        type="button"
+        variant={isActive ? "default" : "outline"}
+        className="h-auto min-h-12 min-w-0 justify-start px-2 py-1.5 text-left"
+        onClick={() => onSelectWorkspace(tab.id)}
+      >
+        <span className="min-w-0">
+          <span className="block truncate font-medium">{tab.name}</span>
+          <span
+            className={cn(
+              "block truncate text-[11px] leading-4",
+              isActive ? "text-primary-foreground/70" : "text-muted-foreground",
+            )}
+          >
+            {stats.sourceCount} source{stats.sourceCount === 1 ? "" : "s"} ·{" "}
+            {stats.fileCount} file{stats.fileCount === 1 ? "" : "s"}
+          </span>
+        </span>
+      </Button>
+      <Button
+        type="button"
+        size="icon"
+        variant="outline"
+        aria-label={`Close ${tab.name}`}
+        title={`Close ${tab.name}`}
+        onClick={() => onCloseWorkspaceTab(tab.id)}
+        className="hidden h-12 w-9 shrink-0 md:inline-flex"
+      >
+        <X />
+      </Button>
+    </div>
+  );
+}
+
 export function SaveLayoutDialog({
   open,
   onOpenChange,
@@ -307,7 +407,7 @@ export function SaveLayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:w-[min(92vw,24rem)] md:max-w-[24rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Save layout as</DialogTitle>
           <DialogDescription className="sr-only">
@@ -382,7 +482,7 @@ export function ClearLayoutDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="top-auto bottom-0 left-0 h-auto w-full max-w-none translate-x-0 translate-y-0 content-start rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:w-[min(92vw,24rem)] md:max-w-[24rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Clear layout?</DialogTitle>
           <DialogDescription>
@@ -429,7 +529,7 @@ export function LargeLocalCacheDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(92vw,26rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:left-1/2 md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Copy local files to browser storage?</DialogTitle>
           <DialogDescription>
@@ -476,7 +576,7 @@ export function LocalCacheStorageFullDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(92vw,26rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:left-1/2 md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Local file cache full</DialogTitle>
           <DialogDescription>
@@ -528,7 +628,7 @@ export function AccountDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(92vw,24rem)] border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
+      <DialogContent className="top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-2xl border border-border bg-popover text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-auto md:right-auto md:bottom-3 md:left-3 md:h-auto md:max-h-[calc(100dvh-5rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]">
         <DialogHeader>
           <DialogTitle>Account</DialogTitle>
           <DialogDescription className="sr-only">

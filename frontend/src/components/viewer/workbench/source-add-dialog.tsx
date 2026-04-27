@@ -1,5 +1,5 @@
 import { FolderOpen, Globe, Grid2X2, Loader2, Upload } from "lucide-react";
-import { ChangeEvent, DragEvent as ReactDragEvent } from "react";
+import { ChangeEvent, DragEvent as ReactDragEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,8 @@ import type {
   SourceGroupingMode,
 } from "./types";
 import { clamp } from "./helpers";
+
+type SourceKind = "url" | "local" | "reddit";
 
 export function SourceDialog({
   open,
@@ -87,6 +89,8 @@ export function SourceDialog({
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
   allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
 }) {
+  const [sourceKind, setSourceKind] = useState<SourceKind>("url");
+
   return (
     <Dialog
       open={open}
@@ -96,7 +100,7 @@ export function SourceDialog({
     >
       <DialogContent
         aria-busy={isLoading}
-        className="grid max-h-[96dvh] w-[min(96vw,72rem)] max-w-[72rem] overflow-x-hidden overflow-y-auto border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-[72rem]"
+        className="top-auto bottom-0 left-0 max-h-[86dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-x-hidden overflow-y-auto rounded-t-2xl border border-border bg-popover p-3 text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[82dvh] md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]"
       >
         {isLoading ? (
           <div className="absolute inset-0 z-30 grid place-items-center bg-popover/82 px-6 backdrop-blur-sm">
@@ -110,55 +114,39 @@ export function SourceDialog({
             </div>
           </div>
         ) : null}
-        <DialogHeader>
+        <DialogHeader className="pr-8">
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
-            Choose local files or paste a URL, Reddit post, or subreddit link
-            for the viewer.
+            Add URL, local, or Reddit source.
           </DialogDescription>
         </DialogHeader>
+
         <div
           className={cn(
-            "grid min-w-0 gap-4",
+            "grid min-w-0 gap-3",
             isLoading && "pointer-events-none select-none opacity-50",
           )}
         >
-          <div
-            className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
-            role="group"
-            aria-label="Source mode"
-          >
-            <Button
-              type="button"
-              size="sm"
-              variant={sourceGroupingMode === "stacked" ? "default" : "ghost"}
-              disabled={isLoading}
-              onClick={() => setSourceGroupingMode("stacked")}
-              aria-label="Add sources as one stacked source"
-            >
-              Stacked
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={sourceGroupingMode === "separate" ? "default" : "ghost"}
-              disabled={isLoading}
-              onClick={() => setSourceGroupingMode("separate")}
-              aria-label="Add sources as separate sources"
-            >
-              Separate
-            </Button>
-          </div>
-          <section className="grid gap-3 rounded-lg border border-border bg-surface p-3">
-            <h2 className="text-sm font-medium">URL source</h2>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(7rem,10rem)_auto] sm:items-end">
+          <SegmentedControl
+            value={sourceKind}
+            options={[
+              ["url", "URL"],
+              ["local", "Local"],
+              ["reddit", "Reddit"],
+            ]}
+            ariaLabel="Source type"
+            onChange={(value) => setSourceKind(value as SourceKind)}
+          />
+
+          {sourceKind === "url" ? (
+            <section className="grid gap-3 rounded-lg border border-border bg-surface p-3">
               <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
                 URL
                 <Input
                   value={urlValue}
                   disabled={isLoading}
                   onChange={(event) => setUrlValue(event.target.value)}
-                  placeholder="https://example.com/media-or-page"
+                  placeholder="https://example.com/media"
                   className="h-9 font-mono text-xs"
                 />
               </Label>
@@ -177,172 +165,110 @@ export function SourceDialog({
                 onClick={openUrlSource}
                 disabled={isLoading}
                 aria-label="Open URL"
-                className="h-9"
               >
                 {isLoading ? <Loader2 className="animate-spin" /> : <Globe />}
                 Open URL
               </Button>
-            </div>
-          </section>
-          <div className="grid min-h-[39rem] min-w-0 gap-5 md:grid-cols-2">
-            <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border bg-surface p-3">
-              <h2 className="text-sm font-medium">Local source</h2>
-              <div
-                className="grid min-h-0 gap-3 text-sm text-muted-foreground"
-                role="group"
-                aria-label="Local upload picker"
-              >
-                <div className="grid min-h-0 grid-rows-2 gap-3">
-                  <Label
-                    role="button"
-                    tabIndex={isLoading ? -1 : 0}
-                    aria-label="Drop files"
-                    onDragOver={isLoading ? undefined : allowLocalFileDrop}
-                    onDragEnter={isLoading ? undefined : allowLocalFileDrop}
-                    onDrop={isLoading ? undefined : addDroppedLocalFiles}
-                    onClick={(event) => {
-                      if (isLoading) return;
-                      if (!("showOpenFilePicker" in window)) return;
-                      event.preventDefault();
-                      void selectLocalFilesWithHandles();
-                    }}
-                    className="size-full min-h-0 cursor-pointer justify-center rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  >
-                    <span className="flex flex-col items-center justify-center gap-2">
-                      <Upload className="size-6 text-primary" />
-                      <span className="grid gap-1">
-                        <span className="text-sm font-medium text-foreground">
-                          Files
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          Drop files here or click to select
-                        </span>
-                      </span>
+            </section>
+          ) : null}
+
+          {sourceKind === "local" ? (
+            <section className="grid gap-3 rounded-lg border border-border bg-surface p-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Label
+                  role="button"
+                  tabIndex={isLoading ? -1 : 0}
+                  aria-label="Drop files"
+                  onDragOver={isLoading ? undefined : allowLocalFileDrop}
+                  onDragEnter={isLoading ? undefined : allowLocalFileDrop}
+                  onDrop={isLoading ? undefined : addDroppedLocalFiles}
+                  onClick={(event) => {
+                    if (isLoading) return;
+                    if (!("showOpenFilePicker" in window)) return;
+                    event.preventDefault();
+                    void selectLocalFilesWithHandles();
+                  }}
+                  className="grid min-h-24 cursor-pointer place-items-center rounded-lg border border-dashed border-border/70 bg-background/55 p-3 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+                >
+                  <span className="grid justify-items-center gap-2">
+                    <Upload className="size-5 text-primary" />
+                    <span className="text-sm font-medium text-foreground">
+                      Files
                     </span>
-                    <span className="sr-only">Image/video files</span>
-                    <Input
-                      type="file"
-                      accept="image/*,video/*,audio/*"
-                      multiple
-                      disabled={isLoading}
-                      className="sr-only"
-                      aria-label="Image/video files"
-                      onChange={addLocalFiles}
-                    />
-                  </Label>
-                  <Label
-                    role="button"
-                    tabIndex={isLoading ? -1 : 0}
-                    aria-label="Drop folder"
-                    onDragOver={isLoading ? undefined : allowLocalFileDrop}
-                    onDragEnter={isLoading ? undefined : allowLocalFileDrop}
-                    onDrop={isLoading ? undefined : addDroppedLocalFiles}
-                    onClick={(event) => {
-                      if (isLoading) return;
-                      if (!("showDirectoryPicker" in window)) return;
-                      event.preventDefault();
-                      void selectLocalFolderWithHandles();
-                    }}
-                    className="size-full min-h-0 cursor-pointer justify-center rounded-lg border border-dashed border-border/70 bg-background/55 p-4 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  >
-                    <span className="flex flex-col items-center justify-center gap-2">
-                      <FolderOpen className="size-6 text-primary" />
-                      <span className="grid gap-1">
-                        <span className="text-sm font-medium text-foreground">
-                          Folder
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          Drop a folder here or click to select
-                        </span>
-                      </span>
+                  </span>
+                  <Input
+                    type="file"
+                    accept="image/*,video/*,audio/*"
+                    multiple
+                    disabled={isLoading}
+                    className="sr-only"
+                    aria-label="Image/video files"
+                    onChange={addLocalFiles}
+                  />
+                </Label>
+                <Label
+                  role="button"
+                  tabIndex={isLoading ? -1 : 0}
+                  aria-label="Drop folder"
+                  onDragOver={isLoading ? undefined : allowLocalFileDrop}
+                  onDragEnter={isLoading ? undefined : allowLocalFileDrop}
+                  onDrop={isLoading ? undefined : addDroppedLocalFiles}
+                  onClick={(event) => {
+                    if (isLoading) return;
+                    if (!("showDirectoryPicker" in window)) return;
+                    event.preventDefault();
+                    void selectLocalFolderWithHandles();
+                  }}
+                  className="grid min-h-24 cursor-pointer place-items-center rounded-lg border border-dashed border-border/70 bg-background/55 p-3 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+                >
+                  <span className="grid justify-items-center gap-2">
+                    <FolderOpen className="size-5 text-primary" />
+                    <span className="text-sm font-medium text-foreground">
+                      Folder
                     </span>
-                    <span className="sr-only">Image/video folder</span>
-                    <DirectoryInput
-                      type="file"
-                      accept="image/*,video/*,audio/*"
-                      multiple
-                      disabled={isLoading}
-                      directory=""
-                      webkitdirectory=""
-                      className="sr-only"
-                      aria-label="Image/video folder"
-                      onChange={addLocalFiles}
-                    />
-                  </Label>
-                </div>
+                  </span>
+                  <DirectoryInput
+                    type="file"
+                    accept="image/*,video/*,audio/*"
+                    multiple
+                    disabled={isLoading}
+                    directory=""
+                    webkitdirectory=""
+                    className="sr-only"
+                    aria-label="Image/video folder"
+                    onChange={addLocalFiles}
+                  />
+                </Label>
               </div>
             </section>
+          ) : null}
 
-            <section className="grid min-h-0 min-w-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] gap-2 rounded-lg border border-border bg-surface p-3">
-              <h2 className="text-sm font-medium">Reddit</h2>
-              <div
-                className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1"
-                role="group"
-                aria-label="Reddit input mode"
-              >
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={
-                    redditInputMode === "subreddit" ? "default" : "ghost"
-                  }
-                  aria-label="Use subreddit name"
-                  aria-pressed={redditInputMode === "subreddit"}
-                  disabled={isLoading}
-                  onClick={() => setRedditInputMode("subreddit")}
-                >
-                  Subreddit
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={redditInputMode === "links" ? "default" : "ghost"}
-                  aria-label="Use Reddit links"
-                  aria-pressed={redditInputMode === "links"}
-                  disabled={isLoading}
-                  onClick={() => setRedditInputMode("links")}
-                >
-                  Links
-                </Button>
-              </div>
-              <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
-                Reddit media count
-                <Input
-                  type="number"
-                  min={1}
-                  max={MAX_REDDIT_MEDIA_LIMIT}
-                  value={redditLimit || ""}
-                  disabled={isLoading}
-                  onChange={(event) => {
-                    if (event.target.value === "") {
-                      setRedditLimit(0);
-                      return;
-                    }
-
-                    setRedditLimit(
-                      clamp(
-                        Number(event.target.value),
-                        1,
-                        MAX_REDDIT_MEDIA_LIMIT,
-                      ),
-                    );
-                  }}
-                  className="h-9"
-                />
-              </Label>
+          {sourceKind === "reddit" ? (
+            <section className="grid gap-3 rounded-lg border border-border bg-surface p-3">
+              <SegmentedControl
+                value={redditInputMode}
+                options={[
+                  ["subreddit", "Subreddit"],
+                  ["links", "Links"],
+                ]}
+                ariaLabel="Reddit input mode"
+                onChange={(value) =>
+                  setRedditInputMode(value as RedditInputMode)
+                }
+              />
               {redditInputMode === "subreddit" ? (
-                <div className="grid content-start gap-3">
+                <div className="grid gap-3">
                   <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
-                    Subreddit name
+                    Name
                     <Input
                       value={subredditName}
                       disabled={isLoading}
                       onChange={(event) => setSubredditName(event.target.value)}
-                      placeholder="kpop, pics, aww"
+                      placeholder="pics"
                       className="h-9 font-mono"
                     />
                   </Label>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <LabeledSelect
                       label="Sort"
                       value={redditSort}
@@ -353,7 +279,7 @@ export function SourceDialog({
                       }
                     />
                     <LabeledSelect
-                      label="Time range"
+                      label="Time"
                       value={redditTimeRange}
                       options={REDDIT_TIME_OPTIONS}
                       disabled={
@@ -367,35 +293,118 @@ export function SourceDialog({
                   </div>
                 </div>
               ) : (
-                <Textarea
-                  aria-label="Paste Reddit post or subreddit links, one per line"
-                  value={redditUrls}
-                  disabled={isLoading}
-                  onChange={(event) => setRedditUrls(event.target.value)}
-                  placeholder={`Accepted links:
-1. Specific post link:
-https://www.reddit.com/r/<community>/comments/<post_id>/<post_title>/
-2. Sorted subreddit link:
-https://www.reddit.com/r/<community>/top/?t=week
-
-Use the Subreddit tab for bare names.`}
-                  className="h-full min-h-0 resize-none font-mono text-xs leading-5"
-                />
+                <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
+                  Links
+                  <Textarea
+                    aria-label="Paste Reddit post or subreddit links, one per line"
+                    value={redditUrls}
+                    disabled={isLoading}
+                    onChange={(event) => setRedditUrls(event.target.value)}
+                    placeholder={`reddit.com/r/pics/top/?t=week
+reddit.com/r/art/comments/...`}
+                    className="min-h-40 resize-none font-mono text-xs leading-5 md:min-h-56"
+                  />
+                </Label>
               )}
-              <Button
-                type="button"
-                onClick={fetchRedditFeed}
-                disabled={isLoading}
-                aria-label="Open Reddit links"
-                className="self-end"
-              >
-                {isLoading ? <Loader2 className="animate-spin" /> : <Grid2X2 />}
-                Open Reddit
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
+                  Limit
+                  <Input
+                    type="number"
+                    min={1}
+                    max={MAX_REDDIT_MEDIA_LIMIT}
+                    value={redditLimit || ""}
+                    disabled={isLoading}
+                    onChange={(event) => {
+                      if (event.target.value === "") {
+                        setRedditLimit(0);
+                        return;
+                      }
+
+                      setRedditLimit(
+                        clamp(
+                          Number(event.target.value),
+                          1,
+                          MAX_REDDIT_MEDIA_LIMIT,
+                        ),
+                      );
+                    }}
+                    className="h-9"
+                  />
+                </Label>
+                <div className="grid content-end">
+                  <Button
+                    type="button"
+                    onClick={fetchRedditFeed}
+                    disabled={isLoading}
+                    aria-label="Open Reddit links"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <Grid2X2 />
+                    )}
+                    Open Reddit
+                  </Button>
+                </div>
+              </div>
             </section>
-          </div>
+          ) : null}
+
+          <section className="grid gap-2 rounded-lg border border-border bg-surface p-3">
+            <h2 className="text-xs font-semibold text-muted-foreground">
+              Grouping
+            </h2>
+            <SegmentedControl
+              value={sourceGroupingMode}
+              options={[
+                ["stacked", "Stacked"],
+                ["separate", "Separate"],
+              ]}
+              ariaLabel="Source grouping"
+              onChange={(value) =>
+                setSourceGroupingMode(value as SourceGroupingMode)
+              }
+            />
+          </section>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SegmentedControl({
+  value,
+  options,
+  ariaLabel,
+  onChange,
+}: {
+  value: string;
+  options: Array<[string, string]>;
+  ariaLabel: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className="grid gap-1 rounded-lg border border-border bg-background/60 p-1"
+      style={{
+        gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
+      }}
+    >
+      {options.map(([optionValue, label]) => (
+        <Button
+          key={optionValue}
+          type="button"
+          size="sm"
+          variant={value === optionValue ? "default" : "ghost"}
+          aria-pressed={value === optionValue}
+          onClick={() => onChange(optionValue)}
+        >
+          {label}
+        </Button>
+      ))}
+    </div>
   );
 }
