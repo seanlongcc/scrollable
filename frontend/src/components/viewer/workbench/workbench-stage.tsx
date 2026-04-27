@@ -143,7 +143,7 @@ export function WorkbenchStage({
         "grid min-h-0 grid-rows-[minmax(0,1fr)]",
         isUiHidden
           ? "p-0"
-          : "px-2 pt-[4.25rem] pb-[4.5rem] md:pt-16 md:pr-4 md:pb-4 md:pl-[20.5rem]",
+          : "px-2 pt-2 pb-[4.5rem] md:pt-16 md:pr-4 md:pb-4 md:pl-[20.5rem]",
       )}
     >
       <div

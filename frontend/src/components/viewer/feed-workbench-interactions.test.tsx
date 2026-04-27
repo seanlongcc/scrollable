@@ -146,7 +146,7 @@ describe("FeedWorkbench interactions", () => {
     ).toBeInTheDocument();
   });
 
-  it("defaults sources to global timers and hides local timer inputs until local mode", async () => {
+  it("defaults sources to global timers and uses the selected-source panel for local mode", async () => {
     stubRuntimeFetch();
     stubRandomUuids(["workspace-1", "session-1"]);
 
@@ -156,27 +156,23 @@ describe("FeedWorkbench interactions", () => {
     await addDefaultSubredditSource(user);
 
     expect(
-      await screen.findByRole("button", { name: "r/pics uses global timer" }),
+      await screen.findByRole("button", { name: "Local timer" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("r/pics local timer seconds"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Local timer seconds")).toHaveValue(10);
 
-    await user.click(
-      screen.getByRole("button", { name: "r/pics uses global timer" }),
+    await user.click(screen.getByRole("button", { name: "Local timer" }));
+
+    expect(screen.getByRole("button", { name: "Local timer" })).toHaveAttribute(
+      "data-variant",
+      "default",
     );
-
-    expect(
-      screen.getByRole("button", { name: "r/pics uses local timer" }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("r/pics local timer seconds")).toHaveValue(10);
-    expect(screen.getByLabelText("r/pics local timer seconds")).toHaveAttribute(
+    expect(screen.getByLabelText("Local timer seconds")).toHaveAttribute(
       "min",
       "1",
     );
   });
 
-  it("shows local timer inputs in compact free-layout sources", async () => {
+  it("omits per-source timer controls from compact free-layout sources", async () => {
     stubRuntimeFetch();
     stubRandomUuids(["workspace-1", "session-1"]);
 
@@ -185,13 +181,13 @@ describe("FeedWorkbench interactions", () => {
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await addDefaultSubredditSource(user);
-    await user.click(
-      await screen.findByRole("button", { name: "r/pics uses global timer" }),
-    );
 
     expect(
-      screen.getByLabelText("r/pics local timer seconds"),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "r/pics uses global timer" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("r/pics local timer seconds"),
+    ).not.toBeInTheDocument();
   });
 
   it("hides chrome and progress in content-only mode", async () => {
@@ -395,7 +391,7 @@ describe("FeedWorkbench interactions", () => {
     ).toBeInTheDocument();
   });
 
-  it("selects a source from the explicit select handle and existing controls", async () => {
+  it("selects a source from the explicit select handle", async () => {
     stubRuntimeFetch();
     stubRandomUuids(["workspace-1", "session-1"]);
 
@@ -419,11 +415,6 @@ describe("FeedWorkbench interactions", () => {
     expect(
       screen.queryByRole("button", { name: "Clone selected source" }),
     ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Pause r/pics" }));
-    expect(
-      screen.getByRole("button", { name: "Clone selected source" }),
-    ).toBeInTheDocument();
   });
 
   it("keeps the active stack item when switching layout modes", async () => {
@@ -458,9 +449,7 @@ describe("FeedWorkbench interactions", () => {
 
     await addDefaultSubredditSource(user);
     await screen.findByText(/1\/2/);
-    await user.click(
-      screen.getByRole("button", { name: "Next item for r/pics" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText(/2\/2/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));

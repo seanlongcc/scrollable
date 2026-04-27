@@ -3,18 +3,12 @@
 import {
   ChevronLeft,
   ChevronRight,
-  Clock3,
   ExternalLink,
   Globe,
   GlobeOff,
   Maximize2,
   MousePointer2,
-  Pause,
   Pencil,
-  Play,
-  RotateCcw,
-  SkipBack,
-  SkipForward,
   X,
 } from "lucide-react";
 import {
@@ -56,15 +50,11 @@ export function FeedViewPane({
   onGalleryChange,
   onVideoPositionChange,
   onMove,
-  onTogglePaused,
-  onRestart,
   onSelect,
   onToggleSelect,
   onMaximize,
   onEdit,
   onRemove,
-  onTimerModeChange,
-  onTimerSecondsChange,
 }: {
   viewId?: string;
   title: string;
@@ -363,79 +353,6 @@ export function FeedViewPane({
               </div>
             </div>
           ) : null}
-          <div className="pointer-events-auto flex flex-wrap items-center gap-1">
-            {onTimerModeChange ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant={timerMode === "local" ? "default" : "outline"}
-                className="border-border bg-background/75 text-foreground"
-                aria-label={`${title} uses ${modeLabel} timer`}
-                onClick={() =>
-                  selectThen(() =>
-                    onTimerModeChange(
-                      timerMode === "local" ? "global" : "local",
-                    ),
-                  )
-                }
-              >
-                <Clock3 />
-              </Button>
-            ) : null}
-            {timerMode === "local" && onTimerSecondsChange ? (
-              <input
-                type="number"
-                min={1}
-                max={120}
-                value={timer.durationSeconds}
-                aria-label={`${title} local timer seconds`}
-                onChange={(event) =>
-                  onTimerSecondsChange(Number(event.target.value))
-                }
-                className="h-8 w-14 rounded-md border border-border bg-background/75 px-1 text-center font-mono text-xs text-foreground outline-none focus-visible:border-primary"
-              />
-            ) : null}
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              className="border-border bg-background/75 text-foreground"
-              aria-label={`Previous item for ${title}`}
-              onClick={() => selectThen(() => onMove(-1))}
-            >
-              <SkipBack />
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              className="border-border bg-background/75 text-foreground"
-              aria-label={`${timer.isPaused ? "Play" : "Pause"} ${title}`}
-              onClick={() => selectThen(onTogglePaused)}
-            >
-              {timer.isPaused ? <Play /> : <Pause />}
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              className="border-border bg-background/75 text-foreground"
-              aria-label={`Next item for ${title}`}
-              onClick={() => selectThen(() => onMove(1))}
-            >
-              <SkipForward />
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="outline"
-              className="border-border bg-background/75 text-foreground"
-              aria-label={`Restart ${title}`}
-              onClick={() => selectThen(onRestart)}
-            >
-              <RotateCcw />
-            </Button>
-          </div>
         </div>
       ) : null}
     </article>

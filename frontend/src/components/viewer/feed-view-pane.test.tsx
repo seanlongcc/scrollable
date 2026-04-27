@@ -135,6 +135,37 @@ describe("FeedViewPane", () => {
     expect(onToggleSelect).toHaveBeenCalledOnce();
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("shows source info without per-source playback controls", () => {
+    render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        forceInfoVisible
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("active")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Previous item for r/pics" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Pause r/pics" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next item for r/pics" }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 function feedItem(

@@ -564,9 +564,7 @@ describe("FeedWorkbench local uploads", () => {
 
     expect(screen.getByText(/1\/2/)).toBeInTheDocument();
     expect(await screen.findByAltText("folder-a.png")).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Next item for Local upload" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getAllByText("folder-b.mp4").length).toBeGreaterThan(0);
   });
 

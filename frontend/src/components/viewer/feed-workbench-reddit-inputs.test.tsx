@@ -285,9 +285,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     expect(screen.getByText("r/kpop, r/aww")).toBeInTheDocument();
     expect(screen.getByText("Runtime kpop")).toBeInTheDocument();
     expect(screen.getByText(/1\/2/)).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Next item for r/kpop, r/aww" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Runtime aww")).toBeInTheDocument();
     const requestUrl = String(
       (

@@ -17,8 +17,11 @@ test("mobile primary controls meet minimum touch target size", async ({
   await page.goto("/");
 
   await expect(
-    page.getByRole("link", { name: "scrollable.app" }),
+    page.getByRole("button", { name: "Add source", exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("link", { name: "scrollable.app" })).toHaveCount(
+    0,
+  );
   expect(await collectTouchTargetViolations(page)).toEqual([]);
 
   await page.getByRole("button", { name: "Add source", exact: true }).click();
@@ -37,17 +40,17 @@ test("mobile primary controls meet minimum touch target size", async ({
   );
 });
 
-test("mobile header clears the first source frame", async ({
+test("mobile omits header and starts the source frame near the top", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only layout audit.");
 
   await page.goto("/");
 
-  await expect(
-    page.getByRole("link", { name: "scrollable.app" }),
-  ).toBeVisible();
-  expect(await headerClearance(page)).toBeGreaterThanOrEqual(8);
+  await expect(page.getByRole("link", { name: "scrollable.app" })).toHaveCount(
+    0,
+  );
+  expect(await sourceFrameTop(page)).toBeLessThanOrEqual(12);
 });
 
 async function collectTouchTargetViolations(
@@ -109,34 +112,13 @@ async function collectTouchTargetViolations(
   }, MIN_TOUCH_TARGET_PX);
 }
 
-async function headerClearance(page: Page): Promise<number> {
+async function sourceFrameTop(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const isVisible = (element: Element) => {
-      const rect = element.getBoundingClientRect();
-      const style = window.getComputedStyle(element);
-      return (
-        rect.width > 0 &&
-        rect.height > 0 &&
-        style.display !== "none" &&
-        style.visibility !== "hidden"
-      );
-    };
-
-    const headerElements = Array.from(
-      document.querySelectorAll("header a, header button, header span"),
-    ).filter(isVisible);
     const stageFrame = document.querySelector("main > section > div");
 
-    if (!headerElements.length || !stageFrame) return -1;
+    if (!stageFrame) return -1;
 
-    const headerBottom = Math.max(
-      ...headerElements.map(
-        (element) => element.getBoundingClientRect().bottom,
-      ),
-    );
-    const stageTop = stageFrame.getBoundingClientRect().top;
-
-    return Math.round(stageTop - headerBottom);
+    return Math.round(stageFrame.getBoundingClientRect().top);
   });
 }
 

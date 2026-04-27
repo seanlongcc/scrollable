@@ -15,9 +15,15 @@ test("home renders multi-view wall without media previews", async ({
 
   await page.goto("/");
 
-  await expect(
-    page.getByRole("link", { name: "scrollable.app" }),
-  ).toBeVisible();
+  if (testInfo.project.name === "mobile") {
+    await expect(
+      page.getByRole("link", { name: "scrollable.app" }),
+    ).toHaveCount(0);
+  } else {
+    await expect(
+      page.getByRole("link", { name: "scrollable.app" }),
+    ).toBeVisible();
+  }
   await openWorkbenchOnMobile(page, testInfo.project.name);
   const workbench = workbenchScope(page, testInfo.project.name);
   await expect(workbench.getByLabel("Columns")).toHaveValue("2");
