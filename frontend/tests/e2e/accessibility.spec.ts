@@ -53,6 +53,36 @@ test("mobile omits header and starts the source frame near the top", async ({
   expect(await sourceFrameTop(page)).toBeLessThanOrEqual(12);
 });
 
+test("mobile source info sits on the right of selected sources", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "Mobile-only layout audit.");
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page.getByRole("button", { name: "Local" }).click();
+  await page
+    .getByLabel("Image/video files")
+    .setInputFiles("tests/fixtures/test.webp");
+  await expect(page.getByAltText("test.webp")).toBeVisible();
+  await page.getByRole("button", { name: "Select Local upload" }).click();
+
+  await page.getByRole("button", { name: "Workbench", exact: true }).click();
+  const workbenchDialog = page.getByRole("dialog", { name: "Workbench" });
+  await expect(workbenchDialog).toBeVisible();
+  const sourceInfoButton = workbenchDialog.getByRole("button", {
+    name: "Source info",
+  });
+  await expect(sourceInfoButton).toHaveAttribute("data-variant", "default");
+  await page.getByRole("button", { name: "Close sheet" }).click();
+  await expect(workbenchDialog).toBeHidden();
+  await expect(page.getByText("Local upload", { exact: true })).toBeVisible();
+
+  const metrics = await sourceInfoAlignment(page);
+  expect(metrics.infoRightGap).toBeLessThanOrEqual(16);
+  expect(metrics.infoLeftGap).toBeGreaterThanOrEqual(44);
+});
+
 async function collectTouchTargetViolations(
   page: Page,
 ): Promise<TargetViolation[]> {
@@ -128,4 +158,27 @@ async function closeSheetRadius(page: Page): Promise<number> {
     .evaluate((element) => {
       return Number.parseFloat(window.getComputedStyle(element).borderRadius);
     });
+}
+
+async function sourceInfoAlignment(page: Page): Promise<{
+  infoLeftGap: number;
+  infoRightGap: number;
+}> {
+  return page.evaluate(() => {
+    const frame = document.querySelector("main > section > div");
+    const infoTitle = document.querySelector('[title="Local upload"]');
+    const infoBox = infoTitle?.parentElement;
+
+    if (!frame || !infoBox) {
+      throw new Error("Missing source frame or info box");
+    }
+
+    const frameRect = frame.getBoundingClientRect();
+    const infoRect = infoBox.getBoundingClientRect();
+
+    return {
+      infoLeftGap: Math.round(infoRect.left - frameRect.left),
+      infoRightGap: Math.round(frameRect.right - infoRect.right),
+    };
+  });
 }

@@ -207,11 +207,11 @@ export function FeedViewPane({
       {!hideUi && forceInfoVisible ? (
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-between gap-2 p-2",
+            "pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-end gap-2 p-2 md:justify-between",
             sourceChromeClass,
           )}
         >
-          <div className="min-w-32 max-w-full flex-1 rounded-md bg-background/75 px-2 py-1.5 backdrop-blur">
+          <div className="ml-auto min-w-32 max-w-[calc(100%-3rem)] flex-none rounded-md bg-background/75 px-2 py-1.5 backdrop-blur md:ml-0 md:max-w-full md:flex-1">
             <div className="truncate text-xs font-medium" title={title}>
               {title}
             </div>
