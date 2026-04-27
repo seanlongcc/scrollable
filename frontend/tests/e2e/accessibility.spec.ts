@@ -83,6 +83,18 @@ test("mobile source info sits on the right of selected sources", async ({
   expect(metrics.infoLeftGap).toBeGreaterThanOrEqual(44);
 });
 
+test("desktop workspace tabs stay centered in the viewport", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop-only header audit.");
+
+  await page.goto("/");
+  await expect(page.getByTestId("workspace-tab-cluster")).toBeVisible();
+
+  const metrics = await workspaceTabCentering(page);
+  expect(metrics.centerOffset).toBeLessThanOrEqual(2);
+});
+
 async function collectTouchTargetViolations(
   page: Page,
 ): Promise<TargetViolation[]> {
@@ -179,6 +191,28 @@ async function sourceInfoAlignment(page: Page): Promise<{
     return {
       infoLeftGap: Math.round(infoRect.left - frameRect.left),
       infoRightGap: Math.round(frameRect.right - infoRect.right),
+    };
+  });
+}
+
+async function workspaceTabCentering(page: Page): Promise<{
+  centerOffset: number;
+}> {
+  return page.evaluate(() => {
+    const cluster = document.querySelector(
+      '[data-testid="workspace-tab-cluster"]',
+    );
+
+    if (!cluster) {
+      throw new Error("Missing workspace tab cluster");
+    }
+
+    const rect = cluster.getBoundingClientRect();
+    const clusterCenter = rect.left + rect.width / 2;
+    const viewportCenter = window.innerWidth / 2;
+
+    return {
+      centerOffset: Math.round(Math.abs(clusterCenter - viewportCenter)),
     };
   });
 }

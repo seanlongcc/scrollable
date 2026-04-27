@@ -138,6 +138,7 @@ export function WorkspaceTabs({
         onWheel={handleWheel}
       >
         <div
+          data-testid="workspace-tab-cluster"
           className={cn(
             "flex min-w-max items-center gap-1",
             !scrollState.isOverflowing && "mx-auto",
