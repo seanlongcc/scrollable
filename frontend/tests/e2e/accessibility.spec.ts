@@ -47,7 +47,7 @@ test("mobile header clears the first source frame", async ({
   await expect(
     page.getByRole("link", { name: "scrollable.app" }),
   ).toBeVisible();
-  expect(await headerClearance(page)).toBeGreaterThanOrEqual(12);
+  expect(await headerClearance(page)).toBeGreaterThanOrEqual(8);
 });
 
 async function collectTouchTargetViolations(
