@@ -19,6 +19,8 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -68,8 +70,10 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.clear(screen.getByLabelText("Reddit media count"));
     await user.type(screen.getByLabelText("Reddit media count"), "24");
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -115,6 +119,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.clear(screen.getByLabelText("Reddit media count"));
     await user.type(screen.getByLabelText("Reddit media count"), "200");
     await user.type(screen.getByLabelText("Subreddit name"), "kpop");
@@ -153,6 +158,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     const dialog = screen.getByRole("dialog", { name: "Add source" });
     expect(
       within(dialog).getByRole("button", { name: "Use subreddit name" }),
@@ -207,6 +213,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     const dialog = screen.getByRole("dialog", { name: "Add source" });
     await user.type(within(dialog).getByLabelText("Subreddit name"), "kpop");
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
@@ -260,6 +267,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     const dialog = screen.getByRole("dialog", { name: "Add source" });
     await user.type(
       within(dialog).getByLabelText("Subreddit name"),
@@ -301,6 +309,8 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
 
     const placeholder = screen
@@ -346,7 +356,9 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await selectSourceGrouping(user, "Separate sources");
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -409,6 +421,8 @@ describe("FeedWorkbench Reddit source inputs", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(

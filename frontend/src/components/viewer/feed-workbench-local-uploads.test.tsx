@@ -27,6 +27,7 @@ describe("FeedWorkbench local uploads", () => {
     const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
     ]);
@@ -38,7 +39,7 @@ describe("FeedWorkbench local uploads", () => {
 
     expect(screen.queryByAltText("a.png")).not.toBeInTheDocument();
 
-    await openSavedLayouts(user, ["Layout 1"]);
+    await openSavedLayouts(user, ["Untitled layout"]);
 
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
@@ -54,6 +55,7 @@ describe("FeedWorkbench local uploads", () => {
     const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
     ]);
@@ -64,7 +66,7 @@ describe("FeedWorkbench local uploads", () => {
     await user.click(screen.getByRole("button", { name: "New layout" }));
     await user.click(screen.getByRole("button", { name: "Close Layout 1" }));
 
-    await openSavedLayouts(user, ["Layout 1"]);
+    await openSavedLayouts(user, ["Untitled layout"]);
 
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
@@ -262,6 +264,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "cached.png", { type: "image/png" }),
@@ -297,6 +300,7 @@ describe("FeedWorkbench local uploads", () => {
     const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["video"], "large.mp4", { type: "video/mp4" }),
@@ -327,15 +331,14 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await selectSourceGrouping(user, "Separate sources");
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
       new File(["b"], "b.mp4", { type: "video/mp4" }),
     ]);
 
-    expect(
-      screen.getByText("2 sources active · Fixed layout"),
-    ).toBeInTheDocument();
+    expect(await screen.findByAltText("a.png")).toBeInTheDocument();
     expect(screen.getAllByText("a.png").length).toBeGreaterThan(0);
     expect(screen.getAllByText("b.mp4").length).toBeGreaterThan(0);
   });
@@ -356,6 +359,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
       new File(["b"], "b.png", { type: "image/png" }),
@@ -379,7 +383,8 @@ describe("FeedWorkbench local uploads", () => {
 
     expect(await screen.findByAltText("b.png")).toBeInTheDocument();
     expect(screen.queryByAltText("a.png")).not.toBeInTheDocument();
-    expect(screen.getByText("Layer 1: 1 source / 1 file")).toBeInTheDocument();
+    expect(screen.getByText("1 source")).toBeInTheDocument();
+    expect(screen.getByText("1 file")).toBeInTheDocument();
     expect(saveLocalFiles).toHaveBeenLastCalledWith(
       "cache-2",
       [
@@ -399,6 +404,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     expect(screen.getByLabelText("Image/video files")).toHaveAttribute(
       "accept",
       "image/*,video/*,audio/*",
@@ -409,7 +415,8 @@ describe("FeedWorkbench local uploads", () => {
     );
 
     expect(await screen.findByLabelText("ambient.mp3")).toBeInTheDocument();
-    expect(screen.getByText("Layer 1: 1 source / 1 file")).toBeInTheDocument();
+    expect(screen.getByText("1 source")).toBeInTheDocument();
+    expect(screen.getByText("1 file")).toBeInTheDocument();
   });
 
   it("shows a blocking loading state while local files are cached", async () => {
@@ -428,6 +435,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     const dialog = screen.getByRole("dialog", { name: "Add source" });
     fireEvent.change(within(dialog).getByLabelText("Image/video files"), {
       target: {
@@ -443,7 +451,9 @@ describe("FeedWorkbench local uploads", () => {
         name: "Add sources as one stacked source",
       }),
     ).toBeDisabled();
-    expect(within(dialog).getByLabelText("URL")).toBeDisabled();
+    expect(
+      within(dialog).getByRole("button", { name: "Local" }),
+    ).toBeDisabled();
     expect(within(dialog).getByLabelText("Image/video files")).toBeDisabled();
 
     resolveSave();
@@ -455,6 +465,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
 
     const uploadPicker = screen.getByRole("group", {
       name: "Local upload picker",
@@ -487,6 +498,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await act(async () => {
       fireEvent.drop(
         screen.getByRole("button", {
@@ -501,9 +513,6 @@ describe("FeedWorkbench local uploads", () => {
       );
     });
 
-    expect(
-      await screen.findByText("1 source active · Fixed layout"),
-    ).toBeInTheDocument();
     expect(await screen.findByAltText("dropped-file.png")).toBeInTheDocument();
   });
 
@@ -515,6 +524,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await act(async () => {
       fireEvent.drop(
         screen.getByRole("button", {
@@ -534,9 +544,6 @@ describe("FeedWorkbench local uploads", () => {
     });
 
     expect(
-      await screen.findByText("1 source active · Fixed layout"),
-    ).toBeInTheDocument();
-    expect(
       await screen.findByAltText("dropped-folder-file.png"),
     ).toBeInTheDocument();
   });
@@ -549,14 +556,12 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video folder"), [
       new File(["a"], "folder-a.png", { type: "image/png" }),
       new File(["b"], "folder-b.mp4", { type: "video/mp4" }),
     ]);
 
-    expect(
-      screen.getByText("1 source active · Fixed layout"),
-    ).toBeInTheDocument();
     expect(screen.getByText(/1\/2/)).toBeInTheDocument();
     expect(await screen.findByAltText("folder-a.png")).toBeInTheDocument();
     await user.click(
@@ -572,22 +577,20 @@ describe("FeedWorkbench local uploads", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    fireEvent.change(screen.getByLabelText("Fixed columns"), {
+    fireEvent.change(screen.getByLabelText("Columns"), {
       target: { value: "1" },
     });
-    fireEvent.change(screen.getByLabelText("Fixed rows"), {
+    fireEvent.change(screen.getByLabelText("Rows"), {
       target: { value: "1" },
     });
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await selectSourceGrouping(user, "Separate sources");
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
       new File(["b"], "b.mp4", { type: "video/mp4" }),
     ]);
 
-    expect(
-      screen.getByText("0 sources active · Fixed layout"),
-    ).toBeInTheDocument();
     expect(screen.queryByText("a.png")).not.toBeInTheDocument();
     expect(screen.queryByText("b.mp4")).not.toBeInTheDocument();
   });

@@ -219,6 +219,7 @@ export function LayoutDialog({
                         type="button"
                         size="icon-sm"
                         variant="destructive"
+                        className="size-8 min-h-0 min-w-0 shrink-0"
                         onClick={(event) => {
                           event.preventDefault();
                           onDeleteWorkspace(workspace.id);
@@ -293,6 +294,7 @@ export function LayoutDialog({
                         type="button"
                         size="icon-sm"
                         variant="destructive"
+                        className="size-8 min-h-0 min-w-0 shrink-0"
                         onClick={(event) => {
                           event.preventDefault();
                           onDeleteTemplate(template.id);

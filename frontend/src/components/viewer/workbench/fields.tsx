@@ -55,7 +55,7 @@ export function NumberField({
             if (Number.isFinite(next)) onChange(next);
           }}
           className={cn(
-            "h-6 w-11 border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground",
+            "h-6 min-h-0 w-11 border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground",
             inputClassName,
           )}
         />
@@ -84,7 +84,7 @@ export function NumberField({
           if (Number.isFinite(next)) onChange(next);
         }}
         className={cn(
-          "h-7 bg-surface-elevated text-foreground",
+          "h-7 min-h-0 bg-surface-elevated text-foreground",
           hideLabel ? "w-full" : "w-20",
           inputClassName,
         )}

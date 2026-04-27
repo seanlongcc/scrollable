@@ -44,6 +44,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     const sourceDialog = screen.getByRole("dialog", { name: "Add source" });
     await user.clear(within(sourceDialog).getByLabelText("Subreddit name"));
     await user.type(
@@ -268,6 +269,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     const sourceDialog = screen.getByRole("dialog", { name: "Add source" });
     await user.clear(within(sourceDialog).getByLabelText("Subreddit name"));
     await user.type(
@@ -331,6 +333,8 @@ describe("FeedWorkbench Reddit source persistence", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -396,6 +400,8 @@ describe("FeedWorkbench Reddit source persistence", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -442,7 +448,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
     await user.click(screen.getByRole("button", { name: "New layout" }));
 
-    await openSavedLayouts(user, ["Layout 1"]);
+    await openSavedLayouts(user, ["Untitled layout"]);
 
     expect(screen.getAllByText("r/pics").length).toBeGreaterThan(0);
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();

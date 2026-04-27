@@ -38,6 +38,7 @@ export function FixedGridView({
   onLocalFilesSelected,
   onLocalCacheAccessRequested,
   onEditSource,
+  cellTestIdPrefix = "fixed-cell",
 }: {
   sessions: FeedSession[];
   visibleCells: number;
@@ -66,6 +67,7 @@ export function FixedGridView({
   ) => void;
   onLocalCacheAccessRequested?: (id: string) => void;
   onEditSource: (id: string) => void;
+  cellTestIdPrefix?: string;
 }) {
   let mountedIframeCount = 0;
   const iframeLimit = activeIframeFallbackLimit();
@@ -101,7 +103,7 @@ export function FixedGridView({
         return (
           <div
             key={slot}
-            data-testid={`fixed-cell-${slot}`}
+            data-testid={`${cellTestIdPrefix}-${slot}`}
             className={cn(
               "min-h-0 rounded-xl outline outline-1 outline-offset-0 outline-transparent transition",
               !hideUi &&
@@ -157,6 +159,9 @@ export function FixedGridView({
                   }))
                 }
                 onSelect={() => setSelectedId(session.id)}
+                onToggleSelect={() =>
+                  setSelectedId(session.id === selectedId ? null : session.id)
+                }
                 onMaximize={() => setMaximizedId(session.id)}
                 onEdit={() => onEditSource(session.id)}
                 onRemove={() => removeSession(session.id)}
@@ -172,7 +177,14 @@ export function FixedGridView({
                 }
               />
             ) : hideUi ? (
-              <div className="size-full bg-background" />
+              <button
+                type="button"
+                onClick={() => openSourcePanel(slot)}
+                aria-label="Add source to empty cell"
+                className="size-full bg-background"
+              >
+                <span className="sr-only">Add source</span>
+              </button>
             ) : (
               <button
                 type="button"

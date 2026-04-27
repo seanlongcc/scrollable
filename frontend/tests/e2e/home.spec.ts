@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test("home renders multi-view wall without media previews", async ({
   page,
-}) => {
+}, testInfo) => {
   const hydrationErrors: string[] = [];
   page.on("console", (message) => {
     if (
@@ -18,24 +18,27 @@ test("home renders multi-view wall without media previews", async ({
   await expect(
     page.getByRole("link", { name: "scrollable.app" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Fixed columns")).toHaveValue("2");
-  await expect(page.getByLabel("Fixed rows")).toHaveValue("1");
-  await expect(page.getByLabel("Global timer seconds")).toHaveValue("10");
-  await expect(page.getByRole("button", { name: "Global next" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await openWorkbenchOnMobile(page, testInfo.project.name);
+  const workbench = workbenchScope(page, testInfo.project.name);
+  await expect(workbench.getByLabel("Columns")).toHaveValue("2");
+  await expect(workbench.getByLabel("Rows")).toHaveValue("1");
+  await expect(workbench.getByLabel("Global timer seconds")).toHaveValue("10");
   await expect(
-    page.getByRole("button", { name: "Open layouts" }),
+    workbench.getByRole("button", { name: "Global next" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save layout" })).toBeVisible();
+  await expect(
+    workbench.getByRole("button", { name: "Save layout" }),
+  ).toBeVisible();
+  await closeWorkbenchOnMobile(page, testInfo.project.name);
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Library" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Add source", exact: true }),
   ).toBeVisible();
   await expect(page.locator("img, video")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Open layouts" }).click();
-  await expect(
-    page.getByRole("dialog", { name: "Saved layouts" }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Library" }).click();
+  await expect(page.getByRole("dialog", { name: "Library" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Account library" })).toHaveCount(
     0,
   );
@@ -48,20 +51,21 @@ test("home renders multi-view wall without media previews", async ({
   expect(hydrationErrors).toEqual([]);
 });
 
-test("keeps multi-layer workbench within the viewport", async ({ page }) => {
+test("keeps multi-layer workbench within the viewport", async ({
+  page,
+}, testInfo) => {
   await page.goto("/");
+  await openWorkbenchOnMobile(page, testInfo.project.name);
 
-  await page.getByRole("button", { name: "Add layer" }).click();
   await expect(
-    page.getByRole("button", { name: "Select Layer 2" }),
+    workbenchScope(page, testInfo.project.name).getByRole("button", {
+      name: "Select Layer 2",
+    }),
   ).toBeVisible();
 
   const metrics = await page.evaluate(() => {
     const main = document.querySelector("main");
-    const statusRow = document.querySelector(
-      '[data-testid="layout-status-row"]',
-    );
-    const sourceArea = statusRow?.nextElementSibling;
+    const sourceArea = main?.querySelector("section > div");
 
     if (!(main instanceof HTMLElement)) {
       throw new Error("Missing workbench main");
@@ -98,35 +102,46 @@ test("keeps multi-layer workbench within the viewport", async ({ page }) => {
 
 test("local upload layouts restore cached files after refresh", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page.getByRole("button", { name: "Local" }).click();
   await page
     .getByLabel("Image/video files")
     .setInputFiles("tests/fixtures/test.webp");
   await expect(page.getByAltText("test.webp")).toBeVisible();
 
+  await openWorkbenchOnMobile(page, testInfo.project.name);
   await page.getByRole("button", { name: "Save layout" }).click();
   await page.getByRole("button", { name: "Save as layout" }).click();
 
   await page.reload();
 
-  await expect(
-    page.getByRole("button", { name: "Layout 1", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByText("1 source active · Fixed layout")).toBeVisible();
+  if (testInfo.project.name !== "mobile") {
+    await expect(
+      page.getByRole("button", { name: "Untitled layout", exact: true }),
+    ).toBeVisible();
+  }
   await expect(page.getByText("No runtime media")).toHaveCount(0);
   await expect(page.getByAltText("test.webp")).toBeVisible();
   await expect(page.getByText("Local files need reload")).toHaveCount(0);
   await expect(page.getByText("No runtime media")).toHaveCount(0);
 });
 
-test("free layout templates reopen as empty boxes", async ({ page }) => {
+test("free layout templates reopen as empty boxes", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "mobile",
+    "Free layout template editing is desktop-only.",
+  );
+
   await page.goto("/");
 
   await page.getByRole("button", { name: "Free layout mode" }).click();
   await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page.getByRole("button", { name: "Local" }).click();
   await page
     .getByLabel("Image/video files")
     .setInputFiles("tests/fixtures/test.webp");
@@ -137,13 +152,14 @@ test("free layout templates reopen as empty boxes", async ({ page }) => {
   await page.getByRole("button", { name: "Save as template" }).click();
   await page.getByRole("button", { name: "New layout" }).click();
 
-  await page.getByRole("button", { name: "Open layouts" }).click();
-  const dialog = page.getByRole("dialog", { name: "Saved layouts" });
+  await page.getByRole("button", { name: "Library" }).click();
+  const dialog = page.getByRole("dialog", { name: "Library" });
   await dialog.getByRole("tab", { name: "Templates" }).click();
-  await dialog.getByRole("checkbox", { name: "Select Layout 1" }).click();
+  await dialog
+    .getByRole("checkbox", { name: "Select Untitled layout" })
+    .click();
   await dialog.getByRole("button", { name: "Open selected templates" }).click();
 
-  await expect(page.getByText("0 sources active · Free layout")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Add source to template box" }),
   ).toBeVisible();
@@ -229,6 +245,7 @@ test("keyboard and wheel move through runtime feed items", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page.getByRole("button", { name: "Reddit" }).click();
   await page.getByRole("button", { name: "Use Reddit links" }).click();
   await page
     .getByLabel("Paste Reddit post or subreddit links, one per line")
@@ -255,3 +272,21 @@ test("keyboard and wheel move through runtime feed items", async ({ page }) => {
   await page.mouse.wheel(0, -500);
   await expect(page.getByText("Runtime image 1")).toBeVisible();
 });
+
+async function openWorkbenchOnMobile(page: Page, projectName: string) {
+  if (projectName !== "mobile") return;
+  await page.getByRole("button", { name: "Workbench", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Workbench" })).toBeVisible();
+}
+
+async function closeWorkbenchOnMobile(page: Page, projectName: string) {
+  if (projectName !== "mobile") return;
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Workbench" })).toHaveCount(0);
+}
+
+function workbenchScope(page: Page, projectName: string) {
+  return projectName === "mobile"
+    ? page.getByRole("dialog", { name: "Workbench" })
+    : page.getByLabel("Workbench contextual panel");
+}

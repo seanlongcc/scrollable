@@ -90,8 +90,11 @@ export async function addDefaultSubredditSource(
 ) {
   await user.click(screen.getByRole("button", { name: "Add source" }));
   const dialog = screen.getByRole("dialog", { name: "Add source" });
+  await user.click(within(dialog).getByRole("button", { name: "Reddit" }));
   await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
-  await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+  await user.click(
+    within(dialog).getByRole("button", { name: "Open Reddit links" }),
+  );
 }
 
 export function stubRuntimeFetch(
@@ -217,8 +220,8 @@ export async function openSavedLayouts(
   user: ReturnType<typeof userEvent.setup>,
   names: string[],
 ) {
-  await user.click(screen.getByRole("button", { name: "Open layouts" }));
-  const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+  await user.click(screen.getByRole("button", { name: "Library" }));
+  const dialog = screen.getByRole("dialog", { name: "Library" });
 
   for (const name of names) {
     await user.click(
@@ -235,8 +238,8 @@ export async function openSavedTemplates(
   user: ReturnType<typeof userEvent.setup>,
   names: string[],
 ) {
-  await user.click(screen.getByRole("button", { name: "Open layouts" }));
-  const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+  await user.click(screen.getByRole("button", { name: "Library" }));
+  const dialog = screen.getByRole("dialog", { name: "Library" });
   await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
 
   for (const name of names) {

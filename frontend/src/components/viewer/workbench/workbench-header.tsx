@@ -54,10 +54,10 @@ export function WorkbenchHeader({
         <div aria-hidden="true" />
       </div>
 
-      <div className="flex items-center justify-between gap-3 md:hidden">
-        <SiteLogo className="pointer-events-auto h-auto px-0 text-base leading-none" />
+      <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:hidden">
+        <SiteLogo className="pointer-events-auto h-12 min-h-12 items-center px-0 text-base leading-none" />
         <span
-          className="min-w-0 truncate rounded-full border border-border bg-background/72 px-2.5 py-1 text-[11px] text-muted-foreground shadow-[0_8px_20px_rgba(0,0,0,0.36)] backdrop-blur"
+          className="inline-flex h-8 min-w-0 items-center truncate rounded-full border border-border bg-background/72 px-2.5 text-[11px] leading-none text-muted-foreground shadow-[0_8px_20px_rgba(0,0,0,0.36)] backdrop-blur"
           title={workspaceName}
         >
           {workspaceName}

@@ -31,6 +31,7 @@ export function SessionPane({
   onTogglePaused,
   onRestart,
   onSelect,
+  onToggleSelect,
   onMaximize,
   onEdit,
   onRemove,
@@ -55,6 +56,7 @@ export function SessionPane({
   onTogglePaused: () => void;
   onRestart: () => void;
   onSelect?: () => void;
+  onToggleSelect?: () => void;
   onMaximize?: () => void;
   onEdit?: () => void;
   onRemove?: () => void;
@@ -109,6 +111,7 @@ export function SessionPane({
             : undefined
         }
         onSelect={onSelect}
+        onToggleSelect={onToggleSelect}
         onMaximize={onMaximize}
         onEdit={onEdit}
         onRemove={onRemove}
@@ -182,6 +185,7 @@ export function SessionPane({
       onTogglePaused={onTogglePaused}
       onRestart={onRestart}
       onSelect={onSelect}
+      onToggleSelect={onToggleSelect}
       onMaximize={onMaximize}
       onEdit={onEdit}
       onRemove={onRemove}

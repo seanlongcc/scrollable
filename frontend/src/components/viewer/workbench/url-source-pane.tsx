@@ -32,6 +32,7 @@ export function UrlSourcePane({
   iframePlaybackSeconds = 0,
   onIframePlaybackTimeChange,
   onSelect,
+  onToggleSelect,
   onMaximize,
   onRemove,
 }: {
@@ -44,6 +45,7 @@ export function UrlSourcePane({
   iframePlaybackSeconds?: number;
   onIframePlaybackTimeChange?: (seconds: number) => void;
   onSelect?: () => void;
+  onToggleSelect?: () => void;
   onMaximize?: () => void;
   onEdit?: () => void;
   onRemove?: () => void;
@@ -174,7 +176,7 @@ export function UrlSourcePane({
       )}
 
       {!hideUi && (onRemove || onMaximize || onSelect) ? (
-        <div className="pointer-events-none absolute top-2 right-2 z-30 grid gap-1 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
+        <div className="pointer-events-none absolute top-2 left-2 z-30 grid gap-1 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100 md:left-auto md:right-2">
           {onRemove ? (
             <Button
               type="button"
@@ -205,7 +207,7 @@ export function UrlSourcePane({
               size="icon-sm"
               variant={isFocused ? "default" : "outline"}
               className="pointer-events-auto border-border bg-background/75 text-foreground"
-              onClick={onSelect}
+              onClick={onToggleSelect ?? onSelect}
               aria-label={`Select ${displayTitle}`}
               aria-pressed={isFocused}
             >

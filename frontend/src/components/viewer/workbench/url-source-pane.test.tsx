@@ -179,23 +179,25 @@ describe("UrlSourcePane", () => {
     expect(onSelect).toHaveBeenCalledOnce();
   });
 
-  it("selects the source before running existing controls", () => {
-    const onEdit = vi.fn();
+  it("uses the toggle-select handler when selecting a source", () => {
     const onSelect = vi.fn();
+    const onToggleSelect = vi.fn();
     render(
       <UrlSourcePane
         title="YouTube video"
         resolution={youtubeResolution()}
         canMountIframe
-        onEdit={onEdit}
         onSelect={onSelect}
+        onToggleSelect={onToggleSelect}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit YouTube video" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select YouTube video" }),
+    );
 
-    expect(onSelect).toHaveBeenCalledOnce();
-    expect(onEdit).toHaveBeenCalledOnce();
+    expect(onToggleSelect).toHaveBeenCalledOnce();
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
 

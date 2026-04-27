@@ -108,9 +108,9 @@ describe("FeedViewPane", () => {
     expect(onSelect).toHaveBeenCalledOnce();
   });
 
-  it("selects the source before running existing controls", () => {
+  it("uses the toggle-select handler when selecting a source", () => {
     const onSelect = vi.fn();
-    const onTogglePaused = vi.fn();
+    const onToggleSelect = vi.fn();
     render(
       <FeedViewPane
         title="r/pics"
@@ -123,16 +123,17 @@ describe("FeedViewPane", () => {
         galleryIndexes={{}}
         onGalleryChange={vi.fn()}
         onMove={vi.fn()}
-        onTogglePaused={onTogglePaused}
+        onTogglePaused={vi.fn()}
         onRestart={vi.fn()}
         onSelect={onSelect}
+        onToggleSelect={onToggleSelect}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Pause r/pics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select r/pics" }));
 
-    expect(onSelect).toHaveBeenCalledOnce();
-    expect(onTogglePaused).toHaveBeenCalledOnce();
+    expect(onToggleSelect).toHaveBeenCalledOnce();
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
 

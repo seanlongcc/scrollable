@@ -204,9 +204,13 @@ describe("viewer workspaces", () => {
     expect(snapshot.sessions[0]).not.toHaveProperty("urlResolution");
   });
 
-  it("creates a default editable layer for new workspaces", () => {
+  it("creates the default editable layers for new workspaces", () => {
     expect(createEmptyWorkspace("workspace-1", "Layout 1")).toMatchObject({
-      layers: [{ id: "layer-1", name: "Layer 1" }],
+      layers: [
+        { id: "layer-1", name: "Layer 1" },
+        { id: "layer-2", name: "Layer 2" },
+        { id: "layer-3", name: "Layer 3" },
+      ],
       activeLayerId: "layer-1",
     });
   });

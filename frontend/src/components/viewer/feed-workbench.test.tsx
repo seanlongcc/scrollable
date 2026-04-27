@@ -20,10 +20,10 @@ describe("FeedWorkbench", () => {
   it("renders fixed 2x1 workspace controls", () => {
     render(<FeedWorkbench />);
 
-    expect(screen.getByLabelText("Fixed columns")).toHaveValue(2);
-    expect(screen.getByLabelText("Fixed columns")).toHaveAttribute("max", "16");
-    expect(screen.getByLabelText("Fixed rows")).toHaveValue(1);
-    expect(screen.getByLabelText("Fixed rows")).toHaveAttribute("max", "16");
+    expect(screen.getByLabelText("Columns")).toHaveValue(2);
+    expect(screen.getByLabelText("Columns")).toHaveAttribute("max", "16");
+    expect(screen.getByLabelText("Rows")).toHaveValue(1);
+    expect(screen.getByLabelText("Rows")).toHaveAttribute("max", "16");
     expect(
       screen.getByRole("button", { name: "Global next" }),
     ).toBeInTheDocument();
@@ -36,22 +36,21 @@ describe("FeedWorkbench", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps the clear button enabled in server markup until hydration completes", () => {
+  it("does not render the clear button in server markup for an empty layout", () => {
     const html = renderToString(<FeedWorkbench />);
     const clearButtonHtml =
-      html.match(/<button(?=[^>]*aria-label="Clear layout")[^>]*>/)?.[0] ?? "";
+      html.match(/<button(?=[^>]*title="Clear")[^>]*>/)?.[0] ?? "";
 
-    expect(clearButtonHtml).not.toBe("");
-    expect(clearButtonHtml).not.toMatch(/\sdisabled(?:=|>|$)/);
+    expect(clearButtonHtml).toBe("");
   });
 
-  it("disables the clear button after hydration when the layout is empty", async () => {
+  it("hides the clear button after hydration when the layout is empty", async () => {
     render(<FeedWorkbench />);
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Clear layout" }),
-      ).toBeDisabled(),
+        screen.queryByRole("button", { name: "Clear" }),
+      ).not.toBeInTheDocument(),
     );
   });
 

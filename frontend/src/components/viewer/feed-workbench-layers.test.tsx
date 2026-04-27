@@ -20,13 +20,12 @@ import {
 describe("FeedWorkbench layers", () => {
   installFeedWorkbenchTestHooks();
 
-  it("adds and deletes layers while reporting source and file counts per layer", async () => {
+  it("reports source and file counts across the default layers", async () => {
     stubObjectUrls();
     stubRandomUuids([
       "workspace-1",
       "local-1",
       "session-1",
-      "layer-2",
       "local-2",
       "local-3",
       "session-2",
@@ -40,76 +39,45 @@ describe("FeedWorkbench layers", () => {
     ).toHaveAttribute("aria-pressed", "true");
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "foreground.png", { type: "image/png" }),
     );
 
-    expect(
-      await screen.findByText("Layer 1: 1 source / 1 file"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("1 source")).toBeInTheDocument();
+    expect(screen.getByText("1 file")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Add layer" }));
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["b"], "background.mp4", { type: "video/mp4" }),
       new File(["c"], "background.mp3", { type: "audio/mpeg" }),
     ]);
 
-    expect(
-      await screen.findByText("2 sources active · Fixed layout"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Layer 2: 1 source / 2 files")).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", { name: "Delete active layer" }),
-    );
-
-    expect(
-      screen.getByText("1 source active · Fixed layout"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Select Layer 2" }),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByLabelText("background.mp4")).toBeInTheDocument();
+    expect(screen.getByText("2 files")).toBeInTheDocument();
+    expect(screen.getByText("0 sources")).toBeInTheDocument();
   });
 
-  it("renumbers layers after deleting a middle layer", async () => {
+  it("starts with all three default layers visible", async () => {
     stubObjectUrls();
-    stubRandomUuids([
-      "workspace-1",
-      "layer-2",
-      "layer-3",
-      "local-1",
-      "session-1",
-    ]);
+    stubRandomUuids(["workspace-1"]);
 
-    const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add layer" }));
-    await user.click(screen.getByRole("button", { name: "Add layer" }));
-    await user.click(screen.getByRole("button", { name: "Select Layer 3" }));
-    await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.upload(
-      screen.getByLabelText("Image/video files"),
-      new File(["c"], "third-layer.png", { type: "image/png" }),
-    );
-
-    expect(await screen.findByAltText("third-layer.png")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
-    await user.click(
-      screen.getByRole("button", { name: "Delete active layer" }),
-    );
-
     expect(
-      screen.queryByRole("button", { name: "Select Layer 3" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Select Layer 1" }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(
       screen.getByRole("button", { name: "Select Layer 2" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByAltText("third-layer.png")).toBeVisible();
-    expect(screen.getByText("Layer 2: 1 source / 1 file")).toBeInTheDocument();
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Select Layer 3" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("0 sources")).toHaveLength(3);
+    expect(screen.getAllByText("0 files")).toHaveLength(3);
   });
 
   it("keeps inactive layer grids mounted but visually hidden", async () => {
@@ -127,17 +95,18 @@ describe("FeedWorkbench layers", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "foreground.png", { type: "image/png" }),
     );
     expect(await screen.findByAltText("foreground.png")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Add layer" }));
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
     expect(screen.getByAltText("foreground.png")).not.toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["b"], "background.png", { type: "image/png" }),
@@ -167,6 +136,7 @@ describe("FeedWorkbench layers", () => {
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "foreground.png", { type: "image/png" }),
@@ -176,8 +146,8 @@ describe("FeedWorkbench layers", () => {
       screen.getByRole("group", { name: "Selected free layout controls" }),
     ).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Add layer" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["b"], "background.png", { type: "image/png" }),
@@ -215,15 +185,16 @@ describe("FeedWorkbench layers", () => {
     });
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(1);
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "foreground-a.png", { type: "image/png" }),
       new File(["b"], "foreground-b.png", { type: "image/png" }),
     ]);
     expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Add layer" }));
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["c"], "background.png", { type: "image/png" }),
@@ -252,6 +223,8 @@ describe("FeedWorkbench layers", () => {
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.clear(
       screen.getByLabelText(
@@ -284,16 +257,18 @@ describe("FeedWorkbench layers", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    fireEvent.change(screen.getByLabelText("Fixed columns"), {
+    fireEvent.change(screen.getByLabelText("Columns"), {
       target: { value: "1" },
     });
-    fireEvent.change(screen.getByLabelText("Fixed rows"), {
+    fireEvent.change(screen.getByLabelText("Rows"), {
       target: { value: "1" },
     });
     await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.clear(
       screen.getByLabelText(
@@ -308,10 +283,9 @@ describe("FeedWorkbench layers", () => {
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
-    expect(screen.getByText("1 hidden source")).toBeInTheDocument();
     expect(screen.queryByText("r/aww")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Fixed columns"), {
+    fireEvent.change(screen.getByLabelText("Columns"), {
       target: { value: "2" },
     });
 
@@ -346,10 +320,10 @@ describe("FeedWorkbench layers", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    fireEvent.change(screen.getByLabelText("Fixed columns"), {
+    fireEvent.change(screen.getByLabelText("Columns"), {
       target: { value: "3" },
     });
-    fireEvent.change(screen.getByLabelText("Fixed rows"), {
+    fireEvent.change(screen.getByLabelText("Rows"), {
       target: { value: "1" },
     });
     await addDefaultSubredditSource(user);
@@ -400,10 +374,10 @@ describe("FeedWorkbench layers", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    fireEvent.change(screen.getByLabelText("Fixed columns"), {
+    fireEvent.change(screen.getByLabelText("Columns"), {
       target: { value: "3" },
     });
-    fireEvent.change(screen.getByLabelText("Fixed rows"), {
+    fireEvent.change(screen.getByLabelText("Rows"), {
       target: { value: "1" },
     });
     await addDefaultSubredditSource(user);

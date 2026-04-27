@@ -286,6 +286,9 @@ export function FreeGridView({
                   }))
                 }
                 onSelect={() => setSelectedId(session.id)}
+                onToggleSelect={() =>
+                  setSelectedId(session.id === selectedId ? null : session.id)
+                }
                 onMaximize={() => setMaximizedId(session.id)}
                 onEdit={() => onEditSource(session.id)}
                 onRemove={() => removeSession(session.id)}

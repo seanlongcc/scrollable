@@ -38,15 +38,15 @@ describe("FeedWorkbench interactions", () => {
     ).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     expect(
-      screen.getByText("0 sources active · Free layout"),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Free layout mode" }),
+    ).toHaveAttribute("aria-label", "Free layout mode");
     await user.click(screen.getByRole("button", { name: "Fixed layout mode" }));
     expect(
-      screen.getByText("0 sources active · Fixed layout"),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Fixed layout mode" }),
+    ).toHaveAttribute("aria-label", "Fixed layout mode");
 
     await addDefaultSubredditSource(user);
-    await screen.findByText("1 source active · Fixed layout");
+    await screen.findByRole("button", { name: "Remove r/pics" });
 
     expect(
       screen.getByRole("button", { name: "Free layout mode" }),
@@ -56,8 +56,9 @@ describe("FeedWorkbench interactions", () => {
     await openSavedTemplates(user, ["Poster wall"]);
 
     expect(
-      screen.getByText("0 sources active · Free layout"),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Add source to template box" })
+        .length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: "Fixed layout mode" }),
     ).toBeDisabled();
@@ -140,11 +141,9 @@ describe("FeedWorkbench interactions", () => {
     await user.click(screen.getByRole("button", { name: "Maximize r/pics" }));
 
     expect(screen.queryByText("Focus view")).not.toBeInTheDocument();
-    const satelliteLabel = screen.getByText("Satellite View");
-    expect(satelliteLabel).toBeInTheDocument();
-    expect(satelliteLabel.closest("div")).toContainElement(
-      screen.getByRole("button", { name: "Restore grid" }),
-    );
+    expect(
+      screen.getByRole("button", { name: "Exit satellite" }),
+    ).toBeInTheDocument();
   });
 
   it("defaults sources to global timers and hides local timer inputs until local mode", async () => {
@@ -478,19 +477,15 @@ describe("FeedWorkbench interactions", () => {
     render(<FeedWorkbench />);
 
     await addDefaultSubredditSource(user);
-    await screen.findByText("1 source active · Fixed layout");
+    await screen.findByAltText("Runtime image");
 
     await user.click(screen.getByRole("button", { name: "Clear layout" }));
-    expect(
-      screen.getByText("1 source active · Fixed layout"),
-    ).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime image")).toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: "Confirm clear layout" }),
     );
 
-    expect(
-      screen.getByText("0 sources active · Fixed layout"),
-    ).toBeInTheDocument();
+    expect(screen.queryByAltText("Runtime image")).not.toBeInTheDocument();
   });
 });

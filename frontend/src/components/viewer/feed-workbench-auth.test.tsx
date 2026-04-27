@@ -106,7 +106,7 @@ describe("FeedWorkbench account state", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
 
     expect(
       screen.queryByRole("link", { name: "Account library" }),

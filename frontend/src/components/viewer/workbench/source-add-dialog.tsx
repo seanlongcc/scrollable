@@ -95,7 +95,9 @@ export function SourceDialog({
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        if (!isLoading) onOpenChange(nextOpen);
+        if (isLoading) return;
+        if (!nextOpen) setSourceKind("url");
+        onOpenChange(nextOpen);
       }}
     >
       <DialogContent
@@ -135,6 +137,7 @@ export function SourceDialog({
               ["reddit", "Reddit"],
             ]}
             ariaLabel="Source type"
+            disabled={isLoading}
             onChange={(value) => setSourceKind(value as SourceKind)}
           />
 
@@ -146,7 +149,7 @@ export function SourceDialog({
                   value={urlValue}
                   disabled={isLoading}
                   onChange={(event) => setUrlValue(event.target.value)}
-                  placeholder="https://example.com/media"
+                  placeholder="https://example.com/media-or-page"
                   className="h-9 font-mono text-xs"
                 />
               </Label>
@@ -173,7 +176,11 @@ export function SourceDialog({
           ) : null}
 
           {sourceKind === "local" ? (
-            <section className="grid gap-3 rounded-lg border border-border bg-surface p-3">
+            <section
+              role="group"
+              aria-label="Local upload picker"
+              className="grid gap-3 rounded-lg border border-border bg-surface p-3"
+            >
               <div className="grid grid-cols-2 gap-2">
                 <Label
                   role="button"
@@ -248,10 +255,11 @@ export function SourceDialog({
               <SegmentedControl
                 value={redditInputMode}
                 options={[
-                  ["subreddit", "Subreddit"],
-                  ["links", "Links"],
+                  ["subreddit", "Subreddit", "Use subreddit name"],
+                  ["links", "Links", "Use Reddit links"],
                 ]}
                 ariaLabel="Reddit input mode"
+                disabled={isLoading}
                 onChange={(value) =>
                   setRedditInputMode(value as RedditInputMode)
                 }
@@ -261,10 +269,11 @@ export function SourceDialog({
                   <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
                     Name
                     <Input
+                      aria-label="Subreddit name"
                       value={subredditName}
                       disabled={isLoading}
                       onChange={(event) => setSubredditName(event.target.value)}
-                      placeholder="pics"
+                      placeholder="kpop, pics, aww"
                       className="h-9 font-mono"
                     />
                   </Label>
@@ -279,7 +288,7 @@ export function SourceDialog({
                       }
                     />
                     <LabeledSelect
-                      label="Time"
+                      label="Time range"
                       value={redditTimeRange}
                       options={REDDIT_TIME_OPTIONS}
                       disabled={
@@ -300,8 +309,11 @@ export function SourceDialog({
                     value={redditUrls}
                     disabled={isLoading}
                     onChange={(event) => setRedditUrls(event.target.value)}
-                    placeholder={`reddit.com/r/pics/top/?t=week
-reddit.com/r/art/comments/...`}
+                    placeholder={`Specific post link
+https://www.reddit.com/r/pics/comments/abc123/title/
+
+Sorted subreddit link
+https://www.reddit.com/r/pics/top/?t=week`}
                     className="min-h-40 resize-none font-mono text-xs leading-5 md:min-h-56"
                   />
                 </Label>
@@ -310,6 +322,7 @@ reddit.com/r/art/comments/...`}
                 <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
                   Limit
                   <Input
+                    aria-label="Reddit media count"
                     type="number"
                     min={1}
                     max={MAX_REDDIT_MEDIA_LIMIT}
@@ -358,10 +371,11 @@ reddit.com/r/art/comments/...`}
             <SegmentedControl
               value={sourceGroupingMode}
               options={[
-                ["stacked", "Stacked"],
-                ["separate", "Separate"],
+                ["stacked", "Stacked", "Add sources as one stacked source"],
+                ["separate", "Separate", "Add sources as separate sources"],
               ]}
-              ariaLabel="Source grouping"
+              ariaLabel="Source mode"
+              disabled={isLoading}
               onChange={(value) =>
                 setSourceGroupingMode(value as SourceGroupingMode)
               }
@@ -377,11 +391,13 @@ function SegmentedControl({
   value,
   options,
   ariaLabel,
+  disabled,
   onChange,
 }: {
   value: string;
-  options: Array<[string, string]>;
+  options: Array<[string, string, string?]>;
   ariaLabel: string;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
@@ -393,13 +409,15 @@ function SegmentedControl({
         gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
       }}
     >
-      {options.map(([optionValue, label]) => (
+      {options.map(([optionValue, label, ariaLabel]) => (
         <Button
           key={optionValue}
           type="button"
           size="sm"
           variant={value === optionValue ? "default" : "ghost"}
+          aria-label={ariaLabel}
           aria-pressed={value === optionValue}
+          disabled={disabled}
           onClick={() => onChange(optionValue)}
         >
           {label}

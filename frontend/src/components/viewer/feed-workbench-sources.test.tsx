@@ -162,6 +162,7 @@ describe("FeedWorkbench URL sources", () => {
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.type(screen.getByLabelText("URL"), "https://old.example/video");
     await user.type(screen.getByLabelText("Title"), "Old title");
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -175,6 +176,7 @@ describe("FeedWorkbench URL sources", () => {
 
     expect(screen.getByLabelText("URL")).toHaveValue("");
     expect(screen.getByLabelText("Title")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     expect(
       screen.getByLabelText(
@@ -442,7 +444,6 @@ describe("FeedWorkbench URL sources", () => {
     await user.click(screen.getByRole("button", { name: "Open URL" }));
     expect(await screen.findByTitle("YouTube video")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Add layer" }));
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
 
     expectYoutubeIframeSrc(

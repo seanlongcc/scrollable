@@ -147,7 +147,7 @@ export function FeedWorkbench({
   const [isLoading, setIsLoading] = useState(false);
   const [isUiHidden, setIsUiHidden] = useState(false);
   const [isUiRevealVisible, setIsUiRevealVisible] = useState(true);
-  const [showAllInfo, setShowAllInfo] = useState(false);
+  const [showAllInfo, setShowAllInfo] = useState(true);
   const [sourceGroupingMode, setSourceGroupingMode] =
     useState<SourceGroupingMode>("stacked");
   const [freeDrag, setFreeDrag] = useState<FreeDragState | null>(null);

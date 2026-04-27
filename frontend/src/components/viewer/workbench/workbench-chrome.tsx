@@ -516,6 +516,7 @@ function WorkbenchPanelContent({
               type="button"
               size="sm"
               variant={layoutMode === "fixed" ? "default" : "outline"}
+              aria-label="Fixed layout mode"
               disabled={layoutModeLocked}
               onClick={() => onLayoutModeChange("fixed")}
             >
@@ -526,6 +527,7 @@ function WorkbenchPanelContent({
               type="button"
               size="sm"
               variant={layoutMode === "free" ? "default" : "outline"}
+              aria-label="Free layout mode"
               disabled={layoutModeLocked}
               onClick={() => onLayoutModeChange("free")}
             >
@@ -612,7 +614,7 @@ function WorkbenchPanelContent({
           className={cn(
             mode === "desktop"
               ? "grid grid-cols-[3fr_repeat(3,minmax(0,1fr))] items-center gap-2"
-              : "grid grid-cols-[minmax(0,3fr)_repeat(3,minmax(0,1fr))] items-center gap-2 rounded-lg border border-border bg-background/60 p-1.5",
+              : "grid grid-cols-[minmax(0,3fr)_repeat(3,minmax(0,1fr))] items-center gap-2",
           )}
         >
           <NumberField
@@ -631,7 +633,7 @@ function WorkbenchPanelContent({
             variant="outline"
             aria-label="Global pause"
             onClick={() => onGlobalTimerAction("pause")}
-            className="h-8 w-full"
+            className="h-8 min-h-0 min-w-0 w-full"
           >
             {hasRunningSessionTimer ? <Pause /> : <Play />}
           </Button>
@@ -641,7 +643,7 @@ function WorkbenchPanelContent({
             variant="outline"
             aria-label="Global next"
             onClick={() => onGlobalTimerAction("next")}
-            className="h-8 w-full"
+            className="h-8 min-h-0 min-w-0 w-full"
           >
             <SkipForward />
           </Button>
@@ -651,7 +653,7 @@ function WorkbenchPanelContent({
             variant="outline"
             aria-label="Global restart"
             onClick={() => onGlobalTimerAction("restart")}
-            className="h-8 w-full"
+            className="h-8 min-h-0 min-w-0 w-full"
           >
             <RotateCcw />
           </Button>
@@ -685,6 +687,7 @@ function WorkbenchPanelContent({
             <Button
               type="button"
               variant="destructive"
+              aria-label="Clear layout"
               onClick={onOpenClearDialog}
               className="col-span-2"
             >
@@ -725,6 +728,7 @@ function WorkbenchPanelContent({
               <Button
                 type="button"
                 variant="outline"
+                aria-label="Edit selected source"
                 onClick={onEditSelectedSource}
               >
                 <Pencil />
@@ -739,6 +743,7 @@ function WorkbenchPanelContent({
                   <Button
                     type="button"
                     variant="outline"
+                    aria-label="Clone selected source"
                     onClick={onCloneSelectedSource}
                   >
                     <Copy />
@@ -747,6 +752,7 @@ function WorkbenchPanelContent({
                   <Button
                     type="button"
                     variant="outline"
+                    aria-label="Fill empty spaces with selected source"
                     onClick={onFillSelectedSourceSpace}
                   >
                     <Grid2X2 />
@@ -813,7 +819,7 @@ function PlaybackControls({
       className={cn(
         variant === "panel"
           ? "pointer-events-auto grid w-full grid-cols-4 gap-2"
-          : "pointer-events-auto flex gap-1 rounded-full border border-primary/35 bg-background/85 p-1 shadow-[0_14px_40px_rgba(0,0,0,0.5)] backdrop-blur",
+          : "pointer-events-auto flex gap-1",
         className,
       )}
     >

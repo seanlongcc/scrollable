@@ -302,6 +302,9 @@ function FixedLayerStage({
               hideUi={isUiHidden}
               isPlaybackActive={isActiveLayer}
               showInfo={isActiveLayer && showAllInfo}
+              cellTestIdPrefix={
+                isActiveLayer ? "fixed-cell" : `${layer.id}-fixed-cell`
+              }
               openSourcePanel={openSourcePanel}
               setSelectedId={setSelectedId}
               setMaximizedId={setMaximizedId}
@@ -420,7 +423,7 @@ function FreeLayerStage({
                 (session) => session.layerId === layer.id,
               )}
               templateSlots={templateSlots.filter(
-                (slot) => (slot.layerId ?? layer.id) === layer.id,
+                (slot) => (slot.layerId ?? activeLayerId) === layer.id,
               )}
               galleryIndexes={galleryIndexes}
               videoPositions={videoPositions}

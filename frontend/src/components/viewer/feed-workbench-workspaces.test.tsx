@@ -33,16 +33,16 @@ describe("FeedWorkbench workspaces", () => {
 
     await user.click(screen.getByRole("button", { name: "New layout" }));
     expect(
-      screen.getByRole("button", { name: "Layout 2" }),
+      screen.getByRole("button", { name: "Untitled layout" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Close Layout 2" }));
+    await user.click(screen.getByRole("button", { name: "Close Layout 1" }));
 
     expect(
-      screen.queryByRole("button", { name: "Layout 2" }),
+      screen.queryByRole("button", { name: "Layout 1" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Layout 1" }),
+      screen.getByRole("button", { name: "Untitled layout" }),
     ).toBeInTheDocument();
   });
 
@@ -86,17 +86,21 @@ describe("FeedWorkbench workspaces", () => {
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
-    await user.click(screen.getByRole("button", { name: "Close Layout 1" }));
+    await user.click(
+      screen.getByRole("button", { name: "Close Untitled layout" }),
+    );
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
     expect(
-      screen.getByRole("checkbox", { name: "Select Layout 1" }),
+      screen.getByRole("checkbox", { name: "Select Untitled layout" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Delete Layout 1" }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete Untitled layout" }),
+    );
 
     expect(
-      screen.queryByRole("checkbox", { name: "Select Layout 1" }),
+      screen.queryByRole("checkbox", { name: "Select Untitled layout" }),
     ).not.toBeInTheDocument();
   });
 
@@ -108,15 +112,19 @@ describe("FeedWorkbench workspaces", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(screen.getByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
       new File(["b"], "b.mp4", { type: "video/mp4" }),
     ]);
     await user.click(screen.getByRole("button", { name: "Save layout" }));
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
 
-    expect(screen.getByText(/1 source · 2 files/)).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Library" });
+    expect(
+      within(dialog).getByText("fixed · 1 source · 2 files"),
+    ).toBeInTheDocument();
   });
 
   it("shows compact layer totals in saved layouts", async () => {
@@ -132,11 +140,11 @@ describe("FeedWorkbench workspaces", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+    const dialog = screen.getByRole("dialog", { name: "Library" });
     expect(
-      within(dialog).getByText("fixed · 3 layers · 2 sources · 5 files"),
+      within(dialog).getByText("fixed · 2 sources · 5 files"),
     ).toBeInTheDocument();
     expect(
       within(dialog).queryByText("Layer 1: 1 source / 4 files"),
@@ -166,9 +174,9 @@ describe("FeedWorkbench workspaces", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+    const dialog = screen.getByRole("dialog", { name: "Library" });
     const layoutList = within(dialog).getByRole("group", {
       name: "Saved layouts list",
     });
@@ -197,12 +205,6 @@ describe("FeedWorkbench workspaces", () => {
         screen.queryByRole("button", { name: "Saved local" }),
       ).not.toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole("button", { name: "Layout 1" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("0 sources active · Fixed layout"),
-    ).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
   });
 
@@ -231,7 +233,6 @@ describe("FeedWorkbench workspaces", () => {
     expect(
       screen.queryByRole("button", { name: "Layout 1" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/1 source active/)).toBeInTheDocument();
   });
 
   it("restores saved layout tabs on layer one without selecting a source", async () => {
@@ -291,9 +292,9 @@ describe("FeedWorkbench workspaces", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Saved layouts" });
+    const dialog = screen.getByRole("dialog", { name: "Library" });
     expect(
       within(dialog).queryByRole("button", { name: "Open Saved local" }),
     ).not.toBeInTheDocument();
@@ -377,8 +378,8 @@ describe("FeedWorkbench workspaces", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
-    const firstDialog = screen.getByRole("dialog", { name: "Saved layouts" });
+    await user.click(screen.getByRole("button", { name: "Library" }));
+    const firstDialog = screen.getByRole("dialog", { name: "Library" });
     await user.click(
       within(firstDialog).getByRole("checkbox", { name: "Select Saved local" }),
     );
@@ -391,9 +392,9 @@ describe("FeedWorkbench workspaces", () => {
       await screen.findByRole("button", { name: "Saved local" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
     const reopenedDialog = screen.getByRole("dialog", {
-      name: "Saved layouts",
+      name: "Library",
     });
 
     expect(
@@ -432,8 +433,10 @@ describe("FeedWorkbench workspaces", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.dblClick(screen.getByRole("button", { name: "Layout 1" }));
-    const renameInput = screen.getByLabelText("Rename Layout 1");
+    await user.dblClick(
+      screen.getByRole("button", { name: "Untitled layout" }),
+    );
+    const renameInput = screen.getByLabelText("Rename Untitled layout");
     await user.clear(renameInput);
     await user.type(renameInput, "Movie Wall{Enter}");
 
@@ -462,14 +465,16 @@ describe("FeedWorkbench workspaces", () => {
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
-    await user.dblClick(screen.getByRole("button", { name: "Layout 1" }));
-    const renameInput = screen.getByLabelText("Rename Layout 1");
+    await user.dblClick(
+      screen.getByRole("button", { name: "Untitled layout" }),
+    );
+    const renameInput = screen.getByLabelText("Rename Untitled layout");
     await user.clear(renameInput);
     await user.type(renameInput, "Movie Wall{Enter}");
-    await user.click(screen.getByRole("button", { name: "Open layouts" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
 
     expect(
-      screen.getByRole("checkbox", { name: "Select Layout 1" }),
+      screen.getByRole("checkbox", { name: "Select Untitled layout" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("checkbox", { name: "Select Movie Wall" }),
@@ -491,7 +496,7 @@ describe("FeedWorkbench workspaces", () => {
     await user.click(screen.getByRole("button", { name: "New layout" }));
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(10);
 
-    await user.click(screen.getByRole("button", { name: "Layout 1" }));
+    await user.click(screen.getByRole("button", { name: "Untitled layout" }));
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
 
     const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
@@ -514,7 +519,7 @@ describe("FeedWorkbench workspaces", () => {
       target: { value: "5" },
     });
 
-    await openSavedLayouts(user, ["Layout 1"]);
+    await openSavedLayouts(user, ["Untitled layout"]);
 
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
   });
@@ -568,6 +573,9 @@ describe("FeedWorkbench workspaces", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
+    const firstNameInput = screen.getByLabelText("Layout name");
+    await user.clear(firstNameInput);
+    await user.type(firstNameInput, "Layout 1");
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
     await user.click(screen.getByRole("button", { name: "New layout" }));
     await user.click(screen.getByRole("button", { name: "Save layout" }));
@@ -604,7 +612,7 @@ describe("FeedWorkbench workspaces", () => {
     await user.click(screen.getByRole("button", { name: "New layout" }));
     expect(screen.queryByAltText("Runtime image")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Layout 1" }));
+    await user.click(screen.getByRole("button", { name: "Untitled layout" }));
 
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
     expect(container.querySelectorAll("img")).toHaveLength(1);
