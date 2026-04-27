@@ -162,7 +162,7 @@ export function FeedViewPane({
 
   return (
     <article
-      className="group/source relative grid size-full min-h-0 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]"
+      className="group/source relative grid size-full min-h-0 overflow-hidden rounded-2xl border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)]"
       onWheel={handleWheel}
     >
       {showProgress ? (
@@ -211,7 +211,7 @@ export function FeedViewPane({
             sourceChromeClass,
           )}
         >
-          <div className="ml-auto min-w-32 max-w-[calc(100%-3rem)] flex-none rounded-md bg-background/75 px-2 py-1.5 backdrop-blur md:ml-0 md:max-w-full md:flex-1">
+          <div className="ml-auto min-w-32 max-w-[calc(100%-3rem)] flex-none rounded-xl border border-border/60 bg-background/78 px-2 py-1.5 backdrop-blur md:ml-0 md:max-w-full md:flex-1">
             <div className="truncate text-xs font-medium" title={title}>
               {title}
             </div>
@@ -328,7 +328,7 @@ export function FeedViewPane({
           )}
         >
           {!compact && activeItem ? (
-            <div className="pointer-events-auto mb-2 rounded-md bg-background/75 p-2 backdrop-blur">
+            <div className="pointer-events-auto mb-2 rounded-xl border border-border/60 bg-background/78 p-2 backdrop-blur">
               <div className="line-clamp-2 text-xs font-medium">
                 {activeItem.title}
               </div>

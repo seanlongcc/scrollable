@@ -127,9 +127,9 @@ export function WorkbenchChrome({
   const controlsHidden = isAnySheetOpen || isWorkbenchSheetOpen;
   const showPlaybackPill = Boolean(selected) && !controlsHidden;
   const mobileBottomButtonClass =
-    "h-11 w-full rounded-none border-0 bg-transparent p-0 text-muted-foreground shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2";
+    "h-12 w-full rounded-none border-0 bg-transparent p-0 text-muted-foreground shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2";
   const desktopRailButtonClass =
-    "h-9 w-full rounded-xl shadow-[0_8px_22px_rgba(0,0,0,0.36)]";
+    "h-10 w-full rounded-2xl shadow-[0_14px_34px_rgba(0,0,0,0.42)]";
 
   function openMobileWorkbench() {
     setIsMoreOpen(false);
@@ -179,7 +179,7 @@ export function WorkbenchChrome({
           </Button>
         </nav>
 
-        <div className="min-h-0 overflow-y-auto rounded-xl bg-background/65 p-3 backdrop-blur">
+        <div className="min-h-0 overflow-y-auto rounded-2xl border border-border/60 bg-surface/72 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur">
           <WorkbenchPanelContent
             mode="desktop"
             workspaceName={workspaceName}
@@ -335,7 +335,7 @@ export function WorkbenchChrome({
 
       <nav
         aria-label="Mobile bottom navigation"
-        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 items-center bg-background/95 px-1 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-12px_36px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
+        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 items-center border-t border-border/60 bg-background/95 px-1 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(0,0,0,0.58)] backdrop-blur md:hidden"
       >
         <Button
           type="button"
@@ -373,7 +373,7 @@ export function WorkbenchChrome({
       <Sheet open={isWorkbenchSheetOpen} onOpenChange={setIsWorkbenchSheetOpen}>
         <SheetContent
           side="bottom"
-          className="max-h-[78dvh] overflow-y-auto rounded-t-2xl border-border px-3 pb-4 md:hidden"
+          className="max-h-[82dvh] overflow-y-auto rounded-t-3xl border-border/70 bg-surface px-3 pb-4 shadow-[0_-22px_74px_rgba(0,0,0,0.62)] md:hidden"
         >
           <div className="mx-auto h-1 w-10 rounded-full bg-border" />
           <SheetHeader className="px-0 pt-0">
@@ -500,7 +500,7 @@ function WorkbenchPanelContent({
 }) {
   return (
     <div className="grid gap-4">
-      <div className="hidden min-w-0 text-sm font-medium md:block">
+      <div className="hidden min-w-0 text-sm font-semibold md:block">
         <div className="truncate" title={workspaceName}>
           {workspaceName}
         </div>
@@ -508,7 +508,7 @@ function WorkbenchPanelContent({
 
       {mode === "desktop" ? (
         <section className="grid gap-2">
-          <h2 className="text-xs font-semibold text-muted-foreground">
+          <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
             Layout mode
           </h2>
           <div className="grid grid-cols-2 gap-2">
@@ -539,11 +539,13 @@ function WorkbenchPanelContent({
       ) : null}
 
       <section className="grid gap-2">
-        <h2 className="text-xs font-semibold text-muted-foreground">Layer</h2>
+        <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
+          Layer
+        </h2>
         <div
           role="group"
           aria-label="Layout layers"
-          className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-background/60 p-1"
+          className="grid grid-cols-3 gap-1 rounded-2xl border border-border/80 bg-background/70 p-1"
         >
           {layers.map((layer) => (
             <Button
@@ -559,13 +561,14 @@ function WorkbenchPanelContent({
             </Button>
           ))}
         </div>
-        <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-background/60 p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border/80 bg-background/70 p-1">
           {layerStats.map((layer) => (
             <div
               key={layer.id}
               className={cn(
-                "min-w-0 rounded-md border border-transparent px-2 py-1 text-[10px] leading-4 text-muted-foreground",
-                layer.id === activeLayerId && "border-primary/45 text-primary",
+                "min-w-0 rounded-xl border border-transparent px-2 py-1 font-mono text-[10px] leading-4 text-muted-foreground",
+                layer.id === activeLayerId &&
+                  "border-primary/35 text-foreground",
               )}
             >
               <div className="truncate">
@@ -581,7 +584,9 @@ function WorkbenchPanelContent({
       </section>
 
       <section className="grid gap-2">
-        <h2 className="text-xs font-semibold text-muted-foreground">Grid</h2>
+        <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
+          Grid
+        </h2>
         <div className="grid grid-cols-2 gap-2">
           <NumberField
             label="Columns"
@@ -607,7 +612,7 @@ function WorkbenchPanelContent({
       </section>
 
       <section className="grid gap-2">
-        <h2 className="text-xs font-semibold text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
           Global timer
         </h2>
         <div
@@ -633,7 +638,7 @@ function WorkbenchPanelContent({
             variant="outline"
             aria-label="Global pause"
             onClick={() => onGlobalTimerAction("pause")}
-            className="h-8 min-h-0 min-w-0 w-full"
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
           >
             {hasRunningSessionTimer ? <Pause /> : <Play />}
           </Button>
@@ -643,7 +648,7 @@ function WorkbenchPanelContent({
             variant="outline"
             aria-label="Global next"
             onClick={() => onGlobalTimerAction("next")}
-            className="h-8 min-h-0 min-w-0 w-full"
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
           >
             <SkipForward />
           </Button>
@@ -653,7 +658,7 @@ function WorkbenchPanelContent({
             variant="outline"
             aria-label="Global restart"
             onClick={() => onGlobalTimerAction("restart")}
-            className="h-8 min-h-0 min-w-0 w-full"
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
           >
             <RotateCcw />
           </Button>
@@ -661,7 +666,9 @@ function WorkbenchPanelContent({
       </section>
 
       <section className="grid gap-2">
-        <h2 className="text-xs font-semibold text-muted-foreground">Actions</h2>
+        <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
+          Actions
+        </h2>
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="outline" onClick={onAddSource}>
             <Plus />
@@ -701,7 +708,7 @@ function WorkbenchPanelContent({
       {mode === "desktop" && selected ? (
         <>
           <section className="grid gap-2">
-            <h2 className="text-xs font-semibold text-muted-foreground">
+            <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
               Selected source
             </h2>
             <div className="grid grid-cols-2 gap-2">
@@ -778,7 +785,7 @@ function WorkbenchPanelContent({
             ) : null}
           </section>
           <section className="grid gap-2">
-            <h2 className="text-xs font-semibold text-muted-foreground">
+            <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
               Playback
             </h2>
             <PlaybackControls
@@ -886,8 +893,8 @@ function RailButton({
       aria-label={ariaLabel}
       onClick={onClick}
       className={cn(
-        "rounded-full shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur",
-        !active && "bg-background/80",
+        "rounded-full shadow-[0_12px_34px_rgba(0,0,0,0.48)] backdrop-blur",
+        !active && "border-border/70 bg-surface/86",
       )}
     >
       {children}

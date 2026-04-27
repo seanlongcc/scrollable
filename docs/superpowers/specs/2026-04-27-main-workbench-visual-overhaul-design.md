@@ -14,11 +14,11 @@ The user should understand that the media stage is primary, then quickly add sou
 
 Register: product.
 
-Visual lane: Night Instrument.
+Visual lane: Velvet Booth.
 
 Workbench approach: Stage + Signal Rail.
 
-Emotional target: sharper control with a small amount of kinetic status energy. The surface should feel technical, private, direct, and calm under motion, with media remaining dominant.
+Emotional target: sensual, private, productive, and robust. The surface should feel like a soft black viewing booth with reliable instrument controls, not an industrial terminal, colorful console, or porn-site trope.
 
 Color strategy:
 
@@ -28,13 +28,20 @@ Color strategy:
 - Rose is reserved for destructive, risk, and failure states.
 - Near-black deck surfaces continue to dominate the app so runtime media remains the stage.
 
+Typography:
+
+- Manrope is the primary UI font for controls, labels, buttons, and dense workbench content.
+- Azeret Mono is the brand, metadata, timer, source count, URL, and technical-value font.
+- Avoid using Azeret Mono for every UI control; full mono would become cramped and tiring.
+
 Theme scene: a user is assembling a temporary media viewing session on a phone in a dim room, moving fast between adding sources and watching full-screen media. Dark remains correct because the interface surrounds media and should not glare.
 
 References:
 
 - Current Scrollable "Pocket Projection Booth" design system.
-- Figma-like precision for handles, outlines, and selection state.
-- Raycast-like command confidence for compact controls.
+- Private black-room media tools: tactile, dark, direct, and discreet.
+- High-quality product controls with reliable focus, state, and touch behavior.
+- Soft editorial material cues without serif-heavy luxury styling.
 
 ## Scope
 
@@ -69,7 +76,7 @@ Mobile starts with the media stage. Controls stay thumb-reachable and easy to hi
 
 Desktop keeps a left contextual command deck, but the panel should become visually lighter and more structured. The stage should receive more apparent priority through tighter panel contrast, clearer layer/status grouping, and stronger empty-cell composition. Workspace tabs remain near the top center, but should feel more like session strips than generic browser tabs.
 
-Empty cells should be quiet but unmistakably interactive. Fixed layout slots use low-contrast stage frames with cyan add affordances. Free layout should use neutral placement language so layout/editing is visually distinct from source playback without adding another dominant accent.
+Empty cells should be quiet but unmistakably interactive. Fixed layout slots use low-contrast stage frames with cyan add affordances. Free layout should use neutral placement language so layout/editing is visually distinct from source playback without adding another dominant accent. Source gaps should be minimal so the multi-view stage feels continuous rather than like separated cards.
 
 ## Key States
 
@@ -186,7 +193,7 @@ Before claiming completion:
 ## Recommended Impeccable References
 
 - `layout` for stage and workbench composition.
-- `colorize` only if the cyan-only Night Instrument direction needs minor accent tuning after implementation.
+- `colorize` only if the cyan-only Velvet Booth direction needs minor accent tuning after implementation.
 - `adapt` for mobile and desktop responsive behavior.
 - `harden` for focus, reduced motion, edge states, and accessibility polish.
 - `polish` after implementation.
@@ -194,4 +201,4 @@ Before claiming completion:
 ## Open Questions
 
 - Should mobile free-layout editing remain out of scope, or should this visual pass introduce a minimal mobile placement control?
-- Should the final implementation update `DESIGN.md` immediately, or wait until the Night Instrument workbench direction is built and visually verified?
+- Resolved: `DESIGN.md` and `DESIGN.json` were updated with the Velvet Booth direction after browser verification.

@@ -148,10 +148,10 @@ export function WorkspaceTabs({
               key={tab.id}
               data-workspace-tab-id={tab.id}
               className={cn(
-                "flex h-7 min-w-28 overflow-hidden rounded-full border text-muted-foreground transition",
+                "flex h-8 min-w-28 overflow-hidden rounded-full border font-mono text-muted-foreground transition",
                 tab.id === activeWorkspaceId
-                  ? "border-primary/70 bg-surface-elevated text-primary shadow-[0_0_0_1px_rgba(129,230,217,0.22)]"
-                  : "border-transparent bg-surface-elevated/50 hover:bg-surface-elevated",
+                  ? "border-primary/55 bg-primary/10 text-foreground shadow-[0_0_0_1px_rgba(129,230,217,0.16)]"
+                  : "border-border/50 bg-surface/65 hover:bg-surface-elevated",
               )}
             >
               {editingWorkspaceId === tab.id ? (
@@ -165,7 +165,7 @@ export function WorkspaceTabs({
                   maxLength={maxNameLength}
                   onBlur={onCommitWorkspaceRename}
                   onKeyDown={handleRenameKeyDown}
-                  className="h-full min-w-0 flex-1 bg-background/70 px-2 text-left text-xs text-foreground outline-none"
+                  className="h-full min-w-0 flex-1 bg-background/70 px-2 text-left text-[11px] text-foreground outline-none"
                 />
               ) : (
                 <button
@@ -173,7 +173,7 @@ export function WorkspaceTabs({
                   onClick={() => onSelectWorkspace(tab.id)}
                   onDoubleClick={() => onBeginWorkspaceRename(tab)}
                   title={`Open ${tab.name}`}
-                  className="h-full min-w-0 flex-1 cursor-pointer px-3 text-left text-xs"
+                  className="h-full min-w-0 flex-1 cursor-pointer px-3 text-left text-[11px]"
                 >
                   {tab.name}
                 </button>

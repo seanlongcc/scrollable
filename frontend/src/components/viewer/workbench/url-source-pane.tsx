@@ -78,7 +78,7 @@ export function UrlSourcePane({
   }
 
   return (
-    <article className="group/source relative grid size-full min-h-0 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]">
+    <article className="group/source relative grid size-full min-h-0 overflow-hidden rounded-2xl border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)]">
       {shouldMountIframe ? (
         <RuntimeIframe
           key={iframeUrl}
@@ -219,7 +219,7 @@ export function UrlSourcePane({
 
       {!hideUi && isFocused ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
-          <div className="min-w-0 rounded-md bg-background/75 px-2 py-1.5 backdrop-blur">
+          <div className="min-w-0 rounded-xl border border-border/60 bg-background/78 px-2 py-1.5 backdrop-blur">
             <div className="truncate text-xs font-medium">{displayTitle}</div>
             <div className="font-mono text-[10px] text-muted-foreground">
               URL source

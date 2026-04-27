@@ -1,14 +1,14 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-04-27T00:00:00-04:00",
+  "generatedAt": "2026-04-27T14:45:00-04:00",
   "title": "Design System: Scrollable",
   "extensions": {
     "colorMeta": {
       "background": {
         "role": "neutral",
         "displayName": "Booth Black",
-        "canonical": "#070707",
-        "tonalRamp": ["#070707", "#101010", "#181818", "#202020"]
+        "canonical": "#060606",
+        "tonalRamp": ["#060606", "#0f0e0f", "#171516", "#211d20"]
       },
       "primary": {
         "role": "primary",
@@ -36,11 +36,11 @@
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Dense product copy, labels, and form content."
+        "purpose": "Manrope dense product copy, labels, buttons, and form content."
       },
       "mono": {
         "displayName": "Mono",
-        "purpose": "URLs, counters, durations, and technical source values."
+        "purpose": "Azeret Mono wordmark, URLs, counters, durations, and technical source values."
       }
     },
     "elevation": {
@@ -63,6 +63,7 @@
       "Saved configuration views are metadata-only.",
       "Mobile workflows are primary.",
       "Cyan marks action and state, not decoration.",
+      "Use Manrope for dense controls and Azeret Mono for brand/technical values.",
       "Floating chrome may blur; static panels should not become decorative glass."
     ]
   }

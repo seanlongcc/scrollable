@@ -2,43 +2,43 @@
 name: Scrollable
 description: Mobile-first runtime media workbench for private feed viewing.
 colors:
-  background: "#070707"
-  foreground: "#f4f4f4"
-  surface: "#101010"
-  surface-elevated: "#181818"
-  popover: "#181818"
+  background: "#060606"
+  foreground: "#f4f0ed"
+  surface: "#0f0e0f"
+  surface-elevated: "#171516"
+  popover: "#171516"
   primary: "#8fefe1"
   primary-hover: "#5eead4"
-  primary-foreground: "#070707"
+  primary-foreground: "#04211f"
   secondary: "#e5f7a1"
   secondary-soft: "#181c08"
-  muted: "#181818"
-  muted-foreground: "#a0a0a0"
-  accent: "#202020"
+  muted: "#171516"
+  muted-foreground: "#aaa19c"
+  accent: "#211d20"
   destructive: "#f43f5e"
-  border: "#2a2a2a"
-  input: "#303030"
+  border: "#2d292c"
+  input: "#242124"
 typography:
   display:
-    fontFamily: "Geist, Geist Fallback, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Azeret Mono, ui-monospace, monospace"
     fontSize: "2.25rem"
     fontWeight: 600
     lineHeight: 1
     letterSpacing: "normal"
   body:
-    fontFamily: "Geist, Geist Fallback, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "normal"
   label:
-    fontFamily: "Geist, Geist Fallback, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Manrope, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     lineHeight: 1.2
     letterSpacing: "normal"
   mono:
-    fontFamily: "Geist Mono, Geist Mono Fallback, ui-monospace, monospace"
+    fontFamily: "Azeret Mono, ui-monospace, monospace"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.4
@@ -77,9 +77,9 @@ components:
 
 ## 1. Overview
 
-**Creative North Star: "The Pocket Projection Booth"**
+**Creative North Star: "The Velvet Viewing Booth"**
 
-Scrollable currently uses a dark, media-first product interface: blackened surfaces, thin borders, cyan-green controls, lime secondary accents, compact tool rails, and bottom-sheet mobile controls. It feels more like a runtime instrument than a document app.
+Scrollable uses a dark, media-first product interface: soft black surfaces, thin borders, cyan controls, compact tool rails, and bottom-sheet mobile controls. It should feel like a private media booth: sensual in material, productive in structure, and robust in controls.
 
 The system should keep that instrument quality while shedding generic dark-app habits. Chrome should feel exact, quiet, and recoverable. The media should remain the stage. Privacy rules should be visible through metadata-only saved layouts and careful copy.
 
@@ -89,11 +89,11 @@ The system should keep that instrument quality while shedding generic dark-app h
 - Cyan primary actions reserved for active state, progress, and command focus.
 - Bottom-sheet mobile workflows and left-rail desktop workflows.
 - Flat surfaces with subtle borders, not decorative depth.
-- Geist Sans for utility, Geist Mono for product wordmark and technical values.
+- Manrope for dense UI, Azeret Mono for the wordmark and technical values.
 
 ## 2. Colors
 
-The palette is a near-black booth with cyan control light and lime auxiliary signal.
+The palette is a soft near-black booth with cyan control light. Lime is no longer a visible first-pass workbench accent.
 
 ### Primary
 
@@ -107,13 +107,13 @@ The palette is a near-black booth with cyan control light and lime auxiliary sig
 
 ### Neutral
 
-- **Booth Black** (#070707): App background and media stage.
-- **Deck Surface** (#101010): Panels, cards, viewer frames, source slots.
-- **Raised Deck** (#181818): Popovers, muted controls, elevated panels.
-- **Soft Foreground** (#f4f4f4): Main text and icon color.
-- **Muted Grey** (#a0a0a0): Secondary labels, counts, helper text.
-- **Hairline Border** (#2a2a2a): Dividers, card strokes, panel outlines.
-- **Input Track** (#303030): Input fields and inactive control tracks.
+- **Booth Black** (#060606): App background and media stage.
+- **Velvet Deck** (#0f0e0f): Panels, cards, viewer frames, source slots.
+- **Raised Velvet** (#171516): Popovers, muted controls, elevated panels.
+- **Soft Foreground** (#f4f0ed): Main text and icon color.
+- **Muted Warm Grey** (#aaa19c): Secondary labels, counts, helper text.
+- **Hairline Border** (#2d292c): Dividers, card strokes, panel outlines.
+- **Input Track** (#242124): Input fields and inactive control tracks.
 
 ### Named Rules
 
@@ -123,11 +123,11 @@ The palette is a near-black booth with cyan control light and lime auxiliary sig
 
 ## 3. Typography
 
-**Display Font:** Geist, with system sans fallback
-**Body Font:** Geist, with system sans fallback
-**Label/Mono Font:** Geist Mono, with ui-monospace fallback
+**Display Font:** Azeret Mono, with ui-monospace fallback
+**Body Font:** Manrope, with system sans fallback
+**Label/Mono Font:** Azeret Mono, with ui-monospace fallback
 
-**Character:** Utility-first and compact. Type should feel like controls on a media instrument, not editorial prose.
+**Character:** Private, adult, and technical. Manrope keeps dense controls readable and tactile; Azeret Mono gives the wordmark, metadata, counters, and timers a slightly underground instrument feel.
 
 ### Hierarchy
 

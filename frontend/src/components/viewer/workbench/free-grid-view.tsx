@@ -92,7 +92,7 @@ export function FreeGridView({
         "grid",
         hideUi
           ? "h-dvh min-h-0 min-w-0 gap-0"
-          : "h-full min-h-0 min-w-0 gap-2 md:min-h-[360px] md:min-w-[720px]",
+          : "h-full min-h-0 min-w-0 gap-0.5 md:min-h-[360px] md:min-w-[720px]",
       )}
       style={{
         gridTemplateColumns: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,
@@ -111,7 +111,7 @@ export function FreeGridView({
             key={slot.id}
             data-testid={`template-slot-${slot.id}`}
             className={cn(
-              "group/template-slot relative grid min-h-0 cursor-pointer place-items-center rounded-xl border border-dashed border-primary/45 bg-surface/35 p-2 text-center text-xs text-muted-foreground transition hover:border-primary hover:bg-surface-elevated/70 hover:text-primary max-md:pointer-events-none",
+              "group/template-slot relative grid min-h-0 cursor-pointer place-items-center rounded-2xl border border-dashed border-border/70 bg-surface/35 p-2 text-center text-xs text-muted-foreground transition hover:border-primary/70 hover:bg-surface-elevated/70 hover:text-primary max-md:pointer-events-none",
               freeDrag?.targetType === "template-slot" &&
                 freeDrag.id === slot.id &&
                 "z-40 scale-[1.01]",
@@ -191,10 +191,10 @@ export function FreeGridView({
               key={session.id}
               data-testid={`free-cell-${session.id}`}
               className={cn(
-                "group/free relative min-h-0 rounded-xl outline outline-1 outline-offset-0 outline-transparent transition",
+                "group/free relative min-h-0 rounded-2xl outline outline-1 outline-offset-0 outline-transparent transition",
                 !hideUi &&
                   session.id === selectedId &&
-                  "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/20 shadow-[0_0_20px_rgba(143,239,225,0.08)]",
+                  "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/15 shadow-[0_0_20px_rgba(143,239,225,0.08)]",
                 freeDrag?.targetType === "session" &&
                   freeDrag.id === session.id &&
                   "z-40 scale-[1.01]",
@@ -308,7 +308,7 @@ export function FreeGridView({
         })
       ) : templateSlots.length ? null : (
         <div
-          className="grid place-items-center rounded-lg border border-dashed border-border/60 px-4 text-center text-sm text-muted-foreground"
+          className="grid place-items-center rounded-2xl border border-dashed border-border/60 px-4 text-center text-sm text-muted-foreground"
           style={{
             gridColumn: `1 / span ${FREE_LAYOUT_SIZE}`,
             gridRow: `1 / span ${FREE_LAYOUT_SIZE}`,

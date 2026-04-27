@@ -34,7 +34,7 @@ export function NumberField({
     return (
       <Label
         className={cn(
-          "flex h-8 w-full min-w-20 items-center gap-1 rounded-lg border border-border/70 bg-surface-elevated/70 px-1 text-[11px] text-muted-foreground",
+          "flex h-11 w-full min-w-20 items-center gap-1 rounded-xl border border-border/80 bg-surface-elevated/80 px-1 text-[11px] text-muted-foreground md:h-8",
           className,
         )}
       >
@@ -56,6 +56,7 @@ export function NumberField({
           }}
           className={cn(
             "h-6 min-h-0 w-11 border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground",
+            "h-8 md:h-6",
             inputClassName,
           )}
         />

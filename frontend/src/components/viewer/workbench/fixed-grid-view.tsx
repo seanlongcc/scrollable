@@ -88,7 +88,7 @@ export function FixedGridView({
         "grid [grid-template-columns:repeat(var(--mobile-grid-columns),minmax(0,1fr))] [grid-template-rows:repeat(var(--mobile-grid-rows),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--desktop-grid-columns),minmax(0,1fr))] md:[grid-template-rows:repeat(var(--desktop-grid-rows),minmax(0,1fr))]",
         hideUi
           ? "h-dvh min-h-0 min-w-0 gap-0"
-          : "h-full min-h-0 min-w-0 gap-1 md:min-h-[360px] md:min-w-[720px] md:gap-2",
+          : "h-full min-h-0 min-w-0 gap-0.5 md:min-h-[360px] md:min-w-[720px] md:gap-0.5",
       )}
       style={gridStyle}
       onClick={(event) => {
@@ -105,10 +105,10 @@ export function FixedGridView({
             key={slot}
             data-testid={`${cellTestIdPrefix}-${slot}`}
             className={cn(
-              "min-h-0 rounded-xl outline outline-1 outline-offset-0 outline-transparent transition",
+              "min-h-0 rounded-2xl outline outline-1 outline-offset-0 outline-transparent transition",
               !hideUi &&
                 session?.id === selectedId &&
-                "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/20",
+                "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/15",
             )}
             onClick={(event) => {
               if (!session) return;
@@ -191,7 +191,7 @@ export function FixedGridView({
                 onClick={() => openSourcePanel(slot)}
                 aria-label="Add source to empty cell"
                 title="Add source to empty cell"
-                className="grid size-full min-h-0 cursor-pointer place-items-center rounded-lg border border-dashed border-border/70 bg-surface/40 text-sm text-muted-foreground transition hover:border-primary/70 hover:text-primary"
+                className="grid size-full min-h-0 cursor-pointer place-items-center rounded-2xl border border-dashed border-border/70 bg-surface/35 text-sm font-semibold text-muted-foreground transition hover:border-primary/70 hover:text-primary"
               >
                 <span className="inline-flex items-center gap-2">
                   <Plus className="size-4" />
