@@ -40,7 +40,7 @@ const EMPTY_WORKSPACE_STATS: WorkspaceStats = {
 };
 
 const anchoredDialogClass =
-  "top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(0,0,0,0.62)] sm:max-w-none md:top-[7.25rem] md:right-auto md:bottom-3 md:left-3 md:h-auto md:max-h-none md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-2xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]";
+  "top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(0,0,0,0.62)] sm:max-w-none md:top-[7.25rem] md:right-auto md:bottom-auto md:left-3 md:h-auto md:max-h-[calc(100dvh-8rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-2xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]";
 
 const centeredDialogClass =
   "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(0,0,0,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]";
@@ -55,6 +55,9 @@ const libraryTabTriggerClass = "min-h-12 rounded-xl md:min-h-0";
 
 const libraryRowClass =
   "grid h-14 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
+
+const libraryListClass =
+  "grid max-h-[min(16rem,38dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1";
 
 const emptyStateClass =
   "rounded-2xl border border-dashed border-border/70 bg-background/55 p-3 text-sm text-muted-foreground";
@@ -220,7 +223,7 @@ export function LayoutDialog({
             <div
               role="group"
               aria-label="Saved layouts list"
-              className="grid h-[min(23.25rem,52dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1"
+              className={libraryListClass}
             >
               {sortedWorkspaces.length ? (
                 sortedWorkspaces.map((workspace) => {
@@ -289,7 +292,7 @@ export function LayoutDialog({
             <div
               role="group"
               aria-label="Saved templates list"
-              className="grid h-[min(23.25rem,52dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1"
+              className={libraryListClass}
             >
               {sortedTemplates.length ? (
                 sortedTemplates.map((template) => {

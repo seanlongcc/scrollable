@@ -157,7 +157,7 @@ describe("FeedWorkbench workspaces", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps saved layout lists in seven-item scroll panels", async () => {
+  it("keeps saved layout lists scrollable without forcing empty height", async () => {
     stubRandomUuids(["blank-workspace"]);
     window.localStorage.setItem(
       WORKSPACE_STORAGE_KEY,
@@ -182,7 +182,7 @@ describe("FeedWorkbench workspaces", () => {
     });
 
     expect(layoutList).toHaveClass(
-      "h-[min(23.25rem,52dvh)]",
+      "max-h-[min(16rem,38dvh)]",
       "overflow-y-auto",
     );
     expect(within(layoutList).getAllByRole("checkbox")).toHaveLength(8);
