@@ -72,6 +72,28 @@ npm run supabase:reset
 npm run supabase:test
 ```
 
+# CI/CD
+
+GitHub Actions runs the release gates on pull requests to `main`, pushes to `main`, and manual dispatches:
+
+- formatting, ESLint, TypeScript, Vitest, and Next.js build
+- local Supabase database migrations and pgTAP tests in Docker
+- Playwright desktop Chrome and iPhone 15 e2e tests
+- Vercel preview deployment for same-repository pull requests
+- Vercel production deployment for pushes to `main`
+
+The Supabase CI job uses the local Docker database only. It does not use production credentials, `--linked`, `db push`, or a remote database URL.
+
+Configure these GitHub repository secrets before enabling deploys:
+
+```bash
+VERCEL_TOKEN
+VERCEL_ORG_ID
+VERCEL_PROJECT_ID
+```
+
+The workflow deploys with the Vercel CLI from `frontend/`. Disable or ignore Vercel Git auto-deploys if you want GitHub Actions to be the only deployment path.
+
 # Runtime configuration
 
 Copy [`frontend/.env.example`](./frontend/.env.example) to `frontend/.env.local` for local app secrets.

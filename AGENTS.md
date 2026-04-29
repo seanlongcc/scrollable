@@ -25,7 +25,7 @@ Current installed stack:
 - Optional `yt-dlp` executable for runtime arbitrary-site URL extraction. Keep it on `PATH` or set `YTDLP_PATH`.
 - Optional server-only `NHENTAI_API_KEY` for runtime nHentai gallery API requests. Store it in local/deployment secrets only, never as `NEXT_PUBLIC_*`.
 - Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
-- Vercel for deployment
+- Vercel for deployment through GitHub Actions and the pinned Vercel CLI
 - Mobile-first user experience
 
 Current package/runtime defaults:
@@ -43,6 +43,9 @@ Current package/runtime defaults:
 - Vercel deployment should use `frontend/` as the project root directory.
 - Browser tests require Linux browser dependencies in WSL; if Chromium cannot launch, report the missing shared library and do not claim browser verification passed.
 - Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
+- GitHub Actions workflow `.github/workflows/ci-cd.yml` runs format check, ESLint, typecheck, Vitest, Next build, local Supabase DB tests, and Playwright desktop/mobile e2e on pull requests and `main`.
+- GitHub Actions deploys Vercel previews for same-repository pull requests and production for pushes to `main`. Required repository secrets are `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
+- CI Supabase tests must stay local-only. Do not add `--linked`, `db push`, `SUPABASE_ACCESS_TOKEN`, or remote database URLs to the test workflow unless the production/staging database deployment strategy is explicitly changed.
 - Saved free-layout templates use `viewer_templates` in Supabase and `scrollable.workspace-templates.v1` in localStorage.
 
 ## Product Intent
@@ -181,7 +184,7 @@ Test ownership rules:
 
 1. Use Conventional Commits for commit messages, for example `feat: add feed timer` or `fix: prevent media persistence`.
 2. Do not create branches with the `codex/` prefix. Use descriptive feature branches without that prefix.
-3. Before completion, run lint, typecheck, tests, build, and browser verification when applicable.
+3. Before completion, run lint, typecheck, tests, build, and browser verification when applicable. The GitHub Actions CI/CD workflow mirrors these checks and also runs local Supabase DB tests.
 4. Ensure the lint pass includes ESLint and run the configured Prettier check.
 5. For overlay-style UI changes, include a viewport-bounds check in browser verification.
 6. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases when those areas changed.

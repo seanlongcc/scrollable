@@ -39,7 +39,7 @@ describe("FeedWorkbench", () => {
   it("keeps source info off by default", () => {
     render(<FeedWorkbench />);
 
-    expect(screen.getByRole("button", { name: "Source info" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Show info" })).toHaveAttribute(
       "data-variant",
       "outline",
     );

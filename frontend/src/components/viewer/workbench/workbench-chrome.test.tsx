@@ -1,10 +1,184 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { WorkbenchChrome } from "./workbench-chrome";
 
 describe("WorkbenchChrome", () => {
+  it("closes the mobile workbench sheet before opening add source", async () => {
+    const user = userEvent.setup();
+    const onAddSource = vi.fn();
+
+    const { container } = render(
+      <WorkbenchChrome {...chromeProps({ onAddSource })} />,
+    );
+    const nav = mobileBottomNav(container);
+
+    await user.click(buttonIn(nav, "Workbench"));
+    const workbench = workbenchSheet();
+
+    await user.click(buttonIn(workbench, "Add source"));
+
+    expect(onAddSource).toHaveBeenCalledOnce();
+    expect(
+      document.querySelector('[data-slot="sheet-content"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("starts the mobile workbench with actions visible and advanced controls collapsed", async () => {
+    const user = userEvent.setup();
+
+    const { container } = render(<WorkbenchChrome {...chromeProps()} />);
+    const nav = mobileBottomNav(container);
+
+    await user.click(buttonIn(nav, "Workbench"));
+    const workbench = workbenchSheet();
+
+    expect(buttonIn(workbench, "Add source")).toBeInTheDocument();
+    expect(buttonIn(workbench, "Import JSON")).toBeInTheDocument();
+    expect(buttonIn(workbench, "Export JSON")).toBeInTheDocument();
+    expect(buttonIn(workbench, "Import JSON")?.textContent?.trim()).toBe(
+      "Import JSON",
+    );
+    expect(buttonIn(workbench, "Export JSON")?.textContent?.trim()).toBe(
+      "Export JSON",
+    );
+    expect(
+      buttonIn(workbench, "Select Layer 1", { optional: true }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(workbench).queryByLabelText("Global timer seconds"),
+    ).not.toBeInTheDocument();
+
+    await user.click(buttonIn(workbench, "Layout"));
+
+    expect(buttonIn(workbench, "Select Layer 1")).toBeInTheDocument();
+  });
+
+  it("closes the mobile workbench sheet before opening save and clear overlays", async () => {
+    const user = userEvent.setup();
+    const onOpenSaveDialog = vi.fn();
+    const onOpenClearDialog = vi.fn();
+
+    const { container, rerender } = render(
+      <WorkbenchChrome {...chromeProps({ onOpenSaveDialog })} />,
+    );
+    const nav = mobileBottomNav(container);
+
+    await user.click(buttonIn(nav, "Workbench"));
+    await user.click(buttonIn(workbenchSheet(), "Save layout"));
+
+    expect(onOpenSaveDialog).toHaveBeenCalledOnce();
+    expect(
+      document.querySelector('[data-slot="sheet-content"]'),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <WorkbenchChrome
+        {...chromeProps({ isClearDisabled: false, onOpenClearDialog })}
+      />,
+    );
+
+    await user.click(buttonIn(nav, "Workbench"));
+    await user.click(buttonIn(workbenchSheet(), "Clear layout"));
+
+    expect(onOpenClearDialog).toHaveBeenCalledOnce();
+    expect(
+      document.querySelector('[data-slot="sheet-content"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("closes the mobile workbench sheet before opening library and account overlays", async () => {
+    const user = userEvent.setup();
+    const onOpenLibrary = vi.fn();
+    const onOpenAccount = vi.fn();
+
+    const { container, rerender } = render(
+      <WorkbenchChrome {...chromeProps({ onOpenLibrary })} />,
+    );
+    const nav = mobileBottomNav(container);
+
+    await user.click(buttonIn(nav, "Workbench"));
+    fireEvent.click(buttonIn(nav, "Library"));
+
+    expect(onOpenLibrary).toHaveBeenCalledOnce();
+    expect(
+      document.querySelector('[data-slot="sheet-content"]'),
+    ).not.toBeInTheDocument();
+
+    rerender(<WorkbenchChrome {...chromeProps({ onOpenAccount })} />);
+
+    await user.click(buttonIn(nav, "Workbench"));
+    fireEvent.click(buttonIn(nav, "Account"));
+
+    expect(onOpenAccount).toHaveBeenCalledOnce();
+    expect(
+      document.querySelector('[data-slot="sheet-content"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses stateful source-info labels", async () => {
+    const user = userEvent.setup();
+    const onToggleShowAllInfo = vi.fn();
+    const { rerender } = render(
+      <WorkbenchChrome {...chromeProps({ onToggleShowAllInfo })} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Show info" }));
+    expect(onToggleShowAllInfo).toHaveBeenCalledOnce();
+
+    rerender(<WorkbenchChrome {...chromeProps({ showAllInfo: true })} />);
+    expect(screen.getByRole("button", { name: "Hide info" })).toHaveAttribute(
+      "data-variant",
+      "default",
+    );
+  });
+
+  it("keeps mobile bottom navigation icon-only", () => {
+    const { container } = render(<WorkbenchChrome {...chromeProps()} />);
+
+    const nav = mobileBottomNav(container);
+
+    expect(buttonIn(nav, "Workbench")).toBeInTheDocument();
+    expect(buttonIn(nav, "Library")).toBeInTheDocument();
+    expect(buttonIn(nav, "Account")).toBeInTheDocument();
+    expect(buttonIn(nav, "Workbench")).toHaveClass(
+      "[&_svg:not([class*='size-'])]:size-5",
+    );
+    expect(buttonIn(nav, "Library")).toHaveClass(
+      "[&_svg:not([class*='size-'])]:size-5",
+    );
+    expect(buttonIn(nav, "Account")).toHaveClass(
+      "[&_svg:not([class*='size-'])]:size-5",
+    );
+    expect(
+      within(nav as HTMLElement).queryByText("Workbench"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(nav as HTMLElement).queryByText("Library"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(nav as HTMLElement).queryByText("Account"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps account action accessible while hiding its mobile text", () => {
+    const { container } = render(
+      <WorkbenchChrome
+        {...chromeProps({
+          accountButtonLabel: "Sign in",
+          accountButtonTitle: "Sign in",
+        })}
+      />,
+    );
+
+    const nav = mobileBottomNav(container);
+
+    expect(buttonIn(nav, "Sign in")).toBeInTheDocument();
+    expect(within(nav).queryByText("Sign in")).not.toBeInTheDocument();
+    expect(within(nav).queryByText("Account")).not.toBeInTheDocument();
+  });
+
   it("places JSON import to the left of JSON export in workbench actions", async () => {
     const user = userEvent.setup();
     const onImportJson = vi.fn();
@@ -101,4 +275,41 @@ function chromeProps(
     onFreeRectChange: vi.fn(),
     ...overrides,
   };
+}
+
+function mobileBottomNav(container: HTMLElement) {
+  const nav = container.querySelector<HTMLElement>(
+    'nav[aria-label="Mobile bottom navigation"]',
+  );
+  expect(nav).not.toBeNull();
+
+  return nav as HTMLElement;
+}
+
+function buttonIn(container: HTMLElement, name: string): HTMLButtonElement;
+function buttonIn(
+  container: HTMLElement,
+  name: string,
+  options: { optional: true },
+): HTMLButtonElement | null;
+function buttonIn(
+  container: HTMLElement,
+  name: string,
+  { optional = false }: { optional?: boolean } = {},
+) {
+  const button = container.querySelector<HTMLButtonElement>(
+    `button[aria-label="${name}"], button[title="${name}"]`,
+  );
+  if (!optional) expect(button).not.toBeNull();
+
+  return button as HTMLButtonElement | null;
+}
+
+function workbenchSheet() {
+  const sheet = document.querySelector<HTMLElement>(
+    '[data-slot="sheet-content"]',
+  );
+  expect(sheet).not.toBeNull();
+
+  return sheet as HTMLElement;
 }

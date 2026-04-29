@@ -71,11 +71,13 @@ test("mobile source info sits on the right of selected sources", async ({
   const workbenchDialog = page.getByRole("dialog", { name: "Workbench" });
   await expect(workbenchDialog).toBeVisible();
   const sourceInfoButton = workbenchDialog.getByRole("button", {
-    name: "Source info",
+    name: "Show info",
   });
   await expect(sourceInfoButton).toHaveAttribute("data-variant", "outline");
   await sourceInfoButton.click();
-  await expect(sourceInfoButton).toHaveAttribute("data-variant", "default");
+  await expect(
+    workbenchDialog.getByRole("button", { name: "Hide info" }),
+  ).toHaveAttribute("data-variant", "default");
   await page.getByRole("button", { name: "Close sheet" }).click();
   await expect(workbenchDialog).toBeHidden();
   await expect(page.getByText("Local upload", { exact: true })).toBeVisible();

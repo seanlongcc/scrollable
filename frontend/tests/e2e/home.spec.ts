@@ -26,8 +26,10 @@ test("home renders multi-view wall without media previews", async ({
   }
   await openWorkbenchOnMobile(page, testInfo.project.name);
   const workbench = workbenchScope(page, testInfo.project.name);
+  await openWorkbenchSection(page, testInfo.project.name, "Layout");
   await expect(workbench.getByLabel("Columns")).toHaveValue("2");
   await expect(workbench.getByLabel("Rows")).toHaveValue("1");
+  await openWorkbenchSection(page, testInfo.project.name, "Timer");
   await expect(workbench.getByLabel("Global timer seconds")).toHaveValue("10");
   await expect(
     workbench.getByRole("button", { name: "Global next" }),
@@ -62,6 +64,7 @@ test("keeps multi-layer workbench within the viewport", async ({
 }, testInfo) => {
   await page.goto("/");
   await openWorkbenchOnMobile(page, testInfo.project.name);
+  await openWorkbenchSection(page, testInfo.project.name, "Layout");
 
   await expect(
     workbenchScope(page, testInfo.project.name).getByRole("button", {
@@ -312,7 +315,7 @@ test("keyboard and wheel move through runtime feed items", async ({
 
   await openWorkbenchOnMobile(page, testInfo.project.name);
   await workbenchScope(page, testInfo.project.name)
-    .getByRole("button", { name: "Source info" })
+    .getByRole("button", { name: "Show info" })
     .click();
   await closeWorkbenchOnMobile(page, testInfo.project.name);
 
@@ -347,6 +350,17 @@ async function closeWorkbenchOnMobile(page: Page, projectName: string) {
   if (projectName !== "mobile") return;
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Workbench" })).toHaveCount(0);
+}
+
+async function openWorkbenchSection(
+  page: Page,
+  projectName: string,
+  sectionName: string,
+) {
+  if (projectName !== "mobile") return;
+  await workbenchScope(page, projectName)
+    .getByRole("button", { name: sectionName, exact: true })
+    .click();
 }
 
 function workbenchScope(page: Page, projectName: string) {

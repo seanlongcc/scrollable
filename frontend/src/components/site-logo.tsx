@@ -8,7 +8,7 @@ export function SiteLogo({ className }: { className?: string }) {
       href="/"
       aria-label="scrollable.app"
       className={cn(
-        "inline-flex h-16 min-h-12 items-center rounded-xl px-2.5 font-mono text-4xl font-semibold tracking-normal text-primary outline-none hover:text-primary-hover focus-visible:ring-2 focus-visible:ring-primary md:min-h-0",
+        "inline-flex h-16 min-h-12 items-center rounded-xl px-2.5 font-mono text-4xl font-semibold tracking-normal text-foreground outline-none hover:text-secondary focus-visible:ring-2 focus-visible:ring-primary md:min-h-0",
         className,
       )}
     >

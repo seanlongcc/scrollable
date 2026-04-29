@@ -1,12 +1,9 @@
 import {
   Clock3,
   Copy,
-  Download,
   EyeOff,
   FolderOpen,
   Grid2X2,
-  Info,
-  LayoutGrid,
   Maximize2,
   MoreHorizontal,
   Pause,
@@ -14,14 +11,10 @@ import {
   Play,
   Plus,
   RotateCcw,
-  Save,
   SkipBack,
   SkipForward,
   SlidersHorizontal,
   Trash2,
-  UnfoldHorizontal,
-  UnfoldVertical,
-  Upload,
   UserCircle,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -42,6 +35,14 @@ import { SelectedFreeLayoutControls } from "./selected-free-layout-controls";
 import type { LayerStats } from "./selection-state";
 import type { GlobalTimerAction } from "./workbench-toolbar";
 import type { FeedSession, LayoutMode, WorkspaceLayer } from "./types";
+import {
+  ActionsSection,
+  GlobalTimerSection,
+  GridSection,
+  LayerSection,
+  LayoutModeSection,
+  WorkbenchPanelDisclosure,
+} from "./workbench-panel-sections";
 
 export function WorkbenchChrome({
   workspaceName,
@@ -140,13 +141,43 @@ export function WorkbenchChrome({
     ? "Open workbench"
     : "Collapse workbench";
   const mobileBottomButtonClass =
-    "h-12 w-full rounded-none border-0 bg-transparent p-0 text-muted-foreground shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2";
+    "h-12 w-full rounded-none border-0 bg-transparent p-0 text-muted-foreground shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2 [&_svg:not([class*='size-'])]:size-5";
   const desktopRailButtonClass =
-    "h-10 w-full rounded-2xl shadow-[0_14px_34px_rgba(0,0,0,0.42)]";
+    "h-10 w-full rounded-2xl shadow-[0_14px_34px_rgba(18,10,10,0.42)]";
 
   function openMobileWorkbench() {
     setIsMoreOpen(false);
     setIsWorkbenchSheetOpen(true);
+  }
+
+  function closeMobileChrome() {
+    setIsMoreOpen(false);
+    setIsWorkbenchSheetOpen(false);
+  }
+
+  function openAddSource() {
+    closeMobileChrome();
+    onAddSource();
+  }
+
+  function openLibrary() {
+    closeMobileChrome();
+    onOpenLibrary();
+  }
+
+  function openSaveDialog() {
+    closeMobileChrome();
+    onOpenSaveDialog();
+  }
+
+  function openClearDialog() {
+    closeMobileChrome();
+    onOpenClearDialog();
+  }
+
+  function openAccount() {
+    closeMobileChrome();
+    onOpenAccount();
   }
 
   return (
@@ -154,7 +185,7 @@ export function WorkbenchChrome({
       <aside
         aria-label="Workbench contextual panel"
         className={cn(
-          "pointer-events-auto fixed top-16 bottom-3 left-3 z-40 hidden grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none",
+          "pointer-events-auto fixed top-16 bottom-3 left-3 z-40 hidden grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid",
           isDesktopWorkbenchCollapsed ? "w-14" : "w-[19rem]",
         )}
       >
@@ -185,7 +216,7 @@ export function WorkbenchChrome({
             size="icon-lg"
             variant="outline"
             aria-label="Library"
-            onClick={onOpenLibrary}
+            onClick={openLibrary}
             className={desktopRailButtonClass}
           >
             <FolderOpen />
@@ -196,7 +227,7 @@ export function WorkbenchChrome({
             variant="outline"
             aria-label={accountButtonLabel}
             title={accountButtonTitle}
-            onClick={onOpenAccount}
+            onClick={openAccount}
             className={desktopRailButtonClass}
           >
             <UserCircle />
@@ -208,7 +239,7 @@ export function WorkbenchChrome({
         ) : (
           <div
             id="desktop-workbench-panel"
-            className="min-h-0 overflow-y-auto rounded-2xl border border-border/60 bg-surface/72 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur"
+            className="min-h-0 overflow-y-auto rounded-2xl border border-border/60 bg-surface/72 p-3 shadow-[0_24px_70px_rgba(18,10,10,0.42)] backdrop-blur"
           >
             <WorkbenchPanelContent
               mode="desktop"
@@ -241,11 +272,11 @@ export function WorkbenchChrome({
               onOpenSatellite={onOpenSatellite}
               onToggleShowAllInfo={onToggleShowAllInfo}
               onHideUi={onHideUi}
-              onAddSource={onAddSource}
-              onOpenSaveDialog={onOpenSaveDialog}
+              onAddSource={openAddSource}
+              onOpenSaveDialog={openSaveDialog}
               onImportJson={onImportJson}
               onExportCurrentJson={onExportCurrentJson}
-              onOpenClearDialog={onOpenClearDialog}
+              onOpenClearDialog={openClearDialog}
               onSelectLayer={onSelectLayer}
               onFreeRectChange={onFreeRectChange}
             />
@@ -297,7 +328,7 @@ export function WorkbenchChrome({
                 <MoreHorizontal />
               </RailButton>
               {isMoreOpen ? (
-                <div className="absolute right-12 bottom-0 grid w-36 gap-1 rounded-xl border border-border bg-popover/95 p-2 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur">
+                <div className="absolute right-12 bottom-0 grid w-36 gap-1 rounded-xl border border-border bg-popover/95 p-2 shadow-[0_18px_48px_rgba(18,10,10,0.5)] backdrop-blur">
                   {canCloneOrFillSelectedSource ? (
                     <>
                       <Button
@@ -343,7 +374,7 @@ export function WorkbenchChrome({
             </>
           ) : (
             <>
-              <RailButton ariaLabel="Add source" onClick={onAddSource} active>
+              <RailButton ariaLabel="Add source" onClick={openAddSource} active>
                 <Plus />
               </RailButton>
               <RailButton ariaLabel="Hide UI" onClick={onHideUi}>
@@ -368,7 +399,7 @@ export function WorkbenchChrome({
 
       <nav
         aria-label="Mobile bottom navigation"
-        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 items-center border-t border-border/60 bg-background/95 px-1 pt-0 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(0,0,0,0.58)] backdrop-blur md:hidden"
+        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 items-center border-t border-border/60 bg-background/95 px-1 pt-0 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(18,10,10,0.58)] backdrop-blur md:hidden"
       >
         <Button
           type="button"
@@ -386,7 +417,7 @@ export function WorkbenchChrome({
           type="button"
           variant="ghost"
           aria-label="Library"
-          onClick={onOpenLibrary}
+          onClick={openLibrary}
           className={mobileBottomButtonClass}
         >
           <FolderOpen />
@@ -396,7 +427,7 @@ export function WorkbenchChrome({
           variant="ghost"
           aria-label={accountButtonLabel}
           title={accountButtonTitle}
-          onClick={onOpenAccount}
+          onClick={openAccount}
           className={mobileBottomButtonClass}
         >
           <UserCircle />
@@ -406,7 +437,7 @@ export function WorkbenchChrome({
       <Sheet open={isWorkbenchSheetOpen} onOpenChange={setIsWorkbenchSheetOpen}>
         <SheetContent
           side="bottom"
-          className="max-h-[82dvh] overflow-y-auto rounded-t-3xl border-border/70 bg-surface px-3 pb-4 shadow-[0_-22px_74px_rgba(0,0,0,0.62)] md:hidden"
+          className="max-h-[82dvh] overflow-y-auto rounded-t-3xl border-border/70 bg-surface px-3 pb-4 shadow-[0_-22px_74px_rgba(18,10,10,0.62)] md:hidden"
         >
           <div className="mx-auto h-1 w-10 rounded-full bg-border" />
           <SheetHeader className="px-0 pt-0">
@@ -446,11 +477,11 @@ export function WorkbenchChrome({
             onOpenSatellite={onOpenSatellite}
             onToggleShowAllInfo={onToggleShowAllInfo}
             onHideUi={onHideUi}
-            onAddSource={onAddSource}
-            onOpenSaveDialog={onOpenSaveDialog}
+            onAddSource={openAddSource}
+            onOpenSaveDialog={openSaveDialog}
             onImportJson={onImportJson}
             onExportCurrentJson={onExportCurrentJson}
-            onOpenClearDialog={onOpenClearDialog}
+            onOpenClearDialog={openClearDialog}
             onSelectLayer={onSelectLayer}
             onFreeRectChange={onFreeRectChange}
           />
@@ -546,211 +577,77 @@ function WorkbenchPanelContent({
       </div>
 
       {mode === "desktop" ? (
-        <section className="grid gap-2">
-          <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
-            Layout mode
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={layoutMode === "fixed" ? "default" : "outline"}
-              aria-label="Fixed layout mode"
-              disabled={layoutModeLocked}
-              onClick={() => onLayoutModeChange("fixed")}
-            >
-              <Grid2X2 />
-              Fixed
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={layoutMode === "free" ? "default" : "outline"}
-              aria-label="Free layout mode"
-              disabled={layoutModeLocked}
-              onClick={() => onLayoutModeChange("free")}
-            >
-              <LayoutGrid />
-              Free
-            </Button>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="grid gap-2">
-        <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
-          Layer
-        </h2>
-        <div
-          role="group"
-          aria-label="Layout layers"
-          className="grid grid-cols-3 gap-1 rounded-2xl border border-border/80 bg-background/70 p-1"
-        >
-          {layers.map((layer) => (
-            <Button
-              key={layer.id}
-              type="button"
-              size="sm"
-              variant={layer.id === activeLayerId ? "default" : "ghost"}
-              aria-label={`Select ${layer.name}`}
-              aria-pressed={layer.id === activeLayerId}
-              onClick={() => onSelectLayer(layer.id)}
-            >
-              {layer.name}
-            </Button>
-          ))}
-        </div>
-        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border/80 bg-background/70 p-1">
-          {layerStats.map((layer) => (
-            <div
-              key={layer.id}
-              className={cn(
-                "min-w-0 rounded-xl border border-transparent px-2 py-1 font-mono text-[10px] leading-4 text-muted-foreground",
-                layer.id === activeLayerId &&
-                  "border-primary/35 text-foreground",
-              )}
-            >
-              <div className="truncate">
-                {layer.sourceCount} source
-                {layer.sourceCount === 1 ? "" : "s"}
-              </div>
-              <div className="truncate">
-                {layer.fileCount} file{layer.fileCount === 1 ? "" : "s"}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-2">
-        <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
-          Grid
-        </h2>
-        <div className="grid grid-cols-2 gap-2">
-          <NumberField
-            label="Columns"
-            icon={<UnfoldHorizontal className="size-3.5" />}
-            value={fixedGrid.columns}
-            min={1}
-            max={16}
-            className="min-w-0"
-            inputClassName="w-full min-w-0 flex-1"
-            onChange={(value) => onFixedGridChange({ columns: value })}
+        <>
+          <LayoutModeSection
+            layoutMode={layoutMode}
+            layoutModeLocked={layoutModeLocked}
+            onLayoutModeChange={onLayoutModeChange}
           />
-          <NumberField
-            label="Rows"
-            icon={<UnfoldVertical className="size-3.5" />}
-            value={fixedGrid.rows}
-            min={1}
-            max={16}
-            className="min-w-0"
-            inputClassName="w-full min-w-0 flex-1"
-            onChange={(value) => onFixedGridChange({ rows: value })}
+          <LayerSection
+            layers={layers}
+            layerStats={layerStats}
+            activeLayerId={activeLayerId}
+            onSelectLayer={onSelectLayer}
           />
-        </div>
-      </section>
-
-      <section className="grid gap-2">
-        <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
-          Global timer
-        </h2>
-        <div
-          className={cn(
-            mode === "desktop"
-              ? "grid grid-cols-[3fr_repeat(3,minmax(0,1fr))] items-center gap-2"
-              : "grid grid-cols-[minmax(0,3fr)_repeat(3,minmax(0,1fr))] items-center gap-2",
-          )}
-        >
-          <NumberField
-            label="Global timer seconds"
-            icon={<Clock3 className="size-3.5" />}
-            value={globalSeconds}
-            min={1}
-            max={120}
-            className="min-w-0"
-            inputClassName="w-full min-w-0 flex-1"
-            onChange={onGlobalTimerSecondsChange}
+          <GridSection
+            fixedGrid={fixedGrid}
+            onFixedGridChange={onFixedGridChange}
           />
-          <Button
-            type="button"
-            size={mode === "desktop" ? "icon" : "icon-sm"}
-            variant="outline"
-            aria-label="Global pause"
-            onClick={() => onGlobalTimerAction("pause")}
-            className="h-11 min-h-0 min-w-0 w-full md:h-8"
-          >
-            {hasRunningSessionTimer ? <Pause /> : <Play />}
-          </Button>
-          <Button
-            type="button"
-            size={mode === "desktop" ? "icon" : "icon-sm"}
-            variant="outline"
-            aria-label="Global next"
-            onClick={() => onGlobalTimerAction("next")}
-            className="h-11 min-h-0 min-w-0 w-full md:h-8"
-          >
-            <SkipForward />
-          </Button>
-          <Button
-            type="button"
-            size={mode === "desktop" ? "icon" : "icon-sm"}
-            variant="outline"
-            aria-label="Global restart"
-            onClick={() => onGlobalTimerAction("restart")}
-            className="h-11 min-h-0 min-w-0 w-full md:h-8"
-          >
-            <RotateCcw />
-          </Button>
-        </div>
-      </section>
-
-      <section className="grid gap-2">
-        <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
-          Actions
-        </h2>
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" onClick={onAddSource}>
-            <Plus />
-            Add source
-          </Button>
-          <Button type="button" variant="outline" onClick={onHideUi}>
-            <EyeOff />
-            Hide UI
-          </Button>
-          <Button
-            type="button"
-            variant={showAllInfo ? "default" : "outline"}
-            onClick={onToggleShowAllInfo}
-          >
-            <Info />
-            Source info
-          </Button>
-          <Button type="button" variant="outline" onClick={onOpenSaveDialog}>
-            <Save />
-            Save layout
-          </Button>
-          <Button type="button" variant="outline" onClick={onImportJson}>
-            <Upload />
-            Import JSON
-          </Button>
-          <Button type="button" variant="outline" onClick={onExportCurrentJson}>
-            <Download />
-            Export JSON
-          </Button>
-          {!isClearDisabled ? (
-            <Button
-              type="button"
-              variant="destructive"
-              aria-label="Clear layout"
-              onClick={onOpenClearDialog}
-              className="col-span-2"
-            >
-              <Trash2 />
-              Clear
-            </Button>
-          ) : null}
-        </div>
-      </section>
+          <GlobalTimerSection
+            mode={mode}
+            globalSeconds={globalSeconds}
+            hasRunningSessionTimer={hasRunningSessionTimer}
+            onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
+            onGlobalTimerAction={onGlobalTimerAction}
+          />
+          <ActionsSection
+            showAllInfo={showAllInfo}
+            isClearDisabled={isClearDisabled}
+            onAddSource={onAddSource}
+            onHideUi={onHideUi}
+            onToggleShowAllInfo={onToggleShowAllInfo}
+            onOpenSaveDialog={onOpenSaveDialog}
+            onImportJson={onImportJson}
+            onExportCurrentJson={onExportCurrentJson}
+            onOpenClearDialog={onOpenClearDialog}
+          />
+        </>
+      ) : (
+        <>
+          <ActionsSection
+            showAllInfo={showAllInfo}
+            isClearDisabled={isClearDisabled}
+            onAddSource={onAddSource}
+            onHideUi={onHideUi}
+            onToggleShowAllInfo={onToggleShowAllInfo}
+            onOpenSaveDialog={onOpenSaveDialog}
+            onImportJson={onImportJson}
+            onExportCurrentJson={onExportCurrentJson}
+            onOpenClearDialog={onOpenClearDialog}
+          />
+          <WorkbenchPanelDisclosure label="Layout">
+            <LayerSection
+              layers={layers}
+              layerStats={layerStats}
+              activeLayerId={activeLayerId}
+              onSelectLayer={onSelectLayer}
+            />
+            <GridSection
+              fixedGrid={fixedGrid}
+              onFixedGridChange={onFixedGridChange}
+            />
+          </WorkbenchPanelDisclosure>
+          <WorkbenchPanelDisclosure label="Timer">
+            <GlobalTimerSection
+              mode={mode}
+              globalSeconds={globalSeconds}
+              hasRunningSessionTimer={hasRunningSessionTimer}
+              onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
+              onGlobalTimerAction={onGlobalTimerAction}
+            />
+          </WorkbenchPanelDisclosure>
+        </>
+      )}
 
       {mode === "desktop" && selected ? (
         <>
@@ -940,7 +837,7 @@ function RailButton({
       aria-label={ariaLabel}
       onClick={onClick}
       className={cn(
-        "rounded-full shadow-[0_12px_34px_rgba(0,0,0,0.48)] backdrop-blur",
+        "rounded-full shadow-[0_12px_34px_rgba(18,10,10,0.48)] backdrop-blur",
         !active && "border-border/70 bg-surface/86",
       )}
     >

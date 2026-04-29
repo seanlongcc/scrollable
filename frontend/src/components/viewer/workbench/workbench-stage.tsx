@@ -147,7 +147,7 @@ export function WorkbenchStage({
         isUiHidden
           ? "p-0"
           : cn(
-              "px-0 pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pt-16 md:pr-4 md:pb-4 motion-safe:transition-[padding] motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none",
+              "px-0 pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pt-16 md:pr-4 md:pb-4",
               isDesktopWorkbenchCollapsed ? "md:pl-[5rem]" : "md:pl-[20.5rem]",
             ),
       )}

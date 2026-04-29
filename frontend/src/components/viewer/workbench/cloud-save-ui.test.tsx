@@ -109,6 +109,51 @@ describe("cloud save UI", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows close controls for open layouts in the mobile library sheet", async () => {
+    const user = userEvent.setup();
+    const onCloseWorkspaceTab = vi.fn();
+
+    render(
+      <LayoutDialog
+        open
+        onOpenChange={vi.fn()}
+        localWorkspaces={[]}
+        cloudWorkspaces={[]}
+        localTemplates={[]}
+        cloudTemplates={[]}
+        storageTarget="local"
+        onStorageTargetChange={vi.fn()}
+        onOpenWorkspaces={vi.fn()}
+        onOpenTemplates={vi.fn()}
+        onDeleteWorkspace={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onUploadWorkspaceToCloud={vi.fn()}
+        onUploadTemplateToCloud={vi.fn()}
+        onShareCloudItem={vi.fn()}
+        onExportJson={vi.fn()}
+        onImportJson={vi.fn()}
+        workspaceTabs={[{ id: "active", name: "Active" }]}
+        openWorkspaceStats={{ active: { sourceCount: 0, fileCount: 0 } }}
+        activeWorkspaceId="active"
+        onSelectWorkspace={vi.fn()}
+        onCreateWorkspaceTab={vi.fn()}
+        onCloseWorkspaceTab={onCloseWorkspaceTab}
+        onSaveCurrentLayout={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Library" });
+    const closeButton = within(dialog).getByRole("button", {
+      name: "Close Active",
+    });
+
+    expect(closeButton).not.toHaveClass("hidden");
+
+    await user.click(closeButton);
+
+    expect(onCloseWorkspaceTab).toHaveBeenCalledWith("active");
+  });
+
   it("selects all visible layouts and deletes selected layouts", async () => {
     const user = userEvent.setup();
     const onDeleteWorkspace = vi.fn();

@@ -1,0 +1,12 @@
+# Keep local secrets out of CLI uploads. Git deploys already omit these.
+.env
+.env.*
+frontend/.env
+frontend/.env.*
+
+# Local/runtime state not needed for Vercel builds.
+.beads/
+.serena/
+.supabase/
+supabase/.branches/
+supabase/.temp/

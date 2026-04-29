@@ -35,7 +35,7 @@ import {
 import type { LibraryMetadataLabel } from "./library-metadata";
 
 const centeredDialogClass =
-  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(0,0,0,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]";
+  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
 
 const libraryRowClass =
   "grid min-h-16 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
@@ -141,7 +141,7 @@ export function SavedLibraryRow({
             align="start"
             sideOffset={8}
             collisionPadding={12}
-            className="z-60 grid min-w-44 gap-1 rounded-xl border border-border/80 bg-popover p-1 text-popover-foreground shadow-[0_16px_48px_rgba(0,0,0,0.55)] outline-none data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1"
+            className="z-60 grid min-w-44 gap-1 rounded-xl border border-border/80 bg-popover p-1 text-popover-foreground shadow-[0_16px_48px_rgba(18,10,10,0.55)] outline-none data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1"
           >
             <LibraryMenuItem
               icon={<FolderOpen />}
@@ -376,14 +376,14 @@ export function CloudUsageMeter({
     >
       <div
         className={cn(
-          "h-full rounded-full bg-primary transition-[width]",
+          "h-full w-full origin-left rounded-full bg-primary transition-transform",
           usage.status === "ready" &&
             !usage.isUnlimited &&
             percent >= 90 &&
             "bg-destructive",
         )}
         style={{
-          width: `${usage.status === "ready" ? percent : 0}%`,
+          transform: `scaleX(${(usage.status === "ready" ? percent : 0) / 100})`,
         }}
       />
     </div>
@@ -410,8 +410,8 @@ export function LocalCacheUsageMeter({
       className={cn("h-1.5 overflow-hidden rounded-full bg-input", className)}
     >
       <div
-        className="h-full rounded-full bg-secondary transition-[width]"
-        style={{ width: `${percent}%` }}
+        className="h-full w-full origin-left rounded-full bg-secondary transition-transform"
+        style={{ transform: `scaleX(${percent / 100})` }}
       />
     </div>
   );

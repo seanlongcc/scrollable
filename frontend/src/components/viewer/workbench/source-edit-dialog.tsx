@@ -199,7 +199,7 @@ export function EditSourceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl",
+          "w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(18,10,10,0.72)] sm:max-w-2xl",
           isReddit
             ? "grid h-[min(92dvh,46rem)] grid-rows-[auto_minmax(0,1fr)]"
             : "max-h-[92dvh]",

@@ -125,7 +125,7 @@ export function WorkspaceTabs({
           type="button"
           size="icon-xs"
           variant="outline"
-          className="absolute top-1/2 left-0 z-10 -translate-x-[calc(100%+0.25rem)] -translate-y-1/2 rounded-full bg-background/90 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur"
+          className="absolute top-1/2 left-0 z-10 -translate-x-[calc(100%+0.25rem)] -translate-y-1/2 rounded-full bg-background/90 shadow-[0_8px_24px_rgba(18,10,10,0.45)] backdrop-blur"
           onClick={() => scrollTabs(-1)}
           aria-label="Scroll tabs left"
         >
@@ -193,7 +193,7 @@ export function WorkspaceTabs({
             type="button"
             size="icon-xs"
             variant="ghost"
-            className="rounded-full bg-surface-elevated/50 shadow-[0_4px_14px_rgba(0,0,0,0.28)]"
+            className="rounded-full bg-surface-elevated/50 shadow-[0_4px_14px_rgba(18,10,10,0.28)]"
             onClick={onCreateWorkspaceTab}
             aria-label="New layout"
           >
@@ -206,7 +206,7 @@ export function WorkspaceTabs({
           type="button"
           size="icon-xs"
           variant="outline"
-          className="absolute top-1/2 right-0 z-10 translate-x-[calc(100%+0.25rem)] -translate-y-1/2 rounded-full bg-background/90 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur"
+          className="absolute top-1/2 right-0 z-10 translate-x-[calc(100%+0.25rem)] -translate-y-1/2 rounded-full bg-background/90 shadow-[0_8px_24px_rgba(18,10,10,0.45)] backdrop-blur"
           onClick={() => scrollTabs(1)}
           aria-label="Scroll tabs right"
         >
