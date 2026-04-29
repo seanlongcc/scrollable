@@ -18,6 +18,20 @@ type YtDlpCommandCandidateOptions = {
   platform?: NodeJS.Platform;
 };
 
+type YtDlpFailureDiagnosticInput = {
+  url: string;
+  candidate: CommandCandidate;
+  error: unknown;
+};
+
+export type YtDlpFailureDiagnostic = {
+  event: "yt_dlp_resolution_failed";
+  sourceHost: string;
+  candidate: string;
+  reason: string;
+  detail?: string;
+};
+
 type MediaCandidate = {
   media: RuntimeMedia;
   score: number;
@@ -65,12 +79,29 @@ export async function extractYtDlpRuntimeResolution(
   for (const candidate of commandCandidates()) {
     try {
       const info = await runYtDlp(candidate, url);
-      return ytDlpInfoToRuntimeResolution(url, info);
+      const resolution = ytDlpInfoToRuntimeResolution(url, info);
+      if (!resolution) {
+        logYtDlpDiagnostic({
+          event: "yt_dlp_resolution_failed",
+          sourceHost: hostFromUrl(url),
+          candidate: commandCandidateLabel(candidate),
+          reason: "no_playable_media",
+        });
+      }
+      return resolution;
     } catch (error) {
       if (error instanceof YtDlpUnavailableError) continue;
+      logYtDlpDiagnostic(ytDlpFailureDiagnostic({ url, candidate, error }));
       return null;
     }
   }
+
+  logYtDlpDiagnostic({
+    event: "yt_dlp_resolution_failed",
+    sourceHost: hostFromUrl(url),
+    candidate: "all",
+    reason: "unavailable",
+  });
 
   return null;
 }
@@ -173,6 +204,80 @@ function bundledYtDlpCommands({
   return Array.from(new Set(commands));
 }
 
+export function ytDlpFailureDiagnostic({
+  url,
+  candidate,
+  error,
+}: YtDlpFailureDiagnosticInput): YtDlpFailureDiagnostic {
+  return {
+    event: "yt_dlp_resolution_failed",
+    sourceHost: hostFromUrl(url),
+    candidate: commandCandidateLabel(candidate),
+    reason: ytDlpFailureReason(error),
+    ...(ytDlpFailureDetail(error) ? { detail: ytDlpFailureDetail(error) } : {}),
+  };
+}
+
+function logYtDlpDiagnostic(diagnostic: YtDlpFailureDiagnostic) {
+  console.warn("[url-source] yt-dlp resolution failed", diagnostic);
+}
+
+function commandCandidateLabel(candidate: CommandCandidate) {
+  const command = path.basename(candidate.command);
+  const moduleArgs = candidate.args.slice(0, 2).join(" ");
+  return moduleArgs ? `${command} ${moduleArgs}` : command;
+}
+
+function ytDlpFailureReason(error: unknown) {
+  if (error instanceof YtDlpExecutionError) {
+    return error.reason;
+  }
+
+  const message = errorMessage(error);
+  if (message === "yt_dlp_extraction_limit_exceeded") return "limit_exceeded";
+  if (message === "yt_dlp_invalid_json") return "invalid_json";
+  if (/HTTP Error 403|Forbidden/i.test(message)) return "upstream_forbidden";
+  if (/HTTP Error 401|Unauthorized/i.test(message)) {
+    return "upstream_unauthorized";
+  }
+  if (/HTTP Error 429|Too Many Requests|rate.?limit/i.test(message)) {
+    return "upstream_rate_limited";
+  }
+  if (/unsupported url/i.test(message)) return "unsupported_url";
+  if (/video unavailable|not available/i.test(message)) {
+    return "video_unavailable";
+  }
+  if (/sign in|login|cookies|authentication/i.test(message)) {
+    return "auth_required";
+  }
+  if (/timed? out|timeout/i.test(message)) return "timeout";
+
+  return "execution_failed";
+}
+
+function ytDlpFailureDetail(error: unknown) {
+  const raw =
+    error instanceof YtDlpExecutionError ? error.detail : errorMessage(error);
+  return sanitizeYtDlpDiagnosticText(raw);
+}
+
+function sanitizeYtDlpDiagnosticText(value: string) {
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const detail = lines.at(-1) ?? value.trim();
+
+  return detail
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/\b[A-Za-z0-9_-]{32,}\b/g, "[token]")
+    .slice(0, 220);
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function runYtDlp(candidate: CommandCandidate, url: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -236,7 +341,7 @@ function runYtDlp(candidate: CommandCandidate, url: string): Promise<unknown> {
           return;
         }
 
-        reject(new Error("yt_dlp_extraction_failed"));
+        reject(new YtDlpExecutionError(stderr));
         return;
       }
 
@@ -452,4 +557,25 @@ function isHttpUrl(value: string) {
   }
 }
 
+function hostFromUrl(value: string) {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return "unknown";
+  }
+}
+
 class YtDlpUnavailableError extends Error {}
+
+class YtDlpExecutionError extends Error {
+  readonly reason: string;
+  readonly detail: string;
+
+  constructor(stderr: string) {
+    const detail = stderr.trim() || "yt_dlp_extraction_failed";
+    super(detail);
+    this.name = "YtDlpExecutionError";
+    this.detail = detail;
+    this.reason = ytDlpFailureReason(detail);
+  }
+}
