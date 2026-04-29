@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(16);
 
 select has_table('public', 'feed_configs', 'feed_configs exists');
 select has_table('public', 'collections', 'collections exists');
@@ -107,6 +107,90 @@ select is_empty(
        'EXECUTE'
      ) $$,
   'authenticated can execute private trigger helpers for cloud saves'
+);
+
+insert into auth.users (id, aud, role, email)
+values (
+  '10000000-0000-4000-8000-000000000001',
+  'authenticated',
+  'authenticated',
+  'rls-share-owner@example.test'
+);
+
+insert into public.profiles (id)
+values ('10000000-0000-4000-8000-000000000001');
+
+insert into public.viewer_sessions (
+  id,
+  owner_id,
+  name,
+  layers,
+  active_layer_id,
+  layout_mode,
+  fixed_columns,
+  fixed_rows,
+  global_timer_seconds,
+  sessions,
+  template_slots,
+  metadata_bytes
+)
+values (
+  '10000000-0000-4000-8000-000000000101',
+  '10000000-0000-4000-8000-000000000001',
+  'RLS share layout',
+  '[]'::jsonb,
+  'layer-1',
+  'fixed',
+  1,
+  1,
+  10,
+  '[]'::jsonb,
+  '[]'::jsonb,
+  2
+);
+
+insert into public.viewer_templates (
+  id,
+  owner_id,
+  name,
+  layers,
+  active_layer_id,
+  global_timer_seconds,
+  slots,
+  metadata_bytes
+)
+values (
+  '10000000-0000-4000-8000-000000000201',
+  '10000000-0000-4000-8000-000000000001',
+  'RLS share template',
+  '[]'::jsonb,
+  'layer-1',
+  10,
+  '[]'::jsonb,
+  2
+);
+
+select lives_ok(
+  $$
+    set local role authenticated;
+    select set_config(
+      'request.jwt.claim.sub',
+      '10000000-0000-4000-8000-000000000001',
+      true
+    );
+    insert into public.share_links (slug, viewer_session_id)
+    values (
+      'rls-layout-share',
+      '10000000-0000-4000-8000-000000000101'
+    );
+    insert into public.share_links (slug, viewer_template_id)
+    values (
+      'rls-template-share',
+      '10000000-0000-4000-8000-000000000201'
+    );
+    reset role;
+  $$,
+  'authenticated owner can create Cloud layout and template share links'
 );
 
 select * from finish();
