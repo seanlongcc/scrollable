@@ -6,48 +6,57 @@
     "colorMeta": {
       "background": {
         "role": "neutral",
-        "displayName": "Booth Black",
-        "canonical": "#060606",
-        "tonalRamp": ["#060606", "#0f0e0f", "#171516", "#211d20"]
+        "displayName": "Black Plum",
+        "canonical": "oklch(14.5% 0.012 338)",
+        "tonalRamp": [
+          "oklch(14.5% 0.012 338)",
+          "oklch(18.5% 0.018 340)",
+          "oklch(24.5% 0.024 342)",
+          "oklch(28.5% 0.026 342)"
+        ]
       },
       "primary": {
         "role": "primary",
-        "displayName": "Control Cyan",
-        "canonical": "#8fefe1",
-        "tonalRamp": ["#121212", "#5eead4", "#8fefe1"]
+        "displayName": "Oxblood Rose",
+        "canonical": "oklch(62% 0.145 18)",
+        "tonalRamp": [
+          "oklch(24% 0.035 18)",
+          "oklch(62% 0.145 18)",
+          "oklch(69% 0.15 20)"
+        ]
       },
       "secondary": {
         "role": "secondary",
-        "displayName": "Queue Lime",
-        "canonical": "#e5f7a1",
-        "tonalRamp": ["#181c08", "#e5f7a1"]
+        "displayName": "Champagne Signal",
+        "canonical": "oklch(76% 0.08 68)",
+        "tonalRamp": ["oklch(24% 0.035 55)", "oklch(76% 0.08 68)"]
       },
       "destructive": {
         "role": "status",
         "displayName": "Cut Rose",
-        "canonical": "#f43f5e",
-        "tonalRamp": ["#3a0b13", "#f43f5e"]
+        "canonical": "oklch(64% 0.18 24)",
+        "tonalRamp": ["oklch(25% 0.07 24)", "oklch(64% 0.18 24)"]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Wordmark and rare brand-sized surfaces."
+        "purpose": "Instrument Serif wordmark, shared-page titles, and dialog headings."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Manrope dense product copy, labels, buttons, and form content."
+        "purpose": "Sora dense product copy, labels, buttons, and form content."
       },
       "mono": {
         "displayName": "Mono",
-        "purpose": "Azeret Mono wordmark, URLs, counters, durations, and technical source values."
+        "purpose": "IBM Plex Mono URLs, counters, durations, and technical source values."
       }
     },
     "elevation": {
       "mobileSheetLift": "0 -18px 70px rgba(0,0,0,0.55)",
       "desktopDialogLift": "0 24px 80px rgba(0,0,0,0.72)",
       "floatingRailLift": "0 10px 28px rgba(0,0,0,0.45)",
-      "selectedGlow": "0 0 20px rgba(143,239,225,0.08)"
+      "selectedGlow": "0 0 20px oklch(62% 0.145 18 / 0.12)"
     },
     "motion": {
       "stateTransition": "150ms to 250ms ease-out",
@@ -62,8 +71,9 @@
       "Runtime media is the stage.",
       "Saved configuration views are metadata-only.",
       "Mobile workflows are primary.",
-      "Cyan marks action and state, not decoration.",
-      "Use Manrope for dense controls and Azeret Mono for brand/technical values.",
+      "Oxblood Rose marks primary actions and active state, not decoration.",
+      "Champagne Signal marks progress, focus, and timer emphasis.",
+      "Use Instrument Serif for elegant display moments, Sora for dense controls, and IBM Plex Mono for technical values.",
       "Floating chrome may blur; static panels should not become decorative glass."
     ]
   }

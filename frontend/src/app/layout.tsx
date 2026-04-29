@@ -1,17 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Azeret_Mono, Manrope } from "next/font/google";
+import { IBM_Plex_Mono, Instrument_Serif, Sora } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const sora = Sora({
+  variable: "--font-sora",
   subsets: ["latin"],
 });
 
-const azeretMono = Azeret_Mono({
-  variable: "--font-azeret-mono",
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-ibm-plex-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: ["400"],
 });
 
 export const metadata: Metadata = {
@@ -32,7 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${azeretMono.variable} dark h-full antialiased`}
+      className={`${sora.variable} ${ibmPlexMono.variable} ${instrumentSerif.variable} dark h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">

@@ -282,16 +282,27 @@ export function ActionsSection({
   onOpenClearDialog: () => void;
 }) {
   const infoLabel = showAllInfo ? "Hide info" : "Show info";
+  const actionButtonClass = "text-[0.82rem] font-medium md:text-xs";
 
   return (
     <section className="grid gap-2">
       <h2 className={sectionHeadingClass}>Actions</h2>
       <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant="outline" onClick={onAddSource}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onAddSource}
+          className={actionButtonClass}
+        >
           <Plus />
           Add source
         </Button>
-        <Button type="button" variant="outline" onClick={onHideUi}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onHideUi}
+          className={actionButtonClass}
+        >
           <EyeOff />
           Hide UI
         </Button>
@@ -299,11 +310,17 @@ export function ActionsSection({
           type="button"
           variant={showAllInfo ? "default" : "outline"}
           onClick={onToggleShowAllInfo}
+          className={actionButtonClass}
         >
           <Info />
           {infoLabel}
         </Button>
-        <Button type="button" variant="outline" onClick={onOpenSaveDialog}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onOpenSaveDialog}
+          className={actionButtonClass}
+        >
           <Save />
           Save layout
         </Button>
@@ -312,6 +329,7 @@ export function ActionsSection({
           variant="outline"
           aria-label="Import JSON"
           onClick={onImportJson}
+          className={actionButtonClass}
         >
           <Upload />
           Import JSON
@@ -321,6 +339,7 @@ export function ActionsSection({
           variant="outline"
           aria-label="Export JSON"
           onClick={onExportCurrentJson}
+          className={actionButtonClass}
         >
           <Download />
           Export JSON
@@ -331,7 +350,7 @@ export function ActionsSection({
             variant="destructive"
             aria-label="Clear layout"
             onClick={onOpenClearDialog}
-            className="col-span-2"
+            className={cn("col-span-2", actionButtonClass)}
           >
             <Trash2 />
             Clear
