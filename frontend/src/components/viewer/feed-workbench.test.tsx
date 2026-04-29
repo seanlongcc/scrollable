@@ -36,6 +36,15 @@ describe("FeedWorkbench", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps source info off by default", () => {
+    render(<FeedWorkbench />);
+
+    expect(screen.getByRole("button", { name: "Source info" })).toHaveAttribute(
+      "data-variant",
+      "outline",
+    );
+  });
+
   it("does not render the clear button in server markup for an empty layout", () => {
     const html = renderToString(<FeedWorkbench />);
     const clearButtonHtml =

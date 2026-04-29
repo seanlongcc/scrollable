@@ -43,7 +43,6 @@ describe("FeedWorkbench local uploads", () => {
 
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
-    expect(screen.getByText(/1\/1/)).toBeInTheDocument();
     expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
@@ -70,7 +69,6 @@ describe("FeedWorkbench local uploads", () => {
 
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
-    expect(screen.getByText(/1\/1/)).toBeInTheDocument();
     expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
@@ -306,7 +304,7 @@ describe("FeedWorkbench local uploads", () => {
       new File(["video"], "large.mp4", { type: "video/mp4" }),
     );
 
-    await screen.findByText("Local upload");
+    await screen.findByLabelText("large.mp4");
 
     expect(container.querySelector("video")).toBeInTheDocument();
     expect(URL.createObjectURL).toHaveBeenCalledWith(
@@ -339,8 +337,7 @@ describe("FeedWorkbench local uploads", () => {
     ]);
 
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
-    expect(screen.getAllByText("a.png").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("b.mp4").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("b.mp4")).toBeInTheDocument();
   });
 
   it("edits a local source by removing one file and caching the remaining file", async () => {
@@ -562,10 +559,9 @@ describe("FeedWorkbench local uploads", () => {
       new File(["b"], "folder-b.mp4", { type: "video/mp4" }),
     ]);
 
-    expect(screen.getByText(/1\/2/)).toBeInTheDocument();
     expect(await screen.findByAltText("folder-a.png")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getAllByText("folder-b.mp4").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Global next" }));
+    expect(screen.getByLabelText("folder-b.mp4")).toBeInTheDocument();
   });
 
   it("limits separate local uploads to visible fixed slots", async () => {

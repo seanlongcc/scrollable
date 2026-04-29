@@ -146,8 +146,10 @@ export function FeedWorkbench({
   const [editingWorkspaceName, setEditingWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUiHidden, setIsUiHidden] = useState(false);
+  const [isDesktopWorkbenchCollapsed, setIsDesktopWorkbenchCollapsed] =
+    useState(false);
   const [isUiRevealVisible, setIsUiRevealVisible] = useState(true);
-  const [showAllInfo, setShowAllInfo] = useState(true);
+  const [showAllInfo, setShowAllInfo] = useState(false);
   const [sourceGroupingMode, setSourceGroupingMode] =
     useState<SourceGroupingMode>("stacked");
   const [freeDrag, setFreeDrag] = useState<FreeDragState | null>(null);
@@ -860,6 +862,7 @@ export function FeedWorkbench({
         galleryIndexes={galleryIndexes}
         videoPositions={videoPositions}
         isUiHidden={isUiHidden}
+        isDesktopWorkbenchCollapsed={isDesktopWorkbenchCollapsed}
         showAllInfo={showAllInfo}
         setMaximizedId={setMaximizedId}
         changeGallery={changeGallery}
@@ -900,6 +903,7 @@ export function FeedWorkbench({
           showAllInfo={showAllInfo}
           isClearDisabled={isClearDisabled}
           isAnySheetOpen={isAnySheetOpen}
+          isDesktopWorkbenchCollapsed={isDesktopWorkbenchCollapsed}
           layers={layers}
           layerStats={layerStats}
           activeLayerId={activeLayerId}
@@ -941,6 +945,7 @@ export function FeedWorkbench({
             setIsAccountOpen(true);
             void refreshLocalCacheStatus();
           }}
+          onDesktopWorkbenchCollapsedChange={setIsDesktopWorkbenchCollapsed}
           onSelectLayer={selectLayer}
           onFreeRectChange={updateFreeRect}
         />

@@ -190,7 +190,7 @@ describe("FeedWorkbench layers", () => {
       new File(["a"], "foreground-a.png", { type: "image/png" }),
       new File(["b"], "foreground-b.png", { type: "image/png" }),
     ]);
-    expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
+    expect(await screen.findByAltText("foreground-a.png")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
@@ -209,7 +209,6 @@ describe("FeedWorkbench layers", () => {
     await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
 
     expect(screen.getByAltText("foreground-b.png")).toBeVisible();
-    expect(screen.getByText(/2\/2/)).toBeVisible();
   });
 
   it("keeps fixed-grid content in its assigned cell after another cell is removed", async () => {
@@ -246,7 +245,9 @@ describe("FeedWorkbench layers", () => {
       within(screen.getByTestId("fixed-cell-0")).getByText("Add source"),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByTestId("fixed-cell-1")).getByText("r/aww"),
+      within(screen.getByTestId("fixed-cell-1")).getByRole("button", {
+        name: "Remove r/aww",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -283,14 +284,18 @@ describe("FeedWorkbench layers", () => {
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
-    expect(screen.queryByText("r/aww")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Remove r/aww" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Columns"), {
       target: { value: "2" },
     });
 
     expect(
-      await within(screen.getByTestId("fixed-cell-1")).findByText("r/aww"),
+      await within(screen.getByTestId("fixed-cell-1")).findByRole("button", {
+        name: "Remove r/aww",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -339,7 +344,9 @@ describe("FeedWorkbench layers", () => {
     );
 
     expect(
-      within(screen.getByTestId("fixed-cell-1")).getAllByText("r/pics")[0],
+      within(screen.getByTestId("fixed-cell-1")).getByAltText(
+        "Runtime image 1",
+      ),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId("fixed-cell-2")).getByRole("button", {
@@ -393,13 +400,14 @@ describe("FeedWorkbench layers", () => {
     );
 
     expect(
-      within(screen.getByTestId("fixed-cell-1")).getAllByText("r/pics")[0],
+      within(screen.getByTestId("fixed-cell-1")).getByAltText(
+        "Runtime image 1",
+      ),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByTestId("fixed-cell-2")).getAllByText("r/pics")[0],
-    ).toBeInTheDocument();
-    expect(
-      within(screen.getByTestId("fixed-cell-1")).getByText(/1\/2/),
+      within(screen.getByTestId("fixed-cell-2")).getByAltText(
+        "Runtime image 1",
+      ),
     ).toBeInTheDocument();
   });
 });

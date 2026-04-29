@@ -343,6 +343,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
       "https://www.reddit.com/r/pics/comments/gallery/gallery_post/",
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Source info" }));
     await screen.findByText(/1\/2/);
 
     await user.click(screen.getByRole("button", { name: "Edit r/pics" }));
@@ -412,6 +413,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByLabelText("r/pics timer progress");
+    await user.click(screen.getByRole("button", { name: "Source info" }));
     expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Next media for r/pics" }),
@@ -450,7 +452,6 @@ describe("FeedWorkbench Reddit source persistence", () => {
 
     await openSavedLayouts(user, ["Untitled layout"]);
 
-    expect(screen.getAllByText("r/pics").length).toBeGreaterThan(0);
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
     expect(container.querySelectorAll("img")).toHaveLength(1);
@@ -582,6 +583,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     await openSavedLayouts(user, ["Saved reddit"]);
 
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+    await user.click(screen.getByRole("button", { name: "Source info" }));
     expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
     await screen.findByLabelText("r/pics timer progress");
   });

@@ -194,6 +194,7 @@ test("warns before displaying provider page embeds", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("button", { name: "Add source", exact: true }).click();
+  await page.getByRole("button", { name: "URL" }).click();
   await page
     .getByRole("textbox", { name: "URL" })
     .fill("https://hitomi.la/cg/sample-123.html");
@@ -209,7 +210,9 @@ test("warns before displaying provider page embeds", async ({ page }) => {
   );
 });
 
-test("keyboard and wheel move through runtime feed items", async ({ page }) => {
+test("keyboard and wheel move through runtime feed items", async ({
+  page,
+}, testInfo) => {
   await page.route("**/api/reddit/listing?**", async (route) => {
     await route.fulfill({
       status: 200,
@@ -257,6 +260,12 @@ test("keyboard and wheel move through runtime feed items", async ({ page }) => {
     .getByLabel("Paste Reddit post or subreddit links, one per line")
     .fill("https://www.reddit.com/r/pics/comments/abc123/runtime_image/");
   await page.getByRole("button", { name: "Open Reddit links" }).click();
+
+  await openWorkbenchOnMobile(page, testInfo.project.name);
+  await workbenchScope(page, testInfo.project.name)
+    .getByRole("button", { name: "Source info" })
+    .click();
+  await closeWorkbenchOnMobile(page, testInfo.project.name);
 
   await expect(page.getByText("Runtime image 1")).toBeVisible();
 

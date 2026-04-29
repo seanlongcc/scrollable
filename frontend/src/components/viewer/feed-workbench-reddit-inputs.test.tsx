@@ -282,11 +282,9 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop, r/aww" });
-    expect(screen.getByText("r/kpop, r/aww")).toBeInTheDocument();
-    expect(screen.getByText("Runtime kpop")).toBeInTheDocument();
-    expect(screen.getByText(/1\/2/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Runtime aww")).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime kpop")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Global next" }));
+    expect(screen.getByAltText("Runtime aww")).toBeInTheDocument();
     const requestUrl = String(
       (
         fetchMock.mock.calls as unknown as Array<

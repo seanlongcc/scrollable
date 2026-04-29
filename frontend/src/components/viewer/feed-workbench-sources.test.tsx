@@ -15,6 +15,52 @@ import {
 describe("FeedWorkbench URL sources", () => {
   installFeedWorkbenchTestHooks();
 
+  it("orders add-source type segments as Local, Reddit, URL and starts on Local", async () => {
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    const sourceType = within(dialog).getByRole("group", {
+      name: "Source type",
+    });
+
+    expect(
+      within(sourceType)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Local", "Reddit", "URL"]);
+    expect(
+      within(sourceType).getByRole("button", { name: "Local" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(dialog).getByRole("group", { name: "Local upload picker" }),
+    ).toBeInTheDocument();
+  });
+
+  it("reopens add-source dialog on the last selected source type", async () => {
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    let dialog = screen.getByRole("dialog", { name: "Add source" });
+    await user.click(within(dialog).getByRole("button", { name: "URL" }));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Close dialog" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    dialog = screen.getByRole("dialog", { name: "Add source" });
+    const sourceType = within(dialog).getByRole("group", {
+      name: "Source type",
+    });
+
+    expect(
+      within(sourceType).getByRole("button", { name: "URL" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(within(dialog).getByLabelText("URL")).toBeInTheDocument();
+  });
+
   it("uses one shared old-style grouping control in the add-source dialog", async () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
@@ -77,7 +123,7 @@ describe("FeedWorkbench URL sources", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await openAddSourceUrlPanel(user);
     expect(screen.getByLabelText("URL")).toHaveValue("");
     expect(screen.getByLabelText("URL")).toHaveAttribute(
       "placeholder",
@@ -134,7 +180,7 @@ describe("FeedWorkbench URL sources", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await openAddSourceUrlPanel(user);
     await user.type(
       screen.getByLabelText("URL"),
       "https://nhentai.net/g/123456/",
@@ -159,7 +205,7 @@ describe("FeedWorkbench URL sources", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await openAddSourceUrlPanel(user);
     await user.type(screen.getByLabelText("URL"), "https://old.example/video");
     await user.type(screen.getByLabelText("Title"), "Old title");
     await user.click(screen.getByRole("button", { name: "Reddit" }));
@@ -172,7 +218,7 @@ describe("FeedWorkbench URL sources", () => {
     );
     await user.click(screen.getByRole("button", { name: "Close dialog" }));
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await openAddSourceUrlPanel(user);
 
     expect(screen.getByLabelText("URL")).toHaveValue("");
     expect(screen.getByLabelText("Title")).toHaveValue("");
@@ -271,7 +317,7 @@ describe("FeedWorkbench URL sources", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await openAddSourceUrlPanel(user);
     await user.clear(screen.getByLabelText("URL"));
     await user.type(screen.getByLabelText("URL"), "https://blocked.example/");
     await user.click(screen.getByRole("button", { name: "Open URL" }));
@@ -354,7 +400,7 @@ describe("FeedWorkbench URL sources", () => {
     const user = userEvent.setup();
     const { container } = render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await openAddSourceUrlPanel(user);
     await user.clear(screen.getByLabelText("URL"));
     await user.type(screen.getByLabelText("URL"), resolution.externalUrl);
     await user.click(screen.getByRole("button", { name: "Open URL" }));
@@ -391,7 +437,7 @@ describe("FeedWorkbench URL sources", () => {
     const user = userEvent.setup();
     const { container } = render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await openAddSourceUrlPanel(user);
     await user.clear(screen.getByLabelText("URL"));
     await user.type(
       screen.getByLabelText("URL"),
@@ -435,7 +481,7 @@ describe("FeedWorkbench URL sources", () => {
     const user = userEvent.setup();
     const { container } = render(<FeedWorkbench />);
 
-    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await openAddSourceUrlPanel(user);
     await user.clear(screen.getByLabelText("URL"));
     await user.type(
       screen.getByLabelText("URL"),
@@ -529,6 +575,14 @@ describe("FeedWorkbench URL sources", () => {
     ).toBeInTheDocument();
   });
 });
+
+async function openAddSourceUrlPanel(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Add source" }));
+  const dialog = screen.getByRole("dialog", { name: "Add source" });
+  await user.click(within(dialog).getByRole("button", { name: "URL" }));
+
+  return dialog;
+}
 
 function expectYoutubeIframeSrc(
   iframe: Element | null,

@@ -89,14 +89,13 @@ export function SourceDialog({
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
   allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
 }) {
-  const [sourceKind, setSourceKind] = useState<SourceKind>("url");
+  const [sourceKind, setSourceKind] = useState<SourceKind>("local");
 
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
         if (isLoading) return;
-        if (!nextOpen) setSourceKind("url");
         onOpenChange(nextOpen);
       }}
     >
@@ -132,9 +131,9 @@ export function SourceDialog({
           <SegmentedControl
             value={sourceKind}
             options={[
-              ["url", "URL"],
               ["local", "Local"],
               ["reddit", "Reddit"],
+              ["url", "URL"],
             ]}
             ariaLabel="Source type"
             disabled={isLoading}

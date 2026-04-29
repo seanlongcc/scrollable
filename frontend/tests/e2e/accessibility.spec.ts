@@ -73,6 +73,8 @@ test("mobile source info sits on the right of selected sources", async ({
   const sourceInfoButton = workbenchDialog.getByRole("button", {
     name: "Source info",
   });
+  await expect(sourceInfoButton).toHaveAttribute("data-variant", "outline");
+  await sourceInfoButton.click();
   await expect(sourceInfoButton).toHaveAttribute("data-variant", "default");
   await page.getByRole("button", { name: "Close sheet" }).click();
   await expect(workbenchDialog).toBeHidden();

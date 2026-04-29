@@ -22,6 +22,38 @@ import {
 describe("FeedWorkbench interactions", () => {
   installFeedWorkbenchTestHooks();
 
+  it("collapses the desktop workbench panel and expands the stage", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<FeedWorkbench />);
+
+    const workbenchButton = screen.getByRole("button", {
+      name: "Collapse workbench",
+    });
+    expect(workbenchButton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Layout mode")).toBeInTheDocument();
+
+    const stage = container.querySelector(
+      '[data-testid="workbench-stage-shell"]',
+    );
+    expect(stage).toHaveClass("md:pl-[20.5rem]");
+
+    await user.click(workbenchButton);
+
+    expect(
+      screen.getByRole("button", { name: "Open workbench" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Layout mode")).not.toBeInTheDocument();
+    expect(stage).toHaveClass("md:pl-[5rem]");
+
+    await user.click(screen.getByRole("button", { name: "Open workbench" }));
+
+    expect(
+      screen.getByRole("button", { name: "Collapse workbench" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Layout mode")).toBeInTheDocument();
+    expect(stage).toHaveClass("md:pl-[20.5rem]");
+  });
+
   it("locks layout mode after sources or template boxes are present", async () => {
     stubRuntimeFetch();
     stubRandomUuids(["workspace-1", "session-1", "blank-workspace"]);
@@ -301,19 +333,23 @@ describe("FeedWorkbench interactions", () => {
 
     await addDefaultSubredditSource(user);
 
-    expect(await screen.findByText("Runtime image 1")).toBeInTheDocument();
+    expect(
+      await screen.findByAltText("Runtime image 1", undefined, {
+        timeout: 3000,
+      }),
+    ).toBeInTheDocument();
 
     await user.keyboard("{ArrowDown}");
-    expect(screen.getByText("Runtime image 2")).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime image 2")).toBeInTheDocument();
 
     await user.keyboard("{ArrowUp}");
-    expect(screen.getByText("Runtime image 1")).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime image 1")).toBeInTheDocument();
 
     await user.keyboard("{ArrowRight}");
-    expect(screen.getByText("Runtime image 2")).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime image 2")).toBeInTheDocument();
 
     await user.keyboard("{ArrowLeft}");
-    expect(screen.getByText("Runtime image 1")).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime image 1")).toBeInTheDocument();
   });
 
   it("moves the active feed forward and backward with wheel scrolling", async () => {
@@ -348,15 +384,19 @@ describe("FeedWorkbench interactions", () => {
 
     await addDefaultSubredditSource(user);
 
-    const activeTitle = await screen.findByText("Runtime image 1");
-    const pane = activeTitle.closest("article");
+    const activeMedia = await screen.findByAltText(
+      "Runtime image 1",
+      undefined,
+      { timeout: 3000 },
+    );
+    const pane = activeMedia.closest("article");
     expect(pane).not.toBeNull();
 
     fireEvent.wheel(pane!, { deltaY: 100 });
-    expect(screen.getByText("Runtime image 2")).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime image 2")).toBeInTheDocument();
 
     fireEvent.wheel(pane!, { deltaY: -100 });
-    expect(screen.getByText("Runtime image 1")).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime image 1")).toBeInTheDocument();
   });
 
   it("selects a video source from the media surface", async () => {
@@ -448,14 +488,16 @@ describe("FeedWorkbench interactions", () => {
     render(<FeedWorkbench />);
 
     await addDefaultSubredditSource(user);
-    await screen.findByText(/1\/2/);
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText(/2\/2/)).toBeInTheDocument();
+    await screen.findByAltText("Runtime image 1", undefined, {
+      timeout: 3000,
+    });
+    await user.click(screen.getByRole("button", { name: "Global next" }));
+    expect(screen.getByAltText("Runtime image 2")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await user.click(screen.getByRole("button", { name: "Fixed layout mode" }));
 
-    expect(screen.getByText(/2\/2/)).toBeInTheDocument();
+    expect(screen.getByAltText("Runtime image 2")).toBeInTheDocument();
   });
 
   it("clears the current layout only after confirmation", async () => {

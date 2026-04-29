@@ -53,6 +53,7 @@ export function WorkbenchChrome({
   showAllInfo,
   isClearDisabled,
   isAnySheetOpen,
+  isDesktopWorkbenchCollapsed,
   layers,
   layerStats,
   activeLayerId,
@@ -79,6 +80,7 @@ export function WorkbenchChrome({
   onOpenSaveDialog,
   onOpenClearDialog,
   onOpenAccount,
+  onDesktopWorkbenchCollapsedChange,
   onSelectLayer,
   onFreeRectChange,
 }: {
@@ -93,6 +95,7 @@ export function WorkbenchChrome({
   showAllInfo: boolean;
   isClearDisabled: boolean;
   isAnySheetOpen: boolean;
+  isDesktopWorkbenchCollapsed: boolean;
   layers: WorkspaceLayer[];
   layerStats: LayerStats[];
   activeLayerId: string;
@@ -119,6 +122,7 @@ export function WorkbenchChrome({
   onOpenSaveDialog: () => void;
   onOpenClearDialog: () => void;
   onOpenAccount: () => void;
+  onDesktopWorkbenchCollapsedChange: (collapsed: boolean) => void;
   onSelectLayer: (id: string) => void;
   onFreeRectChange: (id: string, patch: Partial<FreeRect>) => void;
 }) {
@@ -126,6 +130,9 @@ export function WorkbenchChrome({
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const controlsHidden = isAnySheetOpen || isWorkbenchSheetOpen;
   const showPlaybackPill = Boolean(selected) && !controlsHidden;
+  const desktopWorkbenchButtonLabel = isDesktopWorkbenchCollapsed
+    ? "Open workbench"
+    : "Collapse workbench";
   const mobileBottomButtonClass =
     "h-12 w-full rounded-none border-0 bg-transparent p-0 text-muted-foreground shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2";
   const desktopRailButtonClass =
@@ -140,18 +147,29 @@ export function WorkbenchChrome({
     <>
       <aside
         aria-label="Workbench contextual panel"
-        className="pointer-events-auto fixed top-16 bottom-3 left-3 z-40 hidden w-[19rem] grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid"
+        className={cn(
+          "pointer-events-auto fixed top-16 bottom-3 left-3 z-40 hidden grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none",
+          isDesktopWorkbenchCollapsed ? "w-14" : "w-[19rem]",
+        )}
       >
         <nav
           aria-label="Desktop context actions"
-          className="grid w-full grid-cols-3 items-center gap-2"
+          className={cn(
+            "grid w-full items-center gap-2",
+            isDesktopWorkbenchCollapsed ? "grid-cols-1" : "grid-cols-3",
+          )}
         >
           <Button
             type="button"
             size="icon-lg"
             variant="default"
-            aria-label="Workbench"
-            aria-pressed="true"
+            aria-label={desktopWorkbenchButtonLabel}
+            aria-controls="desktop-workbench-panel"
+            aria-expanded={!isDesktopWorkbenchCollapsed}
+            title={desktopWorkbenchButtonLabel}
+            onClick={() =>
+              onDesktopWorkbenchCollapsedChange(!isDesktopWorkbenchCollapsed)
+            }
             className={desktopRailButtonClass}
           >
             <SlidersHorizontal />
@@ -179,45 +197,52 @@ export function WorkbenchChrome({
           </Button>
         </nav>
 
-        <div className="min-h-0 overflow-y-auto rounded-2xl border border-border/60 bg-surface/72 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur">
-          <WorkbenchPanelContent
-            mode="desktop"
-            workspaceName={workspaceName}
-            layoutMode={layoutMode}
-            layoutModeLocked={layoutModeLocked}
-            fixedGrid={fixedGrid}
-            globalSeconds={globalSeconds}
-            hasRunningSessionTimer={hasRunningSessionTimer}
-            selected={selected}
-            canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
-            showAllInfo={showAllInfo}
-            isClearDisabled={isClearDisabled}
-            layers={layers}
-            layerStats={layerStats}
-            activeLayerId={activeLayerId}
-            onLayoutModeChange={onLayoutModeChange}
-            onFixedGridChange={onFixedGridChange}
-            onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
-            onGlobalTimerAction={onGlobalTimerAction}
-            onCloneSelectedSource={onCloneSelectedSource}
-            onFillSelectedSourceSpace={onFillSelectedSourceSpace}
-            onRemoveSelectedSource={onRemoveSelectedSource}
-            onSelectedTimerModeChange={onSelectedTimerModeChange}
-            onSelectedTimerSecondsChange={onSelectedTimerSecondsChange}
-            onSelectedMove={onSelectedMove}
-            onSelectedTogglePaused={onSelectedTogglePaused}
-            onSelectedRestart={onSelectedRestart}
-            onEditSelectedSource={onEditSelectedSource}
-            onOpenSatellite={onOpenSatellite}
-            onToggleShowAllInfo={onToggleShowAllInfo}
-            onHideUi={onHideUi}
-            onAddSource={onAddSource}
-            onOpenSaveDialog={onOpenSaveDialog}
-            onOpenClearDialog={onOpenClearDialog}
-            onSelectLayer={onSelectLayer}
-            onFreeRectChange={onFreeRectChange}
-          />
-        </div>
+        {isDesktopWorkbenchCollapsed ? (
+          <div id="desktop-workbench-panel" hidden />
+        ) : (
+          <div
+            id="desktop-workbench-panel"
+            className="min-h-0 overflow-y-auto rounded-2xl border border-border/60 bg-surface/72 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur"
+          >
+            <WorkbenchPanelContent
+              mode="desktop"
+              workspaceName={workspaceName}
+              layoutMode={layoutMode}
+              layoutModeLocked={layoutModeLocked}
+              fixedGrid={fixedGrid}
+              globalSeconds={globalSeconds}
+              hasRunningSessionTimer={hasRunningSessionTimer}
+              selected={selected}
+              canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
+              showAllInfo={showAllInfo}
+              isClearDisabled={isClearDisabled}
+              layers={layers}
+              layerStats={layerStats}
+              activeLayerId={activeLayerId}
+              onLayoutModeChange={onLayoutModeChange}
+              onFixedGridChange={onFixedGridChange}
+              onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
+              onGlobalTimerAction={onGlobalTimerAction}
+              onCloneSelectedSource={onCloneSelectedSource}
+              onFillSelectedSourceSpace={onFillSelectedSourceSpace}
+              onRemoveSelectedSource={onRemoveSelectedSource}
+              onSelectedTimerModeChange={onSelectedTimerModeChange}
+              onSelectedTimerSecondsChange={onSelectedTimerSecondsChange}
+              onSelectedMove={onSelectedMove}
+              onSelectedTogglePaused={onSelectedTogglePaused}
+              onSelectedRestart={onSelectedRestart}
+              onEditSelectedSource={onEditSelectedSource}
+              onOpenSatellite={onOpenSatellite}
+              onToggleShowAllInfo={onToggleShowAllInfo}
+              onHideUi={onHideUi}
+              onAddSource={onAddSource}
+              onOpenSaveDialog={onOpenSaveDialog}
+              onOpenClearDialog={onOpenClearDialog}
+              onSelectLayer={onSelectLayer}
+              onFreeRectChange={onFreeRectChange}
+            />
+          </div>
+        )}
       </aside>
 
       {showPlaybackPill && selected ? (

@@ -28,6 +28,7 @@ export function WorkbenchStage({
   galleryIndexes,
   videoPositions,
   isUiHidden,
+  isDesktopWorkbenchCollapsed,
   showAllInfo,
   setMaximizedId,
   changeGallery,
@@ -58,6 +59,7 @@ export function WorkbenchStage({
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
   isUiHidden: boolean;
+  isDesktopWorkbenchCollapsed: boolean;
   showAllInfo: boolean;
   setMaximizedId: Dispatch<SetStateAction<string | null>>;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
@@ -139,11 +141,15 @@ export function WorkbenchStage({
 
   return (
     <section
+      data-testid="workbench-stage-shell"
       className={cn(
         "grid min-h-0 grid-rows-[minmax(0,1fr)]",
         isUiHidden
           ? "p-0"
-          : "px-0 pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pt-16 md:pr-4 md:pb-4 md:pl-[20.5rem]",
+          : cn(
+              "px-0 pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pt-16 md:pr-4 md:pb-4 motion-safe:transition-[padding] motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none",
+              isDesktopWorkbenchCollapsed ? "md:pl-[5rem]" : "md:pl-[20.5rem]",
+            ),
       )}
     >
       <div
