@@ -1,6 +1,45 @@
 import { describe, expect, it } from "vitest";
 
-import { ytDlpInfoToRuntimeItems, ytDlpInfoToRuntimeResolution } from "./ytdlp";
+import {
+  ytDlpCommandCandidates,
+  ytDlpInfoToRuntimeItems,
+  ytDlpInfoToRuntimeResolution,
+} from "./ytdlp";
+
+describe("ytDlpCommandCandidates", () => {
+  it("uses YTDLP_PATH before bundled or shell candidates", () => {
+    expect(
+      ytDlpCommandCandidates({
+        cwd: "/vercel/path0/frontend",
+        env: { YTDLP_PATH: "/opt/bin/yt-dlp" },
+        platform: "linux",
+      }),
+    ).toEqual([{ command: "/opt/bin/yt-dlp", args: [] }]);
+  });
+
+  it("tries the bundled production binary before shell fallbacks", () => {
+    expect(
+      ytDlpCommandCandidates({
+        cwd: "/vercel/path0/frontend",
+        env: {},
+        platform: "linux",
+      }),
+    ).toEqual([
+      {
+        command:
+          "/vercel/path0/frontend/node_modules/youtube-dl-exec/bin/yt-dlp",
+        args: [],
+      },
+      {
+        command: "/vercel/path0/node_modules/youtube-dl-exec/bin/yt-dlp",
+        args: [],
+      },
+      { command: "yt-dlp", args: [] },
+      { command: "python3", args: ["-m", "yt_dlp"] },
+      { command: "python", args: ["-m", "yt_dlp"] },
+    ]);
+  });
+});
 
 describe("ytDlpInfoToRuntimeItems", () => {
   it("returns a YouTube iframe when yt-dlp unwraps a YouTube video from another URL", () => {

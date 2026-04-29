@@ -207,6 +207,55 @@ describe("fetchRedditRuntimePostLinks", () => {
     ).rejects.toThrow("reddit_fetch_forbidden");
   });
 
+  it("retries the public API origin when the Reddit web origin blocks the request", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          kind: "Listing",
+          data: {
+            children: [
+              {
+                data: {
+                  id: "fallback",
+                  title: "Fallback image",
+                  subreddit: "kpop",
+                  post_hint: "image",
+                  url: "https://i.redd.it/fallback.jpg",
+                },
+              },
+            ],
+          },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/kpop/top/?t=week",
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      expect.any(Object),
+    );
+    expect(result.items.map((item) => item.id)).toEqual(["reddit:fallback"]);
+  });
+
   it("fetches subreddit listings and returns the requested number of usable media posts after skips", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,

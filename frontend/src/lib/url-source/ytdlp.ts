@@ -1,14 +1,21 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import path from "node:path";
 
 import type { RuntimeFeedItem, RuntimeMedia } from "@/lib/feed/types";
 import { youtubeEmbedUrlFromId } from "./youtube-embed";
 
 type YtDlpObject = Record<string, unknown>;
 
-type CommandCandidate = {
+export type CommandCandidate = {
   command: string;
   args: string[];
+};
+
+type YtDlpCommandCandidateOptions = {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  platform?: NodeJS.Platform;
 };
 
 type MediaCandidate = {
@@ -123,15 +130,47 @@ export function ytDlpInfoToRuntimeItems(
   ];
 }
 
-function commandCandidates(): CommandCandidate[] {
-  const configured = process.env.YTDLP_PATH?.trim();
+export function ytDlpCommandCandidates({
+  cwd = process.cwd(),
+  env = process.env,
+  platform = process.platform,
+}: YtDlpCommandCandidateOptions = {}): CommandCandidate[] {
+  const configured = env.YTDLP_PATH?.trim();
   if (configured) return [{ command: configured, args: [] }];
 
   return [
+    ...bundledYtDlpCommands({ cwd, env, platform }).map((command) => ({
+      command,
+      args: [],
+    })),
     { command: "yt-dlp", args: [] },
     { command: "python3", args: ["-m", "yt_dlp"] },
     { command: "python", args: ["-m", "yt_dlp"] },
   ];
+}
+
+function commandCandidates(): CommandCandidate[] {
+  return ytDlpCommandCandidates();
+}
+
+function bundledYtDlpCommands({
+  cwd,
+  env,
+  platform,
+}: Required<YtDlpCommandCandidateOptions>) {
+  const filename = env.YOUTUBE_DL_FILENAME?.trim() || "yt-dlp";
+  const binary =
+    platform === "win32" && !filename.endsWith(".exe")
+      ? `${filename}.exe`
+      : filename;
+  const configuredDir = env.YOUTUBE_DL_DIR?.trim();
+  const commands = [
+    ...(configuredDir ? [path.join(configuredDir, binary)] : []),
+    path.join(cwd, "node_modules", "youtube-dl-exec", "bin", binary),
+    path.join(cwd, "..", "node_modules", "youtube-dl-exec", "bin", binary),
+  ];
+
+  return Array.from(new Set(commands));
 }
 
 function runYtDlp(candidate: CommandCandidate, url: string): Promise<unknown> {

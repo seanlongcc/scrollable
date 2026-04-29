@@ -18,6 +18,7 @@ const REDDIT_TIME_RANGES = new Set(["day", "week", "month", "year", "all"]);
 const REDDIT_OAUTH_TOKEN_URL = "https://www.reddit.com/api/v1/access_token";
 const REDDIT_OAUTH_API_ORIGIN = "https://oauth.reddit.com";
 const REDDIT_PUBLIC_ORIGIN = "https://www.reddit.com";
+const REDDIT_PUBLIC_API_ORIGIN = "https://api.reddit.com";
 
 type RedditAccessToken = {
   key: string;
@@ -59,17 +60,25 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
 
   for (const sourceUrl of parsed.urls) {
     const source = parseRedditSourceUrl(sourceUrl);
-    const request = await redditJsonRequest(source, parsed.limit);
-    const response = await fetch(request.url, {
-      headers: {
-        "User-Agent": getRedditUserAgent(),
-        ...request.headers,
-      },
-      cache: "no-store",
-    });
+    const requests = await redditJsonRequests(source, parsed.limit);
+    let response: Response | null = null;
 
-    if (!response.ok) {
-      throw toRedditPostError(response.status);
+    for (const request of requests) {
+      response = await fetch(request.url, {
+        headers: {
+          "User-Agent": getRedditUserAgent(),
+          ...request.headers,
+        },
+        cache: "no-store",
+      });
+
+      if (response.ok || !shouldTryNextRedditRequest(response.status)) {
+        break;
+      }
+    }
+
+    if (!response?.ok) {
+      throw toRedditPostError(response?.status ?? 502);
     }
 
     const payload = await response.json();
@@ -194,8 +203,12 @@ function parseRedditSourceUrl(value: string): ParsedRedditSourceUrl {
   };
 }
 
-function toRedditJsonUrl(source: ParsedRedditSourceUrl, limit: number) {
-  return `${REDDIT_PUBLIC_ORIGIN}${toRedditApiPath(source, limit)}`;
+function toRedditJsonUrl(
+  source: ParsedRedditSourceUrl,
+  limit: number,
+  origin = REDDIT_PUBLIC_ORIGIN,
+) {
+  return `${origin}${toRedditApiPath(source, limit)}`;
 }
 
 function toRedditOauthUrl(source: ParsedRedditSourceUrl, limit: number) {
@@ -227,24 +240,36 @@ function toRedditApiPath(source: ParsedRedditSourceUrl, limit: number) {
   return `${url.pathname}${url.search}`;
 }
 
-async function redditJsonRequest(
+async function redditJsonRequests(
   source: ParsedRedditSourceUrl,
   limit: number,
-): Promise<{ url: string; headers: Record<string, string> }> {
+): Promise<Array<{ url: string; headers: Record<string, string> }>> {
   const accessToken = await redditAccessToken();
   if (!accessToken) {
-    return {
-      url: toRedditJsonUrl(source, limit),
-      headers: {},
-    };
+    return [
+      {
+        url: toRedditJsonUrl(source, limit),
+        headers: {},
+      },
+      {
+        url: toRedditJsonUrl(source, limit, REDDIT_PUBLIC_API_ORIGIN),
+        headers: {},
+      },
+    ];
   }
 
-  return {
-    url: toRedditOauthUrl(source, limit),
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
+  return [
+    {
+      url: toRedditOauthUrl(source, limit),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     },
-  };
+  ];
+}
+
+function shouldTryNextRedditRequest(status: number) {
+  return status === 403 || status === 429 || status >= 500;
 }
 
 function subredditFromSegments(segments: string[]) {
