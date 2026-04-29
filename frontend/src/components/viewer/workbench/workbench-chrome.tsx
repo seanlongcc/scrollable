@@ -437,7 +437,7 @@ export function WorkbenchChrome({
       <Sheet open={isWorkbenchSheetOpen} onOpenChange={setIsWorkbenchSheetOpen}>
         <SheetContent
           side="bottom"
-          className="max-h-[82dvh] overflow-y-auto rounded-t-3xl border-border/70 bg-surface px-3 pb-4 shadow-[0_-22px_74px_rgba(18,10,10,0.62)] md:hidden"
+          className="mobile-compact-controls max-h-[82dvh] overflow-y-auto rounded-t-3xl border-border/70 bg-surface px-3 pb-4 shadow-[0_-22px_74px_rgba(18,10,10,0.62)] md:hidden"
         >
           <div className="mx-auto h-1 w-10 rounded-full bg-border" />
           <SheetHeader className="px-0 pt-0">

@@ -34,7 +34,9 @@ describe("FeedWorkbench workspace templates", () => {
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Save layout as" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Save layout as",
+    });
     expect(
       within(dialog).getByRole("button", { name: "Save as layout" }),
     ).toBeInTheDocument();
@@ -111,7 +113,9 @@ describe("FeedWorkbench workspace templates", () => {
       screen.getByTestId("template-slot-blank-workspace:slot-1"),
     );
 
-    expect(screen.getByRole("dialog", { name: "Add source" })).toBeVisible();
+    expect(
+      await screen.findByRole("dialog", { name: "Add source" }),
+    ).toBeVisible();
   });
 
   it("allows clearing template-only layouts", async () => {
@@ -230,7 +234,7 @@ describe("FeedWorkbench workspace templates", () => {
     await user.click(
       screen.getAllByRole("button", { name: "Add source to template box" })[0],
     );
-    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    const dialog = await screen.findByRole("dialog", { name: "Add source" });
     await user.click(within(dialog).getByRole("button", { name: "Reddit" }));
     await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
@@ -263,7 +267,7 @@ describe("FeedWorkbench workspace templates", () => {
     await user.click(
       screen.getAllByRole("button", { name: "Add source to template box" })[0],
     );
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["video"], "large.mp4", { type: "video/mp4" }),

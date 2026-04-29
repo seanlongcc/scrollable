@@ -151,3 +151,32 @@
     cursor: pointer;
   }
 }
+
+@layer utilities {
+  @media (max-width: 767px) {
+    .mobile-compact-controls [data-slot="button"],
+    .mobile-compact-controls [data-slot="input"],
+    .mobile-compact-controls [data-slot="select-trigger"] {
+      min-height: 2.5rem;
+      height: 2.5rem;
+      font-size: 0.78rem;
+      font-weight: 400;
+    }
+
+    .mobile-compact-controls [data-slot="button"] {
+      min-width: 2.5rem;
+    }
+
+    .mobile-compact-controls [data-slot="tabs-list"] {
+      min-height: 2.5rem;
+      height: 2.5rem;
+    }
+
+    .mobile-compact-controls [data-slot="tabs-trigger"] {
+      min-height: 2rem;
+      height: 2rem;
+      font-size: 0.78rem;
+      font-weight: 400;
+    }
+  }
+}

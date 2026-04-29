@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export function SignInPanel({ next = "/" }: { next?: string }) {
@@ -18,7 +18,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
     isConfigured && email.length > 0 && password.length >= 8;
 
   async function signInWithEmailPassword() {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -33,7 +33,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
   }
 
   async function signUpWithEmailPassword() {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -51,7 +51,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
   }
 
   async function signInWithGoogle() {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

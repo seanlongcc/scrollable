@@ -69,7 +69,9 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-    expect(screen.getByRole("dialog", { name: "Account" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("dialog", { name: "Account" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument();
     expect(

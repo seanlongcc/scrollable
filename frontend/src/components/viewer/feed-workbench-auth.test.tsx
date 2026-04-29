@@ -122,7 +122,7 @@ describe("FeedWorkbench account state", () => {
 
     await user.click(await screen.findByRole("button", { name: "Account" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Account" });
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
     expect(within(dialog).getByText("reader@example.com")).toBeInTheDocument();
 
     await user.click(within(dialog).getByRole("button", { name: "Log out" }));
@@ -162,7 +162,7 @@ describe("FeedWorkbench account state", () => {
 
     await user.click(await screen.findByRole("button", { name: "Account" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Account" });
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
     await waitFor(() =>
       expect(
         within(dialog).getByText(
@@ -193,7 +193,7 @@ describe("FeedWorkbench account state", () => {
 
     await user.click(await screen.findByRole("button", { name: "Account" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Account" });
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
     await waitFor(() =>
       expect(
         within(dialog).getByText(

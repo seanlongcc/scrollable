@@ -71,7 +71,7 @@ const EMPTY_WORKSPACE_STATS: WorkspaceStats = {
 };
 
 const anchoredDialogClass =
-  "top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-[7.25rem] md:right-auto md:bottom-auto md:left-3 md:h-auto md:max-h-[calc(100dvh-8rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-2xl md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
+  "mobile-compact-controls top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-[7.25rem] md:right-auto md:bottom-auto md:left-3 md:h-auto md:max-h-[calc(100dvh-8rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-2xl md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
 
 const centeredDialogClass =
   "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";

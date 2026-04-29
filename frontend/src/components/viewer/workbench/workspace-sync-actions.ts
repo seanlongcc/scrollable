@@ -1,4 +1,4 @@
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import {
   CLOUD_METADATA_QUOTA_BYTES,
@@ -33,7 +33,7 @@ export async function syncViewerSessionsToAccount({
   if (!getSupabaseEnv()) return { status: "skipped" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -61,7 +61,7 @@ export async function loadViewerCloudLibraryFromAccount(): Promise<CloudLibraryR
   if (!getSupabaseEnv()) return { status: "skipped", reason: "unconfigured" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -124,7 +124,7 @@ export async function upsertViewerSessionToAccount({
   if (!getSupabaseEnv()) return { status: "skipped" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -156,7 +156,7 @@ export async function upsertViewerTemplateToAccount({
   if (!getSupabaseEnv()) return { status: "skipped" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -190,7 +190,7 @@ export async function deleteViewerCloudItem({
   if (!getSupabaseEnv()) return { status: "skipped" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const table = kind === "layout" ? "viewer_sessions" : "viewer_templates";
     const { error } = await supabase.from(table).delete().eq("id", id);
 
@@ -218,7 +218,7 @@ export async function ensureViewerShareLink({
   if (!getSupabaseEnv()) return { status: "skipped" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const column =
       kind === "layout" ? "viewer_session_id" : "viewer_template_id";
     const existingQuery = supabase
@@ -268,7 +268,7 @@ export async function regenerateViewerShareLink({
   if (!getSupabaseEnv()) return { status: "skipped" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const column =
       kind === "layout" ? "viewer_session_id" : "viewer_template_id";
     const { error: disableError } = await supabase
@@ -316,7 +316,7 @@ export async function disableViewerShareLinks({
   if (!getSupabaseEnv()) return { status: "skipped" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const column =
       kind === "layout" ? "viewer_session_id" : "viewer_template_id";
     const { error } = await supabase
@@ -422,7 +422,7 @@ export async function syncViewerTemplatesToAccount({
   if (!getSupabaseEnv()) return { status: "skipped" };
 
   try {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = await createLazySupabaseBrowserClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

@@ -68,7 +68,7 @@ describe("FeedWorkbench workspaces", () => {
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
     expect(
-      screen.getByRole("dialog", { name: "Save layout as" }),
+      await screen.findByRole("dialog", { name: "Save layout as" }),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
 
@@ -113,7 +113,7 @@ describe("FeedWorkbench workspaces", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
       new File(["b"], "b.mp4", { type: "video/mp4" }),
@@ -122,7 +122,7 @@ describe("FeedWorkbench workspaces", () => {
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
     await user.click(screen.getByRole("button", { name: "Library" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Library" });
+    const dialog = await screen.findByRole("dialog", { name: "Library" });
     expect(
       within(dialog).getByText("fixed · 1 src · 2 files"),
     ).toBeInTheDocument();
@@ -143,7 +143,7 @@ describe("FeedWorkbench workspaces", () => {
 
     await user.click(screen.getByRole("button", { name: "Library" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Library" });
+    const dialog = await screen.findByRole("dialog", { name: "Library" });
     expect(
       within(dialog).getByText("fixed · 2 src · 5 files"),
     ).toBeInTheDocument();
@@ -177,7 +177,7 @@ describe("FeedWorkbench workspaces", () => {
 
     await user.click(screen.getByRole("button", { name: "Library" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Library" });
+    const dialog = await screen.findByRole("dialog", { name: "Library" });
     const layoutList = within(dialog).getByRole("group", {
       name: "Saved layouts list",
     });
@@ -295,7 +295,7 @@ describe("FeedWorkbench workspaces", () => {
 
     await user.click(screen.getByRole("button", { name: "Library" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Library" });
+    const dialog = await screen.findByRole("dialog", { name: "Library" });
     expect(
       within(dialog).queryByRole("button", { name: "Open Saved local" }),
     ).not.toBeInTheDocument();
@@ -380,7 +380,7 @@ describe("FeedWorkbench workspaces", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Library" }));
-    const firstDialog = screen.getByRole("dialog", { name: "Library" });
+    const firstDialog = await screen.findByRole("dialog", { name: "Library" });
     await user.click(
       within(firstDialog).getByRole("checkbox", { name: "Select Saved local" }),
     );
@@ -394,7 +394,7 @@ describe("FeedWorkbench workspaces", () => {
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Library" }));
-    const reopenedDialog = screen.getByRole("dialog", {
+    const reopenedDialog = await screen.findByRole("dialog", {
       name: "Library",
     });
 

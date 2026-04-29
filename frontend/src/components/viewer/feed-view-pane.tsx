@@ -30,6 +30,12 @@ import {
 import { MediaRenderer } from "./media-renderer";
 
 const PREFETCH_NEXT_ITEM_COUNT = 6;
+const CONSTRAINED_PREFETCH_CONNECTION_TYPES = new Set(["slow-2g", "2g"]);
+
+type NavigatorConnectionLike = {
+  effectiveType?: string;
+  saveData?: boolean;
+};
 
 export function FeedViewPane({
   viewId,
@@ -106,6 +112,8 @@ export function FeedViewPane({
   const progress = getTimerProgressPercent(timer);
 
   useEffect(() => {
+    if (!shouldPrefetchNearbyImages()) return;
+
     const prefetchedImageUrls = prefetchedImageUrlsRef.current;
     const urls = collectImagePrefetchUrls({
       items,
@@ -364,6 +372,26 @@ export function FeedViewPane({
       ) : null}
     </article>
   );
+}
+
+function shouldPrefetchNearbyImages() {
+  if (typeof navigator === "undefined") return true;
+
+  const connection = (
+    navigator as Navigator & {
+      connection?: NavigatorConnectionLike;
+    }
+  ).connection;
+
+  if (connection?.saveData) return false;
+  if (
+    connection?.effectiveType &&
+    CONSTRAINED_PREFETCH_CONNECTION_TYPES.has(connection.effectiveType)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function collectImagePrefetchUrls({

@@ -1,6 +1,5 @@
 "use client";
 
-import Hls from "hls.js";
 import { useEffect, useRef, useState } from "react";
 
 import type { RuntimeMedia } from "@/lib/feed/types";
@@ -15,6 +14,8 @@ type VideoRestoreTarget = {
   key: string;
   targetSeconds: number;
 };
+
+type HlsInstance = InstanceType<typeof import("hls.js").default>;
 
 export function MediaRenderer({
   media,
@@ -144,37 +145,52 @@ export function MediaRenderer({
       return () => unloadVideo(video);
     }
 
-    if (!Hls.isSupported()) {
-      video.src = playback.src;
-      return () => unloadVideo(video);
-    }
+    let isCancelled = false;
+    let hls: HlsInstance | null = null;
 
-    const hls = new Hls({
-      maxBufferLength: 90,
-      maxMaxBufferLength: 180,
-      backBufferLength: 30,
-      capLevelToPlayerSize: true,
-      startFragPrefetch: true,
-      ...(videoHlsSegmentQuery
-        ? {
-            xhrSetup(xhr, url) {
-              const nextUrl = appendHlsSegmentQuery(url, videoHlsSegmentQuery);
-              if (nextUrl !== url) xhr.open("GET", nextUrl, true);
-            },
-            fetchSetup(context, initParams) {
-              return new Request(
-                appendHlsSegmentQuery(context.url, videoHlsSegmentQuery),
-                initParams,
-              );
-            },
-          }
-        : {}),
-    });
-    hls.loadSource(playback.src);
-    hls.attachMedia(video);
+    void import("hls.js")
+      .then(({ default: Hls }) => {
+        if (isCancelled) return;
+
+        if (!Hls.isSupported()) {
+          video.src = playback.src;
+          return;
+        }
+
+        hls = new Hls({
+          maxBufferLength: 90,
+          maxMaxBufferLength: 180,
+          backBufferLength: 30,
+          capLevelToPlayerSize: true,
+          startFragPrefetch: true,
+          ...(videoHlsSegmentQuery
+            ? {
+                xhrSetup(xhr, url) {
+                  const nextUrl = appendHlsSegmentQuery(
+                    url,
+                    videoHlsSegmentQuery,
+                  );
+                  if (nextUrl !== url) xhr.open("GET", nextUrl, true);
+                },
+                fetchSetup(context, initParams) {
+                  return new Request(
+                    appendHlsSegmentQuery(context.url, videoHlsSegmentQuery),
+                    initParams,
+                  );
+                },
+              }
+            : {}),
+        });
+        hls.loadSource(playback.src);
+        hls.attachMedia(video);
+      })
+      .catch(() => {
+        if (!isCancelled) video.src = playback.src;
+      });
 
     return () => {
-      hls.destroy();
+      isCancelled = true;
+      hls?.destroy();
       unloadVideo(video);
     };
   }, [

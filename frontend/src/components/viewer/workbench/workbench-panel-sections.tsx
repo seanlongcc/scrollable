@@ -282,7 +282,8 @@ export function ActionsSection({
   onOpenClearDialog: () => void;
 }) {
   const infoLabel = showAllInfo ? "Hide info" : "Show info";
-  const actionButtonClass = "text-[0.82rem] font-medium md:text-xs";
+  const actionButtonClass =
+    "h-10 min-h-10 text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
 
   return (
     <section className="grid gap-2">

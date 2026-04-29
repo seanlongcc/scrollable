@@ -20,7 +20,7 @@ describe("FeedWorkbench URL sources", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    const dialog = await screen.findByRole("dialog", { name: "Add source" });
     const sourceType = within(dialog).getByRole("group", {
       name: "Source type",
     });
@@ -43,14 +43,14 @@ describe("FeedWorkbench URL sources", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    let dialog = screen.getByRole("dialog", { name: "Add source" });
+    let dialog = await screen.findByRole("dialog", { name: "Add source" });
     await user.click(within(dialog).getByRole("button", { name: "URL" }));
     await user.click(
       within(dialog).getByRole("button", { name: "Close dialog" }),
     );
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    dialog = screen.getByRole("dialog", { name: "Add source" });
+    dialog = await screen.findByRole("dialog", { name: "Add source" });
     const sourceType = within(dialog).getByRole("group", {
       name: "Source type",
     });
@@ -67,7 +67,7 @@ describe("FeedWorkbench URL sources", () => {
     await waitFor(() => expect(isLocalFileCacheSupported).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    const dialog = await screen.findByRole("dialog", { name: "Add source" });
 
     expect(
       within(dialog).queryByText("Source grouping"),
@@ -208,7 +208,7 @@ describe("FeedWorkbench URL sources", () => {
     await openAddSourceUrlPanel(user);
     await user.type(screen.getByLabelText("URL"), "https://old.example/video");
     await user.type(screen.getByLabelText("Title"), "Old title");
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -222,7 +222,7 @@ describe("FeedWorkbench URL sources", () => {
 
     expect(screen.getByLabelText("URL")).toHaveValue("");
     expect(screen.getByLabelText("Title")).toHaveValue("");
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     expect(
       screen.getByLabelText(
@@ -236,7 +236,7 @@ describe("FeedWorkbench URL sources", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    const dialog = await screen.findByRole("dialog", { name: "Add source" });
 
     expect(dialog.className).toContain("fixed");
     expect(dialog.className).not.toContain("relative");
@@ -571,14 +571,14 @@ describe("FeedWorkbench URL sources", () => {
     );
 
     expect(
-      screen.getByRole("dialog", { name: "Add source" }),
+      await screen.findByRole("dialog", { name: "Add source" }),
     ).toBeInTheDocument();
   });
 });
 
 async function openAddSourceUrlPanel(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "Add source" }));
-  const dialog = screen.getByRole("dialog", { name: "Add source" });
+  const dialog = await screen.findByRole("dialog", { name: "Add source" });
   await user.click(within(dialog).getByRole("button", { name: "URL" }));
 
   return dialog;

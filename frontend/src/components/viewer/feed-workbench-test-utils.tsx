@@ -89,7 +89,7 @@ export async function addDefaultSubredditSource(
   user: ReturnType<typeof userEvent.setup>,
 ) {
   await user.click(screen.getByRole("button", { name: "Add source" }));
-  const dialog = screen.getByRole("dialog", { name: "Add source" });
+  const dialog = await screen.findByRole("dialog", { name: "Add source" });
   await user.click(within(dialog).getByRole("button", { name: "Reddit" }));
   await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
   await user.click(
@@ -187,11 +187,22 @@ export async function hashTestRedditItemId(itemId: string) {
 
 export function stubObjectUrls() {
   let index = 0;
-  vi.stubGlobal("URL", {
-    ...globalThis.URL,
-    createObjectURL: vi.fn(() => `blob:upload-${++index}`),
-    revokeObjectURL: vi.fn(),
+  const OriginalURL = globalThis.URL;
+
+  class MockURL extends OriginalURL {}
+
+  Object.defineProperties(MockURL, {
+    createObjectURL: {
+      configurable: true,
+      value: vi.fn(() => `blob:upload-${++index}`),
+    },
+    revokeObjectURL: {
+      configurable: true,
+      value: vi.fn(),
+    },
   });
+
+  vi.stubGlobal("URL", MockURL);
 }
 
 export function stubGridBounds() {
@@ -221,7 +232,7 @@ export async function openSavedLayouts(
   names: string[],
 ) {
   await user.click(screen.getByRole("button", { name: "Library" }));
-  const dialog = screen.getByRole("dialog", { name: "Library" });
+  const dialog = await screen.findByRole("dialog", { name: "Library" });
 
   for (const name of names) {
     await user.click(
@@ -239,7 +250,7 @@ export async function openSavedTemplates(
   names: string[],
 ) {
   await user.click(screen.getByRole("button", { name: "Library" }));
-  const dialog = screen.getByRole("dialog", { name: "Library" });
+  const dialog = await screen.findByRole("dialog", { name: "Library" });
   await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
 
   for (const name of names) {

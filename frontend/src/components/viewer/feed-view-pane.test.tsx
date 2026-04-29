@@ -79,6 +79,47 @@ describe("FeedViewPane", () => {
     expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
+  it("skips nearby image prefetching on constrained connections", async () => {
+    const prefetchedUrls: string[] = [];
+
+    class MockImage {
+      set src(value: string) {
+        prefetchedUrls.push(value);
+      }
+    }
+
+    vi.stubGlobal("Image", MockImage);
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      connection: { saveData: true },
+    });
+
+    const { container } = render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+          ]),
+          feedItem("next", [
+            { type: "image", url: "https://cdn.test/next.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 2 })}
+        galleryIndexes={{ active: 0 }}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelectorAll("img")).toHaveLength(1),
+    );
+    expect(prefetchedUrls).toEqual([]);
+  });
+
   it("exposes a select control without blocking video controls", () => {
     const onSelect = vi.fn();
     const { container } = render(

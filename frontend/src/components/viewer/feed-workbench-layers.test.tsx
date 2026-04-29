@@ -1,10 +1,4 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -39,7 +33,7 @@ describe("FeedWorkbench layers", () => {
     ).toHaveAttribute("aria-pressed", "true");
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "foreground.png", { type: "image/png" }),
@@ -50,7 +44,7 @@ describe("FeedWorkbench layers", () => {
 
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["b"], "background.mp4", { type: "video/mp4" }),
       new File(["c"], "background.mp3", { type: "audio/mpeg" }),
@@ -80,7 +74,7 @@ describe("FeedWorkbench layers", () => {
     expect(screen.getAllByText("0 files")).toHaveLength(3);
   });
 
-  it("keeps inactive layer grids mounted but visually hidden", async () => {
+  it("unmounts inactive layer media while preserving layer state", async () => {
     stubObjectUrls();
     stubRandomUuids([
       "workspace-1",
@@ -95,7 +89,7 @@ describe("FeedWorkbench layers", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "foreground.png", { type: "image/png" }),
@@ -103,21 +97,21 @@ describe("FeedWorkbench layers", () => {
     expect(await screen.findByAltText("foreground.png")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
-    expect(screen.getByAltText("foreground.png")).not.toBeVisible();
+    expect(screen.queryByAltText("foreground.png")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["b"], "background.png", { type: "image/png" }),
     );
     expect(await screen.findByAltText("background.png")).toBeInTheDocument();
-    expect(screen.getByAltText("foreground.png")).not.toBeVisible();
+    expect(screen.queryByAltText("foreground.png")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
 
     expect(await screen.findByAltText("foreground.png")).toBeInTheDocument();
-    expect(screen.getByAltText("background.png")).not.toBeVisible();
+    expect(screen.queryByAltText("background.png")).not.toBeInTheDocument();
   });
 
   it("does not auto-select a source when switching layers", async () => {
@@ -136,7 +130,7 @@ describe("FeedWorkbench layers", () => {
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "foreground.png", { type: "image/png" }),
@@ -147,7 +141,7 @@ describe("FeedWorkbench layers", () => {
     ).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["b"], "background.png", { type: "image/png" }),
@@ -185,7 +179,7 @@ describe("FeedWorkbench layers", () => {
     });
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue(1);
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "foreground-a.png", { type: "image/png" }),
       new File(["b"], "foreground-b.png", { type: "image/png" }),
@@ -194,21 +188,17 @@ describe("FeedWorkbench layers", () => {
 
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["c"], "background.png", { type: "image/png" }),
     );
 
-    await waitFor(
-      () => {
-        expect(screen.getByAltText("foreground-b.png")).not.toBeVisible();
-      },
-      { timeout: 2500 },
-    );
+    expect(screen.queryByAltText("foreground-b.png")).not.toBeInTheDocument();
+    await new Promise((resolve) => window.setTimeout(resolve, 1200));
     await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
 
-    expect(screen.getByAltText("foreground-b.png")).toBeVisible();
+    expect(await screen.findByAltText("foreground-b.png")).toBeVisible();
   });
 
   it("keeps fixed-grid content in its assigned cell after another cell is removed", async () => {
@@ -222,8 +212,8 @@ describe("FeedWorkbench layers", () => {
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.clear(
       screen.getByLabelText(
@@ -268,8 +258,8 @@ describe("FeedWorkbench layers", () => {
     await screen.findByRole("button", { name: "Remove r/pics" });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.clear(
       screen.getByLabelText(

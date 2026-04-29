@@ -6,7 +6,7 @@ import type {
 } from "react";
 import { toast } from "sonner";
 
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import {
   createFixedGrid,
@@ -412,7 +412,10 @@ export function useLayoutHandlers({
   async function signOut() {
     const result = await signOutAccountAction({
       isConfigured: Boolean(getSupabaseEnv()),
-      signOut: async () => createSupabaseBrowserClient().auth.signOut(),
+      signOut: async () => {
+        const supabase = await createLazySupabaseBrowserClient();
+        return supabase.auth.signOut();
+      },
     });
 
     if (result.status === "error") {

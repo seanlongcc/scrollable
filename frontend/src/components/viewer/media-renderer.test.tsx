@@ -2,10 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hlsState = vi.hoisted(() => ({
+  moduleLoads: 0,
   configs: [] as unknown[],
 }));
 
 vi.mock("hls.js", () => {
+  hlsState.moduleLoads += 1;
+
   class MockHls {
     static isSupported = vi.fn(() => true);
 
@@ -32,6 +35,21 @@ describe("MediaRenderer", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("does not import hls.js for native video playback", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+      />,
+    );
+
+    expect(container.querySelector("video")).toHaveAttribute(
+      "src",
+      "https://cdn.test/video.mp4",
+    );
+    expect(hlsState.moduleLoads).toBe(0);
   });
 
   it("autoplays videos muted and inline", () => {
@@ -154,7 +172,7 @@ describe("MediaRenderer", () => {
     expect(onVideoTimeChange).toHaveBeenLastCalledWith(42);
   });
 
-  it("adds signed HLS params to segment requests", () => {
+  it("adds signed HLS params to segment requests", async () => {
     render(
       <MediaRenderer
         media={{
@@ -166,6 +184,8 @@ describe("MediaRenderer", () => {
         title="Signed HLS"
       />,
     );
+
+    await vi.waitFor(() => expect(hlsState.configs).toHaveLength(1));
 
     const config = hlsState.configs.at(-1) as {
       xhrSetup?: (xhr: XMLHttpRequest, url: string) => void;

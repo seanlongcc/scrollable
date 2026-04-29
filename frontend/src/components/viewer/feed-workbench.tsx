@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import {
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 
 import { accountStateFromUser } from "./workbench/account-actions";
@@ -13,7 +21,7 @@ import {
   type LocalFileCacheStorageStatus,
 } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { cn } from "@/lib/utils";
 import { DEFAULT_FIXED_GRID, type FixedGrid } from "@/lib/viewer/layout";
@@ -81,9 +89,14 @@ import {
   moveActiveKeyboardSessionTimer,
 } from "./workbench/workbench-effect-state";
 import { WorkbenchHeader } from "./workbench/workbench-header";
-import { WorkbenchOverlays } from "./workbench/workbench-overlays";
 import { WorkbenchStage } from "./workbench/workbench-stage";
 import { WorkbenchChrome } from "./workbench/workbench-chrome";
+
+const loadWorkbenchOverlays = () => import("./workbench/workbench-overlays");
+const WorkbenchOverlays = dynamic(
+  () => loadWorkbenchOverlays().then((module) => module.WorkbenchOverlays),
+  { ssr: false },
+);
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
@@ -154,6 +167,7 @@ export function FeedWorkbench({
   const [isSourceOpen, setIsSourceOpen] = useState(false);
   const [isLayoutsOpen, setIsLayoutsOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [hasMountedOverlays, setHasMountedOverlays] = useState(false);
   const [account, setAccount] = useState<AccountState>(() =>
     getSupabaseEnv() ? { status: "loading" } : { status: "unconfigured" },
   );
@@ -318,6 +332,7 @@ export function FeedWorkbench({
     (confirmation: LocalFileByteCacheConfirmation) =>
       new Promise<boolean>((resolve) => {
         largeLocalByteCacheResolverRef.current = resolve;
+        setHasMountedOverlays(true);
         setLargeLocalByteCachePrompt(confirmation);
       }),
     [],
@@ -347,6 +362,22 @@ export function FeedWorkbench({
     setLocalCacheStorageFullStatus(null);
     await refreshLocalCacheStatus();
   }, [refreshLocalCacheStatus]);
+  const setLocalCacheStorageFullStatusWithOverlay = useCallback(
+    (status: LocalFileCacheStorageStatus | null) => {
+      if (status) setHasMountedOverlays(true);
+      setLocalCacheStorageFullStatus(status);
+    },
+    [],
+  );
+  const setCloudShareTargetWithOverlay = useCallback(
+    (target: SetStateAction<CloudShareTarget | null>) => {
+      if (typeof target !== "function" && target) {
+        setHasMountedOverlays(true);
+      }
+      setCloudShareTarget(target);
+    },
+    [],
+  );
   const refreshCloudLibrary = useCallback(async (isAccountSignedIn = false) => {
     if (!getSupabaseEnv()) {
       setCloudUsage({ status: "unconfigured" });
@@ -418,7 +449,7 @@ export function FeedWorkbench({
     sessions,
     canCacheLocalFiles,
     confirmLargeLocalByteCache,
-    onLocalCacheStorageFull: setLocalCacheStorageFullStatus,
+    onLocalCacheStorageFull: setLocalCacheStorageFullStatusWithOverlay,
     visibleFixedCells,
     registryRef,
     createId,
@@ -439,6 +470,20 @@ export function FeedWorkbench({
     setPendingTemplateSlotId,
     setTemplateSlots,
   });
+  const openSourcePanelWithOverlay = useCallback(
+    (fixedSlot?: number | null, templateSlotId?: string | null) => {
+      setHasMountedOverlays(true);
+      openSourcePanel(fixedSlot, templateSlotId);
+    },
+    [openSourcePanel],
+  );
+  const openEditSourceWithOverlay = useCallback(
+    (id: string) => {
+      setHasMountedOverlays(true);
+      openEditSource(id);
+    },
+    [openEditSource],
+  );
   const {
     openSaveDialog,
     saveLayoutAs,
@@ -588,7 +633,7 @@ export function FeedWorkbench({
     setCloudTemplates,
     setCloudUsage,
     setLibraryStorageTarget,
-    setCloudShareTarget,
+    setCloudShareTarget: setCloudShareTargetWithOverlay,
   });
 
   useSharedViewerUrlActions({
@@ -620,6 +665,10 @@ export function FeedWorkbench({
   }, []);
 
   useEffect(() => {
+    void loadWorkbenchOverlays();
+  }, []);
+
+  useEffect(() => {
     writeStoredSaveTarget(saveTarget);
   }, [saveTarget]);
 
@@ -637,26 +686,36 @@ export function FeedWorkbench({
     }
 
     let isMounted = true;
-    const supabase = createSupabaseBrowserClient();
+    let unsubscribe: (() => void) | null = null;
 
-    supabase.auth
-      .getUser()
-      .then(({ data: { user } }) => {
-        if (isMounted) setAccount(accountStateFromUser(user));
+    void createLazySupabaseBrowserClient()
+      .then((supabase) => {
+        if (!isMounted) return;
+
+        void supabase.auth
+          .getUser()
+          .then(({ data: { user } }) => {
+            if (isMounted) setAccount(accountStateFromUser(user));
+          })
+          .catch(() => {
+            if (isMounted) setAccount({ status: "signed-out" });
+          });
+
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (isMounted)
+            setAccount(accountStateFromUser(session?.user ?? null));
+        });
+        unsubscribe = () => subscription.unsubscribe();
       })
       .catch(() => {
         if (isMounted) setAccount({ status: "signed-out" });
       });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) setAccount(accountStateFromUser(session?.user ?? null));
-    });
-
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, []);
 
@@ -822,7 +881,10 @@ export function FeedWorkbench({
     isClearOpen ||
     Boolean(editingSource) ||
     Boolean(largeLocalByteCachePrompt) ||
-    Boolean(localCacheStorageFullStatus);
+    Boolean(localCacheStorageFullStatus) ||
+    Boolean(cloudShareTarget);
+
+  const shouldMountOverlays = isAnySheetOpen || hasMountedOverlays;
 
   const moveSelectedSource = useCallback(
     (direction: 1 | -1) => {
@@ -928,119 +990,122 @@ export function FeedWorkbench({
         />
       ) : null}
 
-      <WorkbenchOverlays
-        isSourceOpen={isSourceOpen}
-        onSourceOpenChange={(open) => {
-          setIsSourceOpen(open);
-          if (!open) {
-            setPendingFixedSlot(null);
-            setPendingTemplateSlotId(null);
+      {shouldMountOverlays ? (
+        <WorkbenchOverlays
+          isSourceOpen={isSourceOpen}
+          onSourceOpenChange={(open) => {
+            setIsSourceOpen(open);
+            if (!open) {
+              setPendingFixedSlot(null);
+              setPendingTemplateSlotId(null);
+            }
+          }}
+          urlValue={urlValue}
+          urlTitle={urlTitle}
+          redditUrls={redditUrls}
+          redditInputMode={redditInputMode}
+          subredditName={subredditName}
+          redditSort={redditSort}
+          redditTimeRange={redditTimeRange}
+          redditLimit={redditLimit}
+          isLoading={isLoading}
+          sourceGroupingMode={sourceGroupingMode}
+          setUrlValue={setUrlValue}
+          setUrlTitle={setUrlTitle}
+          setRedditUrls={setRedditUrls}
+          setRedditInputMode={setRedditInputMode}
+          setSubredditName={setSubredditName}
+          setRedditSort={setRedditSort}
+          setRedditTimeRange={setRedditTimeRange}
+          setRedditLimit={setRedditLimit}
+          setSourceGroupingMode={setSourceGroupingMode}
+          openUrlSource={openUrlSource}
+          fetchRedditFeed={fetchRedditFeed}
+          addLocalFiles={addLocalFiles}
+          selectLocalFilesWithHandles={selectLocalFilesWithHandles}
+          selectLocalFolderWithHandles={selectLocalFolderWithHandles}
+          addDroppedLocalFiles={addDroppedLocalFiles}
+          allowLocalFileDrop={allowLocalFileDrop}
+          largeLocalByteCachePrompt={largeLocalByteCachePrompt}
+          onLargeLocalByteCacheOpenChange={(open) => {
+            if (!open) answerLargeLocalByteCachePrompt(false);
+          }}
+          onConfirmLargeLocalByteCache={() =>
+            answerLargeLocalByteCachePrompt(true)
           }
-        }}
-        urlValue={urlValue}
-        urlTitle={urlTitle}
-        redditUrls={redditUrls}
-        redditInputMode={redditInputMode}
-        subredditName={subredditName}
-        redditSort={redditSort}
-        redditTimeRange={redditTimeRange}
-        redditLimit={redditLimit}
-        isLoading={isLoading}
-        sourceGroupingMode={sourceGroupingMode}
-        setUrlValue={setUrlValue}
-        setUrlTitle={setUrlTitle}
-        setRedditUrls={setRedditUrls}
-        setRedditInputMode={setRedditInputMode}
-        setSubredditName={setSubredditName}
-        setRedditSort={setRedditSort}
-        setRedditTimeRange={setRedditTimeRange}
-        setRedditLimit={setRedditLimit}
-        setSourceGroupingMode={setSourceGroupingMode}
-        openUrlSource={openUrlSource}
-        fetchRedditFeed={fetchRedditFeed}
-        addLocalFiles={addLocalFiles}
-        selectLocalFilesWithHandles={selectLocalFilesWithHandles}
-        selectLocalFolderWithHandles={selectLocalFolderWithHandles}
-        addDroppedLocalFiles={addDroppedLocalFiles}
-        allowLocalFileDrop={allowLocalFileDrop}
-        largeLocalByteCachePrompt={largeLocalByteCachePrompt}
-        onLargeLocalByteCacheOpenChange={(open) => {
-          if (!open) answerLargeLocalByteCachePrompt(false);
-        }}
-        onConfirmLargeLocalByteCache={() =>
-          answerLargeLocalByteCachePrompt(true)
-        }
-        localCacheStorageFullStatus={localCacheStorageFullStatus}
-        onLocalCacheStorageFullOpenChange={(open) => {
-          if (!open) setLocalCacheStorageFullStatus(null);
-        }}
-        onClearLocalCache={clearLocalCache}
-        isLayoutsOpen={isLayoutsOpen}
-        setIsLayoutsOpen={setIsLayoutsOpen}
-        savedWorkspaces={savedWorkspaces}
-        cloudWorkspaces={cloudWorkspaces}
-        savedTemplates={savedTemplates}
-        cloudTemplates={cloudTemplates}
-        libraryStorageTarget={libraryStorageTarget}
-        setLibraryStorageTarget={setLibraryStorageTarget}
-        openSavedWorkspaces={openSavedWorkspaces}
-        openSavedTemplates={openSavedTemplates}
-        deleteSavedWorkspace={deleteSavedWorkspace}
-        deleteSavedTemplate={deleteSavedTemplate}
-        uploadWorkspaceToCloud={uploadWorkspaceToCloud}
-        uploadTemplateToCloud={uploadTemplateToCloud}
-        shareCloudItem={shareCloudItem}
-        regenerateCloudShareLink={regenerateCloudShareLink}
-        disableCloudShareLink={disableCloudShareLink}
-        exportSavedJson={exportSavedJson}
-        importSavedJson={importSavedJson}
-        workspaceTabs={workspaceTabs}
-        openWorkspaceStats={openWorkspaceStats}
-        activeWorkspaceId={activeWorkspaceId}
-        selectWorkspace={selectWorkspace}
-        createWorkspaceTab={createWorkspaceTab}
-        closeWorkspaceTab={closeWorkspaceTab}
-        openSaveDialog={() => {
-          setIsLayoutsOpen(false);
-          if (account.status !== "signed-in") setSaveTarget("local");
-          openSaveDialog();
-          void refreshLocalCacheStatusForCurrentLayout();
-        }}
-        isSaveOpen={isSaveOpen}
-        setIsSaveOpen={setIsSaveOpen}
-        saveName={saveName}
-        layoutMode={layoutMode}
-        saveKind={saveKind}
-        saveTarget={saveTarget}
-        saveError={saveError}
-        localCacheStatus={localCacheStatus}
-        hasLocalSources={currentLayoutHasLocalSources}
-        cloudUsage={cloudUsage}
-        cloudBlockReason={saveTarget === "cloud" ? cloudBlockReason : null}
-        setSaveName={setSaveName}
-        setSaveError={setSaveError}
-        setSaveKind={setSaveKind}
-        setSaveTarget={setSaveTarget}
-        saveLayoutAs={saveLayoutAs}
-        saveTemplateAs={saveTemplateAs}
-        isClearOpen={isClearOpen}
-        setIsClearOpen={setIsClearOpen}
-        clearCurrentLayout={clearCurrentLayout}
-        editingSource={editingSource}
-        setEditingSourceId={setEditingSourceId}
-        saveRedditSourceEdit={saveRedditSourceEdit}
-        saveUrlSourceEdit={saveUrlSourceEdit}
-        saveLocalSourceEdit={saveLocalSourceEdit}
-        isAccountOpen={isAccountOpen}
-        setIsAccountOpen={setIsAccountOpen}
-        account={account}
-        cloudShareTarget={cloudShareTarget}
-        setCloudShareTarget={setCloudShareTarget}
-        signOut={signOut}
-        onRefreshLocalCacheStatus={async () => {
-          await refreshLocalCacheStatus();
-        }}
-      />
+          localCacheStorageFullStatus={localCacheStorageFullStatus}
+          onLocalCacheStorageFullOpenChange={(open) => {
+            if (!open) setLocalCacheStorageFullStatus(null);
+          }}
+          onClearLocalCache={clearLocalCache}
+          isLayoutsOpen={isLayoutsOpen}
+          setIsLayoutsOpen={setIsLayoutsOpen}
+          savedWorkspaces={savedWorkspaces}
+          cloudWorkspaces={cloudWorkspaces}
+          savedTemplates={savedTemplates}
+          cloudTemplates={cloudTemplates}
+          libraryStorageTarget={libraryStorageTarget}
+          setLibraryStorageTarget={setLibraryStorageTarget}
+          openSavedWorkspaces={openSavedWorkspaces}
+          openSavedTemplates={openSavedTemplates}
+          deleteSavedWorkspace={deleteSavedWorkspace}
+          deleteSavedTemplate={deleteSavedTemplate}
+          uploadWorkspaceToCloud={uploadWorkspaceToCloud}
+          uploadTemplateToCloud={uploadTemplateToCloud}
+          shareCloudItem={shareCloudItem}
+          regenerateCloudShareLink={regenerateCloudShareLink}
+          disableCloudShareLink={disableCloudShareLink}
+          exportSavedJson={exportSavedJson}
+          importSavedJson={importSavedJson}
+          workspaceTabs={workspaceTabs}
+          openWorkspaceStats={openWorkspaceStats}
+          activeWorkspaceId={activeWorkspaceId}
+          selectWorkspace={selectWorkspace}
+          createWorkspaceTab={createWorkspaceTab}
+          closeWorkspaceTab={closeWorkspaceTab}
+          openSaveDialog={() => {
+            setHasMountedOverlays(true);
+            setIsLayoutsOpen(false);
+            if (account.status !== "signed-in") setSaveTarget("local");
+            openSaveDialog();
+            void refreshLocalCacheStatusForCurrentLayout();
+          }}
+          isSaveOpen={isSaveOpen}
+          setIsSaveOpen={setIsSaveOpen}
+          saveName={saveName}
+          layoutMode={layoutMode}
+          saveKind={saveKind}
+          saveTarget={saveTarget}
+          saveError={saveError}
+          localCacheStatus={localCacheStatus}
+          hasLocalSources={currentLayoutHasLocalSources}
+          cloudUsage={cloudUsage}
+          cloudBlockReason={saveTarget === "cloud" ? cloudBlockReason : null}
+          setSaveName={setSaveName}
+          setSaveError={setSaveError}
+          setSaveKind={setSaveKind}
+          setSaveTarget={setSaveTarget}
+          saveLayoutAs={saveLayoutAs}
+          saveTemplateAs={saveTemplateAs}
+          isClearOpen={isClearOpen}
+          setIsClearOpen={setIsClearOpen}
+          clearCurrentLayout={clearCurrentLayout}
+          editingSource={editingSource}
+          setEditingSourceId={setEditingSourceId}
+          saveRedditSourceEdit={saveRedditSourceEdit}
+          saveUrlSourceEdit={saveUrlSourceEdit}
+          saveLocalSourceEdit={saveLocalSourceEdit}
+          isAccountOpen={isAccountOpen}
+          setIsAccountOpen={setIsAccountOpen}
+          account={account}
+          cloudShareTarget={cloudShareTarget}
+          setCloudShareTarget={setCloudShareTargetWithOverlay}
+          signOut={signOut}
+          onRefreshLocalCacheStatus={async () => {
+            await refreshLocalCacheStatus();
+          }}
+        />
+      ) : null}
 
       <WorkbenchStage
         maximized={maximized ?? null}
@@ -1058,14 +1123,14 @@ export function FeedWorkbench({
         setViewTimerSeconds={setViewTimerSeconds}
         replaceLocalSessionFiles={replaceLocalSessionFiles}
         requestLocalCacheAccess={requestLocalCacheAccess}
-        openEditSource={openEditSource}
+        openEditSource={openEditSourceWithOverlay}
         layoutMode={layoutMode}
         layers={layers}
         activeLayerId={activeLayerId}
         fixedGrid={fixedGrid}
         visibleFixedCells={visibleFixedCells}
         selectedId={selectedId}
-        openSourcePanel={openSourcePanel}
+        openSourcePanel={openSourcePanelWithOverlay}
         setSelectedId={setSelectedId}
         removeSession={removeSession}
         freeGridRef={freeGridRef}
@@ -1110,7 +1175,7 @@ export function FeedWorkbench({
           onSelectedTogglePaused={toggleSelectedSourcePaused}
           onSelectedRestart={restartSelectedSource}
           onEditSelectedSource={() => {
-            if (selected) openEditSource(selected.id);
+            if (selected) openEditSourceWithOverlay(selected.id);
           }}
           onOpenSatellite={() => {
             if (selected) setMaximizedId(selected.id);
@@ -1120,17 +1185,25 @@ export function FeedWorkbench({
             setIsUiRevealVisible(true);
             setIsUiHidden(true);
           }}
-          onAddSource={() => openSourcePanel()}
-          onOpenLibrary={() => setIsLayoutsOpen(true)}
+          onAddSource={() => openSourcePanelWithOverlay()}
+          onOpenLibrary={() => {
+            setHasMountedOverlays(true);
+            setIsLayoutsOpen(true);
+          }}
           onOpenSaveDialog={() => {
+            setHasMountedOverlays(true);
             if (account.status !== "signed-in") setSaveTarget("local");
             openSaveDialog();
             void refreshLocalCacheStatusForCurrentLayout();
           }}
           onImportJson={() => importSavedJson(libraryStorageTarget)}
           onExportCurrentJson={exportCurrentWorkspaceJson}
-          onOpenClearDialog={() => setIsClearOpen(true)}
+          onOpenClearDialog={() => {
+            setHasMountedOverlays(true);
+            setIsClearOpen(true);
+          }}
           onOpenAccount={() => {
+            setHasMountedOverlays(true);
             setIsAccountOpen(true);
             void refreshLocalCacheStatus();
           }}

@@ -27,7 +27,7 @@ describe("FeedWorkbench local uploads", () => {
     const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
     ]);
@@ -54,7 +54,7 @@ describe("FeedWorkbench local uploads", () => {
     const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
     ]);
@@ -262,7 +262,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "cached.png", { type: "image/png" }),
@@ -298,7 +298,7 @@ describe("FeedWorkbench local uploads", () => {
     const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["video"], "large.mp4", { type: "video/mp4" }),
@@ -329,7 +329,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await selectSourceGrouping(user, "Separate sources");
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
@@ -356,7 +356,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),
       new File(["b"], "b.png", { type: "image/png" }),
@@ -364,7 +364,9 @@ describe("FeedWorkbench local uploads", () => {
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Edit Local upload" }));
-    const editDialog = screen.getByRole("dialog", { name: "Edit source" });
+    const editDialog = await screen.findByRole("dialog", {
+      name: "Edit source",
+    });
     expect(
       within(editDialog).getByAltText("Preview a.png"),
     ).toBeInTheDocument();
@@ -401,7 +403,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     expect(screen.getByLabelText("Image/video files")).toHaveAttribute(
       "accept",
       "image/*,video/*,audio/*",
@@ -432,8 +434,8 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
-    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    await user.click(await screen.findByRole("button", { name: "Local" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add source" });
     fireEvent.change(within(dialog).getByLabelText("Image/video files"), {
       target: {
         files: [new File(["video"], "large.mp4", { type: "video/mp4" })],
@@ -462,7 +464,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
 
     const uploadPicker = screen.getByRole("group", {
       name: "Local upload picker",
@@ -495,7 +497,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await act(async () => {
       fireEvent.drop(
         screen.getByRole("button", {
@@ -521,7 +523,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await act(async () => {
       fireEvent.drop(
         screen.getByRole("button", {
@@ -553,7 +555,7 @@ describe("FeedWorkbench local uploads", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video folder"), [
       new File(["a"], "folder-a.png", { type: "image/png" }),
       new File(["b"], "folder-b.mp4", { type: "video/mp4" }),
@@ -578,7 +580,7 @@ describe("FeedWorkbench local uploads", () => {
       target: { value: "1" },
     });
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await selectSourceGrouping(user, "Separate sources");
     await user.upload(screen.getByLabelText("Image/video files"), [
       new File(["a"], "a.png", { type: "image/png" }),

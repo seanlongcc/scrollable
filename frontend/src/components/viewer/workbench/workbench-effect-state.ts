@@ -1,4 +1,5 @@
 import { advanceTimerState, moveTimerIndex } from "@/lib/viewer/timer";
+import type { TimerState } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
 import { isKeyboardEditingTarget, keyMoveDirection } from "./helpers";
 
@@ -9,10 +10,18 @@ export function advanceSessionTimers(
   sessions: FeedSession[],
   elapsedMs = TIMER_TICK_MS,
 ) {
-  return sessions.map((session) => ({
-    ...session,
-    timer: advanceTimerState(session.timer, elapsedMs),
-  }));
+  if (!sessions.length) return sessions;
+
+  let changed = false;
+  const nextSessions = sessions.map((session) => {
+    const timer = advanceTimerState(session.timer, elapsedMs);
+    if (sameTimerState(session.timer, timer)) return session;
+
+    changed = true;
+    return { ...session, timer };
+  });
+
+  return changed ? nextSessions : sessions;
 }
 
 export function keyboardTimerMoveDirection(event: KeyboardEvent) {
@@ -44,5 +53,15 @@ export function moveActiveKeyboardSessionTimer({
     session.id === activeSessionId
       ? { ...session, timer: moveTimerIndex(session.timer, direction) }
       : session,
+  );
+}
+
+function sameTimerState(left: TimerState, right: TimerState) {
+  return (
+    left.durationSeconds === right.durationSeconds &&
+    left.itemCount === right.itemCount &&
+    left.activeIndex === right.activeIndex &&
+    left.elapsedMs === right.elapsedMs &&
+    left.isPaused === right.isPaused
   );
 }
