@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(14);
 
 select has_table('public', 'feed_configs', 'feed_configs exists');
 select has_table('public', 'collections', 'collections exists');
@@ -56,6 +56,40 @@ select isnt_empty(
        and pg_get_expr(p.polqual, p.polrelid) ~* 'not[[:space:]]+c[.]is_nsfw'
        and pg_get_expr(p.polqual, p.polrelid) ~* 'auth[.]uid[(][)][[:space:]]+is[[:space:]]+not[[:space:]]+null' $$,
   'shared NSFW collection metadata requires auth'
+);
+
+select is_empty(
+  $$ select 1
+     from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.prosecdef $$,
+  'security definer functions are not exposed in public schema'
+);
+
+select is_empty(
+  $$ with expected_indexes(index_name) as (
+       values
+         ('feed_configs_owner_id_idx'),
+         ('collections_owner_id_idx'),
+         ('collection_items_feed_config_id_idx'),
+         ('share_links_owner_id_idx'),
+         ('share_links_feed_config_id_idx'),
+         ('share_links_collection_id_idx'),
+         ('share_links_viewer_session_id_idx'),
+         ('share_links_viewer_template_id_idx'),
+         ('viewer_sessions_owner_id_idx'),
+         ('viewer_templates_owner_id_idx')
+     )
+     select 1
+     from expected_indexes e
+     where not exists (
+       select 1
+       from pg_indexes i
+       where i.schemaname = 'public'
+         and i.indexname = e.index_name
+     ) $$,
+  'RLS and share lookup columns have supporting indexes'
 );
 
 select * from finish();
