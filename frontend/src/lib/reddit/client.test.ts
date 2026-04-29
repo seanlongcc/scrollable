@@ -1,9 +1,26 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   fetchRedditRuntimePostLinks,
   parseRedditPostLinksInput,
 } from "./client";
+
+const originalRedditClientId = process.env.REDDIT_CLIENT_ID;
+const originalRedditClientSecret = process.env.REDDIT_CLIENT_SECRET;
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (originalRedditClientId === undefined) {
+    delete process.env.REDDIT_CLIENT_ID;
+  } else {
+    process.env.REDDIT_CLIENT_ID = originalRedditClientId;
+  }
+  if (originalRedditClientSecret === undefined) {
+    delete process.env.REDDIT_CLIENT_SECRET;
+  } else {
+    process.env.REDDIT_CLIENT_SECRET = originalRedditClientSecret;
+  }
+});
 
 describe("parseRedditPostLinksInput", () => {
   it("parses pasted Reddit post URLs and allowNsfw=false query strings", () => {
@@ -61,8 +78,6 @@ describe("parseRedditPostLinksInput", () => {
 
 describe("fetchRedditRuntimePostLinks", () => {
   it("fetches public post JSON without Reddit OAuth credentials", async () => {
-    const originalClientId = process.env.REDDIT_CLIENT_ID;
-    const originalClientSecret = process.env.REDDIT_CLIENT_SECRET;
     delete process.env.REDDIT_CLIENT_ID;
     delete process.env.REDDIT_CLIENT_SECRET;
 
@@ -108,11 +123,88 @@ describe("fetchRedditRuntimePostLinks", () => {
       title: "Concept photo",
       subreddit: "kpop",
     });
+  });
 
-    if (originalClientId) process.env.REDDIT_CLIENT_ID = originalClientId;
-    if (originalClientSecret) {
-      process.env.REDDIT_CLIENT_SECRET = originalClientSecret;
-    }
+  it("uses Reddit OAuth API when server credentials are configured", async () => {
+    process.env.REDDIT_CLIENT_ID = "client-id";
+    process.env.REDDIT_CLIENT_SECRET = "client-secret";
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url === "https://www.reddit.com/api/v1/access_token") {
+        return {
+          ok: true,
+          json: async () => ({ access_token: "token-123" }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          kind: "Listing",
+          data: {
+            children: [
+              {
+                data: {
+                  id: "one",
+                  title: "One",
+                  subreddit: "kpop",
+                  post_hint: "image",
+                  url: "https://i.redd.it/one.jpg",
+                },
+              },
+            ],
+          },
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/kpop/top/?t=week",
+      limit: 1,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://www.reddit.com/api/v1/access_token",
+      expect.objectContaining({
+        body: "grant_type=client_credentials",
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: expect.stringMatching(/^Basic /),
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://oauth.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-123",
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items.map((item) => item.id)).toEqual(["reddit:one"]);
+  });
+
+  it("does not report upstream forbidden responses as not found", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({}),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      fetchRedditRuntimePostLinks({
+        urls: "https://www.reddit.com/r/kpop/top/?t=week",
+      }),
+    ).rejects.toThrow("reddit_fetch_forbidden");
   });
 
   it("fetches subreddit listings and returns the requested number of usable media posts after skips", async () => {

@@ -173,6 +173,7 @@ export function GridSection({
           value={fixedGrid.columns}
           min={1}
           max={16}
+          commitOnBlur
           className="min-w-0"
           inputClassName="w-full min-w-0 flex-1"
           onChange={(value) => onFixedGridChange({ columns: value })}
@@ -183,6 +184,7 @@ export function GridSection({
           value={fixedGrid.rows}
           min={1}
           max={16}
+          commitOnBlur
           className="min-w-0"
           inputClassName="w-full min-w-0 flex-1"
           onChange={(value) => onFixedGridChange({ rows: value })}

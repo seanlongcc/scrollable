@@ -573,12 +573,8 @@ describe("FeedWorkbench local uploads", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    fireEvent.change(screen.getByLabelText("Columns"), {
-      target: { value: "1" },
-    });
-    fireEvent.change(screen.getByLabelText("Rows"), {
-      target: { value: "1" },
-    });
+    commitNumberField("Columns", "1");
+    commitNumberField("Rows", "1");
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.click(await screen.findByRole("button", { name: "Local" }));
     await selectSourceGrouping(user, "Separate sources");
@@ -591,3 +587,9 @@ describe("FeedWorkbench local uploads", () => {
     expect(screen.queryByText("b.mp4")).not.toBeInTheDocument();
   });
 });
+
+function commitNumberField(label: string, value: string) {
+  const input = screen.getByLabelText(label);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+}

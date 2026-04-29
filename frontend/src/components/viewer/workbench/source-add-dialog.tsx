@@ -115,7 +115,7 @@ export function SourceDialog({
             </div>
           </div>
         ) : null}
-        <DialogHeader className="pr-8">
+        <DialogHeader className="pr-12 md:pr-10">
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
             Add URL, local, or Reddit source.

@@ -248,12 +248,8 @@ describe("FeedWorkbench layers", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    fireEvent.change(screen.getByLabelText("Columns"), {
-      target: { value: "1" },
-    });
-    fireEvent.change(screen.getByLabelText("Rows"), {
-      target: { value: "1" },
-    });
+    commitNumberField("Columns", "1");
+    commitNumberField("Rows", "1");
     await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
 
@@ -278,9 +274,7 @@ describe("FeedWorkbench layers", () => {
       screen.queryByRole("button", { name: "Remove r/aww" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Columns"), {
-      target: { value: "2" },
-    });
+    commitNumberField("Columns", "2");
 
     expect(
       await within(screen.getByTestId("fixed-cell-1")).findByRole("button", {
@@ -315,12 +309,8 @@ describe("FeedWorkbench layers", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    fireEvent.change(screen.getByLabelText("Columns"), {
-      target: { value: "3" },
-    });
-    fireEvent.change(screen.getByLabelText("Rows"), {
-      target: { value: "1" },
-    });
+    commitNumberField("Columns", "3");
+    commitNumberField("Rows", "1");
     await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
     await screen.findByRole("button", {
@@ -371,12 +361,8 @@ describe("FeedWorkbench layers", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    fireEvent.change(screen.getByLabelText("Columns"), {
-      target: { value: "3" },
-    });
-    fireEvent.change(screen.getByLabelText("Rows"), {
-      target: { value: "1" },
-    });
+    commitNumberField("Columns", "3");
+    commitNumberField("Rows", "1");
     await addDefaultSubredditSource(user);
     await screen.findByRole("button", { name: "Remove r/pics" });
     await screen.findByRole("button", {
@@ -401,3 +387,9 @@ describe("FeedWorkbench layers", () => {
     ).toBeInTheDocument();
   });
 });
+
+function commitNumberField(label: string, value: string) {
+  const input = screen.getByLabelText(label);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+}

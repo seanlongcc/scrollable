@@ -122,16 +122,17 @@ export function useLayoutHandlers({
   setAccount,
 }: LayoutHandlersInput) {
   function updateFixedGrid(next: Partial<FixedGrid>) {
-    try {
-      setFixedGrid((current) =>
-        createFixedGrid(
+    setFixedGrid((current) => {
+      try {
+        return createFixedGrid(
           next.columns ?? current.columns,
           next.rows ?? current.rows,
-        ),
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Invalid grid");
-    }
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Invalid grid");
+        return current;
+      }
+    });
   }
 
   function changeLayoutMode(nextMode: LayoutMode) {

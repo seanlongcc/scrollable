@@ -15,6 +15,17 @@ const REDDIT_LISTING_SORTS = new Set([
   "controversial",
 ]);
 const REDDIT_TIME_RANGES = new Set(["day", "week", "month", "year", "all"]);
+const REDDIT_OAUTH_TOKEN_URL = "https://www.reddit.com/api/v1/access_token";
+const REDDIT_OAUTH_API_ORIGIN = "https://oauth.reddit.com";
+const REDDIT_PUBLIC_ORIGIN = "https://www.reddit.com";
+
+type RedditAccessToken = {
+  key: string;
+  token: string;
+  expiresAt: number;
+};
+
+let cachedAccessToken: RedditAccessToken | null = null;
 
 const booleanQuerySchema = z.preprocess((value) => {
   if (value === "false" || value === "0") return false;
@@ -48,9 +59,11 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
 
   for (const sourceUrl of parsed.urls) {
     const source = parseRedditSourceUrl(sourceUrl);
-    const response = await fetch(toRedditJsonUrl(source, parsed.limit), {
+    const request = await redditJsonRequest(source, parsed.limit);
+    const response = await fetch(request.url, {
       headers: {
         "User-Agent": getRedditUserAgent(),
+        ...request.headers,
       },
       cache: "no-store",
     });
@@ -182,12 +195,22 @@ function parseRedditSourceUrl(value: string): ParsedRedditSourceUrl {
 }
 
 function toRedditJsonUrl(source: ParsedRedditSourceUrl, limit: number) {
+  return `${REDDIT_PUBLIC_ORIGIN}${toRedditApiPath(source, limit)}`;
+}
+
+function toRedditOauthUrl(source: ParsedRedditSourceUrl, limit: number) {
+  return `${REDDIT_OAUTH_API_ORIGIN}${toRedditApiPath(source, limit)}`;
+}
+
+function toRedditApiPath(source: ParsedRedditSourceUrl, limit: number) {
   if (source.kind === "post") {
-    return `${source.url.replace(/\/$/, "")}/.json?raw_json=1`;
+    const url = new URL(source.url);
+    return `${url.pathname.replace(/\/$/, "")}/.json?raw_json=1`;
   }
 
   const url = new URL(
-    `https://www.reddit.com/r/${source.subreddit}/${source.sort}/.json`,
+    `/r/${source.subreddit}/${source.sort}/.json`,
+    REDDIT_PUBLIC_ORIGIN,
   );
   url.searchParams.set("raw_json", "1");
   if (source.timeRange) url.searchParams.set("t", source.timeRange);
@@ -201,7 +224,27 @@ function toRedditJsonUrl(source: ParsedRedditSourceUrl, limit: number) {
     ),
   );
 
-  return url.toString();
+  return `${url.pathname}${url.search}`;
+}
+
+async function redditJsonRequest(
+  source: ParsedRedditSourceUrl,
+  limit: number,
+): Promise<{ url: string; headers: Record<string, string> }> {
+  const accessToken = await redditAccessToken();
+  if (!accessToken) {
+    return {
+      url: toRedditJsonUrl(source, limit),
+      headers: {},
+    };
+  }
+
+  return {
+    url: toRedditOauthUrl(source, limit),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  };
 }
 
 function subredditFromSegments(segments: string[]) {
@@ -225,8 +268,71 @@ function getRedditUserAgent() {
   );
 }
 
+async function redditAccessToken() {
+  const credentials = redditCredentials();
+  if (!credentials) return null;
+
+  const now = Date.now();
+  if (
+    cachedAccessToken &&
+    cachedAccessToken.key === credentials.key &&
+    cachedAccessToken.expiresAt > now
+  ) {
+    return cachedAccessToken.token;
+  }
+
+  const response = await fetch(REDDIT_OAUTH_TOKEN_URL, {
+    method: "POST",
+    body: "grant_type=client_credentials",
+    headers: {
+      Authorization: `Basic ${Buffer.from(
+        `${credentials.clientId}:${credentials.clientSecret}`,
+      ).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": getRedditUserAgent(),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) throw new Error("reddit_oauth_failed");
+
+  const payload = (await response.json()) as {
+    access_token?: unknown;
+    expires_in?: unknown;
+  };
+  if (typeof payload.access_token !== "string" || !payload.access_token) {
+    throw new Error("reddit_oauth_failed");
+  }
+
+  const expiresIn =
+    typeof payload.expires_in === "number" &&
+    Number.isFinite(payload.expires_in)
+      ? payload.expires_in
+      : 3600;
+  cachedAccessToken = {
+    key: credentials.key,
+    token: payload.access_token,
+    expiresAt: now + Math.max(60, expiresIn - 60) * 1000,
+  };
+
+  return cachedAccessToken.token;
+}
+
+function redditCredentials() {
+  const clientId = process.env.REDDIT_CLIENT_ID?.trim();
+  const clientSecret = process.env.REDDIT_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) return null;
+
+  return {
+    clientId,
+    clientSecret,
+    key: `${clientId}:${clientSecret}`,
+  };
+}
+
 function toRedditPostError(status: number) {
-  if (status === 403 || status === 404) {
+  if (status === 403) return new Error("reddit_fetch_forbidden");
+  if (status === 404) {
     return new Error("reddit_post_not_found");
   }
   if (status === 429) return new Error("reddit_rate_limited");

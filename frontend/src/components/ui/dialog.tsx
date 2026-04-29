@@ -71,7 +71,7 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2 size-12 min-h-12 min-w-12 md:size-8 md:min-h-0 md:min-w-0"
+              className="absolute top-3 right-3 size-11 min-h-11 min-w-11 md:top-4 md:right-4 md:size-8 md:min-h-0 md:min-w-0"
               size="icon-sm"
               aria-label="Close dialog"
             >
@@ -130,7 +130,7 @@ function DialogTitle({
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "font-heading text-3xl leading-none font-normal sm:text-base sm:font-medium",
+        "font-heading text-3xl leading-none font-normal",
         className,
       )}
       {...props}

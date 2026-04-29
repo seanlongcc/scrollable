@@ -1,4 +1,9 @@
-import type { ComponentProps, ReactNode } from "react";
+import {
+  useState,
+  type ComponentProps,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +23,7 @@ export function NumberField({
   hideLabel,
   className,
   inputClassName,
+  commitOnBlur = false,
   onChange,
 }: {
   label: string;
@@ -28,8 +34,65 @@ export function NumberField({
   hideLabel?: boolean;
   className?: string;
   inputClassName?: string;
+  commitOnBlur?: boolean;
   onChange: (value: number) => void;
 }) {
+  const [lastValue, setLastValue] = useState(value);
+  const [draftValue, setDraftValue] = useState(String(value));
+  const currentDraftValue = value === lastValue ? draftValue : String(value);
+
+  if (value !== lastValue) {
+    setLastValue(value);
+    setDraftValue(String(value));
+  }
+
+  function parsedDraft(valueToParse: string) {
+    if (!valueToParse.trim()) return null;
+
+    const next = Number(valueToParse);
+    if (
+      !Number.isInteger(next) ||
+      next < min ||
+      next > max ||
+      !Number.isFinite(next)
+    ) {
+      return null;
+    }
+
+    return next;
+  }
+
+  function commitDraft() {
+    const next = parsedDraft(currentDraftValue);
+    if (next === null) {
+      setDraftValue(String(value));
+      return;
+    }
+
+    setDraftValue(String(next));
+    if (next !== value) onChange(next);
+  }
+
+  function updateDraft(nextDraft: string) {
+    setDraftValue(nextDraft);
+    if (commitOnBlur) return;
+
+    const next = parsedDraft(nextDraft);
+    if (next !== null) onChange(next);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      commitDraft();
+      event.currentTarget.blur();
+    }
+
+    if (event.key === "Escape") {
+      setDraftValue(String(value));
+      event.currentTarget.blur();
+    }
+  }
+
   if (icon) {
     return (
       <Label
@@ -46,14 +109,15 @@ export function NumberField({
         </span>
         <Input
           aria-label={label}
+          inputMode="numeric"
           type="number"
-          value={value}
+          value={currentDraftValue}
           min={min}
           max={max}
-          onChange={(event) => {
-            const next = Number(event.target.value);
-            if (Number.isFinite(next)) onChange(next);
-          }}
+          step={1}
+          onBlur={commitDraft}
+          onChange={(event) => updateDraft(event.target.value)}
+          onKeyDown={handleKeyDown}
           className={cn(
             "h-6 min-h-0 w-11 border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground",
             "h-8 md:h-6",
@@ -76,14 +140,15 @@ export function NumberField({
       <span className={hideLabel ? "sr-only" : undefined}>{label}</span>
       <Input
         aria-label={label}
+        inputMode="numeric"
         type="number"
-        value={value}
+        value={currentDraftValue}
         min={min}
         max={max}
-        onChange={(event) => {
-          const next = Number(event.target.value);
-          if (Number.isFinite(next)) onChange(next);
-        }}
+        step={1}
+        onBlur={commitDraft}
+        onChange={(event) => updateDraft(event.target.value)}
+        onKeyDown={handleKeyDown}
         className={cn(
           "h-7 min-h-0 bg-surface-elevated text-foreground",
           hideLabel ? "w-full" : "w-20",

@@ -41,4 +41,21 @@ describe("GET /api/reddit/listing", () => {
       error: "invalid_reddit_listing_url",
     });
   });
+
+  it("returns a gateway error when Reddit blocks the runtime fetch", async () => {
+    vi.mocked(fetchRedditRuntimePostLinks).mockRejectedValueOnce(
+      new Error("reddit_fetch_forbidden"),
+    );
+
+    const response = await GET(
+      new Request(
+        "https://scrollable.test/api/reddit/listing?urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fkpop%2Ftop%2F%3Ft%3Dweek",
+      ),
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: "reddit_fetch_forbidden",
+    });
+  });
 });

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { fetchRedditRuntimePostLinks } from "@/lib/reddit/client";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const querySchema = z.object({
   urls: z.array(z.string()).or(z.string()),

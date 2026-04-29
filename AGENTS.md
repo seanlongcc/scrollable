@@ -24,6 +24,7 @@ Current installed stack:
 - Vitest 4.x, Playwright 1.59.x, ESLint 9.x
 - Optional `yt-dlp` executable for runtime arbitrary-site URL extraction. Keep it on `PATH` or set `YTDLP_PATH`.
 - Optional server-only `NHENTAI_API_KEY` for runtime nHentai gallery API requests. Store it in local/deployment secrets only, never as `NEXT_PUBLIC_*`.
+- Optional server-only `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` for Reddit app-only OAuth API requests in production. Store them in local/deployment secrets only, never as `NEXT_PUBLIC_*`. Without them the app falls back to public Reddit JSON, which may be blocked by some hosting IP ranges.
 - Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
 - Vercel for deployment through GitHub Actions and the pinned Vercel CLI
 - Mobile-first user experience
