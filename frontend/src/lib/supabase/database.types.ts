@@ -13,17 +13,23 @@ export type Database = {
         Row: {
           id: string;
           display_name: string | null;
+          is_admin: boolean;
+          cloud_quota_bytes: number;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id: string;
           display_name?: string | null;
+          is_admin?: boolean;
+          cloud_quota_bytes?: number;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           display_name?: string | null;
+          is_admin?: boolean;
+          cloud_quota_bytes?: number;
           updated_at?: string;
         };
         Relationships: [];
@@ -135,6 +141,8 @@ export type Database = {
           slug: string;
           feed_config_id: string | null;
           collection_id: string | null;
+          viewer_session_id: string | null;
+          viewer_template_id: string | null;
           is_enabled: boolean;
           created_at: string;
           updated_at: string;
@@ -145,6 +153,8 @@ export type Database = {
           slug: string;
           feed_config_id?: string | null;
           collection_id?: string | null;
+          viewer_session_id?: string | null;
+          viewer_template_id?: string | null;
           is_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -157,11 +167,15 @@ export type Database = {
           id: string;
           owner_id: string;
           name: string;
+          layers: Json;
+          active_layer_id: string;
           layout_mode: "fixed" | "free";
           fixed_columns: number;
           fixed_rows: number;
           global_timer_seconds: number;
           sessions: Json;
+          template_slots: Json;
+          metadata_bytes: number;
           created_at: string;
           updated_at: string;
         };
@@ -169,11 +183,15 @@ export type Database = {
           id?: string;
           owner_id?: string;
           name: string;
+          layers?: Json;
+          active_layer_id?: string;
           layout_mode?: "fixed" | "free";
           fixed_columns?: number;
           fixed_rows?: number;
           global_timer_seconds?: number;
           sessions?: Json;
+          template_slots?: Json;
+          metadata_bytes?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -191,6 +209,7 @@ export type Database = {
           active_layer_id: string;
           global_timer_seconds: number;
           slots: Json;
+          metadata_bytes: number;
           created_at: string;
           updated_at: string;
         };
@@ -202,6 +221,7 @@ export type Database = {
           active_layer_id?: string;
           global_timer_seconds?: number;
           slots?: Json;
+          metadata_bytes?: number;
           created_at?: string;
           updated_at?: string;
         };

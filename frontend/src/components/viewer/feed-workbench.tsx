@@ -46,6 +46,16 @@ import {
   limitLayoutName,
   sessionFileCount,
 } from "./workbench/helpers";
+import {
+  cloudSaveBlockReason,
+  readStoredSaveTarget,
+  writeStoredSaveTarget,
+  type CloudShareTarget,
+  type CloudUsageState,
+  type SaveTarget,
+} from "./workbench/cloud-save-state";
+import { useCloudLibraryActions } from "./workbench/cloud-library-actions";
+import { useSharedViewerUrlActions } from "./workbench/shared-viewer-url-actions";
 import { visibleUrlRuntimeHydrationCandidates } from "./workbench/runtime-hydration-actions";
 import {
   activeLayerFreeRects as deriveActiveLayerFreeRects,
@@ -60,6 +70,7 @@ import {
   restoreWorkspaceBootstrap,
   writeWorkspaceSessionStore,
 } from "./workbench/workspace-state";
+import { loadViewerCloudLibraryFromAccount } from "./workbench/workspace-sync-actions";
 import { useWorkspaceHandlers } from "./workbench/workspace-handler-actions";
 import { useLayoutHandlers } from "./workbench/layout-handler-actions";
 import {
@@ -94,6 +105,17 @@ export function FeedWorkbench({
   const [savedTemplates, setSavedTemplates] = useState<
     Record<string, SerializedWorkspaceTemplate>
   >({});
+  const [cloudWorkspaces, setCloudWorkspaces] = useState<
+    Record<string, SerializedWorkspace>
+  >({});
+  const [cloudTemplates, setCloudTemplates] = useState<
+    Record<string, SerializedWorkspaceTemplate>
+  >({});
+  const [cloudUsage, setCloudUsage] = useState<CloudUsageState>(() =>
+    getSupabaseEnv() ? { status: "loading" } : { status: "unconfigured" },
+  );
+  const [libraryStorageTarget, setLibraryStorageTarget] =
+    useState<SaveTarget>("local");
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(
     initialWorkspace.id,
   );
@@ -145,6 +167,10 @@ export function FeedWorkbench({
   );
   const [editingWorkspaceName, setEditingWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [saveTarget, setSaveTarget] =
+    useState<SaveTarget>(readStoredSaveTarget);
+  const [cloudShareTarget, setCloudShareTarget] =
+    useState<CloudShareTarget | null>(null);
   const [isUiHidden, setIsUiHidden] = useState(false);
   const [isDesktopWorkbenchCollapsed, setIsDesktopWorkbenchCollapsed] =
     useState(false);
@@ -272,6 +298,15 @@ export function FeedWorkbench({
       workspaceTabs,
     ],
   );
+  const currentLayoutHasLocalSources = sessions.some(
+    (session) => session.sourceConfig.kind === "local",
+  );
+  const cloudBlockReason = cloudSaveBlockReason({
+    account,
+    usage: cloudUsage,
+    hasLocalSources: currentLayoutHasLocalSources,
+    isTemplate: layoutMode === "free" && saveKind === "template",
+  });
   const rememberVideoPosition = useCallback((key: string, seconds: number) => {
     setVideoPositions((current) => {
       if (current[key] === seconds) return current;
@@ -311,6 +346,35 @@ export function FeedWorkbench({
     setLocalCacheStorageFullStatus(null);
     await refreshLocalCacheStatus();
   }, [refreshLocalCacheStatus]);
+  const refreshCloudLibrary = useCallback(async () => {
+    if (!getSupabaseEnv()) {
+      setCloudUsage({ status: "unconfigured" });
+      return;
+    }
+
+    setCloudUsage({ status: "loading" });
+    const result = await loadViewerCloudLibraryFromAccount();
+
+    if (result.status === "loaded") {
+      setCloudWorkspaces(result.workspaces);
+      setCloudTemplates(result.templates);
+      setCloudUsage(result.usage);
+      return;
+    }
+
+    if (result.status === "skipped") {
+      setCloudWorkspaces({});
+      setCloudTemplates({});
+      setCloudUsage(
+        result.reason === "unconfigured"
+          ? { status: "unconfigured" }
+          : { status: "signed-out" },
+      );
+      return;
+    }
+
+    setCloudUsage({ status: "signed-out" });
+  }, []);
   const {
     fetchRedditFeed,
     openUrlSource,
@@ -391,6 +455,11 @@ export function FeedWorkbench({
     workspaceStates,
     savedWorkspaces,
     savedTemplates,
+    cloudWorkspaces,
+    cloudTemplates,
+    saveTarget,
+    libraryStorageTarget,
+    account,
     editingWorkspaceId,
     editingWorkspaceName,
     layers,
@@ -418,6 +487,9 @@ export function FeedWorkbench({
     setWorkspaceStates,
     setSavedWorkspaces,
     setSavedTemplates,
+    setCloudWorkspaces,
+    setCloudTemplates,
+    setCloudUsage,
     setActiveWorkspaceId,
     setEditingWorkspaceId,
     setEditingWorkspaceName,
@@ -487,11 +559,62 @@ export function FeedWorkbench({
     setIsClearOpen,
     setAccount,
   });
+  const {
+    uploadWorkspaceToCloud,
+    uploadTemplateToCloud,
+    exportSavedJson,
+    importSavedJson,
+    shareCloudItem,
+    regenerateCloudShareLink,
+    disableCloudShareLink,
+  } = useCloudLibraryActions({
+    activeWorkspaceId,
+    workspaceTabs,
+    savedWorkspaces,
+    savedTemplates,
+    cloudWorkspaces,
+    cloudTemplates,
+    createId,
+    setSavedWorkspaces,
+    setSavedTemplates,
+    setCloudWorkspaces,
+    setCloudTemplates,
+    setCloudUsage,
+    setLibraryStorageTarget,
+    setCloudShareTarget,
+  });
+
+  useSharedViewerUrlActions({
+    activeWorkspaceId,
+    workspaceName,
+    layers,
+    activeLayerId,
+    layoutMode,
+    fixedGrid,
+    globalSeconds,
+    sessions,
+    templateSlots,
+    workspaceTabs,
+    workspaceStates,
+    savedWorkspaces,
+    savedTemplates,
+    createId,
+    applyWorkspaceSnapshot,
+    setWorkspaceTabs,
+    setWorkspaceStates,
+    setActiveWorkspaceId,
+    setSavedWorkspaces,
+    setSavedTemplates,
+  });
 
   useEffect(() => {
     const registry = registryRef;
     return () => registry.current?.revokeAll();
   }, []);
+
+  useEffect(() => {
+    writeStoredSaveTarget(saveTarget);
+  }, [saveTarget]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -529,6 +652,29 @@ export function FeedWorkbench({
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    let frame: number | undefined;
+
+    if (account.status === "signed-in") {
+      const refreshFrame = window.requestAnimationFrame(() => {
+        void refreshCloudLibrary();
+      });
+      return () => window.cancelAnimationFrame(refreshFrame);
+    }
+
+    if (account.status === "signed-out") {
+      frame = window.requestAnimationFrame(() => {
+        setCloudWorkspaces({});
+        setCloudTemplates({});
+        setCloudUsage({ status: "signed-out" });
+      });
+    }
+
+    return () => {
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+    };
+  }, [account.status, refreshCloudLibrary]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -811,11 +957,22 @@ export function FeedWorkbench({
         isLayoutsOpen={isLayoutsOpen}
         setIsLayoutsOpen={setIsLayoutsOpen}
         savedWorkspaces={savedWorkspaces}
+        cloudWorkspaces={cloudWorkspaces}
         savedTemplates={savedTemplates}
+        cloudTemplates={cloudTemplates}
+        libraryStorageTarget={libraryStorageTarget}
+        setLibraryStorageTarget={setLibraryStorageTarget}
         openSavedWorkspaces={openSavedWorkspaces}
         openSavedTemplates={openSavedTemplates}
         deleteSavedWorkspace={deleteSavedWorkspace}
         deleteSavedTemplate={deleteSavedTemplate}
+        uploadWorkspaceToCloud={uploadWorkspaceToCloud}
+        uploadTemplateToCloud={uploadTemplateToCloud}
+        shareCloudItem={shareCloudItem}
+        regenerateCloudShareLink={regenerateCloudShareLink}
+        disableCloudShareLink={disableCloudShareLink}
+        exportSavedJson={exportSavedJson}
+        importSavedJson={importSavedJson}
         workspaceTabs={workspaceTabs}
         openWorkspaceStats={openWorkspaceStats}
         activeWorkspaceId={activeWorkspaceId}
@@ -824,6 +981,7 @@ export function FeedWorkbench({
         closeWorkspaceTab={closeWorkspaceTab}
         openSaveDialog={() => {
           setIsLayoutsOpen(false);
+          if (account.status !== "signed-in") setSaveTarget("local");
           openSaveDialog();
           void refreshLocalCacheStatusForCurrentLayout();
         }}
@@ -832,11 +990,15 @@ export function FeedWorkbench({
         saveName={saveName}
         layoutMode={layoutMode}
         saveKind={saveKind}
+        saveTarget={saveTarget}
         saveError={saveError}
         localCacheStatus={localCacheStatus}
+        cloudUsage={cloudUsage}
+        cloudBlockReason={saveTarget === "cloud" ? cloudBlockReason : null}
         setSaveName={setSaveName}
         setSaveError={setSaveError}
         setSaveKind={setSaveKind}
+        setSaveTarget={setSaveTarget}
         saveLayoutAs={saveLayoutAs}
         saveTemplateAs={saveTemplateAs}
         isClearOpen={isClearOpen}
@@ -850,6 +1012,8 @@ export function FeedWorkbench({
         isAccountOpen={isAccountOpen}
         setIsAccountOpen={setIsAccountOpen}
         account={account}
+        cloudShareTarget={cloudShareTarget}
+        setCloudShareTarget={setCloudShareTarget}
         signOut={signOut}
         onRefreshLocalCacheStatus={async () => {
           await refreshLocalCacheStatus();
@@ -937,6 +1101,7 @@ export function FeedWorkbench({
           onAddSource={() => openSourcePanel()}
           onOpenLibrary={() => setIsLayoutsOpen(true)}
           onOpenSaveDialog={() => {
+            if (account.status !== "signed-in") setSaveTarget("local");
             openSaveDialog();
             void refreshLocalCacheStatusForCurrentLayout();
           }}

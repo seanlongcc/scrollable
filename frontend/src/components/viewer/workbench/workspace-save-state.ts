@@ -4,6 +4,7 @@ import {
   hasDuplicateTemplateName,
   limitLayoutName,
 } from "./helpers";
+import { serializedMetadataBytes } from "./cloud-save-state";
 import type {
   LayoutMode,
   SaveKind,
@@ -134,11 +135,15 @@ export function buildViewerSessionUpsertRows({
     id: workspace.id,
     owner_id: userId,
     name: workspace.name,
+    layers: workspace.layers as unknown as Json,
+    active_layer_id: workspace.activeLayerId,
     layout_mode: workspace.layoutMode,
     fixed_columns: workspace.fixedGrid.columns,
     fixed_rows: workspace.fixedGrid.rows,
     global_timer_seconds: workspace.globalTimerSeconds,
     sessions: workspace.sessions as unknown as Json,
+    template_slots: (workspace.templateSlots ?? []) as unknown as Json,
+    metadata_bytes: serializedMetadataBytes(workspace),
     updated_at: updatedAt ?? new Date().toISOString(),
   }));
 }
@@ -160,6 +165,7 @@ export function buildViewerTemplateUpsertRows({
     active_layer_id: template.activeLayerId,
     global_timer_seconds: template.globalTimerSeconds,
     slots: template.slots as unknown as Json,
+    metadata_bytes: serializedMetadataBytes(template),
     updated_at: updatedAt ?? new Date().toISOString(),
   }));
 }

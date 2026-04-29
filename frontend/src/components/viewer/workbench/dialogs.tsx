@@ -1,7 +1,10 @@
 import {
+  Cloud,
   Database,
+  Download,
   FolderOpen,
   LogOut,
+  Monitor,
   RefreshCw,
   Save,
   Trash2,
@@ -35,7 +38,19 @@ import type {
 } from "./types";
 import { MAX_LAYOUT_NAME_LENGTH } from "./types";
 import { limitLayoutName, workspaceFileCount } from "./helpers";
+import type { CloudUsageState, SaveTarget } from "./cloud-save-state";
+import {
+  cloudCountLabel,
+  cloudUsageLabel,
+  serializedMetadataBytes,
+} from "./cloud-save-state";
+import {
+  CloudUsageMeter,
+  SavedLibraryRow,
+  StorageBadge,
+} from "./cloud-save-dialog-parts";
 export { accountStateFromUser } from "./account-actions";
+export { ShareLinkDialog } from "./cloud-save-dialog-parts";
 
 type WorkspaceStats = {
   sourceCount: number;
@@ -61,9 +76,6 @@ const libraryTabsListClass =
 
 const libraryTabTriggerClass = "min-h-12 rounded-xl md:min-h-0";
 
-const libraryRowClass =
-  "grid h-14 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
-
 const libraryListClass =
   "grid max-h-[min(16rem,38dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1";
 
@@ -78,10 +90,21 @@ export function LayoutDialog({
   onOpenChange,
   workspaces,
   templates,
+  localWorkspaces = workspaces ?? [],
+  cloudWorkspaces = [],
+  localTemplates = templates ?? [],
+  cloudTemplates = [],
+  storageTarget = "local",
+  onStorageTargetChange = () => undefined,
   onOpenWorkspaces,
   onOpenTemplates,
   onDeleteWorkspace,
   onDeleteTemplate,
+  onUploadWorkspaceToCloud = () => undefined,
+  onUploadTemplateToCloud = () => undefined,
+  onShareCloudItem = () => undefined,
+  onExportJson = () => undefined,
+  onImportJson = () => undefined,
   workspaceTabs,
   openWorkspaceStats,
   activeWorkspaceId,
@@ -92,12 +115,27 @@ export function LayoutDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  workspaces: SerializedWorkspace[];
-  templates: SerializedWorkspaceTemplate[];
+  workspaces?: SerializedWorkspace[];
+  templates?: SerializedWorkspaceTemplate[];
+  localWorkspaces?: SerializedWorkspace[];
+  cloudWorkspaces?: SerializedWorkspace[];
+  localTemplates?: SerializedWorkspaceTemplate[];
+  cloudTemplates?: SerializedWorkspaceTemplate[];
+  storageTarget?: SaveTarget;
+  onStorageTargetChange?: (target: SaveTarget) => void;
   onOpenWorkspaces: (ids: string[]) => void;
   onOpenTemplates: (ids: string[]) => void;
-  onDeleteWorkspace: (id: string) => void;
-  onDeleteTemplate: (id: string) => void;
+  onDeleteWorkspace: (id: string, target?: SaveTarget) => void;
+  onDeleteTemplate: (id: string, target?: SaveTarget) => void;
+  onUploadWorkspaceToCloud?: (id: string) => void;
+  onUploadTemplateToCloud?: (id: string) => void;
+  onShareCloudItem?: (kind: "layout" | "template", id: string) => void;
+  onExportJson?: (
+    kind: "layout" | "template",
+    id: string,
+    target: SaveTarget,
+  ) => void;
+  onImportJson?: (target: SaveTarget) => void;
   workspaceTabs: WorkspaceTab[];
   openWorkspaceStats: Record<string, WorkspaceStats>;
   activeWorkspaceId: string;
@@ -109,16 +147,22 @@ export function LayoutDialog({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [libraryKind, setLibraryKind] = useState<LibraryKind>("layouts");
-  const sortedWorkspaces = [...workspaces].sort((first, second) =>
+  const activeWorkspaces =
+    storageTarget === "cloud" ? cloudWorkspaces : localWorkspaces;
+  const activeTemplates =
+    storageTarget === "cloud" ? cloudTemplates : localTemplates;
+  const sortedWorkspaces = [...activeWorkspaces].sort((first, second) =>
     second.updatedAt.localeCompare(first.updatedAt),
   );
-  const sortedTemplates = [...templates].sort((first, second) =>
+  const sortedTemplates = [...activeTemplates].sort((first, second) =>
     second.updatedAt.localeCompare(first.updatedAt),
   );
-  const visibleIds = new Set(workspaces.map((workspace) => workspace.id));
+  const visibleIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
   const visibleSelectedIds = selectedIds.filter((id) => visibleIds.has(id));
   const selectedCount = visibleSelectedIds.length;
-  const visibleTemplateIds = new Set(templates.map((template) => template.id));
+  const visibleTemplateIds = new Set(
+    activeTemplates.map((template) => template.id),
+  );
   const visibleSelectedTemplateIds = selectedTemplateIds.filter((id) =>
     visibleTemplateIds.has(id),
   );
@@ -193,12 +237,36 @@ export function LayoutDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={onCreateWorkspaceTab}
+            onClick={() => onImportJson(storageTarget)}
           >
-            <FolderOpen />
-            New blank
+            <Download />
+            Import JSON
           </Button>
         </div>
+        <Tabs
+          value={storageTarget}
+          onValueChange={(value) => {
+            setSelectedIds([]);
+            setSelectedTemplateIds([]);
+            onStorageTargetChange(value as SaveTarget);
+          }}
+          className="gap-2"
+        >
+          <TabsList className={libraryTabsListClass}>
+            <TabsTrigger value="local" className={libraryTabTriggerClass}>
+              <Monitor />
+              Local
+            </TabsTrigger>
+            <TabsTrigger value="cloud" className={libraryTabTriggerClass}>
+              <Cloud />
+              Cloud
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Button type="button" variant="outline" onClick={onCreateWorkspaceTab}>
+          <FolderOpen />
+          New blank
+        </Button>
         <section className="grid gap-2">
           <h2 className={sectionLabelClass}>Open layouts</h2>
           <div className="grid gap-1">
@@ -239,48 +307,27 @@ export function LayoutDialog({
                   const fileCount = workspaceFileCount(workspace);
 
                   return (
-                    <label key={workspace.id} className={libraryRowClass}>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(workspace.id)}
-                        onChange={(event) =>
-                          toggleSelection(workspace.id, event.target.checked)
-                        }
-                        aria-label={`Select ${workspace.name}`}
-                        className="mt-0.5 size-4 accent-primary"
-                      />
-                      <div className="min-w-0 leading-tight">
-                        <div
-                          className="truncate font-medium"
-                          title={workspace.name}
-                        >
-                          {workspace.name}
-                        </div>
-                        <div className="truncate font-mono text-[11px] text-muted-foreground">
-                          {workspace.layoutMode} · {sourceCount} source
-                          {sourceCount === 1 ? "" : "s"} · {fileCount} file
-                          {fileCount === 1 ? "" : "s"}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="destructive"
-                        className="size-8 min-h-0 min-w-0 shrink-0"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          onDeleteWorkspace(workspace.id);
-                        }}
-                        aria-label={`Delete ${workspace.name}`}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </label>
+                    <SavedLibraryRow
+                      key={workspace.id}
+                      id={workspace.id}
+                      name={workspace.name}
+                      checked={selectedIds.includes(workspace.id)}
+                      target={storageTarget}
+                      kind="layout"
+                      metadata={`${workspace.layoutMode} · ${sourceCount} source${sourceCount === 1 ? "" : "s"} · ${fileCount} file${fileCount === 1 ? "" : "s"}`}
+                      bytes={serializedMetadataBytes(workspace)}
+                      onCheckedChange={toggleSelection}
+                      onOpen={(id) => onOpenWorkspaces([id])}
+                      onUploadToCloud={onUploadWorkspaceToCloud}
+                      onShare={onShareCloudItem}
+                      onExportJson={onExportJson}
+                      onDelete={(id) => onDeleteWorkspace(id, storageTarget)}
+                    />
                   );
                 })
               ) : (
                 <div className={emptyStateClass}>
-                  No saved layouts yet. Use Save layout first.
+                  No {storageTarget} layouts yet. Use Save layout first.
                 </div>
               )}
             </div>
@@ -308,52 +355,28 @@ export function LayoutDialog({
                   const boxCount = template.slots.length;
 
                   return (
-                    <label key={template.id} className={libraryRowClass}>
-                      <input
-                        type="checkbox"
-                        checked={selectedTemplateIds.includes(template.id)}
-                        onChange={(event) =>
-                          toggleTemplateSelection(
-                            template.id,
-                            event.target.checked,
-                          )
-                        }
-                        aria-label={`Select ${template.name}`}
-                        className="mt-0.5 size-4 accent-primary"
-                      />
-                      <div className="min-w-0 leading-tight">
-                        <div
-                          className="truncate font-medium"
-                          title={template.name}
-                        >
-                          {template.name}
-                        </div>
-                        <div className="truncate font-mono text-[11px] text-muted-foreground">
-                          free template · {layerCount} layer
-                          {layerCount === 1 ? "" : "s"} · {boxCount} box
-                          {boxCount === 1 ? "" : "es"}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="destructive"
-                        className="size-8 min-h-0 min-w-0 shrink-0"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          onDeleteTemplate(template.id);
-                        }}
-                        aria-label={`Delete ${template.name}`}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </label>
+                    <SavedLibraryRow
+                      key={template.id}
+                      id={template.id}
+                      name={template.name}
+                      checked={selectedTemplateIds.includes(template.id)}
+                      target={storageTarget}
+                      kind="template"
+                      metadata={`free template · ${layerCount} layer${layerCount === 1 ? "" : "s"} · ${boxCount} box${boxCount === 1 ? "" : "es"}`}
+                      bytes={serializedMetadataBytes(template)}
+                      onCheckedChange={toggleTemplateSelection}
+                      onOpen={(id) => onOpenTemplates([id])}
+                      onUploadToCloud={onUploadTemplateToCloud}
+                      onShare={onShareCloudItem}
+                      onExportJson={onExportJson}
+                      onDelete={(id) => onDeleteTemplate(id, storageTarget)}
+                    />
                   );
                 })
               ) : (
                 <div className={emptyStateClass}>
-                  No saved templates yet. Save a free layout as a template
-                  first.
+                  No {storageTarget} templates yet. Save a free layout as a
+                  template first.
                 </div>
               )}
             </div>
@@ -430,10 +453,15 @@ export function SaveLayoutDialog({
   name,
   layoutMode,
   saveKind,
+  saveTarget = "local",
   error,
   localCacheStatus,
+  account = { status: "signed-out" },
+  cloudUsage = { status: "signed-out" },
+  cloudBlockReason = null,
   onNameChange,
   onSaveKindChange,
+  onSaveTargetChange = () => undefined,
   onSaveLayout,
   onSaveTemplate,
 }: {
@@ -442,14 +470,26 @@ export function SaveLayoutDialog({
   name: string;
   layoutMode: LayoutMode;
   saveKind: SaveKind;
+  saveTarget?: SaveTarget;
   error: string | null;
   localCacheStatus: LocalFileCacheStorageStatus | null;
+  account?: AccountState;
+  cloudUsage?: CloudUsageState;
+  cloudBlockReason?: string | null;
   onNameChange: (name: string) => void;
   onSaveKindChange: (kind: SaveKind) => void;
+  onSaveTargetChange?: (target: SaveTarget) => void;
   onSaveLayout: () => void;
   onSaveTemplate: () => void;
 }) {
   const activeSaveKind = layoutMode === "free" ? saveKind : "layout";
+  const isCloud = saveTarget === "cloud";
+  const submitDisabled = isCloud && Boolean(cloudBlockReason);
+  const submitLabel = isCloud
+    ? "Save to Cloud"
+    : activeSaveKind === "template"
+      ? "Save as template"
+      : "Save as layout";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -495,6 +535,22 @@ export function SaveLayoutDialog({
               </TabsList>
             </Tabs>
           ) : null}
+          <Tabs
+            value={saveTarget}
+            onValueChange={(value) => onSaveTargetChange(value as SaveTarget)}
+            className="gap-2"
+          >
+            <TabsList className={libraryTabsListClass}>
+              <TabsTrigger value="local" className={libraryTabTriggerClass}>
+                <Monitor />
+                Local
+              </TabsTrigger>
+              <TabsTrigger value="cloud" className={libraryTabTriggerClass}>
+                <Cloud />
+                Cloud
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Label className="grid gap-1.5 text-sm font-medium">
             {activeSaveKind === "template" ? "Template name" : "Layout name"}
             <Input
@@ -509,7 +565,29 @@ export function SaveLayoutDialog({
           {error ? (
             <div className="text-xs text-destructive">{error}</div>
           ) : null}
-          {localCacheStatus ? (
+          {isCloud ? (
+            <div
+              className={cn(
+                "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm",
+                cloudBlockReason
+                  ? "border-destructive/45 bg-destructive/10 text-destructive"
+                  : "text-muted-foreground",
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className={sectionLabelClass}>Cloud metadata</span>
+                <StorageBadge target="cloud" />
+              </div>
+              <div className="mt-1 font-mono text-[11px]">
+                {cloudBlockReason ?? cloudUsageLabel(cloudUsage)}
+              </div>
+              {account.status === "signed-in" &&
+              cloudUsage.status === "ready" &&
+              !cloudBlockReason ? (
+                <CloudUsageMeter usage={cloudUsage} className="mt-2" />
+              ) : null}
+            </div>
+          ) : localCacheStatus ? (
             <div className="rounded-2xl border border-border/70 bg-background/65 p-3 font-mono text-[11px] text-muted-foreground">
               <div>{localCacheStatus.label}</div>
               {localCacheStatus.freeLabel ? (
@@ -517,11 +595,9 @@ export function SaveLayoutDialog({
               ) : null}
             </div>
           ) : null}
-          <Button type="submit" title="Save as layout">
+          <Button type="submit" title={submitLabel} disabled={submitDisabled}>
             <Save />
-            {activeSaveKind === "template"
-              ? "Save as template"
-              : "Save as layout"}
+            {submitLabel}
           </Button>
         </form>
       </DialogContent>
@@ -691,6 +767,7 @@ export function AccountDialog({
   onOpenChange,
   account,
   localCacheStatus,
+  cloudUsage = { status: "signed-out" },
   onRefreshLocalCacheStatus,
   onClearLocalCache,
   onSignOut,
@@ -699,6 +776,7 @@ export function AccountDialog({
   onOpenChange: (open: boolean) => void;
   account: AccountState;
   localCacheStatus: LocalFileCacheStorageStatus | null;
+  cloudUsage?: CloudUsageState;
   onRefreshLocalCacheStatus: () => void | Promise<void>;
   onClearLocalCache: () => void | Promise<void>;
   onSignOut: () => Promise<void> | void;
@@ -760,6 +838,19 @@ export function AccountDialog({
               Local cache usage unavailable
             </p>
           )}
+        </div>
+        <div className="grid gap-2 rounded-2xl border border-border/70 bg-background/65 px-2.5 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className={sectionLabelClass}>Cloud metadata</p>
+            <StorageBadge target="cloud" />
+          </div>
+          <p className="font-mono text-[11px] leading-4 text-muted-foreground">
+            {cloudUsageLabel(cloudUsage)}
+          </p>
+          <CloudUsageMeter usage={cloudUsage} />
+          <p className="text-xs text-muted-foreground">
+            {cloudCountLabel(cloudUsage)}
+          </p>
         </div>
         {account.status === "signed-in" ? (
           <div className="grid gap-3">

@@ -2,6 +2,7 @@ import { DEFAULT_FIXED_GRID } from "@/lib/viewer/layout";
 import { normalizeTimerMode } from "@/lib/viewer/timer";
 import {
   DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS,
+  normalizeWorkspaceTemplateSlots,
   normalizeWorkspaceLayers,
   type SerializedWorkspaceTemplate,
 } from "@/lib/viewer/workspaces";
@@ -27,7 +28,10 @@ export function toRuntimeWorkspace(
     layers,
     activeLayerId,
     globalTimerSeconds: resolveWorkspaceGlobalSeconds(workspace),
-    templateSlots: [],
+    templateSlots: normalizeWorkspaceTemplateSlots(
+      workspace.templateSlots,
+      activeLayerId,
+    ),
     sessions: workspace.sessions.map((session) => ({
       ...session,
       layerId: session.layerId ?? activeLayerId,
@@ -79,7 +83,10 @@ export function toRuntimeWorkspaceWithLocalRuntime(
     layers,
     activeLayerId,
     globalTimerSeconds: resolveWorkspaceGlobalSeconds(workspace),
-    templateSlots: [],
+    templateSlots: normalizeWorkspaceTemplateSlots(
+      workspace.templateSlots,
+      activeLayerId,
+    ),
     sessions: workspace.sessions.map((session) => ({
       ...session,
       layerId: session.layerId ?? activeLayerId,

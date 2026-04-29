@@ -73,6 +73,34 @@ describe("viewer workspaces", () => {
     expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");
   });
 
+  it("serializes free-layout empty boxes with layouts", () => {
+    const workspace = {
+      ...createEmptyWorkspace("workspace-1", "Layout 1"),
+      layoutMode: "free" as const,
+      templateSlots: [
+        {
+          id: "slot-1",
+          layerId: "layer-1",
+          freeRect: { column: 5, row: 5, columnSpan: 4, rowSpan: 4 },
+        },
+      ],
+    };
+
+    const snapshot = serializeWorkspace(workspace) as ReturnType<
+      typeof serializeWorkspace
+    > & {
+      templateSlots?: typeof workspace.templateSlots;
+    };
+
+    expect(snapshot.templateSlots).toEqual([
+      {
+        id: "slot-1",
+        layerId: "layer-1",
+        freeRect: { column: 5, row: 5, columnSpan: 4, rowSpan: 4 },
+      },
+    ]);
+  });
+
   it("serializes URL sources with resolver hints but without runtime URL payloads", () => {
     const workspace = createEmptyWorkspace("workspace-1", "Layout 1");
 

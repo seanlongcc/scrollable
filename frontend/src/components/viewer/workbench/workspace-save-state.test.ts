@@ -139,10 +139,19 @@ describe("workspace save state", () => {
   });
 
   it("builds metadata-only viewer_sessions upsert rows", () => {
-    const workspace = serializedWorkspace({
-      id: "workspace-1",
-      name: "Saved layout",
-    });
+    const workspace = {
+      ...serializedWorkspace({
+        id: "workspace-1",
+        name: "Saved layout",
+      }),
+      templateSlots: [
+        {
+          id: "slot-1",
+          layerId: "layer-1",
+          freeRect: { column: 5, row: 5, columnSpan: 4, rowSpan: 4 },
+        },
+      ],
+    };
 
     const rows = buildViewerSessionUpsertRows({
       workspaces: [workspace],
@@ -155,14 +164,19 @@ describe("workspace save state", () => {
         id: "workspace-1",
         owner_id: "user-1",
         name: "Saved layout",
+        layers: workspace.layers,
+        active_layer_id: "layer-1",
         layout_mode: "fixed",
         fixed_columns: 2,
         fixed_rows: 1,
         global_timer_seconds: 10,
         sessions: workspace.sessions,
+        template_slots: workspace.templateSlots,
+        metadata_bytes: expect.any(Number),
         updated_at: "2026-04-26T00:00:00.000Z",
       },
     ]);
+    expect(rows[0]!.metadata_bytes).toBeGreaterThan(0);
     expect(JSON.stringify(rows)).not.toContain("runtimeItems");
     expect(JSON.stringify(rows)).not.toContain("https://cdn.test/runtime.jpg");
   });
@@ -188,6 +202,7 @@ describe("workspace save state", () => {
         active_layer_id: "layer-1",
         global_timer_seconds: 10,
         slots: template.slots,
+        metadata_bytes: expect.any(Number),
         updated_at: "2026-04-26T00:00:00.000Z",
       },
     ]);

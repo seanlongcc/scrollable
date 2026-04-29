@@ -96,8 +96,9 @@ describe("FeedWorkbench workspaces", () => {
     ).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: "Delete Untitled layout" }),
+      screen.getByRole("button", { name: "More actions for Untitled layout" }),
     );
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
 
     expect(
       screen.queryByRole("checkbox", { name: "Select Untitled layout" }),

@@ -16,10 +16,10 @@
     "test": "npm --workspace frontend run test --",
     "test:watch": "npm --workspace frontend run test:watch --",
     "e2e": "npm --workspace frontend run e2e --",
-    "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop",
-    "supabase:reset": "supabase db reset",
-    "supabase:test": "supabase test db"
+    "supabase:start": "set -a; [ ! -f frontend/.env.local ] || . frontend/.env.local; set +a; supabase start",
+    "supabase:stop": "set -a; [ ! -f frontend/.env.local ] || . frontend/.env.local; set +a; supabase stop",
+    "supabase:reset": "set -a; [ ! -f frontend/.env.local ] || . frontend/.env.local; set +a; supabase db reset",
+    "supabase:test": "set -a; [ ! -f frontend/.env.local ] || . frontend/.env.local; set +a; supabase test db"
   },
   "engines": {
     "node": "24.x"

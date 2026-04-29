@@ -29,13 +29,13 @@ select policies_are(
 select policies_are(
   'public',
   'viewer_sessions',
-  array['viewer sessions owner all']
+  array['viewer sessions owner all', 'viewer sessions shared metadata read']
 );
 
 select policies_are(
   'public',
   'viewer_templates',
-  array['viewer templates owner all']
+  array['viewer templates owner all', 'viewer templates shared metadata read']
 );
 
 select isnt_empty(
