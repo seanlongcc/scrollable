@@ -13,6 +13,7 @@ export const SAVE_TARGET_STORAGE_KEY = "scrollable.save-target.v1";
 
 export type CloudUsageState =
   | { status: "unconfigured" | "signed-out" | "loading" }
+  | { status: "error"; message: string }
   | {
       status: "ready";
       usedBytes: number;
@@ -137,6 +138,7 @@ export function cloudUsageLabel(usage: CloudUsageState) {
 
   if (usage.status === "loading") return "Checking Cloud usage";
   if (usage.status === "signed-out") return "Sign in to use Cloud";
+  if (usage.status === "error") return `Cloud unavailable: ${usage.message}`;
   return "Cloud unavailable";
 }
 
@@ -167,6 +169,7 @@ export function cloudSaveBlockReason({
   if (usage.status === "unconfigured") return "Cloud is not configured.";
   if (usage.status === "loading") return "Cloud usage is still loading.";
   if (usage.status === "signed-out") return "Sign in to save to Cloud.";
+  if (usage.status === "error") return `Cloud unavailable: ${usage.message}`;
   return null;
 }
 

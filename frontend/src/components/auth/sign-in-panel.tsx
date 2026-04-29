@@ -29,8 +29,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
       return;
     }
 
-    toast.success("Signed in");
-    window.location.href = next;
+    window.location.href = withSignedInFlag(next);
   }
 
   async function signUpWithEmailPassword() {
@@ -124,4 +123,11 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
       </div>
     </form>
   );
+}
+
+function withSignedInFlag(path: string) {
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set("signedIn", "1");
+
+  return `${url.pathname}${url.search}${url.hash}`;
 }

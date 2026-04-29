@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { accountStateFromUser } from "./workbench/account-actions";
 import {
@@ -346,7 +347,7 @@ export function FeedWorkbench({
     setLocalCacheStorageFullStatus(null);
     await refreshLocalCacheStatus();
   }, [refreshLocalCacheStatus]);
-  const refreshCloudLibrary = useCallback(async () => {
+  const refreshCloudLibrary = useCallback(async (isAccountSignedIn = false) => {
     if (!getSupabaseEnv()) {
       setCloudUsage({ status: "unconfigured" });
       return;
@@ -368,12 +369,17 @@ export function FeedWorkbench({
       setCloudUsage(
         result.reason === "unconfigured"
           ? { status: "unconfigured" }
-          : { status: "signed-out" },
+          : isAccountSignedIn
+            ? {
+                status: "error",
+                message: "Cloud session unavailable after sign-in",
+              }
+            : { status: "signed-out" },
       );
       return;
     }
 
-    setCloudUsage({ status: "signed-out" });
+    setCloudUsage({ status: "error", message: result.error });
   }, []);
   const {
     fetchRedditFeed,
@@ -654,11 +660,25 @@ export function FeedWorkbench({
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("signedIn") !== "1") return;
+
+    params.delete("signedIn");
+    const nextSearch = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`,
+    );
+    toast.success("Signed in");
+  }, []);
+
+  useEffect(() => {
     let frame: number | undefined;
 
     if (account.status === "signed-in") {
       const refreshFrame = window.requestAnimationFrame(() => {
-        void refreshCloudLibrary();
+        void refreshCloudLibrary(true);
       });
       return () => window.cancelAnimationFrame(refreshFrame);
     }

@@ -13,10 +13,12 @@ const authMocks = vi.hoisted(() => {
     listener:
       | ((event: string, session: { user: MockUser } | null) => void)
       | null;
+    cloudError: Error | null;
   } = {
     env: null,
     user: null,
     listener: null,
+    cloudError: null,
   };
 
   return {
@@ -46,6 +48,19 @@ const authMocks = vi.hoisted(() => {
   };
 });
 
+const toastMocks = vi.hoisted(() => ({
+  toast: {
+    error: vi.fn(),
+    message: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
+  },
+}));
+
+vi.mock("sonner", () => ({
+  toast: toastMocks.toast,
+}));
+
 vi.mock("@/lib/supabase/env", () => ({
   getSupabaseEnv: () => authMocks.state.env,
 }));
@@ -59,6 +74,15 @@ vi.mock("@/lib/supabase/browser", () => ({
     },
     from: () => ({
       upsert: vi.fn(async () => ({ error: null })),
+      select: () => ({
+        order: vi.fn(async () => ({
+          data: [],
+          error: authMocks.state.cloudError,
+        })),
+        eq: () => ({
+          maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+        }),
+      }),
     }),
   }),
 }));
@@ -68,9 +92,18 @@ describe("FeedWorkbench account state", () => {
     authMocks.state.env = null;
     authMocks.state.user = null;
     authMocks.state.listener = null;
+    authMocks.state.cloudError = null;
+    authMocks.getUser.mockImplementation(async () => ({
+      data: { user: authMocks.state.user },
+    }));
     authMocks.getUser.mockClear();
     authMocks.onAuthStateChange.mockClear();
     authMocks.signOut.mockClear();
+    toastMocks.toast.error.mockClear();
+    toastMocks.toast.message.mockClear();
+    toastMocks.toast.success.mockClear();
+    toastMocks.toast.warning.mockClear();
+    window.history.replaceState(null, "", "/");
     window.localStorage.clear();
   });
 
@@ -111,5 +144,84 @@ describe("FeedWorkbench account state", () => {
     expect(
       screen.queryByRole("link", { name: "Account library" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("does not describe Cloud load failures as signed out when the account is signed in", async () => {
+    authMocks.state.env = {
+      url: "https://supabase.test",
+      anonKey: "anon-key",
+    };
+    authMocks.state.user = {
+      id: "user-1",
+      email: "reader@example.com",
+    };
+    authMocks.state.cloudError = new Error("Cloud library load failed");
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(await screen.findByRole("button", { name: "Account" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Account" });
+    await waitFor(() =>
+      expect(
+        within(dialog).getByText(
+          "Cloud unavailable: Cloud library load failed",
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(dialog).queryByText("Sign in to use Cloud"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not describe a missing Cloud session as signed out when the account is signed in", async () => {
+    authMocks.state.env = {
+      url: "https://supabase.test",
+      anonKey: "anon-key",
+    };
+    authMocks.state.user = {
+      id: "user-1",
+      email: "reader@example.com",
+    };
+    authMocks.getUser
+      .mockResolvedValueOnce({ data: { user: authMocks.state.user } })
+      .mockResolvedValueOnce({ data: { user: null } });
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(await screen.findByRole("button", { name: "Account" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Account" });
+    await waitFor(() =>
+      expect(
+        within(dialog).getByText(
+          "Cloud unavailable: Cloud session unavailable after sign-in",
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(dialog).queryByText("Sign in to use Cloud"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a signed-in confirmation after auth redirect", async () => {
+    authMocks.state.env = {
+      url: "https://supabase.test",
+      anonKey: "anon-key",
+    };
+    authMocks.state.user = {
+      id: "user-1",
+      email: "reader@example.com",
+    };
+    window.history.replaceState(null, "", "/?signedIn=1");
+
+    render(<FeedWorkbench />);
+
+    await waitFor(() =>
+      expect(toastMocks.toast.success).toHaveBeenCalledWith("Signed in"),
+    );
+    expect(window.location.search).not.toContain("signedIn");
   });
 });

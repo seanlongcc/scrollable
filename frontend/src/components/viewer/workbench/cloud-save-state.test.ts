@@ -102,6 +102,15 @@ describe("cloud save state", () => {
     expect(formatCloudBytes(5 * 1024 * 1024)).toBe("5.0 MB");
   });
 
+  it("labels Cloud load failures without implying the user is signed out", () => {
+    expect(
+      cloudUsageLabel({
+        status: "error",
+        message: "Cloud library load failed",
+      }),
+    ).toBe("Cloud unavailable: Cloud library load failed");
+  });
+
   it("clamps near-full quota usage and labels admin usage as unlimited", () => {
     expect(
       cloudUsagePercent({
