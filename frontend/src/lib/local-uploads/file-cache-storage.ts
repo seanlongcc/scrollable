@@ -14,6 +14,10 @@ export type LocalFileCacheStorageEstimate = {
 export type LocalFileCacheStorageStatus = {
   label: string;
   freeLabel?: string;
+  usageBytes?: number;
+  quotaBytes?: number;
+  usagePercent?: number;
+  isEstimated?: boolean;
 };
 
 export type LocalFileByteCacheConfirmation = {

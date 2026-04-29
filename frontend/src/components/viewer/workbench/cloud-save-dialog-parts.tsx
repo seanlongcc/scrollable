@@ -7,10 +7,12 @@ import {
   Monitor,
   MoreHorizontal,
   RefreshCw,
+  Rows3,
   Trash2,
   UploadCloud,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
+import { type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { LocalFileCacheStorageStatus } from "@/lib/local-uploads/file-cache";
 import { cn } from "@/lib/utils";
 import {
   cloudUsagePercent,
@@ -29,12 +32,13 @@ import {
   type CloudUsageState,
   type SaveTarget,
 } from "./cloud-save-state";
+import type { LibraryMetadataLabel } from "./library-metadata";
 
 const centeredDialogClass =
   "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(0,0,0,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]";
 
 const libraryRowClass =
-  "grid h-14 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
+  "grid min-h-16 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
 
 const metadataBlockClass =
   "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
@@ -59,7 +63,7 @@ export function SavedLibraryRow({
   checked: boolean;
   target: SaveTarget;
   kind: "layout" | "template";
-  metadata: string;
+  metadata: LibraryMetadataLabel;
   bytes: number;
   onCheckedChange: (id: string, checked: boolean) => void;
   onOpen: (id: string) => void;
@@ -72,49 +76,72 @@ export function SavedLibraryRow({
   ) => void;
   onDelete: (id: string) => void;
 }) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isCloud = target === "cloud";
+  const cloudBytes = formatCloudBytes(bytes);
+  const visibleMetadata = isCloud
+    ? `${metadata.visible} · ${cloudBytes}`
+    : metadata.visible;
+  const metadataTitle = isCloud
+    ? `${metadata.title} · ${cloudBytes}`
+    : metadata.title;
 
   return (
-    <label className={libraryRowClass}>
+    <div
+      className={libraryRowClass}
+      onClick={(event) => {
+        const target = event.target;
+        if (
+          target instanceof HTMLElement &&
+          target.closest("[data-library-row-action]")
+        ) {
+          return;
+        }
+        onCheckedChange(id, !checked);
+      }}
+    >
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onCheckedChange(id, event.target.checked)}
         aria-label={`Select ${name}`}
+        data-library-row-action
         className="mt-0.5 size-4 accent-primary"
       />
       <div className="min-w-0 leading-tight">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <StorageBadge target={target} />
+        <div className="min-w-0">
           <div className="truncate font-medium" title={name}>
             {name}
           </div>
         </div>
-        <div className="truncate font-mono text-[11px] text-muted-foreground">
-          {metadata}
-          {isCloud ? ` · ${formatCloudBytes(bytes)}` : ""}
+        <div
+          className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] leading-4 text-muted-foreground tabular-nums"
+          title={metadataTitle}
+        >
+          {visibleMetadata}
         </div>
       </div>
-      <div className="relative shrink-0">
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="ghost"
-          className="size-10 min-h-10 min-w-10 md:size-8 md:min-h-0 md:min-w-0"
-          aria-label={`More actions for ${name}`}
-          aria-expanded={isMenuOpen}
-          onClick={(event) => {
-            event.preventDefault();
-            setIsMenuOpen((current) => !current);
-          }}
-        >
-          <MoreHorizontal />
-        </Button>
-        {isMenuOpen ? (
-          <div
+      <DropdownMenuPrimitive.Root>
+        <DropdownMenuPrimitive.Trigger asChild>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            data-library-row-action
+            className="size-10 min-h-10 min-w-10 md:size-8 md:min-h-0 md:min-w-0"
+            aria-label={`More actions for ${name}`}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuPrimitive.Trigger>
+        <DropdownMenuPrimitive.Portal>
+          <DropdownMenuPrimitive.Content
             role="menu"
-            className="absolute right-0 z-20 grid min-w-40 gap-1 rounded-xl border border-border/80 bg-popover p-1 shadow-[0_16px_48px_rgba(0,0,0,0.55)]"
+            aria-label={`Actions for ${name}`}
+            side="right"
+            align="start"
+            sideOffset={8}
+            collisionPadding={12}
+            className="z-60 grid min-w-44 gap-1 rounded-xl border border-border/80 bg-popover p-1 text-popover-foreground shadow-[0_16px_48px_rgba(0,0,0,0.55)] outline-none data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1"
           >
             <LibraryMenuItem
               icon={<FolderOpen />}
@@ -145,10 +172,10 @@ export function SavedLibraryRow({
               label="Delete"
               onSelect={() => onDelete(id)}
             />
-          </div>
-        ) : null}
-      </div>
-    </label>
+          </DropdownMenuPrimitive.Content>
+        </DropdownMenuPrimitive.Portal>
+      </DropdownMenuPrimitive.Root>
+    </div>
   );
 }
 
@@ -179,6 +206,61 @@ function LibraryMenuItem({
       <span className="[&_svg]:size-4">{icon}</span>
       {label}
     </button>
+  );
+}
+
+export function SavedLibraryBulkActions({
+  kind,
+  selectedCount,
+  hasItems,
+  onSelectAll,
+  onOpenSelected,
+  onDeleteSelected,
+}: {
+  kind: "layouts" | "templates";
+  selectedCount: number;
+  hasItems: boolean;
+  onSelectAll: () => void;
+  onOpenSelected: () => void;
+  onDeleteSelected: () => void;
+}) {
+  const noun = kind === "layouts" ? "layouts" : "templates";
+
+  if (!hasItems) return null;
+
+  return (
+    <div className="grid grid-cols-[1fr_1fr_auto] gap-1.5">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onSelectAll}
+        aria-label={`Select all ${noun}`}
+        className="min-w-0 px-2"
+      >
+        <Rows3 />
+        Select all
+      </Button>
+      <Button
+        type="button"
+        onClick={onOpenSelected}
+        disabled={selectedCount === 0}
+        aria-label={`Open selected ${noun}`}
+        className="min-w-0 px-2"
+      >
+        <FolderOpen />
+        Open
+      </Button>
+      <Button
+        type="button"
+        variant="destructive"
+        onClick={onDeleteSelected}
+        disabled={selectedCount === 0}
+        aria-label={`Delete selected ${noun}`}
+        className="w-12 px-0"
+      >
+        <Trash2 />
+      </Button>
+    </div>
   );
 }
 
@@ -274,16 +356,23 @@ export function ShareLinkDialog({
 export function CloudUsageMeter({
   usage,
   className,
+  label = "Cloud metadata usage",
 }: {
   usage: CloudUsageState;
   className?: string;
+  label?: string;
 }) {
   const percent = cloudUsagePercent(usage);
+  const roundedPercent = Math.round(percent);
 
   return (
     <div
+      role="meter"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={roundedPercent}
       className={cn("h-1.5 overflow-hidden rounded-full bg-input", className)}
-      aria-hidden="true"
     >
       <div
         className={cn(
@@ -294,9 +383,64 @@ export function CloudUsageMeter({
             "bg-destructive",
         )}
         style={{
-          width: `${usage.status === "ready" ? Math.max(4, percent) : 0}%`,
+          width: `${usage.status === "ready" ? percent : 0}%`,
         }}
       />
     </div>
   );
+}
+
+export function LocalCacheUsageMeter({
+  status,
+  className,
+}: {
+  status: LocalFileCacheStorageStatus | null;
+  className?: string;
+}) {
+  const percent = status?.usagePercent ?? localCacheUsagePercent(status);
+  const roundedPercent = Math.round(percent);
+
+  return (
+    <div
+      role="meter"
+      aria-label="Local media cache usage"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={roundedPercent}
+      className={cn("h-1.5 overflow-hidden rounded-full bg-input", className)}
+    >
+      <div
+        className="h-full rounded-full bg-secondary transition-[width]"
+        style={{ width: `${percent}%` }}
+      />
+    </div>
+  );
+}
+
+export function localCacheUsageText(
+  status: LocalFileCacheStorageStatus | null,
+) {
+  if (!status) return "Local cache usage unavailable";
+  return status.label.replace(/^Local cache:\s*/, "");
+}
+
+function localCacheUsagePercent(status: LocalFileCacheStorageStatus | null) {
+  if (!status?.usageBytes || !status.quotaBytes || status.quotaBytes <= 0) {
+    return localCacheUsagePercentFromLabel(status?.label);
+  }
+
+  return Math.min(100, (status.usageBytes / status.quotaBytes) * 100);
+}
+
+function localCacheUsagePercentFromLabel(label: string | undefined) {
+  const match = label?.match(/([0-9.]+) GB \/ ([0-9.]+) GB used/);
+  if (!match) return 0;
+
+  const used = Number(match[1]);
+  const quota = Number(match[2]);
+  if (!Number.isFinite(used) || !Number.isFinite(quota) || quota <= 0) {
+    return 0;
+  }
+
+  return Math.min(100, (used / quota) * 100);
 }

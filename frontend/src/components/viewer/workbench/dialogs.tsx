@@ -1,13 +1,13 @@
 import {
   Cloud,
   Database,
-  Download,
   FolderOpen,
   LogOut,
   Monitor,
   RefreshCw,
   Save,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -46,9 +46,17 @@ import {
 } from "./cloud-save-state";
 import {
   CloudUsageMeter,
+  LocalCacheUsageMeter,
   SavedLibraryRow,
+  SavedLibraryBulkActions,
   StorageBadge,
+  localCacheUsageText,
 } from "./cloud-save-dialog-parts";
+import {
+  layoutLibraryMetadata,
+  sourceFileLibraryMetadata,
+  templateLibraryMetadata,
+} from "./library-metadata";
 export { accountStateFromUser } from "./account-actions";
 export { ShareLinkDialog } from "./cloud-save-dialog-parts";
 
@@ -192,6 +200,20 @@ export function LayoutDialog({
     onOpenWorkspaces(selected);
   }
 
+  function selectAllLayouts() {
+    setSelectedIds((current) => [
+      ...current.filter((id) => !visibleIds.has(id)),
+      ...sortedWorkspaces.map((workspace) => workspace.id),
+    ]);
+  }
+
+  function deleteSelectedLayouts() {
+    for (const id of visibleSelectedIds) {
+      onDeleteWorkspace(id, storageTarget);
+    }
+    setSelectedIds((current) => current.filter((id) => !visibleIds.has(id)));
+  }
+
   function toggleTemplateSelection(id: string, checked: boolean) {
     setSelectedTemplateIds((current) => {
       if (checked) return current.includes(id) ? current : [...current, id];
@@ -205,6 +227,22 @@ export function LayoutDialog({
       .map((template) => template.id);
 
     onOpenTemplates(selected);
+  }
+
+  function selectAllTemplates() {
+    setSelectedTemplateIds((current) => [
+      ...current.filter((id) => !visibleTemplateIds.has(id)),
+      ...sortedTemplates.map((template) => template.id),
+    ]);
+  }
+
+  function deleteSelectedTemplates() {
+    for (const id of visibleSelectedTemplateIds) {
+      onDeleteTemplate(id, storageTarget);
+    }
+    setSelectedTemplateIds((current) =>
+      current.filter((id) => !visibleTemplateIds.has(id)),
+    );
   }
 
   return (
@@ -239,7 +277,7 @@ export function LayoutDialog({
             variant="outline"
             onClick={() => onImportJson(storageTarget)}
           >
-            <Download />
+            <Upload />
             Import JSON
           </Button>
         </div>
@@ -314,7 +352,11 @@ export function LayoutDialog({
                       checked={selectedIds.includes(workspace.id)}
                       target={storageTarget}
                       kind="layout"
-                      metadata={`${workspace.layoutMode} · ${sourceCount} source${sourceCount === 1 ? "" : "s"} · ${fileCount} file${fileCount === 1 ? "" : "s"}`}
+                      metadata={layoutLibraryMetadata(
+                        workspace.layoutMode,
+                        sourceCount,
+                        fileCount,
+                      )}
                       bytes={serializedMetadataBytes(workspace)}
                       onCheckedChange={toggleSelection}
                       onOpen={(id) => onOpenWorkspaces([id])}
@@ -332,15 +374,14 @@ export function LayoutDialog({
               )}
             </div>
             {sortedWorkspaces.length ? (
-              <Button
-                type="button"
-                onClick={openSelectedLayouts}
-                disabled={selectedCount === 0}
-                className="w-full"
-              >
-                <FolderOpen />
-                Open selected layouts
-              </Button>
+              <SavedLibraryBulkActions
+                kind="layouts"
+                selectedCount={selectedCount}
+                hasItems={sortedWorkspaces.length > 0}
+                onSelectAll={selectAllLayouts}
+                onOpenSelected={openSelectedLayouts}
+                onDeleteSelected={deleteSelectedLayouts}
+              />
             ) : null}
           </TabsContent>
           <TabsContent value="templates" className="grid gap-3">
@@ -362,7 +403,7 @@ export function LayoutDialog({
                       checked={selectedTemplateIds.includes(template.id)}
                       target={storageTarget}
                       kind="template"
-                      metadata={`free template · ${layerCount} layer${layerCount === 1 ? "" : "s"} · ${boxCount} box${boxCount === 1 ? "" : "es"}`}
+                      metadata={templateLibraryMetadata(layerCount, boxCount)}
                       bytes={serializedMetadataBytes(template)}
                       onCheckedChange={toggleTemplateSelection}
                       onOpen={(id) => onOpenTemplates([id])}
@@ -381,15 +422,14 @@ export function LayoutDialog({
               )}
             </div>
             {sortedTemplates.length ? (
-              <Button
-                type="button"
-                onClick={openSelectedTemplates}
-                disabled={selectedTemplateCount === 0}
-                className="w-full"
-              >
-                <FolderOpen />
-                Open selected templates
-              </Button>
+              <SavedLibraryBulkActions
+                kind="templates"
+                selectedCount={selectedTemplateCount}
+                hasItems={sortedTemplates.length > 0}
+                onSelectAll={selectAllTemplates}
+                onOpenSelected={openSelectedTemplates}
+                onDeleteSelected={deleteSelectedTemplates}
+              />
             ) : null}
           </TabsContent>
         </Tabs>
@@ -411,6 +451,11 @@ function OpenWorkspaceRow({
   onSelectWorkspace: (id: string) => void;
   onCloseWorkspaceTab: (id: string) => void;
 }) {
+  const metadata = sourceFileLibraryMetadata(
+    stats.sourceCount,
+    stats.fileCount,
+  );
+
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5">
       <Button
@@ -423,12 +468,12 @@ function OpenWorkspaceRow({
           <span className="block truncate font-medium">{tab.name}</span>
           <span
             className={cn(
-              "block truncate font-mono text-[11px] leading-4",
+              "block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] leading-4 tabular-nums",
               isActive ? "text-primary-foreground/70" : "text-muted-foreground",
             )}
+            title={metadata.title}
           >
-            {stats.sourceCount} source{stats.sourceCount === 1 ? "" : "s"} ·{" "}
-            {stats.fileCount} file{stats.fileCount === 1 ? "" : "s"}
+            {metadata.visible}
           </span>
         </span>
       </Button>
@@ -456,6 +501,7 @@ export function SaveLayoutDialog({
   saveTarget = "local",
   error,
   localCacheStatus,
+  hasLocalSources = false,
   account = { status: "signed-out" },
   cloudUsage = { status: "signed-out" },
   cloudBlockReason = null,
@@ -473,6 +519,7 @@ export function SaveLayoutDialog({
   saveTarget?: SaveTarget;
   error: string | null;
   localCacheStatus: LocalFileCacheStorageStatus | null;
+  hasLocalSources?: boolean;
   account?: AccountState;
   cloudUsage?: CloudUsageState;
   cloudBlockReason?: string | null;
@@ -585,6 +632,12 @@ export function SaveLayoutDialog({
               cloudUsage.status === "ready" &&
               !cloudBlockReason ? (
                 <CloudUsageMeter usage={cloudUsage} className="mt-2" />
+              ) : null}
+              {hasLocalSources ? (
+                <p className="mt-2 text-xs text-secondary">
+                  Local uploads stay in this browser. Cloud saves keep their
+                  boxes empty.
+                </p>
               ) : null}
             </div>
           ) : localCacheStatus ? (
@@ -803,7 +856,7 @@ export function AccountDialog({
             View account status and sign-in actions.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-1.5 rounded-2xl border border-border/70 bg-background/65 px-2.5 py-2">
+        <div className="grid gap-2 rounded-2xl border border-border/70 bg-background/65 px-2.5 py-2">
           <div className="flex items-center justify-between gap-2">
             <p className={sectionLabelClass}>Local media cache</p>
             <div className="flex shrink-0 items-center gap-1">
@@ -831,13 +884,15 @@ export function AccountDialog({
               </Button>
             </div>
           </div>
-          {localCacheStatus ? (
-            <LocalCacheStatusLine status={localCacheStatus} />
-          ) : (
+          <p className="font-mono text-[11px] leading-4 text-muted-foreground">
+            {localCacheUsageText(localCacheStatus)}
+          </p>
+          <LocalCacheUsageMeter status={localCacheStatus} />
+          {localCacheStatus?.freeLabel ? (
             <p className="text-xs text-muted-foreground">
-              Local cache usage unavailable
+              {localCacheStatus.freeLabel}
             </p>
-          )}
+          ) : null}
         </div>
         <div className="grid gap-2 rounded-2xl border border-border/70 bg-background/65 px-2.5 py-2">
           <div className="flex items-center justify-between gap-2">
@@ -887,21 +942,6 @@ function LocalCacheStatusBlock({
       <div>{status.label}</div>
       {status.freeLabel ? <div>{status.freeLabel}</div> : null}
     </div>
-  );
-}
-
-function LocalCacheStatusLine({
-  status,
-}: {
-  status: LocalFileCacheStorageStatus;
-}) {
-  return (
-    <p className="font-mono text-[11px] leading-4 text-muted-foreground">
-      <span>{status.label}</span>
-      {status.freeLabel ? (
-        <span className="text-muted-foreground/80"> · {status.freeLabel}</span>
-      ) : null}
-    </p>
   );
 }
 

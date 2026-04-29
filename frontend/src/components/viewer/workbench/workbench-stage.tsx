@@ -279,7 +279,7 @@ function FixedLayerStage({
         "relative",
         isUiHidden
           ? "h-dvh min-h-0 min-w-0"
-          : "h-full min-h-0 min-w-0 md:min-h-[360px] md:min-w-[720px]",
+          : "h-full min-h-0 min-w-0 md:min-h-[360px] min-[1080px]:min-w-[720px]",
       )}
     >
       {layers.map((layer) => {
@@ -407,7 +407,7 @@ function FreeLayerStage({
         "relative",
         isUiHidden
           ? "h-dvh min-h-0 min-w-0"
-          : "h-full min-h-0 min-w-0 md:min-h-[360px] md:min-w-[720px]",
+          : "h-full min-h-0 min-w-0 md:min-h-[360px] min-[1080px]:min-w-[720px]",
       )}
     >
       {layers.map((layer) => {

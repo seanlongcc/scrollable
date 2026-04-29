@@ -107,6 +107,7 @@ export function WorkbenchOverlays({
   saveTarget,
   saveError,
   localCacheStatus,
+  hasLocalSources,
   cloudUsage,
   cloudBlockReason,
   setSaveName,
@@ -206,6 +207,7 @@ export function WorkbenchOverlays({
   saveTarget: SaveTarget;
   saveError: string | null;
   localCacheStatus: LocalFileCacheStorageStatus | null;
+  hasLocalSources: boolean;
   cloudUsage: CloudUsageState;
   cloudBlockReason: string | null;
   setSaveName: Dispatch<SetStateAction<string>>;
@@ -324,6 +326,7 @@ export function WorkbenchOverlays({
         saveTarget={saveTarget}
         error={saveError}
         localCacheStatus={localCacheStatus}
+        hasLocalSources={hasLocalSources}
         account={account}
         cloudUsage={cloudUsage}
         cloudBlockReason={cloudBlockReason}

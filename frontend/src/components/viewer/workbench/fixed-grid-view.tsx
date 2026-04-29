@@ -88,7 +88,7 @@ export function FixedGridView({
         "grid [grid-template-columns:repeat(var(--mobile-grid-columns),minmax(0,1fr))] [grid-template-rows:repeat(var(--mobile-grid-rows),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--desktop-grid-columns),minmax(0,1fr))] md:[grid-template-rows:repeat(var(--desktop-grid-rows),minmax(0,1fr))]",
         hideUi
           ? "h-dvh min-h-0 min-w-0 gap-0"
-          : "h-full min-h-0 min-w-0 gap-0 md:min-h-[360px] md:min-w-[720px] md:gap-0.5",
+          : "h-full min-h-0 min-w-0 gap-0 md:min-h-[360px] md:gap-0.5 min-[1080px]:min-w-[720px]",
       )}
       style={gridStyle}
       onClick={(event) => {

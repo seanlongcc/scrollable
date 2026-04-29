@@ -452,6 +452,7 @@ export function FeedWorkbench({
     openSavedTemplates,
     deleteSavedWorkspace,
     deleteSavedTemplate,
+    exportCurrentWorkspaceJson,
     applyWorkspaceSnapshot,
   } = useWorkspaceHandlers({
     workspaceName,
@@ -1013,6 +1014,7 @@ export function FeedWorkbench({
         saveTarget={saveTarget}
         saveError={saveError}
         localCacheStatus={localCacheStatus}
+        hasLocalSources={currentLayoutHasLocalSources}
         cloudUsage={cloudUsage}
         cloudBlockReason={saveTarget === "cloud" ? cloudBlockReason : null}
         setSaveName={setSaveName}
@@ -1125,6 +1127,8 @@ export function FeedWorkbench({
             openSaveDialog();
             void refreshLocalCacheStatusForCurrentLayout();
           }}
+          onImportJson={() => importSavedJson(libraryStorageTarget)}
+          onExportCurrentJson={exportCurrentWorkspaceJson}
           onOpenClearDialog={() => setIsClearOpen(true)}
           onOpenAccount={() => {
             setIsAccountOpen(true);

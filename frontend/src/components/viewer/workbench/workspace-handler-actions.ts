@@ -11,9 +11,14 @@ import { hasDuplicateLayoutName, limitLayoutName } from "./helpers";
 import {
   cloudLibraryUsage,
   layoutWithLocalSourcesAsEmptyBoxes,
+  workspaceHasLocalSources,
   type CloudUsageState,
   type SaveTarget,
 } from "./cloud-save-state";
+import {
+  downloadScrollableJson,
+  localFilesOmittedDescription,
+} from "./json-export-actions";
 import type {
   AccountState,
   FeedSession,
@@ -201,9 +206,9 @@ export function useWorkspaceHandlers({
       }
 
       const current = currentWorkspaceState(validation.name);
-      const snapshot = layoutWithLocalSourcesAsEmptyBoxes(
-        serializeWorkspace(current),
-      );
+      const serialized = serializeWorkspace(current);
+      const hasLocalSources = workspaceHasLocalSources(serialized);
+      const snapshot = layoutWithLocalSourcesAsEmptyBoxes(serialized);
 
       const result = await upsertViewerSessionToAccount({
         workspace: snapshot,
@@ -224,7 +229,13 @@ export function useWorkspaceHandlers({
       };
       setCloudWorkspaces(nextCloudWorkspaces);
       updateCloudUsage(nextCloudWorkspaces, cloudTemplates);
-      toast.success("Layout saved to Cloud");
+      if (hasLocalSources) {
+        toast.warning("Saved to Cloud without local files", {
+          description: localFilesOmittedDescription(),
+        });
+      } else {
+        toast.success("Layout saved to Cloud");
+      }
       setIsSaveOpen(false);
       return;
     }
@@ -298,6 +309,26 @@ export function useWorkspaceHandlers({
     persistCurrentTemplate(validation.name);
     toast.success("Template saved locally");
     setIsSaveOpen(false);
+  }
+
+  function exportCurrentWorkspaceJson() {
+    const serialized = serializeWorkspace(currentWorkspaceState());
+    const hasLocalSources = workspaceHasLocalSources(serialized);
+    const exportItem = layoutWithLocalSourcesAsEmptyBoxes(serialized);
+
+    downloadScrollableJson({
+      kind: "layout",
+      name: exportItem.name,
+      item: exportItem,
+    });
+    if (hasLocalSources) {
+      toast.warning("Exported JSON without local files", {
+        description: localFilesOmittedDescription(),
+      });
+      return;
+    }
+
+    toast.success("Exported layout JSON");
   }
 
   function persistCurrentWorkspace(
@@ -623,6 +654,7 @@ export function useWorkspaceHandlers({
     openSavedTemplates,
     deleteSavedWorkspace,
     deleteSavedTemplate,
+    exportCurrentWorkspaceJson,
     applyWorkspaceSnapshot,
   };
 }

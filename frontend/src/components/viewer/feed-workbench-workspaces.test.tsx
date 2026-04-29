@@ -124,7 +124,7 @@ describe("FeedWorkbench workspaces", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Library" });
     expect(
-      within(dialog).getByText("fixed · 1 source · 2 files"),
+      within(dialog).getByText("fixed · 1 src · 2 files"),
     ).toBeInTheDocument();
   });
 
@@ -145,7 +145,7 @@ describe("FeedWorkbench workspaces", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Library" });
     expect(
-      within(dialog).getByText("fixed · 2 sources · 5 files"),
+      within(dialog).getByText("fixed · 2 src · 5 files"),
     ).toBeInTheDocument();
     expect(
       within(dialog).queryByText("Layer 1: 1 source / 4 files"),

@@ -5,11 +5,16 @@ import { toast } from "sonner";
 import {
   cloudLibraryUsage,
   layoutWithLocalSourcesAsEmptyBoxes,
+  workspaceHasLocalSources,
   type CloudShareTarget,
   type CloudUsageState,
   type SaveTarget,
 } from "./cloud-save-state";
-import { safeFileName, uniqueTemplateCopyName } from "./cloud-save-helpers";
+import { uniqueTemplateCopyName } from "./cloud-save-helpers";
+import {
+  downloadScrollableJson,
+  localFilesOmittedDescription,
+} from "./json-export-actions";
 import type {
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
@@ -91,6 +96,7 @@ export function useCloudLibraryActions({
     async (id: string) => {
       const workspace = savedWorkspaces[id];
       if (!workspace) return;
+      const hasLocalSources = workspaceHasLocalSources(workspace);
 
       const copy = {
         ...layoutWithLocalSourcesAsEmptyBoxes(workspace),
@@ -112,7 +118,13 @@ export function useCloudLibraryActions({
       setCloudWorkspaces(nextCloudWorkspaces);
       setLibraryStorageTarget("cloud");
       updateCloudUsageFromLibrary(nextCloudWorkspaces, cloudTemplates);
-      toast.success("Uploaded layout to Cloud");
+      if (hasLocalSources) {
+        toast.warning("Uploaded layout without local files", {
+          description: localFilesOmittedDescription(),
+        });
+      } else {
+        toast.success("Uploaded layout to Cloud");
+      }
     },
     [
       cloudTemplates,
@@ -175,25 +187,22 @@ export function useCloudLibraryActions({
             : savedTemplates[id];
 
       if (!item) return;
+      const hasLocalSources =
+        kind === "layout" &&
+        workspaceHasLocalSources(item as SerializedWorkspace);
       const exportItem =
         kind === "layout"
           ? layoutWithLocalSourcesAsEmptyBoxes(item as SerializedWorkspace)
           : item;
 
-      const payload = {
-        type:
-          kind === "layout" ? "scrollable.layout.v1" : "scrollable.template.v1",
-        item: exportItem,
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${safeFileName(item.name)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadScrollableJson({ kind, name: item.name, item: exportItem });
+      if (hasLocalSources) {
+        toast.warning("Exported JSON without local files", {
+          description: localFilesOmittedDescription(),
+        });
+      } else {
+        toast.success(`Exported ${kind} JSON`);
+      }
     },
     [cloudTemplates, cloudWorkspaces, savedTemplates, savedWorkspaces],
   );
@@ -308,6 +317,7 @@ export function useCloudLibraryActions({
   ) {
     const workspace = item as SerializedWorkspace | undefined;
     if (!workspace) return;
+    const hasLocalSources = workspaceHasLocalSources(workspace);
     const portableWorkspace = layoutWithLocalSourcesAsEmptyBoxes(workspace);
 
     const copy = {
@@ -342,7 +352,15 @@ export function useCloudLibraryActions({
       setSavedWorkspaces(nextSaved);
       writeWorkspaceStore(nextSaved, activeWorkspaceId);
     }
-    toast.success("Imported layout");
+    if (hasLocalSources) {
+      toast.warning("Imported layout without local files", {
+        description: localFilesOmittedDescription(),
+      });
+    } else {
+      toast.success(
+        target === "cloud" ? "Imported layout to Cloud" : "Imported layout",
+      );
+    }
   }
 
   async function importTemplateJson(

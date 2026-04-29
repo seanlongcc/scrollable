@@ -9,7 +9,13 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
       {children}
-      <Toaster richColors position="bottom-center" />
+      <Toaster
+        richColors
+        position="bottom-center"
+        visibleToasts={2}
+        expand={false}
+        gap={8}
+      />
     </ThemeProvider>
   );
 }
