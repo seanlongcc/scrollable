@@ -1,0 +1,94 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Next.js
+.next/
+frontend/.next/
+out/
+frontend/out/
+next-env.d.ts
+frontend/next-env.d.ts
+
+# Production/build outputs
+dist/
+build/
+coverage/
+test-results/
+frontend/test-results/
+playwright-report/
+frontend/playwright-report/
+*.tsbuildinfo
+frontend/*.tsbuildinfo
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime logs
+logs/
+*.log
+
+# Browser automation scratch profiles
+.browser-profile*/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+!.env.local.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!frontend/.env.local.example
+
+# Vercel
+.vercel/
+
+# Supabase local state
+.supabase/
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Local uploads and generated media
+uploads/
+tmp/
+temp/
+.tmp/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# AI/editor local state
+.claude/
+.cursor/
+.superpowers/
+
+# Serena local state
+.serena/
+
+# Beads / Dolt local files
+.dolt/
+*.db
+*.db?*
+*.db-journal
+*.db-wal
+*.db-shm
+.beads-credential-key

@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+frontend/.next/
+out/
+frontend/out/
+
+# Production/build outputs
+dist/
+build/
+coverage/
+test-results/
+frontend/test-results/
+playwright-report/
+frontend/playwright-report/
+*.tsbuildinfo
+frontend/*.tsbuildinfo
+
+# Local browser/test state
+.browser-profile*/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+!.env.local.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!frontend/.env.local.example
+
+# Vercel
+.vercel/
+
+# Supabase local state
+.supabase/
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Local uploads and generated media
+uploads/
+tmp/
+temp/
+.tmp/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# AI/editor local state
+.claude/
+.cursor/
+.superpowers/
+.serena/
+
+# Beads / Dolt local state
+.beads/
+.dolt/
+*.db
+*.db?*
+*.db-journal
+*.db-wal
+*.db-shm
+.beads-credential-key

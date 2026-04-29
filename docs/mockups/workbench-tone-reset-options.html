@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scrollable Workbench Tone Reset Options</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --booth: #070707;
+        --deck: #101010;
+        --raised: #181818;
+        --ink: #f4f4f4;
+        --muted: #a0a0a0;
+        --line: #2a2a2a;
+        --cyan: #8fefe1;
+        --cyan-ink: #062522;
+        --lime: #e5f7a1;
+        --steel: #9ea8aa;
+        --rose: #f43f5e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #050505;
+        color: var(--ink);
+        font-family:
+          Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont,
+          sans-serif;
+      }
+
+      main {
+        width: min(1440px, 100%);
+        margin: 0 auto;
+        padding: 28px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        color: var(--cyan);
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: clamp(28px, 4vw, 46px);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .intro {
+        display: grid;
+        max-width: 860px;
+        gap: 8px;
+        margin-bottom: 24px;
+      }
+
+      .intro p,
+      .body p {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .options {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .option {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--deck);
+      }
+
+      .shot {
+        position: relative;
+        aspect-ratio: 9 / 15;
+        overflow: hidden;
+        background: var(--booth);
+      }
+
+      .stage {
+        position: absolute;
+        inset: 12px 12px 86px;
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .cell {
+        position: relative;
+        display: grid;
+        place-items: center;
+        border: 1px dashed rgba(244, 244, 244, 0.14);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.012);
+      }
+
+      .cell.selected {
+        border-color: rgba(143, 239, 225, 0.64);
+        outline: 1px solid rgba(143, 239, 225, 0.26);
+        outline-offset: 2px;
+      }
+
+      .b .cell.structure {
+        border-color: rgba(229, 247, 161, 0.22);
+      }
+
+      .c .cell {
+        border-color: rgba(158, 168, 170, 0.2);
+      }
+
+      .add {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(143, 239, 225, 0.22);
+        border-radius: 999px;
+        background: rgba(16, 16, 16, 0.88);
+        padding: 0 14px;
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .add span {
+        display: grid;
+        width: 22px;
+        height: 22px;
+        place-items: center;
+        border-radius: 999px;
+        background: var(--cyan);
+        color: var(--cyan-ink);
+      }
+
+      .rail {
+        position: absolute;
+        right: 12px;
+        bottom: 126px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .tool {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border: 1px solid rgba(244, 244, 244, 0.12);
+        border-radius: 999px;
+        background: rgba(16, 16, 16, 0.94);
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .tool.primary {
+        border-color: transparent;
+        background: var(--cyan);
+        color: var(--cyan-ink);
+      }
+
+      .b .tool.structure {
+        border-color: rgba(229, 247, 161, 0.22);
+        color: var(--lime);
+      }
+
+      .c .tool.primary {
+        background: rgba(143, 239, 225, 0.14);
+        border-color: rgba(143, 239, 225, 0.44);
+        color: var(--cyan);
+      }
+
+      .bottom {
+        position: absolute;
+        inset-inline: 0;
+        bottom: 0;
+        display: grid;
+        height: 72px;
+        grid-template-columns: repeat(3, 1fr);
+        align-items: center;
+        border-top: 1px solid rgba(244, 244, 244, 0.08);
+        background: rgba(7, 7, 7, 0.96);
+        padding: 6px 14px 10px;
+      }
+
+      .nav {
+        display: grid;
+        min-height: 44px;
+        place-items: center;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .nav.active {
+        color: var(--cyan);
+      }
+
+      .b .nav.active {
+        color: var(--lime);
+      }
+
+      .c .nav.active {
+        color: var(--steel);
+      }
+
+      .body {
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+      }
+
+      .body h2 {
+        font-size: 16px;
+      }
+
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .tag {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 8px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      @media (max-width: 980px) {
+        .options {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="intro">
+        <h1>tone reset</h1>
+        <p>
+          C2 showed too much visible color. These options keep the Stage + Signal
+          Rail structure but reduce the palette so the workbench feels cleaner.
+        </p>
+      </section>
+
+      <section class="options" aria-label="Tone reset options">
+        <article class="option a">
+          <div class="shot">
+            <div class="stage">
+              <div class="cell selected"></div>
+              <div class="cell"><div class="add"><span>+</span>Add source</div></div>
+            </div>
+            <div class="rail">
+              <div class="tool primary">+</div>
+              <div class="tool">i</div>
+              <div class="tool">≡</div>
+            </div>
+            <div class="bottom">
+              <div class="nav active">N</div>
+              <div class="nav">Library</div>
+              <div class="nav">Account</div>
+            </div>
+          </div>
+          <div class="body">
+            <h2>A. Night Instrument</h2>
+            <p>
+              Cyan remains the only visible accent. Layers use shape, labels, and
+              hierarchy instead of extra color.
+            </p>
+            <div class="tags">
+              <span class="tag">cleanest</span>
+              <span class="tag">closest to current</span>
+              <span class="tag">lowest risk</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="option b">
+          <div class="shot">
+            <div class="stage">
+              <div class="cell selected"></div>
+              <div class="cell structure"><div class="add"><span>+</span>Add source</div></div>
+            </div>
+            <div class="rail">
+              <div class="tool primary">+</div>
+              <div class="tool structure">L</div>
+              <div class="tool">≡</div>
+            </div>
+            <div class="bottom">
+              <div class="nav active">N</div>
+              <div class="nav">Library</div>
+              <div class="nav">Account</div>
+            </div>
+          </div>
+          <div class="body">
+            <h2>B. Quiet Signal</h2>
+            <p>
+              Mostly Night Instrument, but lime appears as a small layer/layout
+              hint only. No broad lime buttons or panels.
+            </p>
+            <div class="tags">
+              <span class="tag">balanced</span>
+              <span class="tag">subtle identity</span>
+              <span class="tag">recommended</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="option c">
+          <div class="shot">
+            <div class="stage">
+              <div class="cell selected"></div>
+              <div class="cell"><div class="add"><span>+</span>Add source</div></div>
+            </div>
+            <div class="rail">
+              <div class="tool primary">+</div>
+              <div class="tool">i</div>
+              <div class="tool">≡</div>
+            </div>
+            <div class="bottom">
+              <div class="nav active">N</div>
+              <div class="nav">Library</div>
+              <div class="nav">Account</div>
+            </div>
+          </div>
+          <div class="body">
+            <h2>C. Monochrome Booth</h2>
+            <p>
+              Almost no saturated surfaces. Cyan becomes outline/glow only. Most
+              hierarchy comes from spacing, borders, and typography.
+            </p>
+            <div class="tags">
+              <span class="tag">quietest</span>
+              <span class="tag">premium</span>
+              <span class="tag">less distinctive</span>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
