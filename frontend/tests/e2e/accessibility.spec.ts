@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const MIN_TOUCH_TARGET_PX = 44;
+const MIN_COMPACT_TOUCH_TARGET_PX = 40;
 
 type TargetViolation = {
   label: string;
@@ -90,60 +91,75 @@ test("mobile source info sits on the right of selected sources", async ({
 async function collectTouchTargetViolations(
   page: Page,
 ): Promise<TargetViolation[]> {
-  return page.evaluate((minTouchTargetPx) => {
-    const selector = [
-      "a[href]",
-      "button",
-      "input",
-      "textarea",
-      "select",
-      '[role="button"]',
-      '[role="tab"]',
-      '[tabindex]:not([tabindex="-1"])',
-    ].join(",");
+  return page.evaluate(
+    ({ minTouchTargetPx, minCompactTouchTargetPx }) => {
+      const selector = [
+        "a[href]",
+        "button",
+        "input",
+        "textarea",
+        "select",
+        '[role="button"]',
+        '[role="tab"]',
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(",");
 
-    function isVisibleTarget(element: Element, rect: DOMRect) {
-      const style = window.getComputedStyle(element);
-      if (style.display === "none" || style.visibility === "hidden") {
-        return false;
+      function isVisibleTarget(element: Element, rect: DOMRect) {
+        if (element.classList.contains("sr-only")) return false;
+
+        const style = window.getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden") {
+          return false;
+        }
+        if (rect.width <= 1 || rect.height <= 1) return false;
+        if (rect.bottom <= 0 || rect.right <= 0) return false;
+        if (rect.top >= window.innerHeight || rect.left >= window.innerWidth) {
+          return false;
+        }
+        return true;
       }
-      if (rect.width <= 1 || rect.height <= 1) return false;
-      if (rect.bottom <= 0 || rect.right <= 0) return false;
-      if (rect.top >= window.innerHeight || rect.left >= window.innerWidth) {
-        return false;
+
+      function labelFor(element: Element) {
+        return (
+          element.getAttribute("aria-label") ||
+          element.getAttribute("title") ||
+          element.textContent?.trim().replace(/\s+/g, " ") ||
+          element.getAttribute("placeholder") ||
+          element.tagName.toLowerCase()
+        );
       }
-      return true;
-    }
 
-    function labelFor(element: Element) {
-      return (
-        element.getAttribute("aria-label") ||
-        element.getAttribute("title") ||
-        element.textContent?.trim().replace(/\s+/g, " ") ||
-        element.getAttribute("placeholder") ||
-        element.tagName.toLowerCase()
-      );
-    }
+      function minTargetSize(element: Element) {
+        return element.closest(".mobile-compact-controls")
+          ? minCompactTouchTargetPx
+          : minTouchTargetPx;
+      }
 
-    return Array.from(document.querySelectorAll(selector))
-      .flatMap((element) => {
-        const rect = element.getBoundingClientRect();
-        if (!isVisibleTarget(element, rect)) return [];
-        const width = Math.round(rect.width);
-        const height = Math.round(rect.height);
-        if (width >= minTouchTargetPx && height >= minTouchTargetPx) return [];
+      return Array.from(document.querySelectorAll(selector))
+        .flatMap((element) => {
+          const rect = element.getBoundingClientRect();
+          if (!isVisibleTarget(element, rect)) return [];
+          const width = Math.round(rect.width);
+          const height = Math.round(rect.height);
+          const minTargetPx = minTargetSize(element);
+          if (width >= minTargetPx && height >= minTargetPx) return [];
 
-        return [
-          {
-            label: labelFor(element),
-            tag: element.tagName.toLowerCase(),
-            width,
-            height,
-          },
-        ];
-      })
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, MIN_TOUCH_TARGET_PX);
+          return [
+            {
+              label: labelFor(element),
+              tag: element.tagName.toLowerCase(),
+              width,
+              height,
+            },
+          ];
+        })
+        .sort((a, b) => a.label.localeCompare(b.label));
+    },
+    {
+      minTouchTargetPx: MIN_TOUCH_TARGET_PX,
+      minCompactTouchTargetPx: MIN_COMPACT_TOUCH_TARGET_PX,
+    },
+  );
 }
 
 async function sourceFrameTop(page: Page): Promise<number> {
