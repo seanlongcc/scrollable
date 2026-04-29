@@ -162,7 +162,7 @@ export function FeedViewPane({
 
   return (
     <article
-      className="group/source relative grid size-full min-h-0 overflow-hidden rounded-2xl border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)]"
+      className="group/source relative grid size-full min-h-0 overflow-hidden rounded-none border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)] md:rounded-2xl"
       onWheel={handleWheel}
     >
       {showProgress ? (
@@ -207,11 +207,11 @@ export function FeedViewPane({
       {!hideUi && forceInfoVisible ? (
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-wrap items-start justify-end gap-2 p-2 md:justify-between",
+            "pointer-events-none absolute top-2 right-2 left-20 z-20 flex items-start md:right-20 md:left-2",
             sourceChromeClass,
           )}
         >
-          <div className="ml-auto min-w-32 max-w-[calc(100%-3rem)] flex-none rounded-xl border border-border/60 bg-background/78 px-2 py-1.5 backdrop-blur md:ml-0 md:max-w-full md:flex-1">
+          <div className="min-w-0 flex-1 rounded-xl border border-border/60 bg-background/78 px-2 py-1.5 backdrop-blur">
             <div className="truncate text-xs font-medium" title={title}>
               {title}
             </div>
@@ -320,15 +320,22 @@ export function FeedViewPane({
       {!hideUi && forceInfoVisible ? (
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 z-20 p-2",
+            "pointer-events-none absolute inset-x-0 z-20",
             isVideo
-              ? "bottom-14"
-              : "bottom-0 bg-gradient-to-t from-background via-background/70 to-transparent pt-16",
+              ? "bottom-14 px-2 pb-2"
+              : "bottom-0 bg-gradient-to-t from-background via-background/70 to-transparent px-0 pt-16 pb-0",
             sourceChromeClass,
           )}
         >
           {!compact && activeItem ? (
-            <div className="pointer-events-auto mb-2 rounded-xl border border-border/60 bg-background/78 p-2 backdrop-blur">
+            <div
+              className={cn(
+                "pointer-events-auto border border-border/60 bg-background/78 p-2 backdrop-blur",
+                isVideo
+                  ? "mb-2 rounded-xl"
+                  : "rounded-t-xl rounded-b-none border-x-0 border-b-0",
+              )}
+            >
               <div className="line-clamp-2 text-xs font-medium">
                 {activeItem.title}
               </div>

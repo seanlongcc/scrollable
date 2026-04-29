@@ -1,4 +1,12 @@
-import { Database, FolderOpen, LogOut, Save, Trash2, X } from "lucide-react";
+import {
+  Database,
+  FolderOpen,
+  LogOut,
+  RefreshCw,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 
 import { SignInPanel } from "@/components/auth/sign-in-panel";
@@ -717,33 +725,41 @@ export function AccountDialog({
             View account status and sign-in actions.
           </DialogDescription>
         </DialogHeader>
-        <div className={cn(metadataBlockClass, "grid gap-2")}>
-          <p className={sectionLabelClass}>Local media cache</p>
+        <div className="grid gap-1.5 rounded-2xl border border-border/70 bg-background/65 px-2.5 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className={sectionLabelClass}>Local media cache</p>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                title="Refresh local cache status"
+                aria-label="Refresh local cache status"
+                onClick={() => void onRefreshLocalCacheStatus()}
+                className="size-11 min-h-11 min-w-11 text-muted-foreground md:size-8 md:min-h-0 md:min-w-0"
+              >
+                <RefreshCw />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                title="Clear local media cache"
+                aria-label="Clear local media cache"
+                onClick={() => void onClearLocalCache()}
+                className="size-11 min-h-11 min-w-11 text-destructive hover:bg-destructive/15 hover:text-destructive md:size-8 md:min-h-0 md:min-w-0"
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          </div>
           {localCacheStatus ? (
-            <LocalCacheStatusBlock status={localCacheStatus} />
+            <LocalCacheStatusLine status={localCacheStatus} />
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Local cache usage unavailable
             </p>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void onRefreshLocalCacheStatus()}
-            >
-              <Database />
-              Refresh
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => void onClearLocalCache()}
-            >
-              <Trash2 />
-              Clear
-            </Button>
-          </div>
         </div>
         {account.status === "signed-in" ? (
           <div className="grid gap-3">
@@ -780,6 +796,21 @@ function LocalCacheStatusBlock({
       <div>{status.label}</div>
       {status.freeLabel ? <div>{status.freeLabel}</div> : null}
     </div>
+  );
+}
+
+function LocalCacheStatusLine({
+  status,
+}: {
+  status: LocalFileCacheStorageStatus;
+}) {
+  return (
+    <p className="font-mono text-[11px] leading-4 text-muted-foreground">
+      <span>{status.label}</span>
+      {status.freeLabel ? (
+        <span className="text-muted-foreground/80"> · {status.freeLabel}</span>
+      ) : null}
+    </p>
   );
 }
 

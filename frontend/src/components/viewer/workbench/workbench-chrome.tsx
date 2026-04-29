@@ -226,7 +226,7 @@ export function WorkbenchChrome({
           onSelectedMove={onSelectedMove}
           onSelectedTogglePaused={onSelectedTogglePaused}
           onSelectedRestart={onSelectedRestart}
-          className="fixed bottom-16 left-1/2 z-40 -translate-x-1/2 md:hidden"
+          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2 md:hidden"
         />
       ) : null}
 
@@ -335,7 +335,7 @@ export function WorkbenchChrome({
 
       <nav
         aria-label="Mobile bottom navigation"
-        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 items-center border-t border-border/60 bg-background/95 px-1 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(0,0,0,0.58)] backdrop-blur md:hidden"
+        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 items-center border-t border-border/60 bg-background/95 px-1 pt-0 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(0,0,0,0.58)] backdrop-blur md:hidden"
       >
         <Button
           type="button"

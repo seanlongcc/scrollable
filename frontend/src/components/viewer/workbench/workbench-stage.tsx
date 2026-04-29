@@ -143,13 +143,15 @@ export function WorkbenchStage({
         "grid min-h-0 grid-rows-[minmax(0,1fr)]",
         isUiHidden
           ? "p-0"
-          : "px-1.5 pt-1.5 pb-[4.5rem] md:pt-16 md:pr-4 md:pb-4 md:pl-[20.5rem]",
+          : "px-0 pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pt-16 md:pr-4 md:pb-4 md:pl-[20.5rem]",
       )}
     >
       <div
         className={cn(
           "h-full min-h-0 overflow-auto border-border/70 bg-background bg-[linear-gradient(rgba(255,255,255,.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.01)_1px,transparent_1px)]",
-          isUiHidden ? "rounded-none border-0 p-0" : "rounded-2xl border p-0.5",
+          isUiHidden
+            ? "rounded-none border-0 p-0"
+            : "rounded-none border-0 p-0 md:rounded-2xl md:border md:p-0.5",
           layoutMode === "free" && "bg-[size:6.25%_6.25%]",
         )}
       >

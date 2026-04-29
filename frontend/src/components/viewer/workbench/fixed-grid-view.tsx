@@ -88,7 +88,7 @@ export function FixedGridView({
         "grid [grid-template-columns:repeat(var(--mobile-grid-columns),minmax(0,1fr))] [grid-template-rows:repeat(var(--mobile-grid-rows),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--desktop-grid-columns),minmax(0,1fr))] md:[grid-template-rows:repeat(var(--desktop-grid-rows),minmax(0,1fr))]",
         hideUi
           ? "h-dvh min-h-0 min-w-0 gap-0"
-          : "h-full min-h-0 min-w-0 gap-0.5 md:min-h-[360px] md:min-w-[720px] md:gap-0.5",
+          : "h-full min-h-0 min-w-0 gap-0 md:min-h-[360px] md:min-w-[720px] md:gap-0.5",
       )}
       style={gridStyle}
       onClick={(event) => {
@@ -105,7 +105,7 @@ export function FixedGridView({
             key={slot}
             data-testid={`${cellTestIdPrefix}-${slot}`}
             className={cn(
-              "min-h-0 rounded-2xl outline outline-1 outline-offset-0 outline-transparent transition",
+              "min-h-0 rounded-none outline outline-1 outline-offset-0 outline-transparent transition md:rounded-2xl",
               !hideUi &&
                 session?.id === selectedId &&
                 "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/15",
