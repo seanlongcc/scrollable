@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(15);
 
 select has_table('public', 'feed_configs', 'feed_configs exists');
 select has_table('public', 'collections', 'collections exists');
@@ -90,6 +90,23 @@ select is_empty(
          and i.indexname = e.index_name
      ) $$,
   'RLS and share lookup columns have supporting indexes'
+);
+
+select is_empty(
+  $$ with expected_functions(function_name) as (
+       values
+         ('private.reject_viewer_session_local_sources()'),
+         ('private.viewer_session_has_local_sources(jsonb)'),
+         ('private.enforce_cloud_metadata_quota()')
+     )
+     select 1
+     from expected_functions e
+     where not has_function_privilege(
+       'authenticated',
+       e.function_name,
+       'EXECUTE'
+     ) $$,
+  'authenticated can execute private trigger helpers for cloud saves'
 );
 
 select * from finish();
