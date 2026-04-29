@@ -49,7 +49,10 @@ export type WorkspaceTab = {
   name: string;
 };
 
-export type RuntimeWorkspace = Omit<SerializedWorkspace, "sessions"> & {
+export type RuntimeWorkspace = Omit<
+  SerializedWorkspace,
+  "sessions" | "templateSlots"
+> & {
   sessions: WorkspaceSessionInput[];
   templateSlots: WorkspaceTemplateSlot[];
 };

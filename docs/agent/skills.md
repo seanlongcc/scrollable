@@ -70,6 +70,13 @@ When a skill is available and its trigger matches the task, read its `SKILL.md` 
 | `vercel:bootstrap`          | Bootstrapping repos that depend on Vercel-linked resources.                     |
 | `vercel:investigation-mode` | Orchestrated debugging for stuck or broken Vercel/app issues.                   |
 
+## Supabase And Database Skills
+
+| Skill                              | Use                                                                                                                                     |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase`                         | Any Supabase task: Auth, Database, CLI, MCP, migrations, RLS, policies, Data API access, `@supabase/ssr`, or `supabase-js` integration. |
+| `supabase-postgres-best-practices` | Supabase/Postgres schema, SQL, indexes, query plans, RLS performance, database security, and migration review.                          |
+
 ## AI, Auth, Content, And Integration Skills
 
 | Skill                              | Use                                                                                               |

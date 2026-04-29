@@ -31,7 +31,7 @@ export function WorkbenchHeader({
 }) {
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-3 md:px-4">
-      <div className="pointer-events-auto hidden w-full grid-cols-[minmax(19rem,30vw)_minmax(0,40vw)_minmax(19rem,30vw)] items-center gap-7 md:grid">
+      <div className="pointer-events-auto hidden w-full grid-cols-[max-content_minmax(0,1fr)] items-center gap-3 md:grid xl:grid-cols-[minmax(19rem,30vw)_minmax(0,40vw)_minmax(19rem,30vw)] xl:gap-7">
         <SiteLogo className="h-auto shrink-0 px-0 text-[2.45rem] leading-none" />
         <WorkspaceTabs
           tabs={workspaceTabs}
@@ -47,7 +47,7 @@ export function WorkbenchHeader({
           onCloseWorkspaceTab={onCloseWorkspaceTab}
           onCreateWorkspaceTab={onCreateWorkspaceTab}
         />
-        <div aria-hidden="true" />
+        <div aria-hidden="true" className="hidden xl:block" />
       </div>
     </header>
   );

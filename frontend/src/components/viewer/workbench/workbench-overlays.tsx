@@ -16,8 +16,14 @@ import {
   LocalCacheStorageFullDialog,
   LayoutDialog,
   SaveLayoutDialog,
+  ShareLinkDialog,
 } from "./dialogs";
 import { EditSourceDialog, SourceDialog } from "./source-dialogs";
+import type {
+  CloudShareTarget,
+  CloudUsageState,
+  SaveTarget,
+} from "./cloud-save-state";
 import type {
   AccountState,
   FeedSession,
@@ -70,11 +76,22 @@ export function WorkbenchOverlays({
   isLayoutsOpen,
   setIsLayoutsOpen,
   savedWorkspaces,
+  cloudWorkspaces,
   savedTemplates,
+  cloudTemplates,
+  libraryStorageTarget,
+  setLibraryStorageTarget,
   openSavedWorkspaces,
   openSavedTemplates,
   deleteSavedWorkspace,
   deleteSavedTemplate,
+  uploadWorkspaceToCloud,
+  uploadTemplateToCloud,
+  shareCloudItem,
+  regenerateCloudShareLink,
+  disableCloudShareLink,
+  exportSavedJson,
+  importSavedJson,
   workspaceTabs,
   openWorkspaceStats,
   activeWorkspaceId,
@@ -87,11 +104,16 @@ export function WorkbenchOverlays({
   saveName,
   layoutMode,
   saveKind,
+  saveTarget,
   saveError,
   localCacheStatus,
+  hasLocalSources,
+  cloudUsage,
+  cloudBlockReason,
   setSaveName,
   setSaveError,
   setSaveKind,
+  setSaveTarget,
   saveLayoutAs,
   saveTemplateAs,
   isClearOpen,
@@ -105,6 +127,8 @@ export function WorkbenchOverlays({
   isAccountOpen,
   setIsAccountOpen,
   account,
+  cloudShareTarget,
+  setCloudShareTarget,
   signOut,
   onRefreshLocalCacheStatus,
 }: {
@@ -145,11 +169,26 @@ export function WorkbenchOverlays({
   isLayoutsOpen: boolean;
   setIsLayoutsOpen: Dispatch<SetStateAction<boolean>>;
   savedWorkspaces: Record<string, SerializedWorkspace>;
+  cloudWorkspaces: Record<string, SerializedWorkspace>;
   savedTemplates: Record<string, SerializedWorkspaceTemplate>;
+  cloudTemplates: Record<string, SerializedWorkspaceTemplate>;
+  libraryStorageTarget: SaveTarget;
+  setLibraryStorageTarget: Dispatch<SetStateAction<SaveTarget>>;
   openSavedWorkspaces: (ids: string[]) => void;
   openSavedTemplates: (ids: string[]) => void;
-  deleteSavedWorkspace: (id: string) => void;
-  deleteSavedTemplate: (id: string) => void;
+  deleteSavedWorkspace: (id: string, target?: SaveTarget) => void;
+  deleteSavedTemplate: (id: string, target?: SaveTarget) => void;
+  uploadWorkspaceToCloud: (id: string) => void;
+  uploadTemplateToCloud: (id: string) => void;
+  shareCloudItem: (target: CloudShareTarget) => void;
+  regenerateCloudShareLink: (target: CloudShareTarget) => void;
+  disableCloudShareLink: (target: CloudShareTarget) => void;
+  exportSavedJson: (
+    kind: "layout" | "template",
+    id: string,
+    target: SaveTarget,
+  ) => void;
+  importSavedJson: (target: SaveTarget) => void;
   workspaceTabs: WorkspaceTab[];
   openWorkspaceStats: Record<
     string,
@@ -165,11 +204,16 @@ export function WorkbenchOverlays({
   saveName: string;
   layoutMode: LayoutMode;
   saveKind: SaveKind;
+  saveTarget: SaveTarget;
   saveError: string | null;
   localCacheStatus: LocalFileCacheStorageStatus | null;
+  hasLocalSources: boolean;
+  cloudUsage: CloudUsageState;
+  cloudBlockReason: string | null;
   setSaveName: Dispatch<SetStateAction<string>>;
   setSaveError: Dispatch<SetStateAction<string | null>>;
   setSaveKind: Dispatch<SetStateAction<SaveKind>>;
+  setSaveTarget: Dispatch<SetStateAction<SaveTarget>>;
   saveLayoutAs: () => void;
   saveTemplateAs: () => void;
   isClearOpen: boolean;
@@ -189,6 +233,8 @@ export function WorkbenchOverlays({
   isAccountOpen: boolean;
   setIsAccountOpen: Dispatch<SetStateAction<boolean>>;
   account: AccountState;
+  cloudShareTarget: CloudShareTarget | null;
+  setCloudShareTarget: Dispatch<SetStateAction<CloudShareTarget | null>>;
   signOut: () => void;
   onRefreshLocalCacheStatus: () => void | Promise<void>;
 }) {
@@ -242,12 +288,26 @@ export function WorkbenchOverlays({
         <LayoutDialog
           open={isLayoutsOpen}
           onOpenChange={setIsLayoutsOpen}
-          workspaces={Object.values(savedWorkspaces)}
-          templates={Object.values(savedTemplates)}
+          localWorkspaces={Object.values(savedWorkspaces)}
+          cloudWorkspaces={Object.values(cloudWorkspaces)}
+          localTemplates={Object.values(savedTemplates)}
+          cloudTemplates={Object.values(cloudTemplates)}
+          storageTarget={libraryStorageTarget}
+          onStorageTargetChange={setLibraryStorageTarget}
           onOpenWorkspaces={openSavedWorkspaces}
           onOpenTemplates={openSavedTemplates}
           onDeleteWorkspace={deleteSavedWorkspace}
           onDeleteTemplate={deleteSavedTemplate}
+          onUploadWorkspaceToCloud={uploadWorkspaceToCloud}
+          onUploadTemplateToCloud={uploadTemplateToCloud}
+          onShareCloudItem={(kind, id) => {
+            const item =
+              kind === "layout" ? cloudWorkspaces[id] : cloudTemplates[id];
+            if (!item) return;
+            shareCloudItem({ kind, id, name: item.name });
+          }}
+          onExportJson={exportSavedJson}
+          onImportJson={importSavedJson}
           workspaceTabs={workspaceTabs}
           openWorkspaceStats={openWorkspaceStats}
           activeWorkspaceId={activeWorkspaceId}
@@ -263,14 +323,23 @@ export function WorkbenchOverlays({
         name={saveName}
         layoutMode={layoutMode}
         saveKind={saveKind}
+        saveTarget={saveTarget}
         error={saveError}
         localCacheStatus={localCacheStatus}
+        hasLocalSources={hasLocalSources}
+        account={account}
+        cloudUsage={cloudUsage}
+        cloudBlockReason={cloudBlockReason}
         onNameChange={(value) => {
           setSaveName(value);
           setSaveError(null);
         }}
         onSaveKindChange={(value) => {
           setSaveKind(value);
+          setSaveError(null);
+        }}
+        onSaveTargetChange={(value) => {
+          setSaveTarget(value);
           setSaveError(null);
         }}
         onSaveLayout={saveLayoutAs}
@@ -299,9 +368,18 @@ export function WorkbenchOverlays({
         onOpenChange={setIsAccountOpen}
         account={account}
         localCacheStatus={localCacheStatus}
+        cloudUsage={cloudUsage}
         onRefreshLocalCacheStatus={onRefreshLocalCacheStatus}
         onClearLocalCache={onClearLocalCache}
         onSignOut={signOut}
+      />
+      <ShareLinkDialog
+        target={cloudShareTarget}
+        onOpenChange={(open) => {
+          if (!open) setCloudShareTarget(null);
+        }}
+        onRegenerate={regenerateCloudShareLink}
+        onDisable={disableCloudShareLink}
       />
     </>
   );

@@ -227,4 +227,4 @@ Use the AGENTS.md maintenance subagent after substantial setup or workflow chang
 - Use MCP/tool servers according to the task. Prefer official or local project sources for current facts. See `docs/agent/tools.md`.
 - Use `impeccable` for frontend interface design, redesign, critique, audit, polish, and UI quality work.
 - When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task. See `docs/agent/skills.md`.
-- No Supabase-specific MCP server is currently assumed. If one becomes available, use it for schema inspection, migrations, RLS checks, and auth configuration. Otherwise use Supabase CLI, local migrations, and official Supabase documentation.
+- Supabase MCP is configured for project `ppxkvapcmblfkhregiwb`. Use it for schema inspection, migrations, RLS checks, and auth configuration when the current agent session exposes it; otherwise use Supabase CLI, local migrations, and official Supabase documentation.

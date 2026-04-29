@@ -54,6 +54,7 @@ export type WorkspaceSessionInput = {
   id: string;
   title: string;
   layerId?: string;
+  templateSlotId?: string;
   timerMode: TimerMode;
   timerSeconds: number;
   timerActiveIndex?: number;
@@ -80,6 +81,7 @@ export type SerializedWorkspace = {
   fixedGrid: FixedGrid;
   globalTimerSeconds: number;
   sessions: SerializedWorkspaceSession[];
+  templateSlots?: Array<WorkspaceTemplateSlot & { layerId: string }>;
   updatedAt: string;
 };
 
@@ -133,6 +135,7 @@ export function serializeWorkspace(workspace: {
   globalTimerSeconds?: number;
   layers?: WorkspaceLayer[];
   activeLayerId?: string;
+  templateSlots?: WorkspaceTemplateSlot[];
   sessions: WorkspaceSessionInput[];
 }): SerializedWorkspace {
   const layers = normalizeWorkspaceLayers(workspace.layers);
@@ -156,6 +159,7 @@ export function serializeWorkspace(workspace: {
         id,
         title,
         layerId,
+        templateSlotId,
         timerMode,
         timerSeconds,
         timerActiveIndex,
@@ -166,6 +170,7 @@ export function serializeWorkspace(workspace: {
         id,
         title,
         layerId: layerId ?? activeLayerId,
+        templateSlotId,
         timerMode,
         timerSeconds,
         timerActiveIndex,
@@ -174,6 +179,14 @@ export function serializeWorkspace(workspace: {
         sourceConfig,
       }),
     ),
+    ...(workspace.templateSlots?.length
+      ? {
+          templateSlots: normalizeWorkspaceTemplateSlots(
+            workspace.templateSlots,
+            activeLayerId,
+          ),
+        }
+      : {}),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -195,18 +208,17 @@ export function serializeWorkspaceTemplate(workspace: {
     ? workspace.activeLayerId!
     : layers[0].id;
 
-  const slots = [
-    ...(workspace.templateSlots ?? []),
-    ...(workspace.sessions ?? []).map((session) => ({
-      id: session.id,
-      layerId: session.layerId,
-      freeRect: session.freeRect,
-    })),
-  ].map((slot) => ({
-    id: slot.id,
-    layerId: slot.layerId ?? activeLayerId,
-    freeRect: createFreeRect(slot.freeRect),
-  }));
+  const slots = normalizeWorkspaceTemplateSlots(
+    [
+      ...(workspace.templateSlots ?? []),
+      ...(workspace.sessions ?? []).map((session) => ({
+        id: session.id,
+        layerId: session.layerId,
+        freeRect: session.freeRect,
+      })),
+    ],
+    activeLayerId,
+  );
 
   return {
     id: workspace.id,
@@ -218,6 +230,17 @@ export function serializeWorkspaceTemplate(workspace: {
     slots,
     updatedAt: new Date().toISOString(),
   };
+}
+
+export function normalizeWorkspaceTemplateSlots(
+  slots: WorkspaceTemplateSlot[] | undefined,
+  activeLayerId: string,
+): Array<WorkspaceTemplateSlot & { layerId: string }> {
+  return (slots ?? []).map((slot) => ({
+    id: slot.id,
+    layerId: slot.layerId ?? activeLayerId,
+    freeRect: createFreeRect(slot.freeRect),
+  }));
 }
 
 export function normalizeWorkspaceLayers(layers?: WorkspaceLayer[]) {

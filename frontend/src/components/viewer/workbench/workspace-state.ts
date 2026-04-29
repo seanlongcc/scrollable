@@ -199,6 +199,7 @@ export function createCurrentWorkspaceState({
       id: session.id,
       title: session.title,
       layerId: session.layerId,
+      templateSlotId: session.templateSlotId,
       timerMode: normalizeTimerMode(session.timerMode),
       timerSeconds: session.timer.durationSeconds,
       timerActiveIndex: session.timer.activeIndex,
@@ -319,7 +320,8 @@ export function workspaceSnapshotToState(
     layoutMode: snapshot.layoutMode,
     fixedGrid: snapshot.fixedGrid,
     globalSeconds: resolveWorkspaceGlobalSeconds(snapshot),
-    templateSlots: "templateSlots" in snapshot ? snapshot.templateSlots : [],
+    templateSlots:
+      "templateSlots" in snapshot ? (snapshot.templateSlots ?? []) : [],
     sessions,
     selectedId: null,
   };

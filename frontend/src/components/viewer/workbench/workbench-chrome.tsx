@@ -1,6 +1,7 @@
 import {
   Clock3,
   Copy,
+  Download,
   EyeOff,
   FolderOpen,
   Grid2X2,
@@ -20,6 +21,7 @@ import {
   Trash2,
   UnfoldHorizontal,
   UnfoldVertical,
+  Upload,
   UserCircle,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -78,6 +80,8 @@ export function WorkbenchChrome({
   onAddSource,
   onOpenLibrary,
   onOpenSaveDialog,
+  onImportJson,
+  onExportCurrentJson,
   onOpenClearDialog,
   onOpenAccount,
   onDesktopWorkbenchCollapsedChange,
@@ -120,6 +124,8 @@ export function WorkbenchChrome({
   onAddSource: () => void;
   onOpenLibrary: () => void;
   onOpenSaveDialog: () => void;
+  onImportJson: () => void;
+  onExportCurrentJson: () => void;
   onOpenClearDialog: () => void;
   onOpenAccount: () => void;
   onDesktopWorkbenchCollapsedChange: (collapsed: boolean) => void;
@@ -237,6 +243,8 @@ export function WorkbenchChrome({
               onHideUi={onHideUi}
               onAddSource={onAddSource}
               onOpenSaveDialog={onOpenSaveDialog}
+              onImportJson={onImportJson}
+              onExportCurrentJson={onExportCurrentJson}
               onOpenClearDialog={onOpenClearDialog}
               onSelectLayer={onSelectLayer}
               onFreeRectChange={onFreeRectChange}
@@ -440,6 +448,8 @@ export function WorkbenchChrome({
             onHideUi={onHideUi}
             onAddSource={onAddSource}
             onOpenSaveDialog={onOpenSaveDialog}
+            onImportJson={onImportJson}
+            onExportCurrentJson={onExportCurrentJson}
             onOpenClearDialog={onOpenClearDialog}
             onSelectLayer={onSelectLayer}
             onFreeRectChange={onFreeRectChange}
@@ -483,6 +493,8 @@ function WorkbenchPanelContent({
   onHideUi,
   onAddSource,
   onOpenSaveDialog,
+  onImportJson,
+  onExportCurrentJson,
   onOpenClearDialog,
   onSelectLayer,
   onFreeRectChange,
@@ -519,6 +531,8 @@ function WorkbenchPanelContent({
   onHideUi: () => void;
   onAddSource: () => void;
   onOpenSaveDialog: () => void;
+  onImportJson: () => void;
+  onExportCurrentJson: () => void;
   onOpenClearDialog: () => void;
   onSelectLayer: (id: string) => void;
   onFreeRectChange: (id: string, patch: Partial<FreeRect>) => void;
@@ -714,6 +728,14 @@ function WorkbenchPanelContent({
           <Button type="button" variant="outline" onClick={onOpenSaveDialog}>
             <Save />
             Save layout
+          </Button>
+          <Button type="button" variant="outline" onClick={onImportJson}>
+            <Upload />
+            Import JSON
+          </Button>
+          <Button type="button" variant="outline" onClick={onExportCurrentJson}>
+            <Download />
+            Export JSON
           </Button>
           {!isClearDisabled ? (
             <Button

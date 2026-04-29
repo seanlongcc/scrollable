@@ -3,8 +3,24 @@ import { toast } from "sonner";
 
 import { pruneLocalFileCacheSets } from "@/lib/local-uploads/file-cache";
 import type { FixedGrid } from "@/lib/viewer/layout";
+import {
+  serializeWorkspace,
+  serializeWorkspaceTemplate,
+} from "@/lib/viewer/workspaces";
 import { hasDuplicateLayoutName, limitLayoutName } from "./helpers";
+import {
+  cloudLibraryUsage,
+  layoutWithLocalSourcesAsEmptyBoxes,
+  workspaceHasLocalSources,
+  type CloudUsageState,
+  type SaveTarget,
+} from "./cloud-save-state";
+import {
+  downloadScrollableJson,
+  localFilesOmittedDescription,
+} from "./json-export-actions";
 import type {
+  AccountState,
   FeedSession,
   LayoutMode,
   RuntimeWorkspace,
@@ -41,8 +57,9 @@ import {
   validateTemplateSaveName,
 } from "./workspace-save-state";
 import {
-  syncViewerSessionsToAccount,
-  syncViewerTemplatesToAccount,
+  deleteViewerCloudItem,
+  upsertViewerSessionToAccount,
+  upsertViewerTemplateToAccount,
 } from "./workspace-sync-actions";
 
 type WorkspaceHandlersInput = {
@@ -53,6 +70,11 @@ type WorkspaceHandlersInput = {
   workspaceStates: Record<string, RuntimeWorkspace>;
   savedWorkspaces: Record<string, SerializedWorkspace>;
   savedTemplates: Record<string, SerializedWorkspaceTemplate>;
+  cloudWorkspaces: Record<string, SerializedWorkspace>;
+  cloudTemplates: Record<string, SerializedWorkspaceTemplate>;
+  saveTarget: SaveTarget;
+  libraryStorageTarget: SaveTarget;
+  account: AccountState;
   editingWorkspaceId: string | null;
   editingWorkspaceName: string;
   layers: WorkspaceLayer[];
@@ -80,6 +102,13 @@ type WorkspaceHandlersInput = {
   setSavedTemplates: Dispatch<
     SetStateAction<Record<string, SerializedWorkspaceTemplate>>
   >;
+  setCloudWorkspaces: Dispatch<
+    SetStateAction<Record<string, SerializedWorkspace>>
+  >;
+  setCloudTemplates: Dispatch<
+    SetStateAction<Record<string, SerializedWorkspaceTemplate>>
+  >;
+  setCloudUsage: Dispatch<SetStateAction<CloudUsageState>>;
   setActiveWorkspaceId: Dispatch<SetStateAction<string>>;
   setEditingWorkspaceId: Dispatch<SetStateAction<string | null>>;
   setEditingWorkspaceName: Dispatch<SetStateAction<string>>;
@@ -104,6 +133,11 @@ export function useWorkspaceHandlers({
   workspaceStates,
   savedWorkspaces,
   savedTemplates,
+  cloudWorkspaces,
+  cloudTemplates,
+  saveTarget,
+  libraryStorageTarget,
+  account,
   editingWorkspaceId,
   editingWorkspaceName,
   layers,
@@ -125,6 +159,9 @@ export function useWorkspaceHandlers({
   setWorkspaceStates,
   setSavedWorkspaces,
   setSavedTemplates,
+  setCloudWorkspaces,
+  setCloudTemplates,
+  setCloudUsage,
   setActiveWorkspaceId,
   setEditingWorkspaceId,
   setEditingWorkspaceName,
@@ -149,14 +186,57 @@ export function useWorkspaceHandlers({
   }
 
   async function saveLayoutAs() {
+    const targetWorkspaces =
+      saveTarget === "cloud" ? cloudWorkspaces : savedWorkspaces;
     const validation = validateLayoutSaveName({
       name: saveName,
       activeWorkspaceId,
       workspaceTabs,
-      savedWorkspaces,
+      savedWorkspaces: targetWorkspaces,
     });
     if (!validation.ok) {
       setSaveError(validation.error);
+      return;
+    }
+
+    if (saveTarget === "cloud") {
+      if (account.status !== "signed-in") {
+        setSaveError("Sign in to save to Cloud.");
+        return;
+      }
+
+      const current = currentWorkspaceState(validation.name);
+      const serialized = serializeWorkspace(current);
+      const hasLocalSources = workspaceHasLocalSources(serialized);
+      const snapshot = layoutWithLocalSourcesAsEmptyBoxes(serialized);
+
+      const result = await upsertViewerSessionToAccount({
+        workspace: snapshot,
+      });
+      if (result.status === "error") {
+        setSaveError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      if (result.status === "skipped") {
+        setSaveError("Sign in to save to Cloud.");
+        return;
+      }
+
+      const nextCloudWorkspaces = {
+        ...cloudWorkspaces,
+        [snapshot.id]: snapshot,
+      };
+      setCloudWorkspaces(nextCloudWorkspaces);
+      updateCloudUsage(nextCloudWorkspaces, cloudTemplates);
+      if (hasLocalSources) {
+        toast.warning("Saved to Cloud without local files", {
+          description: localFilesOmittedDescription(),
+        });
+      } else {
+        toast.success("Layout saved to Cloud");
+      }
+      setIsSaveOpen(false);
       return;
     }
 
@@ -165,26 +245,11 @@ export function useWorkspaceHandlers({
       activeWorkspaceId,
       name: validation.name,
     });
-    const { nextSaved, store } = persistCurrentWorkspace(
-      validation.name,
-      nextTabs,
-    );
-    const sync = await syncViewerSessionsToAccount({
-      workspaces: store.workspaces,
-    });
-
-    if (sync.status === "error") toast.error(sync.error);
+    const { nextSaved } = persistCurrentWorkspace(validation.name, nextTabs);
 
     const cacheStatus = await getLocalCacheStatusMessage();
     toast.success(
-      [
-        sync.status === "synced"
-          ? "Layout saved locally and to account"
-          : "Layout saved locally",
-        cacheStatus,
-      ]
-        .filter(Boolean)
-        .join(" · "),
+      ["Layout saved locally", cacheStatus].filter(Boolean).join(" · "),
     );
     void pruneLocalFileCacheSets(
       localCacheSetIdsFromWorkspacesAndSessions(nextSaved, sessions),
@@ -193,30 +258,77 @@ export function useWorkspaceHandlers({
   }
 
   async function saveTemplateAs() {
+    const targetTemplates =
+      saveTarget === "cloud" ? cloudTemplates : savedTemplates;
     const validation = validateTemplateSaveName({
       name: saveName,
       activeWorkspaceId,
       layoutMode,
-      savedTemplates,
+      savedTemplates: targetTemplates,
     });
     if (!validation.ok) {
       setSaveError(validation.error);
       return;
     }
 
-    const { store } = persistCurrentTemplate(validation.name);
-    const sync = await syncViewerTemplatesToAccount({
-      templates: store.templates,
-    });
+    if (saveTarget === "cloud") {
+      if (account.status !== "signed-in") {
+        setSaveError("Sign in to save to Cloud.");
+        return;
+      }
 
-    if (sync.status === "error") toast.error(sync.error);
+      const current = currentWorkspaceState(validation.name);
+      const snapshot = serializeWorkspaceTemplate({
+        ...current,
+        templateSlots,
+      });
+      const result = await upsertViewerTemplateToAccount({
+        template: snapshot,
+      });
+      if (result.status === "error") {
+        setSaveError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      if (result.status === "skipped") {
+        setSaveError("Sign in to save to Cloud.");
+        return;
+      }
 
-    toast.success(
-      sync.status === "synced"
-        ? "Template saved locally and to account"
-        : "Template saved locally",
-    );
+      const nextCloudTemplates = {
+        ...cloudTemplates,
+        [snapshot.id]: snapshot,
+      };
+      setCloudTemplates(nextCloudTemplates);
+      updateCloudUsage(cloudWorkspaces, nextCloudTemplates);
+      toast.success("Template saved to Cloud");
+      setIsSaveOpen(false);
+      return;
+    }
+
+    persistCurrentTemplate(validation.name);
+    toast.success("Template saved locally");
     setIsSaveOpen(false);
+  }
+
+  function exportCurrentWorkspaceJson() {
+    const serialized = serializeWorkspace(currentWorkspaceState());
+    const hasLocalSources = workspaceHasLocalSources(serialized);
+    const exportItem = layoutWithLocalSourcesAsEmptyBoxes(serialized);
+
+    downloadScrollableJson({
+      kind: "layout",
+      name: exportItem.name,
+      item: exportItem,
+    });
+    if (hasLocalSources) {
+      toast.warning("Exported JSON without local files", {
+        description: localFilesOmittedDescription(),
+      });
+      return;
+    }
+
+    toast.success("Exported layout JSON");
   }
 
   function persistCurrentWorkspace(
@@ -263,6 +375,20 @@ export function useWorkspaceHandlers({
       sessions,
       templateSlots,
     });
+  }
+
+  function updateCloudUsage(
+    nextCloudWorkspaces: Record<string, SerializedWorkspace>,
+    nextCloudTemplates: Record<string, SerializedWorkspaceTemplate>,
+  ) {
+    setCloudUsage((current) =>
+      cloudLibraryUsage({
+        workspaces: Object.values(nextCloudWorkspaces),
+        templates: Object.values(nextCloudTemplates),
+        quotaBytes: current.status === "ready" ? current.quotaBytes : undefined,
+        isUnlimited: current.status === "ready" ? current.isUnlimited : false,
+      }),
+    );
   }
 
   function createWorkspaceTab() {
@@ -381,12 +507,14 @@ export function useWorkspaceHandlers({
 
   function openSavedWorkspaces(ids: string[]) {
     const current = currentWorkspaceState();
+    const sourceWorkspaces =
+      libraryStorageTarget === "cloud" ? cloudWorkspaces : savedWorkspaces;
     const nextState = prepareOpenSavedWorkspaces({
       ids,
       current,
       workspaceTabs,
       workspaceStates,
-      savedWorkspaces,
+      savedWorkspaces: sourceWorkspaces,
     });
 
     if (!nextState) return;
@@ -406,13 +534,15 @@ export function useWorkspaceHandlers({
 
   function openSavedTemplates(ids: string[]) {
     const current = currentWorkspaceState();
+    const sourceTemplates =
+      libraryStorageTarget === "cloud" ? cloudTemplates : savedTemplates;
     const nextState = prepareOpenSavedTemplates({
       ids,
       current,
       workspaceTabs,
       workspaceStates,
       savedWorkspaces,
-      savedTemplates,
+      savedTemplates: sourceTemplates,
       createId,
     });
 
@@ -431,7 +561,26 @@ export function useWorkspaceHandlers({
     setIsLayoutsOpen(false);
   }
 
-  function deleteSavedWorkspace(id: string) {
+  async function deleteSavedWorkspace(
+    id: string,
+    target: SaveTarget = "local",
+  ) {
+    if (target === "cloud") {
+      const deleted = cloudWorkspaces[id];
+      const result = await deleteViewerCloudItem({ kind: "layout", id });
+      if (result.status === "error") {
+        toast.error(result.error);
+        return;
+      }
+
+      const nextCloudWorkspaces = { ...cloudWorkspaces };
+      delete nextCloudWorkspaces[id];
+      setCloudWorkspaces(nextCloudWorkspaces);
+      updateCloudUsage(nextCloudWorkspaces, cloudTemplates);
+      if (deleted) toast.success(`Deleted ${deleted.name}`);
+      return;
+    }
+
     const { nextSaved, deleted } = deleteSavedWorkspaceRecord({
       id,
       savedWorkspaces,
@@ -446,7 +595,23 @@ export function useWorkspaceHandlers({
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
 
-  function deleteSavedTemplate(id: string) {
+  async function deleteSavedTemplate(id: string, target: SaveTarget = "local") {
+    if (target === "cloud") {
+      const deleted = cloudTemplates[id];
+      const result = await deleteViewerCloudItem({ kind: "template", id });
+      if (result.status === "error") {
+        toast.error(result.error);
+        return;
+      }
+
+      const nextCloudTemplates = { ...cloudTemplates };
+      delete nextCloudTemplates[id];
+      setCloudTemplates(nextCloudTemplates);
+      updateCloudUsage(cloudWorkspaces, nextCloudTemplates);
+      if (deleted) toast.success(`Deleted ${deleted.name}`);
+      return;
+    }
+
     const { nextTemplates, deleted } = deleteSavedTemplateRecord({
       id,
       savedTemplates,
@@ -489,6 +654,7 @@ export function useWorkspaceHandlers({
     openSavedTemplates,
     deleteSavedWorkspace,
     deleteSavedTemplate,
+    exportCurrentWorkspaceJson,
     applyWorkspaceSnapshot,
   };
 }

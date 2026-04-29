@@ -92,7 +92,7 @@ export function FreeGridView({
         "grid",
         hideUi
           ? "h-dvh min-h-0 min-w-0 gap-0"
-          : "h-full min-h-0 min-w-0 gap-0.5 md:min-h-[360px] md:min-w-[720px]",
+          : "h-full min-h-0 min-w-0 gap-0.5 md:min-h-[360px] min-[1080px]:min-w-[720px]",
       )}
       style={{
         gridTemplateColumns: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,

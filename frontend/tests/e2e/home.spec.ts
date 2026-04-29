@@ -106,6 +106,55 @@ test("keeps multi-layer workbench within the viewport", async ({
   );
 });
 
+test("keeps empty add-source cells from horizontal scrolling at mid widths", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "mobile",
+    "Mid-width desktop rail behavior is covered by the desktop project.",
+  );
+
+  await page.setViewportSize({ width: 820, height: 720 });
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "Add source to empty cell" }).first(),
+  ).toBeVisible();
+
+  const metrics = await page
+    .getByTestId("workbench-stage-shell")
+    .locator(":scope > div")
+    .evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+});
+
+test("keeps workspace tabs from overlapping the logo at tablet widths", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "mobile",
+    "Tablet-width desktop header behavior is covered by the desktop project.",
+  );
+
+  await page.setViewportSize({ width: 768, height: 720 });
+  await page.goto("/");
+
+  const logoBox = await page
+    .getByRole("link", { name: "scrollable.app" })
+    .boundingBox();
+  const tabBox = await page
+    .locator("[data-workspace-tab-id]")
+    .first()
+    .boundingBox();
+
+  if (!logoBox || !tabBox) throw new Error("Missing header logo or tab");
+
+  expect(tabBox.x).toBeGreaterThanOrEqual(logoBox.x + logoBox.width + 8);
+});
+
 test("local upload layouts restore cached files after refresh", async ({
   page,
 }, testInfo) => {
