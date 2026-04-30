@@ -177,7 +177,7 @@ describe("FeedWorkbench layers", () => {
     fireEvent.change(screen.getByLabelText("Global timer seconds"), {
       target: { value: "1" },
     });
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(1);
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("1");
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), [

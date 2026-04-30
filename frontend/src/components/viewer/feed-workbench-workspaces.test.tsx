@@ -495,10 +495,10 @@ describe("FeedWorkbench workspaces", () => {
     await user.click(screen.getByRole("button", { name: "Save as layout" }));
 
     await user.click(screen.getByRole("button", { name: "New layout" }));
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(10);
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("10");
 
     await user.click(screen.getByRole("button", { name: "Untitled layout" }));
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("17");
 
     const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
     expect(saved).toContain('"globalTimerSeconds":17');
@@ -522,7 +522,7 @@ describe("FeedWorkbench workspaces", () => {
 
     await openSavedLayouts(user, ["Untitled layout"]);
 
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("17");
   });
 
   it("derives the global timer from legacy saved global sessions", async () => {
@@ -564,7 +564,7 @@ describe("FeedWorkbench workspaces", () => {
 
     await openSavedLayouts(user, ["Legacy saved"]);
 
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("17");
   });
 
   it("rejects duplicate save-as layout names", async () => {

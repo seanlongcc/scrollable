@@ -107,17 +107,17 @@ describe("FeedWorkbench interactions", () => {
     await addDefaultSubredditSource(user);
 
     await screen.findByRole("button", { name: "Remove r/pics" });
-    expect(screen.getByLabelText("Free column")).toHaveValue(1);
-    expect(screen.getByLabelText("Free row")).toHaveValue(1);
-    expect(screen.getByLabelText("Column span")).toHaveValue(4);
-    expect(screen.getByLabelText("Row span")).toHaveValue(4);
+    expect(screen.getByLabelText("Free column")).toHaveValue("1");
+    expect(screen.getByLabelText("Free row")).toHaveValue("1");
+    expect(screen.getByLabelText("Column span")).toHaveValue("4");
+    expect(screen.getByLabelText("Row span")).toHaveValue("4");
   });
 
   it("defaults global timer to 10 seconds and omits per-source timer controls", async () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(10);
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("10");
     expect(screen.getByLabelText("Global timer seconds")).toHaveAttribute(
       "min",
       "1",
@@ -182,7 +182,7 @@ describe("FeedWorkbench interactions", () => {
     expect(
       await screen.findByRole("button", { name: "Local timer" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Local timer seconds")).toHaveValue(10);
+    expect(screen.getByLabelText("Local timer seconds")).toHaveValue("10");
 
     await user.click(screen.getByRole("button", { name: "Local timer" }));
 
