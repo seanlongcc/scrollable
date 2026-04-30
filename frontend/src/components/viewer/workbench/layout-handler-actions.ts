@@ -4,10 +4,10 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
-import { toast } from "sonner";
 
 import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
+import { toast } from "@/lib/toast";
 import {
   createFixedGrid,
   FREE_LAYOUT_SIZE,

@@ -6,44 +6,98 @@ import {
   Grid2X2,
   Maximize2,
   MoreHorizontal,
-  Pause,
   Pencil,
-  Play,
   Plus,
-  RotateCcw,
-  SkipBack,
-  SkipForward,
   SlidersHorizontal,
   Trash2,
   UserCircle,
 } from "lucide-react";
-import Link from "next/link";
-import { type ReactNode, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  type ComponentType,
+  type ReactNode,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import type { FixedGrid, FreeRect } from "@/lib/viewer/layout";
 import type { TimerMode } from "@/lib/viewer/timer";
 import { cn } from "@/lib/utils";
-import { NumberField } from "./fields";
-import { SelectedFreeLayoutControls } from "./selected-free-layout-controls";
 import type { LayerStats } from "./selection-state";
-import type { GlobalTimerAction } from "./workbench-toolbar";
 import type { FeedSession, LayoutMode, WorkspaceLayer } from "./types";
-import {
-  ActionsSection,
-  GlobalTimerSection,
-  GridSection,
-  LayerSection,
-  LayoutModeSection,
-  WorkbenchPanelDisclosure,
-} from "./workbench-panel-sections";
+import type {
+  WorkbenchPanelContentProps,
+  WorkbenchPanelSheetProps,
+} from "./workbench-panel";
+import { PlaybackControls } from "./workbench-playback-controls";
+import type { GlobalTimerAction } from "./workbench-toolbar";
+
+const LazyWorkbenchPanelContent = lazy(() =>
+  import("./workbench-panel").then((module) => ({
+    default: module.WorkbenchPanelContent,
+  })),
+);
+const LazyWorkbenchPanelSheet = lazy(() =>
+  import("./workbench-panel").then((module) => ({
+    default: module.WorkbenchPanelSheet,
+  })),
+);
+const DESKTOP_WORKBENCH_QUERY = "(min-width: 768px)";
+
+export type WorkbenchChromeProps = {
+  workspaceName: string;
+  layoutMode: LayoutMode;
+  layoutModeLocked: boolean;
+  fixedGrid: FixedGrid;
+  globalSeconds: number;
+  hasRunningSessionTimer: boolean;
+  selected: FeedSession | null;
+  canCloneOrFillSelectedSource: boolean;
+  showAllInfo: boolean;
+  isClearDisabled: boolean;
+  isAnySheetOpen: boolean;
+  isDesktopWorkbenchCollapsed: boolean;
+  layers: WorkspaceLayer[];
+  layerStats: LayerStats[];
+  activeLayerId: string;
+  accountButtonLabel: string;
+  accountButtonTitle: string;
+  onLayoutModeChange: (mode: LayoutMode) => void;
+  onFixedGridChange: (patch: Partial<FixedGrid>) => void;
+  onGlobalTimerSecondsChange: (seconds: number) => void;
+  onGlobalTimerAction: (action: GlobalTimerAction) => void;
+  onCloneSelectedSource: () => void;
+  onFillSelectedSourceSpace: () => void;
+  onRemoveSelectedSource: () => void;
+  onSelectedTimerModeChange: (mode: TimerMode) => void;
+  onSelectedTimerSecondsChange: (seconds: number) => void;
+  onSelectedMove: (direction: 1 | -1) => void;
+  onSelectedTogglePaused: () => void;
+  onSelectedRestart: () => void;
+  onEditSelectedSource: () => void;
+  onOpenSatellite: () => void;
+  onToggleShowAllInfo: () => void;
+  onHideUi: () => void;
+  onAddSource: () => void;
+  onOpenLibrary: () => void;
+  onOpenSaveDialog: () => void;
+  onImportJson: () => void;
+  onExportCurrentJson: () => void;
+  onOpenClearDialog: () => void;
+  onOpenAccount: () => void;
+  onPreloadOverlays?: () => void;
+  workbenchPanelComponents?: WorkbenchPanelComponents;
+  onDesktopWorkbenchCollapsedChange: (collapsed: boolean) => void;
+  onSelectLayer: (id: string) => void;
+  onFreeRectChange: (id: string, patch: Partial<FreeRect>) => void;
+};
+
+export type WorkbenchPanelComponents = {
+  Content?: ComponentType<WorkbenchPanelContentProps>;
+  Sheet?: ComponentType<WorkbenchPanelSheetProps>;
+};
 
 export function WorkbenchChrome({
   workspaceName,
@@ -86,56 +140,19 @@ export function WorkbenchChrome({
   onExportCurrentJson,
   onOpenClearDialog,
   onOpenAccount,
+  onPreloadOverlays,
+  workbenchPanelComponents,
   onDesktopWorkbenchCollapsedChange,
   onSelectLayer,
   onFreeRectChange,
-}: {
-  workspaceName: string;
-  layoutMode: LayoutMode;
-  layoutModeLocked: boolean;
-  fixedGrid: FixedGrid;
-  globalSeconds: number;
-  hasRunningSessionTimer: boolean;
-  selected: FeedSession | null;
-  canCloneOrFillSelectedSource: boolean;
-  showAllInfo: boolean;
-  isClearDisabled: boolean;
-  isAnySheetOpen: boolean;
-  isDesktopWorkbenchCollapsed: boolean;
-  layers: WorkspaceLayer[];
-  layerStats: LayerStats[];
-  activeLayerId: string;
-  accountButtonLabel: string;
-  accountButtonTitle: string;
-  onLayoutModeChange: (mode: LayoutMode) => void;
-  onFixedGridChange: (patch: Partial<FixedGrid>) => void;
-  onGlobalTimerSecondsChange: (seconds: number) => void;
-  onGlobalTimerAction: (action: GlobalTimerAction) => void;
-  onCloneSelectedSource: () => void;
-  onFillSelectedSourceSpace: () => void;
-  onRemoveSelectedSource: () => void;
-  onSelectedTimerModeChange: (mode: TimerMode) => void;
-  onSelectedTimerSecondsChange: (seconds: number) => void;
-  onSelectedMove: (direction: 1 | -1) => void;
-  onSelectedTogglePaused: () => void;
-  onSelectedRestart: () => void;
-  onEditSelectedSource: () => void;
-  onOpenSatellite: () => void;
-  onToggleShowAllInfo: () => void;
-  onHideUi: () => void;
-  onAddSource: () => void;
-  onOpenLibrary: () => void;
-  onOpenSaveDialog: () => void;
-  onImportJson: () => void;
-  onExportCurrentJson: () => void;
-  onOpenClearDialog: () => void;
-  onOpenAccount: () => void;
-  onDesktopWorkbenchCollapsedChange: (collapsed: boolean) => void;
-  onSelectLayer: (id: string) => void;
-  onFreeRectChange: (id: string, patch: Partial<FreeRect>) => void;
-}) {
+}: WorkbenchChromeProps) {
   const [isWorkbenchSheetOpen, setIsWorkbenchSheetOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const isDesktopWorkbenchViewport = useDesktopWorkbenchViewport();
+  const WorkbenchPanelContentComponent =
+    workbenchPanelComponents?.Content ?? LazyWorkbenchPanelContent;
+  const WorkbenchPanelSheetComponent =
+    workbenchPanelComponents?.Sheet ?? LazyWorkbenchPanelSheet;
   const controlsHidden = isAnySheetOpen || isWorkbenchSheetOpen;
   const showPlaybackPill = Boolean(selected) && !controlsHidden;
   const desktopWorkbenchButtonLabel = isDesktopWorkbenchCollapsed
@@ -145,6 +162,45 @@ export function WorkbenchChrome({
     "h-12 w-full rounded-none border-0 bg-transparent p-0 text-muted-foreground shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2 [&_svg:not([class*='size-'])]:size-5";
   const desktopRailButtonClass =
     "h-10 w-full rounded-2xl shadow-[0_14px_34px_rgba(18,10,10,0.42)]";
+  const panelProps = {
+    workspaceName,
+    layoutMode,
+    layoutModeLocked,
+    fixedGrid,
+    globalSeconds,
+    hasRunningSessionTimer,
+    selected,
+    canCloneOrFillSelectedSource,
+    showAllInfo,
+    isClearDisabled,
+    layers,
+    layerStats,
+    activeLayerId,
+    onLayoutModeChange,
+    onFixedGridChange,
+    onGlobalTimerSecondsChange,
+    onGlobalTimerAction,
+    onCloneSelectedSource,
+    onFillSelectedSourceSpace,
+    onRemoveSelectedSource,
+    onSelectedTimerModeChange,
+    onSelectedTimerSecondsChange,
+    onSelectedMove,
+    onSelectedTogglePaused,
+    onSelectedRestart,
+    onEditSelectedSource,
+    onOpenSatellite,
+    onToggleShowAllInfo,
+    onHideUi,
+    onAddSource: openAddSource,
+    onOpenSaveDialog: openSaveDialog,
+    onImportJson,
+    onExportCurrentJson,
+    onOpenClearDialog: openClearDialog,
+    onPreloadOverlays,
+    onSelectLayer,
+    onFreeRectChange,
+  } satisfies Omit<WorkbenchPanelContentProps, "mode">;
 
   function openMobileWorkbench() {
     setIsMoreOpen(false);
@@ -217,6 +273,8 @@ export function WorkbenchChrome({
             size="icon-lg"
             variant="outline"
             aria-label="Library"
+            onMouseEnter={onPreloadOverlays}
+            onFocus={onPreloadOverlays}
             onClick={openLibrary}
             className={desktopRailButtonClass}
           >
@@ -228,6 +286,8 @@ export function WorkbenchChrome({
             variant="outline"
             aria-label={accountButtonLabel}
             title={accountButtonTitle}
+            onMouseEnter={onPreloadOverlays}
+            onFocus={onPreloadOverlays}
             onClick={openAccount}
             className={desktopRailButtonClass}
           >
@@ -235,52 +295,16 @@ export function WorkbenchChrome({
           </Button>
         </nav>
 
-        {isDesktopWorkbenchCollapsed ? (
+        {isDesktopWorkbenchCollapsed || !isDesktopWorkbenchViewport ? (
           <div id="desktop-workbench-panel" hidden />
         ) : (
           <div
             id="desktop-workbench-panel"
             className="min-h-0 overflow-y-auto rounded-2xl border border-border/60 bg-surface/72 p-3 shadow-[0_24px_70px_rgba(18,10,10,0.42)] backdrop-blur"
           >
-            <WorkbenchPanelContent
-              mode="desktop"
-              workspaceName={workspaceName}
-              layoutMode={layoutMode}
-              layoutModeLocked={layoutModeLocked}
-              fixedGrid={fixedGrid}
-              globalSeconds={globalSeconds}
-              hasRunningSessionTimer={hasRunningSessionTimer}
-              selected={selected}
-              canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
-              showAllInfo={showAllInfo}
-              isClearDisabled={isClearDisabled}
-              layers={layers}
-              layerStats={layerStats}
-              activeLayerId={activeLayerId}
-              onLayoutModeChange={onLayoutModeChange}
-              onFixedGridChange={onFixedGridChange}
-              onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
-              onGlobalTimerAction={onGlobalTimerAction}
-              onCloneSelectedSource={onCloneSelectedSource}
-              onFillSelectedSourceSpace={onFillSelectedSourceSpace}
-              onRemoveSelectedSource={onRemoveSelectedSource}
-              onSelectedTimerModeChange={onSelectedTimerModeChange}
-              onSelectedTimerSecondsChange={onSelectedTimerSecondsChange}
-              onSelectedMove={onSelectedMove}
-              onSelectedTogglePaused={onSelectedTogglePaused}
-              onSelectedRestart={onSelectedRestart}
-              onEditSelectedSource={onEditSelectedSource}
-              onOpenSatellite={onOpenSatellite}
-              onToggleShowAllInfo={onToggleShowAllInfo}
-              onHideUi={onHideUi}
-              onAddSource={openAddSource}
-              onOpenSaveDialog={openSaveDialog}
-              onImportJson={onImportJson}
-              onExportCurrentJson={onExportCurrentJson}
-              onOpenClearDialog={openClearDialog}
-              onSelectLayer={onSelectLayer}
-              onFreeRectChange={onFreeRectChange}
-            />
+            <Suspense fallback={null}>
+              <WorkbenchPanelContentComponent mode="desktop" {...panelProps} />
+            </Suspense>
           </div>
         )}
       </aside>
@@ -375,7 +399,12 @@ export function WorkbenchChrome({
             </>
           ) : (
             <>
-              <RailButton ariaLabel="Add source" onClick={openAddSource} active>
+              <RailButton
+                ariaLabel="Add source"
+                onClick={openAddSource}
+                onPreload={onPreloadOverlays}
+                active
+              >
                 <Plus />
               </RailButton>
               <RailButton ariaLabel="Hide UI" onClick={onHideUi}>
@@ -418,6 +447,8 @@ export function WorkbenchChrome({
           type="button"
           variant="ghost"
           aria-label="Library"
+          onMouseEnter={onPreloadOverlays}
+          onFocus={onPreloadOverlays}
           onClick={openLibrary}
           className={mobileBottomButtonClass}
         >
@@ -428,6 +459,8 @@ export function WorkbenchChrome({
           variant="ghost"
           aria-label={accountButtonLabel}
           title={accountButtonTitle}
+          onMouseEnter={onPreloadOverlays}
+          onFocus={onPreloadOverlays}
           onClick={openAccount}
           className={mobileBottomButtonClass}
         >
@@ -435,423 +468,64 @@ export function WorkbenchChrome({
         </Button>
       </nav>
 
-      <Sheet open={isWorkbenchSheetOpen} onOpenChange={setIsWorkbenchSheetOpen}>
-        <SheetContent
-          side="bottom"
-          className="mobile-compact-controls max-h-[82dvh] overflow-y-auto overscroll-contain rounded-t-3xl border-border/70 bg-surface px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-22px_74px_rgba(18,10,10,0.62)] md:hidden"
-        >
-          <div className="mx-auto h-1 w-10 rounded-full bg-border" />
-          <SheetHeader className="px-0 pt-0">
-            <SheetTitle>Workbench</SheetTitle>
-            <SheetDescription className="sr-only">
-              Workspace controls
-            </SheetDescription>
-          </SheetHeader>
-          <WorkbenchPanelContent
-            mode="mobile"
-            workspaceName={workspaceName}
-            layoutMode={layoutMode}
-            layoutModeLocked={layoutModeLocked}
-            fixedGrid={fixedGrid}
-            globalSeconds={globalSeconds}
-            hasRunningSessionTimer={hasRunningSessionTimer}
-            selected={selected}
-            canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
-            showAllInfo={showAllInfo}
-            isClearDisabled={isClearDisabled}
-            layers={layers}
-            layerStats={layerStats}
-            activeLayerId={activeLayerId}
-            onLayoutModeChange={onLayoutModeChange}
-            onFixedGridChange={onFixedGridChange}
-            onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
-            onGlobalTimerAction={onGlobalTimerAction}
-            onCloneSelectedSource={onCloneSelectedSource}
-            onFillSelectedSourceSpace={onFillSelectedSourceSpace}
-            onRemoveSelectedSource={onRemoveSelectedSource}
-            onSelectedTimerModeChange={onSelectedTimerModeChange}
-            onSelectedTimerSecondsChange={onSelectedTimerSecondsChange}
-            onSelectedMove={onSelectedMove}
-            onSelectedTogglePaused={onSelectedTogglePaused}
-            onSelectedRestart={onSelectedRestart}
-            onEditSelectedSource={onEditSelectedSource}
-            onOpenSatellite={onOpenSatellite}
-            onToggleShowAllInfo={onToggleShowAllInfo}
-            onHideUi={onHideUi}
-            onAddSource={openAddSource}
-            onOpenSaveDialog={openSaveDialog}
-            onImportJson={onImportJson}
-            onExportCurrentJson={onExportCurrentJson}
-            onOpenClearDialog={openClearDialog}
-            onSelectLayer={onSelectLayer}
-            onFreeRectChange={onFreeRectChange}
+      {isWorkbenchSheetOpen ? (
+        <Suspense fallback={null}>
+          <WorkbenchPanelSheetComponent
+            open={isWorkbenchSheetOpen}
+            onOpenChange={setIsWorkbenchSheetOpen}
+            {...panelProps}
           />
-        </SheetContent>
-      </Sheet>
+        </Suspense>
+      ) : null}
     </>
   );
 }
 
-function WorkbenchPanelContent({
-  mode,
-  workspaceName,
-  layoutMode,
-  layoutModeLocked,
-  fixedGrid,
-  globalSeconds,
-  hasRunningSessionTimer,
-  selected,
-  canCloneOrFillSelectedSource,
-  showAllInfo,
-  isClearDisabled,
-  layers,
-  layerStats,
-  activeLayerId,
-  onLayoutModeChange,
-  onFixedGridChange,
-  onGlobalTimerSecondsChange,
-  onGlobalTimerAction,
-  onCloneSelectedSource,
-  onFillSelectedSourceSpace,
-  onRemoveSelectedSource,
-  onSelectedTimerModeChange,
-  onSelectedTimerSecondsChange,
-  onSelectedMove,
-  onSelectedTogglePaused,
-  onSelectedRestart,
-  onEditSelectedSource,
-  onOpenSatellite,
-  onToggleShowAllInfo,
-  onHideUi,
-  onAddSource,
-  onOpenSaveDialog,
-  onImportJson,
-  onExportCurrentJson,
-  onOpenClearDialog,
-  onSelectLayer,
-  onFreeRectChange,
-}: {
-  mode: "mobile" | "desktop";
-  workspaceName: string;
-  layoutMode: LayoutMode;
-  layoutModeLocked: boolean;
-  fixedGrid: FixedGrid;
-  globalSeconds: number;
-  hasRunningSessionTimer: boolean;
-  selected: FeedSession | null;
-  canCloneOrFillSelectedSource: boolean;
-  showAllInfo: boolean;
-  isClearDisabled: boolean;
-  layers: WorkspaceLayer[];
-  layerStats: LayerStats[];
-  activeLayerId: string;
-  onLayoutModeChange: (mode: LayoutMode) => void;
-  onFixedGridChange: (patch: Partial<FixedGrid>) => void;
-  onGlobalTimerSecondsChange: (seconds: number) => void;
-  onGlobalTimerAction: (action: GlobalTimerAction) => void;
-  onCloneSelectedSource: () => void;
-  onFillSelectedSourceSpace: () => void;
-  onRemoveSelectedSource: () => void;
-  onSelectedTimerModeChange: (mode: TimerMode) => void;
-  onSelectedTimerSecondsChange: (seconds: number) => void;
-  onSelectedMove: (direction: 1 | -1) => void;
-  onSelectedTogglePaused: () => void;
-  onSelectedRestart: () => void;
-  onEditSelectedSource: () => void;
-  onOpenSatellite: () => void;
-  onToggleShowAllInfo: () => void;
-  onHideUi: () => void;
-  onAddSource: () => void;
-  onOpenSaveDialog: () => void;
-  onImportJson: () => void;
-  onExportCurrentJson: () => void;
-  onOpenClearDialog: () => void;
-  onSelectLayer: (id: string) => void;
-  onFreeRectChange: (id: string, patch: Partial<FreeRect>) => void;
-}) {
-  return (
-    <div className="flex min-h-full flex-col gap-4">
-      <div className="hidden min-w-0 text-sm font-semibold md:block">
-        <div className="truncate" title={workspaceName}>
-          {workspaceName}
-        </div>
-      </div>
-
-      {mode === "desktop" ? (
-        <>
-          <LayoutModeSection
-            layoutMode={layoutMode}
-            layoutModeLocked={layoutModeLocked}
-            onLayoutModeChange={onLayoutModeChange}
-          />
-          <LayerSection
-            layers={layers}
-            layerStats={layerStats}
-            activeLayerId={activeLayerId}
-            onSelectLayer={onSelectLayer}
-          />
-          <GridSection
-            fixedGrid={fixedGrid}
-            onFixedGridChange={onFixedGridChange}
-          />
-          <GlobalTimerSection
-            mode={mode}
-            globalSeconds={globalSeconds}
-            hasRunningSessionTimer={hasRunningSessionTimer}
-            onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
-            onGlobalTimerAction={onGlobalTimerAction}
-          />
-          <ActionsSection
-            showAllInfo={showAllInfo}
-            isClearDisabled={isClearDisabled}
-            onAddSource={onAddSource}
-            onHideUi={onHideUi}
-            onToggleShowAllInfo={onToggleShowAllInfo}
-            onOpenSaveDialog={onOpenSaveDialog}
-            onImportJson={onImportJson}
-            onExportCurrentJson={onExportCurrentJson}
-            onOpenClearDialog={onOpenClearDialog}
-          />
-        </>
-      ) : (
-        <>
-          <ActionsSection
-            showAllInfo={showAllInfo}
-            isClearDisabled={isClearDisabled}
-            onAddSource={onAddSource}
-            onHideUi={onHideUi}
-            onToggleShowAllInfo={onToggleShowAllInfo}
-            onOpenSaveDialog={onOpenSaveDialog}
-            onImportJson={onImportJson}
-            onExportCurrentJson={onExportCurrentJson}
-            onOpenClearDialog={onOpenClearDialog}
-          />
-          <WorkbenchPanelDisclosure label="Layout">
-            <LayerSection
-              layers={layers}
-              layerStats={layerStats}
-              activeLayerId={activeLayerId}
-              onSelectLayer={onSelectLayer}
-            />
-            <GridSection
-              fixedGrid={fixedGrid}
-              onFixedGridChange={onFixedGridChange}
-            />
-          </WorkbenchPanelDisclosure>
-          <WorkbenchPanelDisclosure label="Timer">
-            <GlobalTimerSection
-              mode={mode}
-              globalSeconds={globalSeconds}
-              hasRunningSessionTimer={hasRunningSessionTimer}
-              onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
-              onGlobalTimerAction={onGlobalTimerAction}
-            />
-          </WorkbenchPanelDisclosure>
-        </>
-      )}
-
-      {mode === "desktop" && selected ? (
-        <>
-          <section className="grid gap-2">
-            <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
-              Selected source
-            </h2>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={selected.timerMode === "local" ? "default" : "outline"}
-                onClick={() =>
-                  onSelectedTimerModeChange(
-                    selected.timerMode === "local" ? "global" : "local",
-                  )
-                }
-                className="min-w-0"
-              >
-                <Clock3 />
-                <span className="min-w-0 truncate">Local timer</span>
-              </Button>
-              <NumberField
-                label="Local timer seconds"
-                hideLabel
-                value={selected.timer.durationSeconds}
-                min={1}
-                max={120}
-                onChange={onSelectedTimerSecondsChange}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                aria-label="Edit selected source"
-                onClick={onEditSelectedSource}
-                className="min-w-0"
-              >
-                <Pencil />
-                <span className="min-w-0 truncate">Edit</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onOpenSatellite}
-                className="min-w-0"
-              >
-                <Maximize2 />
-                <span className="min-w-0 truncate">Focus</span>
-              </Button>
-              {canCloneOrFillSelectedSource ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-label="Clone selected source"
-                    onClick={onCloneSelectedSource}
-                    className="min-w-0"
-                  >
-                    <Copy />
-                    <span className="min-w-0 truncate">Clone</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-label="Fill empty spaces with selected source"
-                    onClick={onFillSelectedSourceSpace}
-                    className="min-w-0"
-                  >
-                    <Grid2X2 />
-                    <span className="min-w-0 truncate">Fill</span>
-                  </Button>
-                </>
-              ) : null}
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={onRemoveSelectedSource}
-                className="col-span-2 min-w-0"
-              >
-                <Trash2 />
-                <span className="min-w-0 truncate">Remove</span>
-              </Button>
-            </div>
-            {layoutMode === "free" ? (
-              <SelectedFreeLayoutControls
-                selected={selected}
-                onFreeRectChange={onFreeRectChange}
-              />
-            ) : null}
-          </section>
-          <section className="grid gap-2">
-            <h2 className="font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase">
-              Playback
-            </h2>
-            <PlaybackControls
-              selected={selected}
-              variant="panel"
-              onSelectedMove={onSelectedMove}
-              onSelectedTogglePaused={onSelectedTogglePaused}
-              onSelectedRestart={onSelectedRestart}
-            />
-          </section>
-        </>
-      ) : null}
-
-      {mode === "desktop" ? <WorkbenchLegalFooter /> : null}
-    </div>
+function useDesktopWorkbenchViewport() {
+  return useSyncExternalStore(
+    subscribeDesktopWorkbenchViewport,
+    getDesktopWorkbenchViewportSnapshot,
+    getServerDesktopWorkbenchViewportSnapshot,
   );
 }
 
-function WorkbenchLegalFooter() {
-  return (
-    <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-border/60 pt-3 font-mono text-[10px] text-muted-foreground">
-      <Link className="hover:text-foreground" href="/privacy">
-        Privacy
-      </Link>
-      <Link className="hover:text-foreground" href="/terms">
-        Terms
-      </Link>
-    </footer>
-  );
+function subscribeDesktopWorkbenchViewport(onStoreChange: () => void) {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
+    return () => {};
+  }
+
+  const query = window.matchMedia(DESKTOP_WORKBENCH_QUERY);
+
+  query.addEventListener("change", onStoreChange);
+
+  return () => query.removeEventListener("change", onStoreChange);
 }
 
-function PlaybackControls({
-  selected,
-  variant = "pill",
-  className,
-  onSelectedMove,
-  onSelectedTogglePaused,
-  onSelectedRestart,
-}: {
-  selected: FeedSession;
-  variant?: "pill" | "panel";
-  className?: string;
-  onSelectedMove: (direction: 1 | -1) => void;
-  onSelectedTogglePaused: () => void;
-  onSelectedRestart: () => void;
-}) {
-  const buttonClassName = variant === "panel" ? "h-8 w-full" : undefined;
-  const buttonSize = variant === "panel" ? "icon" : "icon-sm";
+function getDesktopWorkbenchViewportSnapshot() {
+  if (typeof window === "undefined") return false;
+  if (typeof window.matchMedia !== "function") return true;
 
-  return (
-    <div
-      aria-label="Selected source playback controls"
-      className={cn(
-        variant === "panel"
-          ? "pointer-events-auto grid w-full grid-cols-4 gap-2"
-          : "pointer-events-auto flex gap-1",
-        className,
-      )}
-    >
-      <Button
-        type="button"
-        size={buttonSize}
-        variant="outline"
-        aria-label="Back"
-        onClick={() => onSelectedMove(-1)}
-        className={buttonClassName}
-      >
-        <SkipBack />
-      </Button>
-      <Button
-        type="button"
-        size={buttonSize}
-        variant="default"
-        aria-label={selected.timer.isPaused ? "Play" : "Pause"}
-        onClick={onSelectedTogglePaused}
-        className={buttonClassName}
-      >
-        {selected.timer.isPaused ? <Play /> : <Pause />}
-      </Button>
-      <Button
-        type="button"
-        size={buttonSize}
-        variant="outline"
-        aria-label="Next"
-        onClick={() => onSelectedMove(1)}
-        className={buttonClassName}
-      >
-        <SkipForward />
-      </Button>
-      <Button
-        type="button"
-        size={buttonSize}
-        variant="outline"
-        aria-label="Restart"
-        onClick={onSelectedRestart}
-        className={buttonClassName}
-      >
-        <RotateCcw />
-      </Button>
-    </div>
-  );
+  return window.matchMedia(DESKTOP_WORKBENCH_QUERY).matches;
+}
+
+function getServerDesktopWorkbenchViewportSnapshot() {
+  return false;
 }
 
 function RailButton({
   ariaLabel,
   active,
   onClick,
+  onPreload,
   children,
 }: {
   ariaLabel: string;
   active?: boolean;
   onClick: () => void;
+  onPreload?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -860,6 +534,8 @@ function RailButton({
       size="icon"
       variant={active ? "default" : "outline"}
       aria-label={ariaLabel}
+      onMouseEnter={onPreload}
+      onFocus={onPreload}
       onClick={onClick}
       className={cn(
         "rounded-full shadow-[0_12px_34px_rgba(18,10,10,0.48)] backdrop-blur",

@@ -52,6 +52,33 @@ describe("NumberField", () => {
     expect(onChange).toHaveBeenCalledWith(4);
   });
 
+  it("reports invalid committed drafts before restoring the current value", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onInvalidCommit = vi.fn();
+    render(
+      <NumberField
+        label="Columns"
+        value={3}
+        min={1}
+        max={3}
+        commitOnBlur
+        onChange={onChange}
+        onInvalidCommit={onInvalidCommit}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Columns" });
+
+    await user.clear(input);
+    await user.type(input, "4");
+    await user.tab();
+
+    expect(onInvalidCommit).toHaveBeenCalledWith("4");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveValue("3");
+  });
+
   it("places the caret after the current value on focus", async () => {
     const user = userEvent.setup();
     render(

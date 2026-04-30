@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scrollable desktop top-progress remake</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(14.5% 0.012 338);
+        --surface: oklch(18.5% 0.018 340);
+        --raised: oklch(24.5% 0.024 342);
+        --input: oklch(28.5% 0.026 342);
+        --text: oklch(92.5% 0.018 55);
+        --muted: oklch(70.5% 0.025 35);
+        --border: oklch(33.5% 0.022 342);
+        --primary: oklch(62% 0.145 18);
+        --primary-hi: oklch(69% 0.15 20);
+        --signal: oklch(76% 0.08 68);
+        --danger: oklch(64% 0.18 24);
+        font-family:
+          Sora,
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100dvh;
+        margin: 0;
+        background:
+          radial-gradient(
+            circle at 66% 28%,
+            oklch(22% 0.032 340 / 0.46),
+            transparent 38rem
+          ),
+          var(--bg);
+        color: var(--text);
+      }
+
+      .screen {
+        position: relative;
+        display: grid;
+        min-height: 100dvh;
+        grid-template-columns: 20.5rem minmax(0, 1fr);
+        gap: 0;
+        padding: 16px 16px 16px 12px;
+      }
+
+      .rail {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 12px;
+        min-height: 0;
+        padding-right: 12px;
+      }
+
+      .rail-actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .icon-button,
+      .action-button,
+      .mode-button,
+      .layer-button {
+        display: inline-grid;
+        min-width: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: color-mix(in oklch, var(--raised) 80%, transparent);
+        color: var(--text);
+      }
+
+      .icon-button {
+        height: 40px;
+        box-shadow: 0 14px 34px rgba(18, 10, 10, 0.42);
+        font-size: 17px;
+      }
+
+      .icon-button.active,
+      .mode-button.active,
+      .layer-button.active,
+      .action-button.primary {
+        border-color: transparent;
+        background: var(--primary);
+        color: var(--bg);
+      }
+
+      .panel {
+        display: grid;
+        min-height: 0;
+        gap: 16px;
+        align-content: start;
+        overflow: auto;
+        border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+        border-radius: 16px;
+        background: color-mix(in oklch, var(--surface) 72%, transparent);
+        padding: 13px;
+        box-shadow: 0 24px 70px rgba(18, 10, 10, 0.42);
+      }
+
+      .workspace-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .section {
+        display: grid;
+        gap: 8px;
+      }
+
+      .section-title {
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .mode-grid,
+      .number-grid,
+      .action-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .layer-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .mode-button,
+      .layer-button,
+      .action-button {
+        height: 32px;
+        gap: 6px;
+        padding: 0 9px;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .number-control {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 6px;
+        align-items: center;
+        min-height: 32px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: color-mix(in oklch, var(--raised) 80%, transparent);
+        padding: 3px 6px;
+      }
+
+      .number-control span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .number-control strong {
+        display: grid;
+        height: 24px;
+        place-items: center;
+        border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+        border-radius: 7px;
+        background: color-mix(in oklch, var(--bg) 78%, transparent);
+        color: var(--text);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 11px;
+      }
+
+      .layer-meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+        line-height: 1.4;
+      }
+
+      .timer-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) repeat(3, 36px);
+        gap: 8px;
+      }
+
+      .stage-shell {
+        display: grid;
+        min-width: 0;
+        min-height: 0;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 12px;
+        padding-top: 48px;
+      }
+
+      .desktop-topline {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .title-stack {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--signal);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+
+      .screen-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .desktop-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: end;
+      }
+
+      .pill {
+        display: inline-grid;
+        min-height: 28px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0 10px;
+        background: color-mix(in oklch, var(--raised) 78%, transparent);
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 11px;
+      }
+
+      .stage-frame {
+        display: grid;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+        border-radius: 18px;
+        background: var(--bg);
+        padding: 4px;
+      }
+
+      .stage {
+        display: grid;
+        min-width: 0;
+        min-height: 0;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+        gap: 2px;
+        background: color-mix(in oklch, var(--border) 38%, transparent);
+      }
+
+      .cell {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        min-height: 0;
+        align-content: end;
+        gap: 5px;
+        overflow: hidden;
+        padding: 16px 12px 12px;
+        background: var(--surface);
+      }
+
+      .cell:nth-child(4n + 1) {
+        background: oklch(20.5% 0.03 350);
+      }
+
+      .cell:nth-child(4n + 2) {
+        background: oklch(19.5% 0.028 28);
+      }
+
+      .cell:nth-child(4n + 3) {
+        background: oklch(18.5% 0.025 220);
+      }
+
+      .cell:nth-child(4n + 4) {
+        background: oklch(21.5% 0.028 68);
+      }
+
+      .cell.selected {
+        outline: 2px solid var(--primary);
+        outline-offset: -2px;
+        box-shadow: inset 0 0 0 1px
+          color-mix(in oklch, var(--primary-hi) 52%, transparent);
+      }
+
+      .progress {
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        left: 12px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--bg) 78%, transparent);
+      }
+
+      .progress span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--signal);
+      }
+
+      .cell-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .cell-meta {
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+      }
+
+      .empty-cell {
+        align-content: center;
+        justify-items: center;
+        gap: 8px;
+        border: 1px dashed color-mix(in oklch, var(--border) 86%, transparent);
+        background: color-mix(in oklch, var(--surface) 82%, transparent);
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .empty-cell .plus {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--raised) 80%, transparent);
+        color: var(--text);
+        font-size: 20px;
+      }
+
+      .toast {
+        position: absolute;
+        right: 24px;
+        top: 112px;
+        z-index: 8;
+        display: grid;
+        width: min(22rem, calc(100vw - 48px));
+        gap: 3px;
+        border: 1px solid color-mix(in oklch, var(--danger) 55%, var(--border));
+        border-radius: 12px;
+        background: color-mix(in oklch, var(--bg) 88%, var(--danger));
+        padding: 10px 12px;
+        box-shadow: 0 18px 48px rgba(18, 10, 10, 0.5);
+      }
+
+      .toast strong {
+        font-size: 12px;
+      }
+
+      .toast span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      @media (max-width: 980px) {
+        .screen {
+          grid-template-columns: 4.25rem minmax(0, 1fr);
+        }
+
+        .panel {
+          display: none;
+        }
+
+        .rail-actions {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen">
+      <aside class="rail" aria-label="Workbench contextual panel">
+        <nav class="rail-actions" aria-label="Desktop context actions">
+          <button
+            class="icon-button active"
+            type="button"
+            aria-label="Collapse workbench"
+          >
+            ☰
+          </button>
+          <button class="icon-button" type="button" aria-label="Library">
+            ▣
+          </button>
+          <button class="icon-button" type="button" aria-label="Account">
+            ○
+          </button>
+        </nav>
+
+        <section class="panel" aria-label="Workbench">
+          <div class="workspace-name">Layout 1</div>
+
+          <div class="section">
+            <div class="section-title">Layout mode</div>
+            <div class="mode-grid">
+              <button class="mode-button active" type="button">Fixed</button>
+              <button class="mode-button" type="button">Free</button>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Layer</div>
+            <div class="layer-grid">
+              <button class="layer-button active" type="button">Layer A</button>
+              <button class="layer-button" type="button">Layer B</button>
+              <button class="layer-button" type="button">Layer C</button>
+            </div>
+            <div class="layer-meta">
+              <span>8 sources<br />90 files</span>
+              <span>0 sources<br />0 files</span>
+              <span>0 sources<br />0 files</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Grid</div>
+            <div class="number-grid">
+              <div class="number-control">
+                <span>Cols</span><strong>3</strong>
+              </div>
+              <div class="number-control">
+                <span>Rows</span><strong>3</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Global timer</div>
+            <div class="timer-grid">
+              <div class="number-control">
+                <span>Sec</span><strong>10</strong>
+              </div>
+              <button
+                class="icon-button active"
+                type="button"
+                aria-label="Pause"
+              >
+                Ⅱ
+              </button>
+              <button class="icon-button" type="button" aria-label="Next">
+                ›
+              </button>
+              <button class="icon-button" type="button" aria-label="Restart">
+                ↻
+              </button>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Actions</div>
+            <div class="action-grid">
+              <button class="action-button primary" type="button">
+                Add source
+              </button>
+              <button class="action-button" type="button">Hide UI</button>
+              <button class="action-button" type="button">Show info</button>
+              <button class="action-button" type="button">Save</button>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="stage-shell" aria-label="Viewer stage">
+        <div class="desktop-topline">
+          <div class="title-stack">
+            <div class="eyebrow">Fixed grid</div>
+            <div class="screen-title">
+              Layer A · desktop remake from mobile top-progress
+            </div>
+          </div>
+          <div class="desktop-badges">
+            <div class="pill">3x3 current</div>
+            <div class="pill">desktop max 16x16</div>
+            <div class="pill">9 visible</div>
+          </div>
+        </div>
+
+        <div class="stage-frame">
+          <div class="stage">
+            <div class="cell selected">
+              <div class="progress"><span style="width: 42%"></span></div>
+              <div class="cell-name">r/analog</div>
+              <div class="cell-meta">2/18 · 10s · selected</div>
+            </div>
+            <div class="cell">
+              <div class="progress"><span style="width: 70%"></span></div>
+              <div class="cell-name">Local set</div>
+              <div class="cell-meta">8 files</div>
+            </div>
+            <div class="cell">
+              <div class="progress"><span style="width: 20%"></span></div>
+              <div class="cell-name">Gallery</div>
+              <div class="cell-meta">6/22 · global</div>
+            </div>
+            <div class="cell">
+              <div class="progress"><span style="width: 55%"></span></div>
+              <div class="cell-name">Video</div>
+              <div class="cell-meta">0:42</div>
+            </div>
+            <div class="cell">
+              <div class="progress"><span style="width: 16%"></span></div>
+              <div class="cell-name">Reddit hot</div>
+              <div class="cell-meta">32 items</div>
+            </div>
+            <div class="cell">
+              <div class="progress"><span style="width: 61%"></span></div>
+              <div class="cell-name">Provider URL</div>
+              <div class="cell-meta">embed</div>
+            </div>
+            <div class="cell">
+              <div class="progress"><span style="width: 34%"></span></div>
+              <div class="cell-name">Local cache</div>
+              <div class="cell-meta">browser</div>
+            </div>
+            <div class="cell">
+              <div class="progress"><span style="width: 80%"></span></div>
+              <div class="cell-name">Gallery set</div>
+              <div class="cell-meta">12/40</div>
+            </div>
+            <button
+              class="cell empty-cell"
+              type="button"
+              aria-label="Add source to empty cell"
+            >
+              <span class="plus">+</span>
+              <span class="cell-name">Add source</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div class="toast">
+        <strong>Grid range is 1-16 on desktop</strong>
+        <span>Mobile view caps at 3x3.</span>
+      </div>
+    </main>
+  </body>
+</html>

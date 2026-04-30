@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-import { Toaster } from "@/components/ui/sonner";
+import { LazyToaster } from "@/components/ui/lazy-toaster";
 
 export function Providers({ children }: { children: ReactNode }) {
   const isMobileToastViewport = useMobileToastViewport();
@@ -10,7 +10,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      <Toaster
+      <LazyToaster
         richColors
         position={isMobileToastViewport ? "top-center" : "bottom-center"}
         visibleToasts={2}

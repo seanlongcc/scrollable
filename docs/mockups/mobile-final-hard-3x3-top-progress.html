@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scrollable final mobile hard 3x3 mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(14.5% 0.012 338);
+        --surface: oklch(18.5% 0.018 340);
+        --raised: oklch(24.5% 0.024 342);
+        --input: oklch(28.5% 0.026 342);
+        --text: oklch(92.5% 0.018 55);
+        --muted: oklch(70.5% 0.025 35);
+        --border: oklch(33.5% 0.022 342);
+        --primary: oklch(62% 0.145 18);
+        --primary-hi: oklch(69% 0.15 20);
+        --signal: oklch(76% 0.08 68);
+        --danger: oklch(64% 0.18 24);
+        font-family:
+          Sora,
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100dvh;
+        margin: 0;
+        background:
+          radial-gradient(
+            circle at 50% 30%,
+            oklch(22% 0.032 340 / 0.52),
+            transparent 36rem
+          ),
+          var(--bg);
+        color: var(--text);
+      }
+
+      main {
+        display: grid;
+        min-height: 100dvh;
+        grid-template-columns: minmax(0, 26rem) minmax(320px, 390px);
+        gap: 36px;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+      }
+
+      .notes {
+        display: grid;
+        gap: 12px;
+        max-width: 26rem;
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      ul {
+        display: grid;
+        gap: 7px;
+        margin: 4px 0 0;
+        padding-left: 18px;
+      }
+
+      .phone {
+        position: relative;
+        width: min(390px, calc(100vw - 56px));
+        height: 844px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: var(--bg);
+        box-shadow: 0 24px 80px rgba(18, 10, 10, 0.58);
+      }
+
+      .topbar {
+        position: absolute;
+        inset: 0 0 auto;
+        z-index: 4;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 14px 12px 10px;
+        border-bottom: 1px solid
+          color-mix(in oklch, var(--border) 72%, transparent);
+        background: color-mix(in oklch, var(--bg) 92%, transparent);
+      }
+
+      .eyebrow {
+        color: var(--signal);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+
+      .screen-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .pill {
+        display: inline-grid;
+        min-height: 26px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0 9px;
+        background: color-mix(in oklch, var(--raised) 78%, transparent);
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+      }
+
+      .stage {
+        position: absolute;
+        inset: 64px 0 60px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+        gap: 1px;
+        background: color-mix(in oklch, var(--border) 40%, transparent);
+      }
+
+      .cell {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        min-height: 0;
+        align-content: end;
+        gap: 4px;
+        overflow: hidden;
+        padding: 12px 7px 7px;
+        background: var(--surface);
+      }
+
+      .cell:nth-child(4n + 1) {
+        background: oklch(20.5% 0.03 350);
+      }
+
+      .cell:nth-child(4n + 2) {
+        background: oklch(19.5% 0.028 28);
+      }
+
+      .cell:nth-child(4n + 3) {
+        background: oklch(18.5% 0.025 220);
+      }
+
+      .cell:nth-child(4n + 4) {
+        background: oklch(21.5% 0.028 68);
+      }
+
+      .cell.selected {
+        outline: 2px solid var(--primary);
+        outline-offset: -2px;
+        box-shadow: inset 0 0 0 1px
+          color-mix(in oklch, var(--primary-hi) 52%, transparent);
+      }
+
+      .progress {
+        position: absolute;
+        top: 6px;
+        right: 7px;
+        left: 7px;
+        height: 3px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--bg) 78%, transparent);
+      }
+
+      .progress span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--signal);
+      }
+
+      .cell-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .cell-meta {
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 9px;
+      }
+
+      .empty-cell {
+        align-content: center;
+        justify-items: center;
+        gap: 7px;
+        border: 1px dashed color-mix(in oklch, var(--border) 86%, transparent);
+        background: color-mix(in oklch, var(--surface) 82%, transparent);
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .empty-cell .plus {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--raised) 80%, transparent);
+        color: var(--text);
+        font-size: 18px;
+      }
+
+      .right-rail {
+        position: absolute;
+        right: 10px;
+        bottom: 140px;
+        z-index: 5;
+        display: grid;
+        gap: 9px;
+      }
+
+      .rail-button {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--raised) 86%, transparent);
+        color: var(--text);
+        box-shadow: 0 12px 34px rgba(18, 10, 10, 0.48);
+        font-size: 17px;
+      }
+
+      .rail-button.primary {
+        border-color: transparent;
+        background: var(--primary);
+        color: var(--bg);
+      }
+
+      .toast {
+        position: absolute;
+        right: 12px;
+        bottom: 126px;
+        left: 12px;
+        z-index: 10;
+        display: grid;
+        gap: 3px;
+        border: 1px solid color-mix(in oklch, var(--danger) 55%, var(--border));
+        border-radius: 12px;
+        background: color-mix(in oklch, var(--bg) 88%, var(--danger));
+        padding: 10px 12px;
+        box-shadow: 0 18px 48px rgba(18, 10, 10, 0.5);
+      }
+
+      .toast strong {
+        font-size: 12px;
+      }
+
+      .toast span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .sheet {
+        position: absolute;
+        right: 0;
+        bottom: 60px;
+        left: 0;
+        z-index: 8;
+        display: grid;
+        gap: 12px;
+        border-top: 1px solid var(--border);
+        border-radius: 24px 24px 0 0;
+        background: var(--surface);
+        padding: 10px 12px 14px;
+        box-shadow: 0 -22px 74px rgba(18, 10, 10, 0.62);
+      }
+
+      .handle {
+        width: 40px;
+        height: 4px;
+        justify-self: center;
+        border-radius: 999px;
+        background: var(--border);
+      }
+
+      .sheet-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 10px;
+      }
+
+      .sheet-title {
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .sheet-subtitle {
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+      }
+
+      .sheet-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .control {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 6px;
+        align-items: center;
+        min-height: 44px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--raised);
+        padding: 5px 8px;
+      }
+
+      .control span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .input {
+        display: grid;
+        height: 32px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 13px;
+      }
+
+      .bottom-nav {
+        position: absolute;
+        inset: auto 0 0;
+        z-index: 6;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        height: 60px;
+        border-top: 1px solid var(--border);
+        background: color-mix(in oklch, var(--bg) 96%, transparent);
+        box-shadow: 0 -18px 50px rgba(18, 10, 10, 0.58);
+      }
+
+      .bottom-nav div {
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .bottom-nav .active {
+        color: var(--primary-hi);
+      }
+
+      @media (max-width: 860px) {
+        main {
+          grid-template-columns: 1fr;
+          justify-items: center;
+          padding: 18px;
+        }
+
+        .notes {
+          max-width: min(390px, calc(100vw - 36px));
+        }
+
+        .phone {
+          width: min(390px, calc(100vw - 36px));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="notes" aria-label="Mockup notes">
+        <h1>Final mobile hard 3x3</h1>
+        <p>
+          Actual direction: no corner numbering. Top progress stays inside each
+          cell, bottom info stays where source title and metadata already live.
+        </p>
+        <ul>
+          <li>Mobile grid inputs cap at 3 columns and 3 rows.</li>
+          <li>Desktop grid inputs still cap at 16 columns and 16 rows.</li>
+          <li>
+            Out-of-range input restores valid value and shows range toast.
+          </li>
+        </ul>
+      </section>
+
+      <div
+        class="phone"
+        role="img"
+        aria-label="Final mobile hard 3x3 grid with top progress and no corner labels"
+      >
+        <div class="topbar">
+          <div>
+            <div class="eyebrow">Fixed grid</div>
+            <div class="screen-title">Layer A · 3x3 mobile cap</div>
+          </div>
+          <div class="pill">9 visible</div>
+        </div>
+
+        <div class="stage">
+          <div class="cell selected">
+            <div class="progress"><span style="width: 42%"></span></div>
+            <div class="cell-name">r/analog</div>
+            <div class="cell-meta">2/18 · 10s</div>
+          </div>
+          <div class="cell">
+            <div class="progress"><span style="width: 70%"></span></div>
+            <div class="cell-name">Local set</div>
+            <div class="cell-meta">8 files</div>
+          </div>
+          <div class="cell">
+            <div class="progress"><span style="width: 20%"></span></div>
+            <div class="cell-name">Gallery</div>
+            <div class="cell-meta">6/22 · global</div>
+          </div>
+          <div class="cell">
+            <div class="progress"><span style="width: 55%"></span></div>
+            <div class="cell-name">Video</div>
+            <div class="cell-meta">0:42</div>
+          </div>
+          <div class="cell">
+            <div class="progress"><span style="width: 16%"></span></div>
+            <div class="cell-name">Reddit hot</div>
+            <div class="cell-meta">32 items</div>
+          </div>
+          <div class="cell">
+            <div class="progress"><span style="width: 61%"></span></div>
+            <div class="cell-name">Provider URL</div>
+            <div class="cell-meta">embed</div>
+          </div>
+          <div class="cell">
+            <div class="progress"><span style="width: 34%"></span></div>
+            <div class="cell-name">Local cache</div>
+            <div class="cell-meta">browser</div>
+          </div>
+          <div class="cell">
+            <div class="progress"><span style="width: 80%"></span></div>
+            <div class="cell-name">Gallery set</div>
+            <div class="cell-meta">12/40</div>
+          </div>
+          <button
+            class="cell empty-cell"
+            type="button"
+            aria-label="Add source to empty cell"
+          >
+            <span class="plus">+</span>
+            <span class="cell-name">Add source</span>
+          </button>
+        </div>
+
+        <div class="right-rail">
+          <div class="rail-button primary">+</div>
+          <div class="rail-button">◌</div>
+        </div>
+
+        <div class="toast">
+          <strong>Grid range is 1-3 on mobile</strong>
+          <span>Desktop range remains 1-16.</span>
+        </div>
+
+        <div class="sheet">
+          <div class="handle"></div>
+          <div class="sheet-head">
+            <div>
+              <div class="sheet-title">Layout</div>
+              <div class="sheet-subtitle">Mobile limit · 3x3</div>
+            </div>
+            <div class="pill">Fixed</div>
+          </div>
+          <div class="sheet-grid">
+            <div class="control">
+              <span>Cols</span>
+              <div class="input">3</div>
+            </div>
+            <div class="control">
+              <span>Rows</span>
+              <div class="input">3</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="active">≡</div>
+          <div>▣</div>
+          <div>○</div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

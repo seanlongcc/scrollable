@@ -4,7 +4,6 @@ import type {
   DragEvent as ReactDragEvent,
   SetStateAction,
 } from "react";
-import { toast } from "sonner";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import type {
@@ -13,6 +12,7 @@ import type {
   LocalFileReference,
 } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
+import { toast } from "@/lib/toast";
 import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import {
   addPreparedLocalSourceAction,

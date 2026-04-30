@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { ChangeEvent, type CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
-import type { FixedGrid } from "@/lib/viewer/layout";
+import { mobileFixedGridDisplay, type FixedGrid } from "@/lib/viewer/layout";
 import {
   moveTimerIndex,
   togglePaused,
@@ -71,13 +71,10 @@ export function FixedGridView({
 }) {
   let mountedIframeCount = 0;
   const iframeLimit = activeIframeFallbackLimit();
-  const shouldStackMobile =
-    fixedGrid.rows === 1 && fixedGrid.columns >= 2 && fixedGrid.columns <= 4;
-  const mobileColumns = shouldStackMobile ? 1 : fixedGrid.columns;
-  const mobileRows = shouldStackMobile ? fixedGrid.columns : fixedGrid.rows;
+  const mobileGrid = mobileFixedGridDisplay({ fixedGrid, visibleCells });
   const gridStyle = {
-    "--mobile-grid-columns": mobileColumns,
-    "--mobile-grid-rows": mobileRows,
+    "--mobile-grid-columns": mobileGrid.columns,
+    "--mobile-grid-rows": mobileGrid.rows,
     "--desktop-grid-columns": fixedGrid.columns,
     "--desktop-grid-rows": fixedGrid.rows,
   } as CSSProperties;
@@ -105,10 +102,8 @@ export function FixedGridView({
             key={slot}
             data-testid={`${cellTestIdPrefix}-${slot}`}
             className={cn(
-              "min-h-0 rounded-none outline outline-1 outline-offset-0 outline-transparent transition md:rounded-2xl",
-              !hideUi &&
-                session?.id === selectedId &&
-                "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/15",
+              "min-h-0 rounded-none transition md:rounded-2xl",
+              slot >= mobileGrid.visibleCells && "max-md:hidden",
             )}
             onClick={(event) => {
               if (!session) return;

@@ -250,6 +250,14 @@ export function UrlSourcePane({
           </div>
         </div>
       ) : null}
+
+      {!hideUi && isFocused ? (
+        <div
+          data-testid="source-selected-outline"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-30 rounded-2xl border-2 border-primary ring-2 ring-primary/15"
+        />
+      ) : null}
     </article>
   );
 }
