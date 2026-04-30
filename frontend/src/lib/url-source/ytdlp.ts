@@ -203,19 +203,39 @@ function bundledYtDlpCommands({
   env,
   platform,
 }: Required<YtDlpCommandCandidateOptions>) {
-  const filename = env.YOUTUBE_DL_FILENAME?.trim() || "yt-dlp";
-  const binary =
-    platform === "win32" && !filename.endsWith(".exe")
-      ? `${filename}.exe`
-      : filename;
+  const pathModule = platform === "win32" ? path.win32 : path;
+  const configuredFilename = env.YOUTUBE_DL_FILENAME?.trim();
+  const binaries = configuredFilename
+    ? [normalizeYtDlpBinaryName(configuredFilename, platform)]
+    : platformYtDlpBinaryNames(platform);
   const configuredDir = env.YOUTUBE_DL_DIR?.trim();
-  const commands = [
-    ...(configuredDir ? [path.join(configuredDir, binary)] : []),
-    path.join(cwd, "node_modules", "youtube-dl-exec", "bin", binary),
-    path.join(cwd, "..", "node_modules", "youtube-dl-exec", "bin", binary),
-  ];
+  const commands = binaries.flatMap((binary) => [
+    ...(configuredDir ? [pathModule.join(configuredDir, binary)] : []),
+    pathModule.join(cwd, "node_modules", "youtube-dl-exec", "bin", binary),
+    pathModule.join(
+      cwd,
+      "..",
+      "node_modules",
+      "youtube-dl-exec",
+      "bin",
+      binary,
+    ),
+  ]);
 
   return Array.from(new Set(commands));
+}
+
+function platformYtDlpBinaryNames(platform: NodeJS.Platform) {
+  if (platform === "linux") return ["yt-dlp_linux", "yt-dlp"];
+  if (platform === "darwin") return ["yt-dlp_macos", "yt-dlp"];
+  if (platform === "win32") return ["yt-dlp.exe"];
+  return ["yt-dlp"];
+}
+
+function normalizeYtDlpBinaryName(filename: string, platform: NodeJS.Platform) {
+  return platform === "win32" && !filename.endsWith(".exe")
+    ? `${filename}.exe`
+    : filename;
 }
 
 export function ytDlpFailureDiagnostic({
@@ -241,7 +261,7 @@ function logYtDlpDiagnostic(
 }
 
 function commandCandidateLabel(candidate: CommandCandidate) {
-  const command = path.basename(candidate.command);
+  const command = candidate.command.split(/[\\/]/).pop() ?? candidate.command;
   const moduleArgs = candidate.args.slice(0, 2).join(" ");
   return moduleArgs ? `${command} ${moduleArgs}` : command;
 }

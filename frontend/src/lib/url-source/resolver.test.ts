@@ -646,10 +646,11 @@ describe("resolveUrlSource", () => {
         '<html><head><meta property="og:title" content="OG title"><meta name="description" content="Summary"></head></html>',
       ),
     );
+    const ytDlpResolver = vi.fn(async () => []);
 
     const result = await resolveUrlSource(
       { kind: "url", url: "https://example.com/article" },
-      { fetch: fetchMock },
+      { fetch: fetchMock, ytDlpResolver },
     );
 
     expect(result.resolution).toMatchObject({
@@ -709,6 +710,7 @@ describe("resolveUrlSource", () => {
 
   it("does not update the resolver hint after unsupported resolution", async () => {
     const fetchMock = vi.fn(async () => emptyResponse(403));
+    const ytDlpResolver = vi.fn(async () => []);
 
     const result = await resolveUrlSource(
       {
@@ -716,7 +718,7 @@ describe("resolveUrlSource", () => {
         url: "https://blocked.example/page",
         resolverHint: "metadata",
       },
-      { fetch: fetchMock, allowIframeFallback: false },
+      { fetch: fetchMock, ytDlpResolver, allowIframeFallback: false },
     );
 
     expect(result.resolution).toMatchObject({

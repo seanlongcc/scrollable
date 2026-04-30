@@ -1,6 +1,7 @@
 {
   "name": "scrollable",
   "version": "0.1.0",
+  "license": "GPL-3.0-only",
   "private": true,
   "workspaces": [
     "frontend"
@@ -12,6 +13,7 @@
     "lint": "npm --workspace frontend run lint --",
     "format": "npm --workspace frontend run format --",
     "format:check": "npm --workspace frontend run format:check --",
+    "postinstall": "node scripts/install-ytdlp-standalone.mjs",
     "typecheck": "npm --workspace frontend run typecheck --",
     "test": "npm --workspace frontend run test --",
     "test:watch": "npm --workspace frontend run test:watch --",

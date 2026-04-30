@@ -28,6 +28,15 @@ describe("ytDlpCommandCandidates", () => {
     ).toEqual([
       {
         command:
+          "/vercel/path0/frontend/node_modules/youtube-dl-exec/bin/yt-dlp_linux",
+        args: [],
+      },
+      {
+        command: "/vercel/path0/node_modules/youtube-dl-exec/bin/yt-dlp_linux",
+        args: [],
+      },
+      {
+        command:
           "/vercel/path0/frontend/node_modules/youtube-dl-exec/bin/yt-dlp",
         args: [],
       },
@@ -39,6 +48,31 @@ describe("ytDlpCommandCandidates", () => {
       { command: "python3", args: ["-m", "yt_dlp"] },
       { command: "python", args: ["-m", "yt_dlp"] },
     ]);
+  });
+
+  it("uses platform standalone binary names when available", () => {
+    expect(
+      ytDlpCommandCandidates({
+        cwd: "/app/frontend",
+        env: {},
+        platform: "darwin",
+      })[0],
+    ).toEqual({
+      command: "/app/frontend/node_modules/youtube-dl-exec/bin/yt-dlp_macos",
+      args: [],
+    });
+
+    expect(
+      ytDlpCommandCandidates({
+        cwd: "C:\\app\\frontend",
+        env: {},
+        platform: "win32",
+      })[0],
+    ).toEqual({
+      command:
+        "C:\\app\\frontend\\node_modules\\youtube-dl-exec\\bin\\yt-dlp.exe",
+      args: [],
+    });
   });
 });
 
