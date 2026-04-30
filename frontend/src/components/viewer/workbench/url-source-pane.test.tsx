@@ -224,6 +224,37 @@ describe("UrlSourcePane", () => {
 
     expect(selectButton.parentElement).not.toHaveClass("opacity-0");
   });
+
+  it("places selected URL source actions in the mobile rail opposite the workbench rail", () => {
+    render(
+      <UrlSourcePane
+        title="Long URL source"
+        resolution={{
+          status: "unsupported",
+          title: "Long URL source",
+          externalUrl: "https://example.test/source",
+          reason: "url_source_unsupported",
+        }}
+        isFocused
+        canMountIframe
+        onSelect={vi.fn()}
+        onMaximize={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    const actionRail = screen
+      .getByRole("button", { name: "Select Long URL source" })
+      .closest("[data-source-action-rail]");
+
+    expect(actionRail).not.toBeNull();
+    expect(actionRail).toHaveAttribute("data-focused", "true");
+    expect(actionRail).toHaveClass(
+      "max-md:fixed",
+      "max-md:left-3",
+      "max-md:bottom-[8.5rem]",
+    );
+  });
 });
 
 function youtubePlayer({ currentTime = 0 } = {}) {

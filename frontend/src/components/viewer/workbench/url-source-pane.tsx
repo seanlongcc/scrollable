@@ -9,6 +9,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { sourceActionRailClass } from "@/components/viewer/source-action-rail";
 import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import { cn } from "@/lib/utils";
 import {
@@ -188,10 +189,9 @@ export function UrlSourcePane({
 
       {!hideUi && (onRemove || onMaximize || onSelect) ? (
         <div
-          className={cn(
-            "pointer-events-none absolute top-2 left-2 z-30 grid gap-1 md:left-auto md:right-2",
-            sourceChromeClass,
-          )}
+          data-source-action-rail
+          data-focused={isFocused ? "true" : "false"}
+          className={sourceActionRailClass(isFocused)}
         >
           {onRemove ? (
             <Button

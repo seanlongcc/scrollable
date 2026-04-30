@@ -28,6 +28,8 @@ import {
   type TimerState,
 } from "@/lib/viewer/timer";
 import { MediaRenderer } from "./media-renderer";
+import { sourceActionRailClass } from "./source-action-rail";
+import { useFeedSwipe } from "./use-feed-swipe";
 
 const PREFETCH_NEXT_ITEM_COUNT = 6;
 const CONSTRAINED_PREFETCH_CONNECTION_TYPES = new Set(["slow-2g", "2g"]);
@@ -163,6 +165,11 @@ export function FeedViewPane({
     },
     [activeItem, onGalleryChange, onMove],
   );
+  const touchHandlers = useFeedSwipe({
+    activeItem,
+    onGalleryChange,
+    onMove,
+  });
   function selectThen(action?: () => void) {
     onSelect?.();
     action?.();
@@ -170,8 +177,9 @@ export function FeedViewPane({
 
   return (
     <article
-      className="group/source relative grid size-full min-h-0 overflow-hidden rounded-none border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)] md:rounded-2xl"
+      className="group/source relative grid size-full min-h-0 touch-none overflow-hidden rounded-none border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)] md:rounded-2xl"
       onWheel={handleWheel}
+      {...touchHandlers}
     >
       {showProgress ? (
         <div
@@ -271,10 +279,9 @@ export function FeedViewPane({
 
       {!hideUi && (onRemove || onMaximize || onEdit || onSelect) ? (
         <div
-          className={cn(
-            "pointer-events-none absolute top-2 left-2 z-30 grid gap-1 md:left-auto md:right-2",
-            sourceChromeClass,
-          )}
+          data-source-action-rail
+          data-focused={isFocused ? "true" : "false"}
+          className={sourceActionRailClass(isFocused)}
         >
           {onRemove ? (
             <Button
