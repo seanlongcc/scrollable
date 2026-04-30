@@ -421,7 +421,7 @@ function SegmentedControl({
           aria-pressed={value === optionValue}
           disabled={disabled}
           onClick={() => onChange(optionValue)}
-          className="h-[44px] min-h-[44px] min-w-0 overflow-hidden md:h-7 md:min-h-0"
+          className="!h-11 !min-h-11 min-w-0 overflow-hidden md:!h-7 md:!min-h-0"
         >
           <span className="min-w-0 truncate">{label}</span>
         </Button>
