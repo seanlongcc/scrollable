@@ -26,9 +26,7 @@ export function LegalPage({
     <main className="min-h-dvh bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-10">
         <header className="flex flex-wrap items-center justify-between gap-4">
-          <Link href="/" aria-label="Open Scrollable viewer">
-            <SiteLogo className="-ml-2.5" />
-          </Link>
+          <SiteLogo className="-ml-2.5" />
           <nav className="flex gap-3 text-sm text-muted-foreground">
             <Link className="hover:text-foreground" href="/terms">
               Terms

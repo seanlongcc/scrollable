@@ -43,6 +43,8 @@ const libraryRowClass =
 const metadataBlockClass =
   "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
 
+const libraryBulkButtonClass = "min-w-0 px-2 font-normal md:font-normal";
+
 export function SavedLibraryRow({
   id,
   name,
@@ -235,7 +237,7 @@ export function SavedLibraryBulkActions({
         variant="outline"
         onClick={onSelectAll}
         aria-label={`Select all ${noun}`}
-        className="min-w-0 px-2"
+        className={libraryBulkButtonClass}
       >
         <Rows3 />
         Select all
@@ -245,7 +247,7 @@ export function SavedLibraryBulkActions({
         onClick={onOpenSelected}
         disabled={selectedCount === 0}
         aria-label={`Open selected ${noun}`}
-        className="min-w-0 px-2"
+        className={libraryBulkButtonClass}
       >
         <FolderOpen />
         Open

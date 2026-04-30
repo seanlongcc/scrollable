@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   ytDlpCommandCandidates,
-  ytDlpFailureDiagnostic,
   ytDlpInfoToRuntimeItems,
   ytDlpInfoToRuntimeResolution,
 } from "./ytdlp";
@@ -72,40 +71,6 @@ describe("ytDlpCommandCandidates", () => {
       command:
         "C:\\app\\frontend\\node_modules\\youtube-dl-exec\\bin\\yt-dlp.exe",
       args: [],
-    });
-  });
-});
-
-describe("ytDlpFailureDiagnostic", () => {
-  it("classifies blocked upstream failures without logging full URLs", () => {
-    expect(
-      ytDlpFailureDiagnostic({
-        url: "https://weverse.io/stayc/live/3-226763714",
-        candidate: { command: "/app/node_modules/.bin/yt-dlp", args: [] },
-        error: new Error(
-          "ERROR: [weverse] 3-226763714: HTTP Error 403: Forbidden https://weverse-rmcnmv.akamaized.net/video.mp4?__gda__=secret",
-        ),
-      }),
-    ).toEqual({
-      event: "yt_dlp_resolution_failed",
-      sourceHost: "weverse.io",
-      candidate: "yt-dlp",
-      reason: "upstream_forbidden",
-      detail: "ERROR: [weverse] 3-226763714: HTTP Error 403: Forbidden [url]",
-    });
-  });
-
-  it("uses candidate args to identify python module fallbacks", () => {
-    expect(
-      ytDlpFailureDiagnostic({
-        url: "https://example.com/video",
-        candidate: { command: "python3", args: ["-m", "yt_dlp"] },
-        error: new Error("yt_dlp_invalid_json"),
-      }),
-    ).toMatchObject({
-      sourceHost: "example.com",
-      candidate: "python3 -m yt_dlp",
-      reason: "invalid_json",
     });
   });
 });

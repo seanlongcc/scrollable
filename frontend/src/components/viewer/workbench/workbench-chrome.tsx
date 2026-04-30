@@ -17,6 +17,7 @@ import {
   Trash2,
   UserCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { type ReactNode, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -569,7 +570,7 @@ function WorkbenchPanelContent({
   onFreeRectChange: (id: string, patch: Partial<FreeRect>) => void;
 }) {
   return (
-    <div className="grid gap-4">
+    <div className="flex min-h-full flex-col gap-4">
       <div className="hidden min-w-0 text-sm font-semibold md:block">
         <div className="truncate" title={workspaceName}>
           {workspaceName}
@@ -742,7 +743,22 @@ function WorkbenchPanelContent({
           </section>
         </>
       ) : null}
+
+      {mode === "desktop" ? <WorkbenchLegalFooter /> : null}
     </div>
+  );
+}
+
+function WorkbenchLegalFooter() {
+  return (
+    <footer className="mt-auto flex items-center justify-center gap-5 border-t border-border/60 pt-3 font-mono text-[10px] text-muted-foreground">
+      <Link className="hover:text-foreground" href="/privacy">
+        Privacy
+      </Link>
+      <Link className="hover:text-foreground" href="/terms">
+        Terms
+      </Link>
+    </footer>
   );
 }
 

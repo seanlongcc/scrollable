@@ -134,30 +134,22 @@ describe("FeedWorkbench interactions", () => {
   });
 
   it("maximizes a runtime feed into focus plus satellite mode", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          items: [
-            {
-              id: "runtime-1",
-              source: "reddit",
-              title: "Runtime image",
-              subreddit: "pics",
-              isNsfw: false,
-              createdAt: "2026-04-24T00:00:00.000Z",
-              media: [
-                {
-                  type: "image",
-                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                },
-              ],
-            },
-          ],
-        }),
-      })),
-    );
+    stubRuntimeFetch([
+      {
+        id: "runtime-1",
+        source: "reddit",
+        title: "Runtime image",
+        subreddit: "pics",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image",
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
     vi.stubGlobal("crypto", { randomUUID: () => "session-1" });
 
     const user = userEvent.setup();

@@ -30,6 +30,7 @@ describe("MediaRenderer", () => {
   beforeEach(() => {
     hlsState.configs = [];
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   });
 
@@ -64,8 +65,30 @@ describe("MediaRenderer", () => {
 
     expect(video?.autoplay).toBe(true);
     expect(video?.muted).toBe(true);
+    expect(video?.defaultMuted).toBe(true);
     expect(video).toHaveAttribute("playsinline");
+    expect(video).toHaveAttribute("webkit-playsinline");
     expect(video).toHaveAttribute("preload", "auto");
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+  });
+
+  it("retries video playback when mobile browsers finish loading media", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).toBeInTheDocument();
+
+    vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+    fireEvent.loadedMetadata(video!);
+    fireEvent.loadedData(video!);
+    fireEvent.canPlay(video!);
+
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(3);
   });
 
   it("restores and reports video playback position", () => {

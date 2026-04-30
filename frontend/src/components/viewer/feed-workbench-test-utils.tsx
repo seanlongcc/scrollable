@@ -115,13 +115,121 @@ export function stubRuntimeFetch(
     },
   ],
 ) {
-  const fetchMock = vi.fn(async () => ({
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => ({
     ok: true,
-    json: async () => ({ items }),
+    json: async () => redditListingFromRuntimeItems(items, String(input)),
   }));
   vi.stubGlobal("fetch", fetchMock);
 
   return fetchMock;
+}
+
+export function redditListingFromRuntimeItems(
+  items: RuntimeFeedItem[],
+  requestUrl?: string,
+) {
+  const requestSubreddit = requestUrl
+    ? subredditFromRedditRequestUrl(requestUrl)
+    : null;
+  const matchingItems = requestSubreddit
+    ? items.filter((item) => item.subreddit?.toLowerCase() === requestSubreddit)
+    : items;
+
+  return {
+    kind: "Listing",
+    data: {
+      children: (matchingItems.length ? matchingItems : items).map((item) => ({
+        data: runtimeItemToRedditPost(item, requestSubreddit),
+      })),
+    },
+  };
+}
+
+function runtimeItemToRedditPost(
+  item: RuntimeFeedItem,
+  requestSubreddit: string | null,
+) {
+  const media = item.media[0];
+  const id = item.id
+    .replace(/^reddit:/, "")
+    .replace(/:media:\d+$/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "-");
+  const created = Date.parse(item.createdAt);
+  const subreddit = requestSubreddit ?? item.subreddit;
+  const basePost = {
+    id,
+    title: item.title,
+    subreddit,
+    author: item.author,
+    permalink: item.permalink
+      ? new URL(item.permalink).pathname
+      : `/r/${subreddit ?? "pics"}/comments/${id}/runtime/`,
+    over_18: item.isNsfw,
+    created_utc: Number.isNaN(created) ? undefined : Math.floor(created / 1000),
+  };
+
+  if (item.media.length > 1) {
+    return {
+      ...basePost,
+      is_gallery: true,
+      gallery_data: {
+        items: item.media.map((_media, index) => ({
+          media_id: `media-${index}`,
+        })),
+      },
+      media_metadata: Object.fromEntries(
+        item.media.map((entry, index) => [
+          `media-${index}`,
+          {
+            status: "valid",
+            m: entry.type === "video" ? "video/mp4" : "image/jpeg",
+            s: {
+              u: entry.type === "image" ? entry.url : undefined,
+              mp4: entry.type === "video" ? entry.url : undefined,
+              x: entry.width,
+              y: entry.height,
+            },
+          },
+        ]),
+      ),
+    };
+  }
+
+  if (media?.type === "video") {
+    return {
+      ...basePost,
+      is_video: true,
+      secure_media: {
+        reddit_video: {
+          hls_url: media.isHls ? media.url : undefined,
+          fallback_url: media.isHls ? undefined : media.url,
+          width: media.width,
+          height: media.height,
+        },
+      },
+    };
+  }
+
+  return {
+    ...basePost,
+    post_hint: "image",
+    url: media?.url,
+  };
+}
+
+function subredditFromRedditRequestUrl(value: string) {
+  try {
+    const url = new URL(value, "https://www.reddit.com");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const subredditIndex = segments.indexOf("r");
+    if (subredditIndex !== -1 && segments[subredditIndex + 1]) {
+      return segments[subredditIndex + 1].toLowerCase();
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 export function stubUrlResolveFetch(
@@ -155,7 +263,7 @@ export function deferredFetch(items: Parameters<typeof stubRuntimeFetch>[0]) {
 
       return {
         ok: true,
-        json: async () => ({ items }),
+        json: async () => redditListingFromRuntimeItems(items ?? []),
       };
     }),
   );

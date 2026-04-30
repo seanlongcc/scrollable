@@ -1,6 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import type { UrlRuntimeResolution, UrlResolverHint } from "./types";
-import type { YtDlpFailureDiagnostic } from "./ytdlp";
 
 export type FetchLike = (
   input: RequestInfo | URL,
@@ -12,7 +11,6 @@ export type UrlResolverOptions = {
   redditResolver?: (url: string) => Promise<RuntimeFeedItem[]>;
   galleryResolver?: (url: string) => Promise<RuntimeFeedItem[]>;
   ytDlpResolver?: (url: string) => Promise<RuntimeFeedItem[]>;
-  ytDlpDiagnostics?: YtDlpFailureDiagnostic[];
   allowIframeFallback?: boolean;
   now?: () => string;
 };

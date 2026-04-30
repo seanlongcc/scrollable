@@ -351,6 +351,31 @@ describe("cloud save UI", () => {
     ).toHaveAttribute("aria-valuenow", "20");
   });
 
+  it("shows legal links in the account dialog", () => {
+    render(
+      <AccountDialog
+        open
+        onOpenChange={vi.fn()}
+        account={signedInAccount()}
+        localCacheStatus={{ label: "Local cache: storage usage unavailable" }}
+        cloudUsage={cloudUsage({ usedBytes: 2048 })}
+        onRefreshLocalCacheStatus={vi.fn()}
+        onClearLocalCache={vi.fn()}
+        onSignOut={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Account" });
+
+    expect(
+      within(dialog).getByRole("link", { name: "Privacy" }),
+    ).toHaveAttribute("href", "/privacy");
+    expect(within(dialog).getByRole("link", { name: "Terms" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
+  });
+
   it("shows unlimited Cloud metadata usage for admins", () => {
     render(
       <AccountDialog

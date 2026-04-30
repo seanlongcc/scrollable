@@ -214,6 +214,56 @@ export function MediaRenderer({
       return;
     }
     const videoElement = video;
+    let isCancelled = false;
+
+    videoElement.muted = true;
+    videoElement.defaultMuted = true;
+    videoElement.playsInline = true;
+    videoElement.autoplay = true;
+    videoElement.setAttribute("playsinline", "");
+    videoElement.setAttribute("webkit-playsinline", "");
+
+    function requestPlayback() {
+      if (isCancelled || !shouldLoadPlayback || videoElement.paused === false) {
+        return;
+      }
+
+      try {
+        const playResult = videoElement.play();
+        if (playResult && typeof playResult.catch === "function") {
+          void playResult.catch(() => undefined);
+        }
+      } catch {
+        // Autoplay can be rejected by browser policy; controls stay available.
+      }
+    }
+
+    requestPlayback();
+    videoElement.addEventListener("loadedmetadata", requestPlayback);
+    videoElement.addEventListener("loadeddata", requestPlayback);
+    videoElement.addEventListener("canplay", requestPlayback);
+    videoElement.addEventListener("canplaythrough", requestPlayback);
+
+    return () => {
+      isCancelled = true;
+      videoElement.removeEventListener("loadedmetadata", requestPlayback);
+      videoElement.removeEventListener("loadeddata", requestPlayback);
+      videoElement.removeEventListener("canplay", requestPlayback);
+      videoElement.removeEventListener("canplaythrough", requestPlayback);
+    };
+  }, [hasLoadError, media.type, shouldLoadPlayback, videoPlaybackKey]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (
+      !video ||
+      media.type !== "video" ||
+      !shouldLoadPlayback ||
+      hasLoadError
+    ) {
+      return;
+    }
+    const videoElement = video;
     const restoreTarget = videoPlaybackKey
       ? videoRestoreTargetRef.current
       : null;

@@ -265,45 +265,75 @@ test("warns before displaying provider page embeds", async ({ page }) => {
 test("keyboard and wheel move through runtime feed items", async ({
   page,
 }, testInfo) => {
-  await page.route("**/api/reddit/listing?**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        items: [
-          {
-            id: "runtime-1",
-            source: "reddit",
-            title: "Runtime image 1",
-            subreddit: "pics",
-            isNsfw: false,
-            createdAt: "2026-04-24T00:00:00.000Z",
-            media: [
+  await page.route(
+    "**reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          kind: "Listing",
+          data: {
+            children: [
               {
-                type: "image",
-                url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                data: {
+                  id: "runtime-1",
+                  title: "Runtime image 1",
+                  subreddit: "pics",
+                  post_hint: "image",
+                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                },
+              },
+              {
+                data: {
+                  id: "runtime-2",
+                  title: "Runtime image 2",
+                  subreddit: "pics",
+                  post_hint: "image",
+                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                },
               },
             ],
           },
-          {
-            id: "runtime-2",
-            source: "reddit",
-            title: "Runtime image 2",
-            subreddit: "pics",
-            isNsfw: false,
-            createdAt: "2026-04-24T00:00:00.000Z",
-            media: [
-              {
-                type: "image",
-                url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-              },
-            ],
-          },
-        ],
-      }),
-    });
-  });
+        }),
+      });
+    },
+  );
 
+  await page.route(
+    "**api.reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          kind: "Listing",
+          data: {
+            children: [
+              {
+                data: {
+                  id: "runtime-1",
+                  title: "Runtime image 1",
+                  subreddit: "pics",
+                  post_hint: "image",
+                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                },
+              },
+              {
+                data: {
+                  id: "runtime-2",
+                  title: "Runtime image 2",
+                  subreddit: "pics",
+                  post_hint: "image",
+                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                },
+              },
+            ],
+          },
+        }),
+      });
+    },
+  );
   await page.goto("/");
   await page.getByRole("button", { name: "Add source", exact: true }).click();
   await page.getByRole("button", { name: "Reddit" }).click();

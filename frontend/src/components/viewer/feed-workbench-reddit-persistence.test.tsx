@@ -530,7 +530,9 @@ describe("FeedWorkbench Reddit source persistence", () => {
           >
         )[0]?.[0],
       ),
-    ).toContain("limit=24");
+    ).toBe(
+      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
+    );
   });
 
   it("refetches saved Reddit galleries as scrollable feed items", async () => {

@@ -179,6 +179,20 @@ describe("WorkbenchChrome", () => {
     expect(within(nav).queryByText("Account")).not.toBeInTheDocument();
   });
 
+  it("shows legal links at the bottom of the desktop workbench panel", () => {
+    render(<WorkbenchChrome {...chromeProps()} />);
+
+    const panel = screen.getByLabelText("Workbench contextual panel");
+
+    expect(
+      within(panel).getByRole("link", { name: "Privacy" }),
+    ).toHaveAttribute("href", "/privacy");
+    expect(within(panel).getByRole("link", { name: "Terms" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
+  });
+
   it("places JSON import to the left of JSON export in workbench actions", async () => {
     const user = userEvent.setup();
     const onImportJson = vi.fn();

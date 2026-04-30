@@ -10,6 +10,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { SignInPanel } from "@/components/auth/sign-in-panel";
@@ -84,6 +85,8 @@ const libraryTabsListClass =
 
 const libraryTabTriggerClass = "min-h-12 rounded-xl md:min-h-0";
 
+const libraryCommandButtonClass = "font-normal md:font-normal";
+
 const libraryListClass =
   "grid max-h-[min(16rem,38dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1";
 
@@ -92,6 +95,9 @@ const emptyStateClass =
 
 const metadataBlockClass =
   "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
+
+const accountLegalFooterClass =
+  "mt-auto flex items-center justify-center gap-5 border-t border-border/60 pt-3 font-mono text-[10px] text-muted-foreground";
 
 export function LayoutDialog({
   open,
@@ -268,7 +274,11 @@ export function LayoutDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-2">
-          <Button type="button" onClick={onSaveCurrentLayout}>
+          <Button
+            type="button"
+            onClick={onSaveCurrentLayout}
+            className={libraryCommandButtonClass}
+          >
             <Save />
             Save layout
           </Button>
@@ -276,6 +286,7 @@ export function LayoutDialog({
             type="button"
             variant="outline"
             onClick={() => onImportJson(storageTarget)}
+            className={libraryCommandButtonClass}
           >
             <Upload />
             Import JSON
@@ -301,7 +312,12 @@ export function LayoutDialog({
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <Button type="button" variant="outline" onClick={onCreateWorkspaceTab}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCreateWorkspaceTab}
+          className={libraryCommandButtonClass}
+        >
           <FolderOpen />
           New blank
         </Button>
@@ -927,6 +943,14 @@ export function AccountDialog({
         ) : (
           <SignInPanel next="/" />
         )}
+        <footer className={accountLegalFooterClass}>
+          <Link className="hover:text-foreground" href="/privacy">
+            Privacy
+          </Link>
+          <Link className="hover:text-foreground" href="/terms">
+            Terms
+          </Link>
+        </footer>
       </DialogContent>
     </Dialog>
   );

@@ -1,10 +1,12 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { loadLocalFiles } from "@/lib/local-uploads/file-cache";
+import { fetchPublicRedditRuntimePostLinks } from "@/lib/reddit/public-client";
 import type {
   UrlResolverHint,
   UrlRuntimeResolution,
   UrlSourceConfig,
 } from "@/lib/url-source/types";
+import { isRedditUrl } from "@/lib/url-source/resolver-routing";
 import type {
   FeedSession,
   LocalRestoreStatus,
@@ -125,23 +127,13 @@ export async function fetchRedditRuntimeItems(
   urls: string[],
   limit = DEFAULT_REDDIT_MEDIA_LIMIT,
 ) {
-  const params = new URLSearchParams({
-    allowNsfw: "true",
-    limit: String(limit),
+  const result = await fetchPublicRedditRuntimePostLinks({
+    urls,
+    allowNsfw: true,
+    limit,
   });
-  for (const url of urls) {
-    params.append("urls", url);
-  }
-  const response = await fetch(`/api/reddit/listing?${params}`, {
-    cache: "no-store",
-  });
-  const payload = await response.json();
 
-  if (!response.ok) {
-    throw new Error(payload.error ?? "reddit_error");
-  }
-
-  return flattenRuntimeMediaItems(payload.items as RuntimeFeedItem[]);
+  return flattenRuntimeMediaItems(result.items);
 }
 
 export function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
@@ -234,23 +226,13 @@ export async function fetchRuntimeItemsForSource(
     return { items: [], allItems: undefined };
   }
 
-  const params = new URLSearchParams({
-    allowNsfw: String(sourceConfig.allowNsfw),
-    limit: String(sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT),
+  const result = await fetchPublicRedditRuntimePostLinks({
+    urls: sourceConfig.urls,
+    allowNsfw: sourceConfig.allowNsfw,
+    limit: sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT,
   });
-  for (const url of sourceConfig.urls) {
-    params.append("urls", url);
-  }
-  const response = await fetch(`/api/reddit/listing?${params}`, {
-    cache: "no-store",
-  });
-  const payload = await response.json();
 
-  if (!response.ok) {
-    throw new Error(payload.error ?? "reddit_error");
-  }
-
-  const allItems = flattenRuntimeMediaItems(payload.items as RuntimeFeedItem[]);
+  const allItems = flattenRuntimeMediaItems(result.items);
 
   return {
     items: await filterHiddenRedditItems(
@@ -264,6 +246,10 @@ export async function fetchRuntimeItemsForSource(
 export async function fetchUrlRuntimeItemsForSource(
   sourceConfig: UrlSourceConfig,
 ) {
+  if (isBrowserResolvedRedditUrl(sourceConfig.url)) {
+    return fetchRedditUrlRuntimeItemsForSource(sourceConfig);
+  }
+
   const params = new URLSearchParams({ url: sourceConfig.url });
   if (sourceConfig.resolverHint) {
     params.set("hint", sourceConfig.resolverHint);
@@ -303,6 +289,46 @@ export async function fetchUrlRuntimeItemsForSource(
       ...(nextResolverHint ? { resolverHint: nextResolverHint } : {}),
     } satisfies UrlSourceConfig,
   };
+}
+
+async function fetchRedditUrlRuntimeItemsForSource(
+  sourceConfig: UrlSourceConfig,
+) {
+  const result = await fetchPublicRedditRuntimePostLinks({
+    urls: sourceConfig.url,
+    allowNsfw: true,
+  });
+  const items = flattenRuntimeMediaItems(result.items);
+  const title =
+    sourceConfig.title ?? redditLinksTitle([sourceConfig.url], items);
+  const urlResolution = {
+    status: "resolved",
+    mode: "provider",
+    hint: "provider:reddit",
+    provider: "reddit",
+    title,
+    externalUrl: sourceConfig.url,
+    items,
+  } satisfies UrlRuntimeResolution;
+
+  return {
+    title,
+    items,
+    allItems: items,
+    urlResolution,
+    sourceConfig: {
+      ...sourceConfig,
+      resolverHint: "provider:reddit",
+    } satisfies UrlSourceConfig,
+  };
+}
+
+function isBrowserResolvedRedditUrl(value: string) {
+  try {
+    return isRedditUrl(value);
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchLocalRuntimeItemsForSource({

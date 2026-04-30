@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
+const authButtonClass = "font-normal md:font-normal";
+
 export function SignInPanel({ next = "/" }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -96,7 +98,11 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
         />
       </Label>
       <div className="grid grid-cols-2 gap-2">
-        <Button type="submit" disabled={!canUseEmailPassword}>
+        <Button
+          type="submit"
+          disabled={!canUseEmailPassword}
+          className={authButtonClass}
+        >
           <Mail />
           Sign in
         </Button>
@@ -105,6 +111,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
           variant="secondary"
           onClick={signUpWithEmailPassword}
           disabled={!canUseEmailPassword}
+          className={authButtonClass}
         >
           <UserPlus />
           Sign up
@@ -116,6 +123,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
           variant="outline"
           onClick={signInWithGoogle}
           disabled={!isConfigured}
+          className={authButtonClass}
         >
           <Globe />
           Google
