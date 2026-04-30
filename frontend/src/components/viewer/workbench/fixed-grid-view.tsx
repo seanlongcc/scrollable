@@ -115,7 +115,11 @@ export function FixedGridView({
               if ((event.target as HTMLElement).closest("button,a,input")) {
                 return;
               }
-              setSelectedId(session.id === selectedId ? null : session.id);
+              if (session.id === selectedId) {
+                if (event.target === event.currentTarget) setSelectedId(null);
+                return;
+              }
+              setSelectedId(session.id);
             }}
             onPointerDownCapture={(event) => {
               if (!session || session.id === selectedId) return;

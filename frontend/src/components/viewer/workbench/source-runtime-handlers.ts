@@ -388,37 +388,35 @@ export function useSourceRuntimeHandlers({
   }
 
   function addSessions(sources: SessionPlacementSourceInput[]) {
-    setSessions((current) => {
-      const result = placeSessions({
-        current,
-        sources,
-        activeLayerId,
-        globalSeconds,
-        pendingFixedSlot,
-        pendingTemplateSlotId,
-        templateSlots,
-        createId,
-      });
-
-      if (result.noFreeLayoutSpace) {
-        toast.error("No space left in free layout");
-      }
-
-      if (result.selectedSessionId) {
-        setSelectedId(result.selectedSessionId);
-        setPendingFixedSlot(null);
-        setPendingTemplateSlotId(null);
-        if (result.consumedTemplateSlotId) {
-          setTemplateSlots((currentSlots) =>
-            currentSlots.filter(
-              (slot) => slot.id !== result.consumedTemplateSlotId,
-            ),
-          );
-        }
-      }
-
-      return result.sessions;
+    const result = placeSessions({
+      current: sessions,
+      sources,
+      activeLayerId,
+      globalSeconds,
+      pendingFixedSlot,
+      pendingTemplateSlotId,
+      templateSlots,
+      createId,
     });
+
+    if (result.noFreeLayoutSpace) {
+      toast.error("No space left in free layout");
+    }
+
+    setSessions(result.sessions);
+
+    if (!result.selectedSessionId) return;
+
+    setSelectedId(result.selectedSessionId);
+    setPendingFixedSlot(null);
+    setPendingTemplateSlotId(null);
+    if (result.consumedTemplateSlotId) {
+      setTemplateSlots((currentSlots) =>
+        currentSlots.filter(
+          (slot) => slot.id !== result.consumedTemplateSlotId,
+        ),
+      );
+    }
   }
 
   function openSourcePanel(
