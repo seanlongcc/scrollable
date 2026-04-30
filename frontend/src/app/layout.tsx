@@ -4,6 +4,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
+const shouldEnableSpeedInsights = process.env.VERCEL === "1";
+
 const sora = Sora({
   variable: "--font-sora",
   subsets: ["latin"],
@@ -57,7 +59,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
-        <SpeedInsights />
+        {shouldEnableSpeedInsights ? <SpeedInsights /> : null}
       </body>
     </html>
   );

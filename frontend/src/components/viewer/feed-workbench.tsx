@@ -85,12 +85,18 @@ import { useLayoutHandlers } from "./workbench/layout-handler-actions";
 import {
   HIDDEN_UI_REVEAL_TIMEOUT_MS,
   advanceSessionTimers,
+  hasActiveSessionTimers,
   keyboardTimerMoveDirection,
   moveActiveKeyboardSessionTimer,
 } from "./workbench/workbench-effect-state";
 import { WorkbenchHeader } from "./workbench/workbench-header";
 import { WorkbenchStage } from "./workbench/workbench-stage";
 import { WorkbenchChrome } from "./workbench/workbench-chrome";
+import {
+  scheduleDeferredWorkbenchTask,
+  scheduleWorkbenchOverlayPreload,
+  WORKBENCH_AUTH_BOOTSTRAP_DELAY_MS,
+} from "./workbench/workbench-preload";
 
 const loadWorkbenchOverlays = () => import("./workbench/workbench-overlays");
 const WorkbenchOverlays = dynamic(
@@ -278,6 +284,10 @@ export function FeedWorkbench({
   const accountButtonTitle =
     account.status === "signed-in" ? account.email : accountButtonLabel;
   const isClearDisabled = sessions.length === 0 && templateSlots.length === 0;
+  const hasAdvancingTimers = useMemo(
+    () => hasActiveSessionTimers(sessions),
+    [sessions],
+  );
   const layerStats = useMemo(
     () => deriveLayerStats({ layers, sessions }),
     [layers, sessions],
@@ -665,7 +675,7 @@ export function FeedWorkbench({
   }, []);
 
   useEffect(() => {
-    void loadWorkbenchOverlays();
+    return scheduleWorkbenchOverlayPreload(loadWorkbenchOverlays);
   }, []);
 
   useEffect(() => {
@@ -688,33 +698,45 @@ export function FeedWorkbench({
     let isMounted = true;
     let unsubscribe: (() => void) | null = null;
 
-    void createLazySupabaseBrowserClient()
-      .then((supabase) => {
-        if (!isMounted) return;
+    function bootstrapAccount() {
+      void createLazySupabaseBrowserClient()
+        .then((supabase) => {
+          if (!isMounted) return;
 
-        void supabase.auth
-          .getUser()
-          .then(({ data: { user } }) => {
-            if (isMounted) setAccount(accountStateFromUser(user));
-          })
-          .catch(() => {
-            if (isMounted) setAccount({ status: "signed-out" });
+          void supabase.auth
+            .getUser()
+            .then(({ data: { user } }) => {
+              if (isMounted) setAccount(accountStateFromUser(user));
+            })
+            .catch(() => {
+              if (isMounted) setAccount({ status: "signed-out" });
+            });
+
+          const {
+            data: { subscription },
+          } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (isMounted)
+              setAccount(accountStateFromUser(session?.user ?? null));
           });
-
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-          if (isMounted)
-            setAccount(accountStateFromUser(session?.user ?? null));
+          unsubscribe = () => subscription.unsubscribe();
+        })
+        .catch(() => {
+          if (isMounted) setAccount({ status: "signed-out" });
         });
-        unsubscribe = () => subscription.unsubscribe();
-      })
-      .catch(() => {
-        if (isMounted) setAccount({ status: "signed-out" });
-      });
+    }
+
+    const shouldBootstrapImmediately =
+      new URLSearchParams(window.location.search).get("signedIn") === "1";
+    const cancelBootstrap = shouldBootstrapImmediately
+      ? (bootstrapAccount(), () => undefined)
+      : scheduleDeferredWorkbenchTask(
+          bootstrapAccount,
+          WORKBENCH_AUTH_BOOTSTRAP_DELAY_MS,
+        );
 
     return () => {
       isMounted = false;
+      cancelBootstrap();
       unsubscribe?.();
     };
   }, []);
@@ -788,12 +810,14 @@ export function FeedWorkbench({
   }, []);
 
   useEffect(() => {
+    if (!hasAdvancingTimers) return;
+
     const interval = window.setInterval(() => {
       setSessions((current) => advanceSessionTimers(current));
     }, 250);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [hasAdvancingTimers]);
 
   useEffect(() => {
     if (!freeDrag) return;

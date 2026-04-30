@@ -72,10 +72,10 @@ const EMPTY_WORKSPACE_STATS: WorkspaceStats = {
 };
 
 const anchoredDialogClass =
-  "mobile-compact-controls top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-[7.25rem] md:right-auto md:bottom-auto md:left-3 md:h-auto md:max-h-[calc(100dvh-8rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-2xl md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
+  "mobile-compact-controls top-auto bottom-0 left-0 max-h-[82dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-3xl border border-border/70 bg-surface pb-[calc(1rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-[7.25rem] md:right-auto md:bottom-auto md:left-3 md:h-auto md:max-h-[calc(100dvh-8rem)] md:w-[19rem] md:max-w-[19rem] md:translate-x-0 md:translate-y-0 md:rounded-2xl md:pb-4 md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
 
 const centeredDialogClass =
-  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
+  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto overscroll-contain rounded-t-3xl border border-border/70 bg-surface pb-[calc(1rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:pb-4 md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
 
 const sectionLabelClass =
   "font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase";
@@ -83,18 +83,20 @@ const sectionLabelClass =
 const libraryTabsListClass =
   "grid min-h-14 w-full grid-cols-2 rounded-2xl border border-border/70 bg-background/70 p-1 md:min-h-0 md:h-9";
 
-const libraryTabTriggerClass = "min-h-12 rounded-xl md:min-h-0";
+const libraryTabTriggerClass =
+  "min-h-12 min-w-0 overflow-hidden rounded-xl px-2 text-xs md:min-h-0";
 
-const libraryCommandButtonClass = "font-normal md:font-normal";
+const libraryCommandButtonClass =
+  "min-w-0 overflow-hidden font-normal md:font-normal";
 
 const libraryListClass =
   "grid max-h-[min(16rem,38dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1";
 
 const emptyStateClass =
-  "rounded-2xl border border-dashed border-border/70 bg-background/55 p-3 text-sm text-muted-foreground";
+  "text-wrap-anywhere rounded-2xl border border-dashed border-border/70 bg-background/55 p-3 text-sm text-muted-foreground";
 
 const metadataBlockClass =
-  "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
+  "text-wrap-anywhere rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
 
 const accountLegalFooterClass =
   "mt-auto flex items-center justify-center gap-5 border-t border-border/60 pt-3 font-mono text-[10px] text-muted-foreground";
@@ -280,7 +282,7 @@ export function LayoutDialog({
             className={libraryCommandButtonClass}
           >
             <Save />
-            Save layout
+            <span className="min-w-0 truncate">Save layout</span>
           </Button>
           <Button
             type="button"
@@ -289,7 +291,7 @@ export function LayoutDialog({
             className={libraryCommandButtonClass}
           >
             <Upload />
-            Import JSON
+            <span className="min-w-0 truncate">Import JSON</span>
           </Button>
         </div>
         <Tabs
@@ -319,7 +321,7 @@ export function LayoutDialog({
           className={libraryCommandButtonClass}
         >
           <FolderOpen />
-          New blank
+          <span className="min-w-0 truncate">New blank</span>
         </Button>
         <section className="grid gap-2">
           <h2 className={sectionLabelClass}>Open layouts</h2>
@@ -481,7 +483,12 @@ function OpenWorkspaceRow({
         onClick={() => onSelectWorkspace(tab.id)}
       >
         <span className="min-w-0">
-          <span className="block truncate font-medium">{tab.name}</span>
+          <span
+            className="text-wrap-anywhere line-clamp-2 font-medium"
+            title={tab.name}
+          >
+            {tab.name}
+          </span>
           <span
             className={cn(
               "block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] leading-4 tabular-nums",
@@ -626,7 +633,9 @@ export function SaveLayoutDialog({
             />
           </Label>
           {error ? (
-            <div className="text-xs text-destructive">{error}</div>
+            <div className="text-wrap-anywhere text-xs text-destructive">
+              {error}
+            </div>
           ) : null}
           {isCloud ? (
             <div
@@ -641,7 +650,7 @@ export function SaveLayoutDialog({
                 <span className={sectionLabelClass}>Cloud metadata</span>
                 <StorageBadge target="cloud" />
               </div>
-              <div className="mt-1 font-mono text-[11px]">
+              <div className="text-wrap-anywhere mt-1 font-mono text-[11px]">
                 {cloudBlockReason ?? cloudUsageLabel(cloudUsage)}
               </div>
               {account.status === "signed-in" &&
@@ -657,7 +666,7 @@ export function SaveLayoutDialog({
               ) : null}
             </div>
           ) : localCacheStatus ? (
-            <div className="rounded-2xl border border-border/70 bg-background/65 p-3 font-mono text-[11px] text-muted-foreground">
+            <div className="text-wrap-anywhere rounded-2xl border border-border/70 bg-background/65 p-3 font-mono text-[11px] text-muted-foreground">
               <div>{localCacheStatus.label}</div>
               {localCacheStatus.freeLabel ? (
                 <div>{localCacheStatus.freeLabel}</div>
@@ -666,7 +675,7 @@ export function SaveLayoutDialog({
           ) : null}
           <Button type="submit" title={submitLabel} disabled={submitDisabled}>
             <Save />
-            {submitLabel}
+            <span className="min-w-0 truncate">{submitLabel}</span>
           </Button>
         </form>
       </DialogContent>
@@ -752,7 +761,7 @@ export function LargeLocalCacheDialog({
             browser storage for auto-restore. Continue?
           </DialogDescription>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-wrap-anywhere text-sm text-muted-foreground">
           {fileCount} file{fileCount === 1 ? "" : "s"} will be cached. Firefox
           may duplicate large local uploads because persistent file handles are
           unavailable.
@@ -900,12 +909,12 @@ export function AccountDialog({
               </Button>
             </div>
           </div>
-          <p className="font-mono text-[11px] leading-4 text-muted-foreground">
+          <p className="text-wrap-anywhere font-mono text-[11px] leading-4 text-muted-foreground">
             {localCacheUsageText(localCacheStatus)}
           </p>
           <LocalCacheUsageMeter status={localCacheStatus} />
           {localCacheStatus?.freeLabel ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-wrap-anywhere text-xs text-muted-foreground">
               {localCacheStatus.freeLabel}
             </p>
           ) : null}
@@ -915,11 +924,11 @@ export function AccountDialog({
             <p className={sectionLabelClass}>Cloud metadata</p>
             <StorageBadge target="cloud" />
           </div>
-          <p className="font-mono text-[11px] leading-4 text-muted-foreground">
+          <p className="text-wrap-anywhere font-mono text-[11px] leading-4 text-muted-foreground">
             {cloudUsageLabel(cloudUsage)}
           </p>
           <CloudUsageMeter usage={cloudUsage} />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-wrap-anywhere text-xs text-muted-foreground">
             {cloudCountLabel(cloudUsage)}
           </p>
         </div>
@@ -927,7 +936,9 @@ export function AccountDialog({
           <div className="grid gap-3">
             <div className={cn(metadataBlockClass, "grid gap-1")}>
               <p className={sectionLabelClass}>Signed in</p>
-              <p className="break-all text-sm font-medium">{account.email}</p>
+              <p className="text-wrap-anywhere text-sm font-medium">
+                {account.email}
+              </p>
             </div>
             <Button
               type="button"

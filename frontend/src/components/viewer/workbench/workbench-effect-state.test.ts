@@ -1,8 +1,45 @@
 import { describe, expect, it } from "vitest";
 
 import { createTimerState } from "@/lib/viewer/timer";
-import { advanceSessionTimers } from "./workbench-effect-state";
+import {
+  advanceSessionTimers,
+  hasActiveSessionTimers,
+} from "./workbench-effect-state";
 import type { FeedSession } from "./types";
+
+describe("hasActiveSessionTimers", () => {
+  it("detects only timers that can advance", () => {
+    expect(hasActiveSessionTimers([])).toBe(false);
+    expect(
+      hasActiveSessionTimers([
+        session({
+          id: "paused",
+          timer: {
+            ...createTimerState({ durationSeconds: 10, itemCount: 2 }),
+            isPaused: true,
+          },
+        }),
+        session({
+          id: "empty",
+          timer: createTimerState({ durationSeconds: 10, itemCount: 0 }),
+        }),
+        session({
+          id: "zero-duration",
+          timer: createTimerState({ durationSeconds: 0, itemCount: 2 }),
+        }),
+      ]),
+    ).toBe(false);
+
+    expect(
+      hasActiveSessionTimers([
+        session({
+          id: "active",
+          timer: createTimerState({ durationSeconds: 10, itemCount: 2 }),
+        }),
+      ]),
+    ).toBe(true);
+  });
+});
 
 describe("advanceSessionTimers", () => {
   it("returns the same sessions reference when there is no timer work", () => {

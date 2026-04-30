@@ -92,13 +92,16 @@ export function WorkspaceTabs({
 
     updateScrollState();
 
-    const resizeObserver = new ResizeObserver(updateScrollState);
-    resizeObserver.observe(rail);
+    const resizeObserver =
+      typeof ResizeObserver === "function"
+        ? new ResizeObserver(updateScrollState)
+        : null;
+    resizeObserver?.observe(rail);
     window.addEventListener("resize", updateScrollState);
     rail.addEventListener("scroll", updateScrollState, { passive: true });
 
     return () => {
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", updateScrollState);
       rail.removeEventListener("scroll", updateScrollState);
     };
@@ -106,9 +109,9 @@ export function WorkspaceTabs({
 
   useEffect(() => {
     const rail = railRef.current;
-    const activeTab = rail?.querySelector<HTMLElement>(
-      `[data-workspace-tab-id="${CSS.escape(activeWorkspaceId)}"]`,
-    );
+    const activeTab = rail
+      ? findWorkspaceTabElement(rail, activeWorkspaceId)
+      : null;
 
     if (!activeTab) return;
 
@@ -150,7 +153,7 @@ export function WorkspaceTabs({
               className={cn(
                 "flex h-8 min-w-28 overflow-hidden rounded-full border font-mono text-muted-foreground transition",
                 tab.id === activeWorkspaceId
-                  ? "border-primary/55 bg-primary/10 text-foreground shadow-[0_0_0_1px_rgba(129,230,217,0.16)]"
+                  ? "border-primary/55 bg-primary/10 text-foreground shadow-[0_0_0_1px_oklch(62%_0.145_18_/_0.16)]"
                   : "border-border/50 bg-surface/65 hover:bg-surface-elevated",
               )}
             >
@@ -173,7 +176,7 @@ export function WorkspaceTabs({
                   onClick={() => onSelectWorkspace(tab.id)}
                   onDoubleClick={() => onBeginWorkspaceRename(tab)}
                   title={`Open ${tab.name}`}
-                  className="h-full min-w-0 flex-1 cursor-pointer px-3 text-left text-[11px]"
+                  className="h-full min-w-0 flex-1 cursor-pointer truncate px-3 text-left text-[11px]"
                 >
                   {tab.name}
                 </button>
@@ -214,5 +217,19 @@ export function WorkspaceTabs({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+function findWorkspaceTabElement(root: HTMLElement, id: string) {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return root.querySelector<HTMLElement>(
+      `[data-workspace-tab-id="${CSS.escape(id)}"]`,
+    );
+  }
+
+  return (
+    [...root.querySelectorAll<HTMLElement>("[data-workspace-tab-id]")].find(
+      (element) => element.dataset.workspaceTabId === id,
+    ) ?? null
   );
 }

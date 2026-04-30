@@ -199,6 +199,31 @@ describe("UrlSourcePane", () => {
     expect(onToggleSelect).toHaveBeenCalledOnce();
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("keeps action chrome visible when selected", () => {
+    render(
+      <UrlSourcePane
+        title="Long URL source"
+        resolution={{
+          status: "unsupported",
+          title: "Long URL source",
+          externalUrl: "https://example.test/source",
+          reason: "url_source_unsupported",
+        }}
+        isFocused
+        canMountIframe
+        onSelect={vi.fn()}
+        onMaximize={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    const selectButton = screen.getByRole("button", {
+      name: "Select Long URL source",
+    });
+
+    expect(selectButton.parentElement).not.toHaveClass("opacity-0");
+  });
 });
 
 function youtubePlayer({ currentTime = 0 } = {}) {

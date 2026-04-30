@@ -153,6 +153,11 @@
 }
 
 @layer utilities {
+  .text-wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
   @media (max-width: 767px) {
     .mobile-compact-controls [data-slot="button"],
     .mobile-compact-controls [data-slot="input"],

@@ -201,9 +201,9 @@ export function FeedViewPane({
             }
           />
         ) : (
-          <div className="grid size-full place-items-center bg-background text-xs text-muted-foreground">
-            <div className="grid justify-items-center gap-3 px-4 text-center">
-              <span>
+          <div className="grid size-full place-items-center overflow-auto bg-background text-xs text-muted-foreground">
+            <div className="grid max-h-full max-w-full justify-items-center gap-3 p-4 text-center">
+              <span className="text-wrap-anywhere">
                 {isRuntimeLoading ? "Loading runtime media" : emptyMessage}
               </span>
               {!isRuntimeLoading ? emptyAction : null}
@@ -220,10 +220,13 @@ export function FeedViewPane({
           )}
         >
           <div className="min-w-0 flex-1 rounded-xl border border-border/60 bg-background/78 px-2 py-1.5 backdrop-blur">
-            <div className="truncate text-xs font-medium" title={title}>
+            <div
+              className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
+              title={title}
+            >
               {title}
             </div>
-            <div className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+            <div className="flex min-w-0 flex-wrap items-center gap-1 font-mono text-[10px] text-muted-foreground">
               {items.length ? timer.activeIndex + 1 : 0}/{items.length} ·{" "}
               {timer.durationSeconds}s ·{" "}
               <TimerModeIcon
@@ -344,14 +347,20 @@ export function FeedViewPane({
                   : "rounded-t-xl rounded-b-none border-x-0 border-b-0",
               )}
             >
-              <div className="line-clamp-2 text-xs font-medium">
+              <div className="text-wrap-anywhere line-clamp-2 text-xs font-medium">
                 {activeItem.title}
               </div>
-              <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+              <div className="mt-1 flex min-w-0 flex-wrap gap-2 text-[10px] text-muted-foreground">
                 {activeItem.subreddit ? (
-                  <span>r/{activeItem.subreddit}</span>
+                  <span className="max-w-full truncate">
+                    r/{activeItem.subreddit}
+                  </span>
                 ) : null}
-                {activeItem.author ? <span>u/{activeItem.author}</span> : null}
+                {activeItem.author ? (
+                  <span className="max-w-full truncate">
+                    u/{activeItem.author}
+                  </span>
+                ) : null}
                 {activeItem.isNsfw ? <span>NSFW</span> : null}
                 {activeItem.permalink ? (
                   <a
