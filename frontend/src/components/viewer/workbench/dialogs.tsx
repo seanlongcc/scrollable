@@ -275,7 +275,7 @@ export function LayoutDialog({
             Browse saved metadata-only layouts and templates.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(9.75rem,1fr))] gap-2">
           <Button
             type="button"
             onClick={onSaveCurrentLayout}
