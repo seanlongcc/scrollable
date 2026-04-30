@@ -183,12 +183,14 @@ export function FeedViewPane({
     >
       {showProgress ? (
         <div
-          className="absolute inset-x-0 top-0 z-20 h-1 bg-surface-elevated"
+          data-testid="feed-timer-progress"
+          data-placement="top-inset"
+          className="absolute top-2 right-2 left-2 z-20 h-0.5 overflow-hidden rounded-full bg-background/75 md:h-1"
           aria-label={`${title} timer progress`}
         >
           <div
             key={timer.activeIndex}
-            className="h-full origin-left bg-primary transition-transform duration-[250ms] ease-linear will-change-transform"
+            className="h-full origin-left rounded-full bg-secondary transition-transform duration-[250ms] ease-linear will-change-transform"
             style={{ transform: `scaleX(${progress / 100})` }}
           />
         </div>
@@ -219,33 +221,6 @@ export function FeedViewPane({
           </div>
         )}
       </div>
-
-      {!hideUi && forceInfoVisible ? (
-        <div
-          className={cn(
-            "pointer-events-none absolute top-2 right-2 left-20 z-20 flex items-start md:right-20 md:left-2",
-            sourceChromeClass,
-          )}
-        >
-          <div className="min-w-0 flex-1 rounded-xl border border-border/60 bg-background/78 px-2 py-1.5 backdrop-blur">
-            <div
-              className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
-              title={title}
-            >
-              {title}
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-1 font-mono text-[10px] text-muted-foreground">
-              {items.length ? timer.activeIndex + 1 : 0}/{items.length} ·{" "}
-              {timer.durationSeconds}s ·{" "}
-              <TimerModeIcon
-                className="size-3 text-primary"
-                aria-label={`${modeLabel} timer`}
-                role="img"
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {!hideUi && activeItem?.media.length && activeItem.media.length > 1 ? (
         <div
@@ -335,8 +310,10 @@ export function FeedViewPane({
         </div>
       ) : null}
 
-      {!hideUi && forceInfoVisible ? (
+      {!hideUi && forceInfoVisible && activeItem ? (
         <div
+          data-testid="feed-item-info"
+          data-placement="bottom"
           className={cn(
             "pointer-events-none absolute inset-x-0 z-20",
             isVideo
@@ -345,46 +322,71 @@ export function FeedViewPane({
             sourceChromeClass,
           )}
         >
-          {!compact && activeItem ? (
+          <div
+            className={cn(
+              "pointer-events-auto border border-border/60 bg-background/78 backdrop-blur",
+              compact ? "p-1.5" : "p-2",
+              isVideo
+                ? "mb-2 rounded-xl"
+                : "rounded-t-xl rounded-b-none border-x-0 border-b-0",
+            )}
+          >
             <div
               className={cn(
-                "pointer-events-auto border border-border/60 bg-background/78 p-2 backdrop-blur",
-                isVideo
-                  ? "mb-2 rounded-xl"
-                  : "rounded-t-xl rounded-b-none border-x-0 border-b-0",
+                "text-wrap-anywhere font-medium",
+                compact ? "line-clamp-1 text-[11px]" : "line-clamp-2 text-xs",
               )}
+              title={activeItem.title}
             >
-              <div className="text-wrap-anywhere line-clamp-2 text-xs font-medium">
-                {activeItem.title}
-              </div>
-              <div className="mt-1 flex min-w-0 flex-wrap gap-2 text-[10px] text-muted-foreground">
-                {activeItem.subreddit ? (
-                  <span className="max-w-full truncate">
-                    r/{activeItem.subreddit}
-                  </span>
-                ) : null}
-                {activeItem.author ? (
-                  <span className="max-w-full truncate">
-                    u/{activeItem.author}
-                  </span>
-                ) : null}
-                {activeItem.isNsfw ? <span>NSFW</span> : null}
-                {activeItem.permalink ? (
-                  <a
-                    href={activeItem.permalink}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={`Open ${activeItem.title} on Reddit`}
-                    className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
-                  >
-                    <ExternalLink className="size-3" />
-                    Reddit
-                  </a>
-                ) : null}
-              </div>
+              {activeItem.title}
             </div>
-          ) : null}
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+              <span className="font-mono">
+                {items.length ? timer.activeIndex + 1 : 0}/{items.length} ·{" "}
+                {timer.durationSeconds}s
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <TimerModeIcon
+                  className="size-3 text-secondary"
+                  aria-label={`${modeLabel} timer`}
+                  role="img"
+                />
+                {modeLabel}
+              </span>
+              {activeItem.subreddit ? (
+                <span className="max-w-full truncate">
+                  r/{activeItem.subreddit}
+                </span>
+              ) : null}
+              {activeItem.author ? (
+                <span className="max-w-full truncate">
+                  u/{activeItem.author}
+                </span>
+              ) : null}
+              {activeItem.isNsfw ? <span>NSFW</span> : null}
+              {activeItem.permalink ? (
+                <a
+                  href={activeItem.permalink}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`Open ${activeItem.title} on Reddit`}
+                  className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
+                >
+                  <ExternalLink className="size-3" />
+                  Reddit
+                </a>
+              ) : null}
+            </div>
+          </div>
         </div>
+      ) : null}
+
+      {!hideUi && isFocused ? (
+        <div
+          data-testid="feed-selected-outline"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-30 border-2 border-primary ring-2 ring-primary/15 md:rounded-2xl"
+        />
       ) : null}
     </article>
   );

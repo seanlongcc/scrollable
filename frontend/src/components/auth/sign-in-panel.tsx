@@ -2,13 +2,13 @@
 
 import { Globe, Mail, UserPlus } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
+import { toast } from "@/lib/toast";
 
 const authButtonClass = "font-normal md:font-normal";
 

@@ -1,40 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createWorkbenchOverlayIntentPreload,
   scheduleDeferredWorkbenchTask,
-  scheduleWorkbenchOverlayPreload,
-  WORKBENCH_OVERLAY_PRELOAD_DELAY_MS,
 } from "./workbench-preload";
 
-describe("scheduleWorkbenchOverlayPreload", () => {
+describe("createWorkbenchOverlayIntentPreload", () => {
+  it("waits for explicit user intent before preloading overlays", () => {
+    const load = vi.fn();
+
+    createWorkbenchOverlayIntentPreload(load);
+
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("preloads overlays once across hover, focus, and open intent", () => {
+    const load = vi.fn();
+    const preload = createWorkbenchOverlayIntentPreload(load);
+
+    preload();
+    preload();
+    preload();
+
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("scheduleDeferredWorkbenchTask", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
 
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  it("waits past the initial load window before preloading overlays", () => {
-    const load = vi.fn();
-
-    scheduleWorkbenchOverlayPreload(load);
-
-    vi.advanceTimersByTime(WORKBENCH_OVERLAY_PRELOAD_DELAY_MS - 1);
-    expect(load).not.toHaveBeenCalled();
-
-    vi.advanceTimersByTime(1);
-    expect(load).toHaveBeenCalledTimes(1);
-  });
-
-  it("cancels delayed preload work", () => {
-    const load = vi.fn();
-    const cleanup = scheduleWorkbenchOverlayPreload(load);
-
-    cleanup();
-    vi.advanceTimersByTime(WORKBENCH_OVERLAY_PRELOAD_DELAY_MS);
-
-    expect(load).not.toHaveBeenCalled();
   });
 
   it("uses idle time after the delay when the browser supports it", () => {
@@ -50,8 +48,8 @@ describe("scheduleWorkbenchOverlayPreload", () => {
       cancelIdleCallback: vi.fn(),
     };
 
-    scheduleWorkbenchOverlayPreload(load, win);
-    vi.advanceTimersByTime(WORKBENCH_OVERLAY_PRELOAD_DELAY_MS);
+    scheduleDeferredWorkbenchTask(load, 4000, win);
+    vi.advanceTimersByTime(4000);
 
     expect(win.requestIdleCallback).toHaveBeenCalledTimes(1);
     expect(load).not.toHaveBeenCalled();
@@ -66,42 +64,6 @@ describe("scheduleWorkbenchOverlayPreload", () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
-  it("skips overlay preloading on mobile viewports", () => {
-    const load = vi.fn();
-    const win = {
-      setTimeout: vi.fn<Window["setTimeout"]>(window.setTimeout.bind(window)),
-      clearTimeout: window.clearTimeout.bind(window),
-      matchMedia: createMatchMedia(true),
-    };
-
-    scheduleWorkbenchOverlayPreload(load, win);
-    vi.advanceTimersByTime(WORKBENCH_OVERLAY_PRELOAD_DELAY_MS);
-
-    expect(win.matchMedia).toHaveBeenCalledWith("(max-width: 767px)");
-    expect(win.setTimeout).not.toHaveBeenCalled();
-    expect(load).not.toHaveBeenCalled();
-  });
-
-  it("skips overlay preloading when data saver is enabled", () => {
-    const load = vi.fn();
-    const win = {
-      setTimeout: vi.fn<Window["setTimeout"]>(window.setTimeout.bind(window)),
-      clearTimeout: window.clearTimeout.bind(window),
-      matchMedia: createMatchMedia(false),
-      navigator: {
-        connection: {
-          saveData: true,
-        },
-      },
-    };
-
-    scheduleWorkbenchOverlayPreload(load, win);
-    vi.advanceTimersByTime(WORKBENCH_OVERLAY_PRELOAD_DELAY_MS);
-
-    expect(win.setTimeout).not.toHaveBeenCalled();
-    expect(load).not.toHaveBeenCalled();
-  });
-
   it("supports shorter deferred work delays for non-overlay tasks", () => {
     const load = vi.fn();
 
@@ -114,16 +76,3 @@ describe("scheduleWorkbenchOverlayPreload", () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 });
-
-function createMatchMedia(matches: boolean) {
-  return vi.fn<Window["matchMedia"]>((query) => ({
-    matches,
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    addListener: vi.fn(),
-    dispatchEvent: vi.fn(() => false),
-    removeEventListener: vi.fn(),
-    removeListener: vi.fn(),
-  }));
-}

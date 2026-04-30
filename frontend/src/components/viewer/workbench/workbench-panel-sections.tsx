@@ -20,7 +20,13 @@ import {
 import { type ReactNode, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { FixedGrid } from "@/lib/viewer/layout";
+import { toast } from "@/lib/toast";
+import {
+  fixedGridRangeToastMessage,
+  mobileFixedGridDisplay,
+  MOBILE_FIXED_GRID_MAX,
+  type FixedGrid,
+} from "@/lib/viewer/layout";
 import { cn } from "@/lib/utils";
 import { NumberField } from "./fields";
 import type { LayerStats } from "./selection-state";
@@ -29,6 +35,8 @@ import type { GlobalTimerAction } from "./workbench-toolbar";
 
 const sectionHeadingClass =
   "font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase";
+export const workbenchActionButtonClass =
+  "h-10 min-h-10 min-w-0 justify-start overflow-hidden text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
 
 export function WorkbenchPanelDisclosure({
   label,
@@ -161,11 +169,29 @@ export function LayerSection({
 
 export function GridSection({
   fixedGrid,
+  maxGridSize,
   onFixedGridChange,
 }: {
   fixedGrid: FixedGrid;
+  maxGridSize: number;
   onFixedGridChange: (patch: Partial<FixedGrid>) => void;
 }) {
+  const mobileDisplay =
+    maxGridSize === MOBILE_FIXED_GRID_MAX
+      ? mobileFixedGridDisplay({
+          fixedGrid,
+          visibleCells: fixedGrid.columns * fixedGrid.rows,
+        })
+      : null;
+  const displayedGrid = mobileDisplay
+    ? { columns: mobileDisplay.columns, rows: mobileDisplay.rows }
+    : {
+        columns: Math.min(fixedGrid.columns, maxGridSize),
+        rows: Math.min(fixedGrid.rows, maxGridSize),
+      };
+  const rangeMessage = fixedGridRangeToastMessage(maxGridSize);
+  const reportInvalidGridSize = () => toast.error(rangeMessage);
+
   return (
     <section className="grid gap-2">
       <h2 className={sectionHeadingClass}>Grid</h2>
@@ -173,24 +199,30 @@ export function GridSection({
         <NumberField
           label="Columns"
           icon={<UnfoldHorizontal className="size-3.5" />}
-          value={fixedGrid.columns}
+          value={displayedGrid.columns}
           min={1}
-          max={16}
+          max={maxGridSize}
           commitOnBlur
           className="min-w-0"
           inputClassName="w-full min-w-0 flex-1"
-          onChange={(value) => onFixedGridChange({ columns: value })}
+          onInvalidCommit={reportInvalidGridSize}
+          onChange={(value) =>
+            onFixedGridChange({ columns: value, rows: displayedGrid.rows })
+          }
         />
         <NumberField
           label="Rows"
           icon={<UnfoldVertical className="size-3.5" />}
-          value={fixedGrid.rows}
+          value={displayedGrid.rows}
           min={1}
-          max={16}
+          max={maxGridSize}
           commitOnBlur
           className="min-w-0"
           inputClassName="w-full min-w-0 flex-1"
-          onChange={(value) => onFixedGridChange({ rows: value })}
+          onInvalidCommit={reportInvalidGridSize}
+          onChange={(value) =>
+            onFixedGridChange({ columns: displayedGrid.columns, rows: value })
+          }
         />
       </div>
     </section>
@@ -275,6 +307,7 @@ export function ActionsSection({
   onImportJson,
   onExportCurrentJson,
   onOpenClearDialog,
+  onPreloadOverlays,
 }: {
   showAllInfo: boolean;
   isClearDisabled: boolean;
@@ -285,10 +318,9 @@ export function ActionsSection({
   onImportJson: () => void;
   onExportCurrentJson: () => void;
   onOpenClearDialog: () => void;
+  onPreloadOverlays?: () => void;
 }) {
   const infoLabel = showAllInfo ? "Hide info" : "Show info";
-  const actionButtonClass =
-    "h-10 min-h-10 min-w-0 justify-start overflow-hidden text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
 
   return (
     <section className="grid gap-2">
@@ -297,8 +329,10 @@ export function ActionsSection({
         <Button
           type="button"
           variant="outline"
+          onMouseEnter={onPreloadOverlays}
+          onFocus={onPreloadOverlays}
           onClick={onAddSource}
-          className={actionButtonClass}
+          className={workbenchActionButtonClass}
         >
           <Plus />
           <span className="min-w-0 truncate">Add source</span>
@@ -307,7 +341,7 @@ export function ActionsSection({
           type="button"
           variant="outline"
           onClick={onHideUi}
-          className={actionButtonClass}
+          className={workbenchActionButtonClass}
         >
           <EyeOff />
           <span className="min-w-0 truncate">Hide UI</span>
@@ -316,7 +350,7 @@ export function ActionsSection({
           type="button"
           variant={showAllInfo ? "default" : "outline"}
           onClick={onToggleShowAllInfo}
-          className={actionButtonClass}
+          className={workbenchActionButtonClass}
         >
           <Info />
           <span className="min-w-0 truncate">{infoLabel}</span>
@@ -324,8 +358,10 @@ export function ActionsSection({
         <Button
           type="button"
           variant="outline"
+          onMouseEnter={onPreloadOverlays}
+          onFocus={onPreloadOverlays}
           onClick={onOpenSaveDialog}
-          className={actionButtonClass}
+          className={workbenchActionButtonClass}
         >
           <Save />
           <span className="min-w-0 truncate">Save layout</span>
@@ -335,7 +371,7 @@ export function ActionsSection({
           variant="outline"
           aria-label="Import JSON"
           onClick={onImportJson}
-          className={actionButtonClass}
+          className={workbenchActionButtonClass}
         >
           <Upload />
           <span className="min-w-0 truncate">Import JSON</span>
@@ -345,7 +381,7 @@ export function ActionsSection({
           variant="outline"
           aria-label="Export JSON"
           onClick={onExportCurrentJson}
-          className={actionButtonClass}
+          className={workbenchActionButtonClass}
         >
           <Download />
           <span className="min-w-0 truncate">Export JSON</span>
@@ -356,7 +392,10 @@ export function ActionsSection({
             variant="destructive"
             aria-label="Clear layout"
             onClick={onOpenClearDialog}
-            className={cn("col-span-2", actionButtonClass)}
+            className={cn(
+              workbenchActionButtonClass,
+              "col-span-2 justify-center",
+            )}
           >
             <Trash2 />
             <span className="min-w-0 truncate">Clear</span>

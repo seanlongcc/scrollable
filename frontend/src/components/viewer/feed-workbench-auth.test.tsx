@@ -57,7 +57,7 @@ const toastMocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("sonner", () => ({
+vi.mock("@/lib/toast", () => ({
   toast: toastMocks.toast,
 }));
 

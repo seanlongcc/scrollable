@@ -27,8 +27,12 @@ test("home renders multi-view wall without media previews", async ({
   await openWorkbenchOnMobile(page, testInfo.project.name);
   const workbench = workbenchScope(page, testInfo.project.name);
   await openWorkbenchSection(page, testInfo.project.name, "Layout");
-  await expect(workbench.getByLabel("Columns")).toHaveValue("2");
-  await expect(workbench.getByLabel("Rows")).toHaveValue("1");
+  await expect(workbench.getByLabel("Columns")).toHaveValue(
+    testInfo.project.name === "mobile" ? "1" : "2",
+  );
+  await expect(workbench.getByLabel("Rows")).toHaveValue(
+    testInfo.project.name === "mobile" ? "2" : "1",
+  );
   await openWorkbenchSection(page, testInfo.project.name, "Timer");
   await expect(workbench.getByLabel("Global timer seconds")).toHaveValue("10");
   await expect(
@@ -145,17 +149,44 @@ test("keeps workspace tabs from overlapping the logo at tablet widths", async ({
   await page.setViewportSize({ width: 768, height: 720 });
   await page.goto("/");
 
-  const logoBox = await page
-    .getByRole("link", { name: "scrollable.app" })
-    .boundingBox();
-  const tabBox = await page
-    .locator("[data-workspace-tab-id]")
-    .first()
-    .boundingBox();
+  const logo = page.getByRole("link", { name: "scrollable.app" });
+  const tab = page.locator("[data-workspace-tab-id]").first();
 
-  if (!logoBox || !tabBox) throw new Error("Missing header logo or tab");
+  await expect(logo).toBeVisible();
+  await expect(tab).toBeVisible();
 
-  expect(tabBox.x).toBeGreaterThanOrEqual(logoBox.x + logoBox.width + 8);
+  const metricsHandle = await page.waitForFunction(() => {
+    const findVisibleRect = (selector: string) => {
+      for (const element of document.querySelectorAll(selector)) {
+        if (!(element instanceof HTMLElement)) continue;
+
+        const rect = element.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          return {
+            x: rect.x,
+            width: rect.width,
+          };
+        }
+      }
+
+      return null;
+    };
+
+    const logoRect = findVisibleRect('a[aria-label="scrollable.app"]');
+    const tabRect = findVisibleRect("[data-workspace-tab-id]");
+
+    return logoRect && tabRect
+      ? {
+          logoRight: logoRect.x + logoRect.width,
+          tabX: tabRect.x,
+        }
+      : null;
+  });
+  const metrics = await metricsHandle.jsonValue();
+
+  if (!metrics) throw new Error("Missing header logo or tab");
+
+  expect(metrics.tabX).toBeGreaterThanOrEqual(metrics.logoRight + 8);
 });
 
 test("local upload layouts restore cached files after refresh", async ({

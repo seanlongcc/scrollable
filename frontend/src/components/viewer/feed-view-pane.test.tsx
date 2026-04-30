@@ -378,6 +378,46 @@ describe("FeedViewPane", () => {
       screen.queryByRole("button", { name: "Next item for r/pics" }),
     ).not.toBeInTheDocument();
   });
+
+  it("keeps timer progress inset at the top and item info at the bottom in compact grids", () => {
+    render(
+      <FeedViewPane
+        title="Local source"
+        items={[
+          {
+            ...feedItem("active-file", [
+              { type: "image", url: "https://cdn.test/active.jpg" },
+            ]),
+            title: "추억여행 ✨ #STAYC #스테이씨 #ISA.mp4",
+          },
+          feedItem("next-file", [
+            { type: "image", url: "https://cdn.test/next.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 2 })}
+        galleryIndexes={{}}
+        compact
+        forceInfoVisible
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("feed-timer-progress")).toHaveAttribute(
+      "data-placement",
+      "top-inset",
+    );
+    expect(screen.getByTestId("feed-item-info")).toHaveAttribute(
+      "data-placement",
+      "bottom",
+    );
+    expect(
+      screen.getByText("추억여행 ✨ #STAYC #스테이씨 #ISA.mp4"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Local source")).not.toBeInTheDocument();
+  });
 });
 
 function feedItem(

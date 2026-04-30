@@ -1,5 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, vi } from "vitest";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -32,8 +33,27 @@ vi.mock("@/lib/local-uploads/file-cache", () => ({
 
 const fileCache = await import("@/lib/local-uploads/file-cache");
 const feedWorkbench = await import("./feed-workbench");
+const workbenchPanel = await import("./workbench/workbench-panel");
 
-export const { FeedWorkbench } = feedWorkbench;
+const RealFeedWorkbench = feedWorkbench.FeedWorkbench;
+const testWorkbenchPanelComponents = {
+  Content: workbenchPanel.WorkbenchPanelContent,
+  Sheet: workbenchPanel.WorkbenchPanelSheet,
+};
+type FeedWorkbenchProps = NonNullable<ComponentProps<typeof RealFeedWorkbench>>;
+
+export function FeedWorkbench({
+  workbenchPanelComponents = testWorkbenchPanelComponents,
+  ...props
+}: FeedWorkbenchProps = {}) {
+  return (
+    <RealFeedWorkbench
+      {...props}
+      workbenchPanelComponents={workbenchPanelComponents}
+    />
+  );
+}
+
 export const {
   clearLocalFileCache,
   estimateLocalFileCacheStorage,

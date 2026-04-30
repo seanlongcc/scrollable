@@ -1,10 +1,33 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { act } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WorkbenchChrome } from "./workbench-chrome";
+import type {
+  WorkbenchPanelContentProps,
+  WorkbenchPanelSheetProps,
+} from "./workbench-panel";
 
 describe("WorkbenchChrome", () => {
+  const originalMatchMedia = window.matchMedia;
+
+  beforeEach(() => {
+    window.matchMedia = createMatchMedia(true);
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
   it("closes the mobile workbench sheet before opening add source", async () => {
     const user = userEvent.setup();
     const onAddSource = vi.fn();
@@ -15,7 +38,7 @@ describe("WorkbenchChrome", () => {
     const nav = mobileBottomNav(container);
 
     await user.click(buttonIn(nav, "Workbench"));
-    const workbench = workbenchSheet();
+    const workbench = await workbenchSheet();
 
     await user.click(buttonIn(workbench, "Add source"));
 
@@ -32,7 +55,7 @@ describe("WorkbenchChrome", () => {
     const nav = mobileBottomNav(container);
 
     await user.click(buttonIn(nav, "Workbench"));
-    const workbench = workbenchSheet();
+    const workbench = await workbenchSheet();
 
     expect(buttonIn(workbench, "Add source")).toBeInTheDocument();
     expect(buttonIn(workbench, "Import JSON")).toBeInTheDocument();
@@ -66,7 +89,7 @@ describe("WorkbenchChrome", () => {
     const nav = mobileBottomNav(container);
 
     await user.click(buttonIn(nav, "Workbench"));
-    await user.click(buttonIn(workbenchSheet(), "Save layout"));
+    await user.click(buttonIn(await workbenchSheet(), "Save layout"));
 
     expect(onOpenSaveDialog).toHaveBeenCalledOnce();
     expect(
@@ -80,7 +103,7 @@ describe("WorkbenchChrome", () => {
     );
 
     await user.click(buttonIn(nav, "Workbench"));
-    await user.click(buttonIn(workbenchSheet(), "Clear layout"));
+    await user.click(buttonIn(await workbenchSheet(), "Clear layout"));
 
     expect(onOpenClearDialog).toHaveBeenCalledOnce();
     expect(
@@ -124,7 +147,7 @@ describe("WorkbenchChrome", () => {
       <WorkbenchChrome {...chromeProps({ onToggleShowAllInfo })} />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Show info" }));
+    await user.click(await screen.findByRole("button", { name: "Show info" }));
     expect(onToggleShowAllInfo).toHaveBeenCalledOnce();
 
     rerender(<WorkbenchChrome {...chromeProps({ showAllInfo: true })} />);
@@ -179,13 +202,73 @@ describe("WorkbenchChrome", () => {
     expect(within(nav).queryByText("Account")).not.toBeInTheDocument();
   });
 
-  it("shows legal links at the bottom of the desktop workbench panel", () => {
+  it("keeps the full workbench panel unmounted on mobile until opened", async () => {
+    const user = userEvent.setup();
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = createMatchMedia(false);
+
+    try {
+      const { container } = render(<WorkbenchChrome {...chromeProps()} />);
+      const nav = mobileBottomNav(container);
+
+      expect(screen.queryByText("Actions")).not.toBeInTheDocument();
+
+      await user.click(buttonIn(nav, "Workbench"));
+
+      expect(await screen.findByText("Actions")).toBeInTheDocument();
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
+  it("hydrates desktop viewport without replacing the server panel placeholder", async () => {
+    const originalMatchMedia = window.matchMedia;
+    const props = chromeProps({
+      workbenchPanelComponents: {
+        Content: TestPanelContent,
+        Sheet: TestPanelSheet,
+      },
+    });
+    const onRecoverableError = vi.fn();
+    const container = document.createElement("div");
+    let unmountRoot = () => {};
+
+    try {
+      window.matchMedia = createMatchMedia(false);
+      container.innerHTML = renderToString(<WorkbenchChrome {...props} />);
+      document.body.append(container);
+      expect(
+        container.querySelector("#desktop-workbench-panel"),
+      ).toHaveAttribute("hidden");
+
+      window.matchMedia = createMatchMedia(true);
+      await act(async () => {
+        const root = hydrateRoot(container, <WorkbenchChrome {...props} />, {
+          onRecoverableError,
+        });
+        unmountRoot = () => root.unmount();
+      });
+
+      await waitFor(() =>
+        expect(
+          container.querySelector("#desktop-workbench-panel"),
+        ).not.toHaveAttribute("hidden"),
+      );
+      expect(onRecoverableError).not.toHaveBeenCalled();
+    } finally {
+      unmountRoot();
+      container.remove();
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
+  it("shows legal links at the bottom of the desktop workbench panel", async () => {
     render(<WorkbenchChrome {...chromeProps()} />);
 
     const panel = screen.getByLabelText("Workbench contextual panel");
 
     expect(
-      within(panel).getByRole("link", { name: "Privacy" }),
+      await within(panel).findByRole("link", { name: "Privacy" }),
     ).toHaveAttribute("href", "/privacy");
     expect(within(panel).getByRole("link", { name: "Terms" })).toHaveAttribute(
       "href",
@@ -204,7 +287,9 @@ describe("WorkbenchChrome", () => {
       />,
     );
 
-    const actionsSection = screen.getByText("Actions").closest("section");
+    const actionsSection = (await screen.findByText("Actions")).closest(
+      "section",
+    );
     expect(actionsSection).not.toBeNull();
     const actions = actionsSection as HTMLElement;
     const actionLabels = within(actions)
@@ -232,9 +317,34 @@ describe("WorkbenchChrome", () => {
 
     render(<WorkbenchChrome {...chromeProps({ onExportCurrentJson })} />);
 
-    await user.click(screen.getByRole("button", { name: "Export JSON" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Export JSON" }),
+    );
 
     expect(onExportCurrentJson).toHaveBeenCalledOnce();
+  });
+
+  it("preloads overlays from Add, Library, Account, and Save intent", async () => {
+    const onPreloadOverlays = vi.fn();
+
+    render(<WorkbenchChrome {...chromeProps({ onPreloadOverlays })} />);
+
+    fireEvent.mouseEnter(
+      await screen.findByRole("button", { name: "Library" }),
+    );
+    fireEvent.focus(screen.getByRole("button", { name: "Account" }));
+
+    const addSource = await screen.findByRole("button", {
+      name: "Add source",
+    });
+    const saveLayout = await screen.findByRole("button", {
+      name: "Save layout",
+    });
+
+    fireEvent.mouseEnter(addSource);
+    fireEvent.focus(saveLayout);
+
+    expect(onPreloadOverlays).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -319,11 +429,34 @@ function buttonIn(
   return button as HTMLButtonElement | null;
 }
 
-function workbenchSheet() {
-  const sheet = document.querySelector<HTMLElement>(
-    '[data-slot="sheet-content"]',
-  );
-  expect(sheet).not.toBeNull();
+async function workbenchSheet() {
+  return waitFor(() => {
+    const sheet = document.querySelector<HTMLElement>(
+      '[data-slot="sheet-content"]',
+    );
+    if (!sheet) throw new Error("Expected workbench sheet");
 
-  return sheet as HTMLElement;
+    return sheet;
+  });
+}
+
+function createMatchMedia(matches: boolean) {
+  return vi.fn<Window["matchMedia"]>((query) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    addListener: vi.fn(),
+    dispatchEvent: vi.fn(() => false),
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn(),
+  }));
+}
+
+function TestPanelContent({ mode }: WorkbenchPanelContentProps) {
+  return <section>{mode} workbench panel</section>;
+}
+
+function TestPanelSheet({ open }: WorkbenchPanelSheetProps) {
+  return open ? <div data-slot="sheet-content">Workbench</div> : null;
 }

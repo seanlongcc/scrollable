@@ -1,19 +1,7 @@
-export const WORKBENCH_OVERLAY_PRELOAD_DELAY_MS = 4000;
 export const WORKBENCH_AUTH_BOOTSTRAP_DELAY_MS = 500;
 
-type NetworkInformationLike = {
-  effectiveType?: string;
-  saveData?: boolean;
-};
-
 type WorkbenchPreloadWindow = Pick<Window, "clearTimeout" | "setTimeout"> &
-  Partial<
-    Pick<Window, "cancelIdleCallback" | "matchMedia" | "requestIdleCallback">
-  > & {
-    navigator?: Partial<Navigator> & {
-      connection?: NetworkInformationLike;
-    };
-  };
+  Partial<Pick<Window, "cancelIdleCallback" | "requestIdleCallback">>;
 
 export function scheduleDeferredWorkbenchTask(
   load: () => Promise<unknown> | unknown,
@@ -49,39 +37,15 @@ export function scheduleDeferredWorkbenchTask(
   };
 }
 
-export function scheduleWorkbenchOverlayPreload(
+export function createWorkbenchOverlayIntentPreload(
   load: () => Promise<unknown> | unknown,
-  win?: WorkbenchPreloadWindow,
 ) {
-  if (!shouldPreloadWorkbenchOverlays(win)) {
-    return () => undefined;
-  }
+  let hasPreloaded = false;
 
-  return scheduleDeferredWorkbenchTask(
-    load,
-    WORKBENCH_OVERLAY_PRELOAD_DELAY_MS,
-    win,
-  );
-}
+  return () => {
+    if (hasPreloaded) return;
 
-export function shouldPreloadWorkbenchOverlays(
-  win: WorkbenchPreloadWindow = window,
-) {
-  if (
-    typeof win.matchMedia === "function" &&
-    win.matchMedia("(max-width: 767px)").matches
-  ) {
-    return false;
-  }
-
-  const connection = win.navigator?.connection;
-  if (
-    connection?.saveData ||
-    connection?.effectiveType === "slow-2g" ||
-    connection?.effectiveType === "2g"
-  ) {
-    return false;
-  }
-
-  return true;
+    hasPreloaded = true;
+    void load();
+  };
 }

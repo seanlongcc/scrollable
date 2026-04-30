@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { toast } from "sonner";
 
 import { accountStateFromUser } from "./workbench/account-actions";
 import {
@@ -23,6 +22,7 @@ import {
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { DEFAULT_FIXED_GRID, type FixedGrid } from "@/lib/viewer/layout";
 import { moveTimerIndex, togglePaused } from "@/lib/viewer/timer";
@@ -91,10 +91,13 @@ import {
 } from "./workbench/workbench-effect-state";
 import { WorkbenchHeader } from "./workbench/workbench-header";
 import { WorkbenchStage } from "./workbench/workbench-stage";
-import { WorkbenchChrome } from "./workbench/workbench-chrome";
 import {
+  WorkbenchChrome,
+  type WorkbenchPanelComponents,
+} from "./workbench/workbench-chrome";
+import {
+  createWorkbenchOverlayIntentPreload,
   scheduleDeferredWorkbenchTask,
-  scheduleWorkbenchOverlayPreload,
   WORKBENCH_AUTH_BOOTSTRAP_DELAY_MS,
 } from "./workbench/workbench-preload";
 
@@ -106,8 +109,10 @@ const WorkbenchOverlays = dynamic(
 
 export function FeedWorkbench({
   initialWorkspaceId = FALLBACK_INITIAL_WORKSPACE_ID,
+  workbenchPanelComponents,
 }: {
   initialWorkspaceId?: string;
+  workbenchPanelComponents?: WorkbenchPanelComponents;
 } = {}) {
   const initialWorkspace = useMemo(
     () => ({ id: initialWorkspaceId, name: "Untitled layout" }),
@@ -212,6 +217,14 @@ export function FeedWorkbench({
     useState<LocalFileCacheStorageStatus | null>(null);
   const [localCacheStatus, setLocalCacheStatus] =
     useState<LocalFileCacheStorageStatus | null>(null);
+  const preloadWorkbenchOverlays = useMemo(
+    () => createWorkbenchOverlayIntentPreload(loadWorkbenchOverlays),
+    [],
+  );
+  const showWorkbenchOverlays = useCallback(() => {
+    preloadWorkbenchOverlays();
+    setHasMountedOverlays(true);
+  }, [preloadWorkbenchOverlays]);
   const largeLocalByteCacheResolverRef = useRef<
     ((confirmed: boolean) => void) | null
   >(null);
@@ -342,10 +355,10 @@ export function FeedWorkbench({
     (confirmation: LocalFileByteCacheConfirmation) =>
       new Promise<boolean>((resolve) => {
         largeLocalByteCacheResolverRef.current = resolve;
-        setHasMountedOverlays(true);
+        showWorkbenchOverlays();
         setLargeLocalByteCachePrompt(confirmation);
       }),
-    [],
+    [showWorkbenchOverlays],
   );
   const answerLargeLocalByteCachePrompt = useCallback((confirmed: boolean) => {
     largeLocalByteCacheResolverRef.current?.(confirmed);
@@ -374,19 +387,19 @@ export function FeedWorkbench({
   }, [refreshLocalCacheStatus]);
   const setLocalCacheStorageFullStatusWithOverlay = useCallback(
     (status: LocalFileCacheStorageStatus | null) => {
-      if (status) setHasMountedOverlays(true);
+      if (status) showWorkbenchOverlays();
       setLocalCacheStorageFullStatus(status);
     },
-    [],
+    [showWorkbenchOverlays],
   );
   const setCloudShareTargetWithOverlay = useCallback(
     (target: SetStateAction<CloudShareTarget | null>) => {
       if (typeof target !== "function" && target) {
-        setHasMountedOverlays(true);
+        showWorkbenchOverlays();
       }
       setCloudShareTarget(target);
     },
-    [],
+    [showWorkbenchOverlays],
   );
   const refreshCloudLibrary = useCallback(async (isAccountSignedIn = false) => {
     if (!getSupabaseEnv()) {
@@ -482,17 +495,17 @@ export function FeedWorkbench({
   });
   const openSourcePanelWithOverlay = useCallback(
     (fixedSlot?: number | null, templateSlotId?: string | null) => {
-      setHasMountedOverlays(true);
+      showWorkbenchOverlays();
       openSourcePanel(fixedSlot, templateSlotId);
     },
-    [openSourcePanel],
+    [openSourcePanel, showWorkbenchOverlays],
   );
   const openEditSourceWithOverlay = useCallback(
     (id: string) => {
-      setHasMountedOverlays(true);
+      showWorkbenchOverlays();
       openEditSource(id);
     },
-    [openEditSource],
+    [openEditSource, showWorkbenchOverlays],
   );
   const {
     openSaveDialog,
@@ -672,10 +685,6 @@ export function FeedWorkbench({
   useEffect(() => {
     const registry = registryRef;
     return () => registry.current?.revokeAll();
-  }, []);
-
-  useEffect(() => {
-    return scheduleWorkbenchOverlayPreload(loadWorkbenchOverlays);
   }, []);
 
   useEffect(() => {
@@ -1088,7 +1097,7 @@ export function FeedWorkbench({
           createWorkspaceTab={createWorkspaceTab}
           closeWorkspaceTab={closeWorkspaceTab}
           openSaveDialog={() => {
-            setHasMountedOverlays(true);
+            showWorkbenchOverlays();
             setIsLayoutsOpen(false);
             if (account.status !== "signed-in") setSaveTarget("local");
             openSaveDialog();
@@ -1211,11 +1220,11 @@ export function FeedWorkbench({
           }}
           onAddSource={() => openSourcePanelWithOverlay()}
           onOpenLibrary={() => {
-            setHasMountedOverlays(true);
+            showWorkbenchOverlays();
             setIsLayoutsOpen(true);
           }}
           onOpenSaveDialog={() => {
-            setHasMountedOverlays(true);
+            showWorkbenchOverlays();
             if (account.status !== "signed-in") setSaveTarget("local");
             openSaveDialog();
             void refreshLocalCacheStatusForCurrentLayout();
@@ -1223,14 +1232,16 @@ export function FeedWorkbench({
           onImportJson={() => importSavedJson(libraryStorageTarget)}
           onExportCurrentJson={exportCurrentWorkspaceJson}
           onOpenClearDialog={() => {
-            setHasMountedOverlays(true);
+            showWorkbenchOverlays();
             setIsClearOpen(true);
           }}
           onOpenAccount={() => {
-            setHasMountedOverlays(true);
+            showWorkbenchOverlays();
             setIsAccountOpen(true);
             void refreshLocalCacheStatus();
           }}
+          onPreloadOverlays={preloadWorkbenchOverlays}
+          workbenchPanelComponents={workbenchPanelComponents}
           onDesktopWorkbenchCollapsedChange={setIsDesktopWorkbenchCollapsed}
           onSelectLayer={selectLayer}
           onFreeRectChange={updateFreeRect}

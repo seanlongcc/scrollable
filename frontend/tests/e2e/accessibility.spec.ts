@@ -54,7 +54,7 @@ test("mobile omits header and starts the source frame near the top", async ({
   expect(await sourceFrameTop(page)).toBeLessThanOrEqual(12);
 });
 
-test("mobile source info sits on the right of selected sources", async ({
+test("mobile source info sits at the bottom of selected sources", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only layout audit.");
@@ -81,11 +81,12 @@ test("mobile source info sits on the right of selected sources", async ({
   ).toHaveAttribute("data-variant", "default");
   await page.getByRole("button", { name: "Close sheet" }).click();
   await expect(workbenchDialog).toBeHidden();
-  await expect(page.getByText("Local upload", { exact: true })).toBeVisible();
+  await expect(page.getByText("test.webp", { exact: true })).toBeVisible();
 
   const metrics = await sourceInfoAlignment(page);
-  expect(metrics.infoRightGap).toBeLessThanOrEqual(16);
-  expect(metrics.infoLeftGap).toBeGreaterThanOrEqual(44);
+  expect(metrics.infoBottomGap).toBeLessThanOrEqual(16);
+  expect(metrics.infoLeftGap).toBeLessThanOrEqual(2);
+  expect(metrics.infoRightGap).toBeLessThanOrEqual(2);
 });
 
 async function collectTouchTargetViolations(
@@ -181,13 +182,15 @@ async function closeSheetRadius(page: Page): Promise<number> {
 }
 
 async function sourceInfoAlignment(page: Page): Promise<{
+  infoBottomGap: number;
   infoLeftGap: number;
   infoRightGap: number;
 }> {
   return page.evaluate(() => {
-    const frame = document.querySelector("main > section > div");
-    const infoTitle = document.querySelector('[title="Local upload"]');
-    const infoBox = infoTitle?.parentElement;
+    const infoBox = document.querySelector(
+      '[data-testid="feed-item-info"][data-placement="bottom"] > div',
+    );
+    const frame = infoBox?.closest("article");
 
     if (!frame || !infoBox) {
       throw new Error("Missing source frame or info box");
@@ -197,6 +200,7 @@ async function sourceInfoAlignment(page: Page): Promise<{
     const infoRect = infoBox.getBoundingClientRect();
 
     return {
+      infoBottomGap: Math.round(frameRect.bottom - infoRect.bottom),
       infoLeftGap: Math.round(infoRect.left - frameRect.left),
       infoRightGap: Math.round(frameRect.right - infoRect.right),
     };

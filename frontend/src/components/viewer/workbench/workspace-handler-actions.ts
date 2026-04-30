@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
-import { toast } from "sonner";
 
 import { pruneLocalFileCacheSets } from "@/lib/local-uploads/file-cache";
+import { toast } from "@/lib/toast";
 import type { FixedGrid } from "@/lib/viewer/layout";
 import {
   serializeWorkspace,

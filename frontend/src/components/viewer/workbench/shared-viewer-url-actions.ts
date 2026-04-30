@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
-import { toast } from "sonner";
 
+import { toast } from "@/lib/toast";
 import type { FixedGrid } from "@/lib/viewer/layout";
 import { uniqueTemplateCopyName } from "./cloud-save-helpers";
 import { uniqueWorkspaceName, workspaceFromTemplate } from "./helpers";

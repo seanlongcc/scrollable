@@ -1,4 +1,5 @@
 import {
+  useRef,
   useState,
   type ComponentProps,
   type KeyboardEvent,
@@ -39,6 +40,7 @@ export function NumberField({
   inputClassName,
   commitOnBlur = false,
   onChange,
+  onInvalidCommit,
 }: {
   label: string;
   value: number;
@@ -50,9 +52,11 @@ export function NumberField({
   inputClassName?: string;
   commitOnBlur?: boolean;
   onChange: (value: number) => void;
+  onInvalidCommit?: (draftValue: string) => void;
 }) {
   const [lastValue, setLastValue] = useState(value);
   const [draftValue, setDraftValue] = useState(String(value));
+  const skipNextBlurCommitRef = useRef(false);
   const currentDraftValue = value === lastValue ? draftValue : String(value);
 
   if (value !== lastValue) {
@@ -79,6 +83,7 @@ export function NumberField({
   function commitDraft() {
     const next = parsedDraft(currentDraftValue);
     if (next === null) {
+      if (currentDraftValue.trim()) onInvalidCommit?.(currentDraftValue);
       setDraftValue(String(value));
       return;
     }
@@ -98,6 +103,7 @@ export function NumberField({
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       commitDraft();
+      skipNextBlurCommitRef.current = true;
       event.currentTarget.blur();
     }
 
@@ -105,6 +111,15 @@ export function NumberField({
       setDraftValue(String(value));
       event.currentTarget.blur();
     }
+  }
+
+  function handleBlur() {
+    if (skipNextBlurCommitRef.current) {
+      skipNextBlurCommitRef.current = false;
+      return;
+    }
+
+    commitDraft();
   }
 
   if (icon) {
@@ -130,7 +145,7 @@ export function NumberField({
           min={min}
           max={max}
           step={1}
-          onBlur={commitDraft}
+          onBlur={handleBlur}
           onChange={(event) => updateDraft(event.target.value)}
           onFocus={(event) => placeCaretAfterInputValue(event.currentTarget)}
           onKeyDown={handleKeyDown}
@@ -163,7 +178,7 @@ export function NumberField({
         min={min}
         max={max}
         step={1}
-        onBlur={commitDraft}
+        onBlur={handleBlur}
         onChange={(event) => updateDraft(event.target.value)}
         onFocus={(event) => placeCaretAfterInputValue(event.currentTarget)}
         onKeyDown={handleKeyDown}
