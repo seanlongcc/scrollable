@@ -20,9 +20,9 @@ describe("FeedWorkbench", () => {
   it("renders fixed 2x1 workspace controls", () => {
     render(<FeedWorkbench />);
 
-    expect(screen.getByLabelText("Columns")).toHaveValue(2);
+    expect(screen.getByLabelText("Columns")).toHaveValue("2");
     expect(screen.getByLabelText("Columns")).toHaveAttribute("max", "16");
-    expect(screen.getByLabelText("Rows")).toHaveValue(1);
+    expect(screen.getByLabelText("Rows")).toHaveValue("1");
     expect(screen.getByLabelText("Rows")).toHaveAttribute("max", "16");
     expect(
       screen.getByRole("button", { name: "Global next" }),

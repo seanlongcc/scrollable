@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { placeCaretAfterInputValue } from "./fields";
 import { DEFAULT_REDDIT_MEDIA_LIMIT, MAX_REDDIT_MEDIA_LIMIT } from "./types";
 import type { FeedSession } from "./types";
 import {
@@ -232,23 +233,26 @@ export function EditSourceDialog({
               <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Reddit media count
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min={1}
                   max={MAX_REDDIT_MEDIA_LIMIT}
                   value={redditLimit || ""}
+                  onFocus={(event) =>
+                    placeCaretAfterInputValue(event.currentTarget)
+                  }
                   onChange={(event) => {
-                    if (event.target.value === "") {
+                    const nextDraft = event.target.value;
+                    if (!nextDraft.trim()) {
                       setRedditLimit(0);
                       return;
                     }
 
-                    setRedditLimit(
-                      clamp(
-                        Number(event.target.value),
-                        1,
-                        MAX_REDDIT_MEDIA_LIMIT,
-                      ),
-                    );
+                    const next = Number(nextDraft);
+                    if (!Number.isInteger(next)) return;
+
+                    setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
                   }}
                   className="h-9"
                 />

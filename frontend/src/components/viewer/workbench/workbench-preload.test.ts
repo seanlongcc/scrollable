@@ -66,6 +66,42 @@ describe("scheduleWorkbenchOverlayPreload", () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
+  it("skips overlay preloading on mobile viewports", () => {
+    const load = vi.fn();
+    const win = {
+      setTimeout: vi.fn<Window["setTimeout"]>(window.setTimeout.bind(window)),
+      clearTimeout: window.clearTimeout.bind(window),
+      matchMedia: createMatchMedia(true),
+    };
+
+    scheduleWorkbenchOverlayPreload(load, win);
+    vi.advanceTimersByTime(WORKBENCH_OVERLAY_PRELOAD_DELAY_MS);
+
+    expect(win.matchMedia).toHaveBeenCalledWith("(max-width: 767px)");
+    expect(win.setTimeout).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("skips overlay preloading when data saver is enabled", () => {
+    const load = vi.fn();
+    const win = {
+      setTimeout: vi.fn<Window["setTimeout"]>(window.setTimeout.bind(window)),
+      clearTimeout: window.clearTimeout.bind(window),
+      matchMedia: createMatchMedia(false),
+      navigator: {
+        connection: {
+          saveData: true,
+        },
+      },
+    };
+
+    scheduleWorkbenchOverlayPreload(load, win);
+    vi.advanceTimersByTime(WORKBENCH_OVERLAY_PRELOAD_DELAY_MS);
+
+    expect(win.setTimeout).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
   it("supports shorter deferred work delays for non-overlay tasks", () => {
     const load = vi.fn();
 
@@ -78,3 +114,16 @@ describe("scheduleWorkbenchOverlayPreload", () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 });
+
+function createMatchMedia(matches: boolean) {
+  return vi.fn<Window["matchMedia"]>((query) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    addListener: vi.fn(),
+    dispatchEvent: vi.fn(() => false),
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn(),
+  }));
+}

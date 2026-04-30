@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { DirectoryInput } from "./fields";
+import { DirectoryInput, placeCaretAfterInputValue } from "./fields";
 import { LabeledSelect } from "./source-dialog-fields";
 import {
   MAX_REDDIT_MEDIA_LIMIT,
@@ -322,24 +322,27 @@ https://www.reddit.com/r/pics/top/?t=week`}
                   Limit
                   <Input
                     aria-label="Reddit media count"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     min={1}
                     max={MAX_REDDIT_MEDIA_LIMIT}
                     value={redditLimit || ""}
                     disabled={isLoading}
+                    onFocus={(event) =>
+                      placeCaretAfterInputValue(event.currentTarget)
+                    }
                     onChange={(event) => {
-                      if (event.target.value === "") {
+                      const nextDraft = event.target.value;
+                      if (!nextDraft.trim()) {
                         setRedditLimit(0);
                         return;
                       }
 
-                      setRedditLimit(
-                        clamp(
-                          Number(event.target.value),
-                          1,
-                          MAX_REDDIT_MEDIA_LIMIT,
-                        ),
-                      );
+                      const next = Number(nextDraft);
+                      if (!Number.isInteger(next)) return;
+
+                      setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
                     }}
                     className="h-9"
                   />

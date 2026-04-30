@@ -1,6 +1,5 @@
 "use client";
 
-import { ThemeProvider } from "next-themes";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -9,7 +8,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const isMobileToastViewport = useMobileToastViewport();
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
+    <>
       {children}
       <Toaster
         richColors
@@ -18,7 +17,7 @@ export function Providers({ children }: { children: ReactNode }) {
         expand={false}
         gap={8}
       />
-    </ThemeProvider>
+    </>
   );
 }
 

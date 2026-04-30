@@ -596,7 +596,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
 
     await openSavedLayouts(user, ["Saved reddit"]);
 
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("17");
     await user.click(screen.getByRole("button", { name: "Show info" }));
     expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
     await screen.findByLabelText("r/pics timer progress");

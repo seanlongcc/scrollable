@@ -14,6 +14,20 @@ type DirectoryInputProps = ComponentProps<typeof Input> & {
   webkitdirectory?: string;
 };
 
+export function placeCaretAfterInputValue(input: HTMLInputElement) {
+  const placeCaret = () => {
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  };
+
+  if (typeof window === "undefined") {
+    placeCaret();
+    return;
+  }
+
+  window.requestAnimationFrame(placeCaret);
+}
+
 export function NumberField({
   label,
   value,
@@ -110,13 +124,15 @@ export function NumberField({
         <Input
           aria-label={label}
           inputMode="numeric"
-          type="number"
+          pattern="[0-9]*"
+          type="text"
           value={currentDraftValue}
           min={min}
           max={max}
           step={1}
           onBlur={commitDraft}
           onChange={(event) => updateDraft(event.target.value)}
+          onFocus={(event) => placeCaretAfterInputValue(event.currentTarget)}
           onKeyDown={handleKeyDown}
           className={cn(
             "h-6 min-h-0 w-11 border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground",
@@ -141,13 +157,15 @@ export function NumberField({
       <Input
         aria-label={label}
         inputMode="numeric"
-        type="number"
+        pattern="[0-9]*"
+        type="text"
         value={currentDraftValue}
         min={min}
         max={max}
         step={1}
         onBlur={commitDraft}
         onChange={(event) => updateDraft(event.target.value)}
+        onFocus={(event) => placeCaretAfterInputValue(event.currentTarget)}
         onKeyDown={handleKeyDown}
         className={cn(
           "h-7 min-h-0 bg-surface-elevated text-foreground",
