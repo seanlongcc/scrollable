@@ -35,15 +35,16 @@ import {
 import type { LibraryMetadataLabel } from "./library-metadata";
 
 const centeredDialogClass =
-  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
+  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto overscroll-contain rounded-t-3xl border border-border/70 bg-surface pb-[calc(1rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:pb-4 md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
 
 const libraryRowClass =
   "grid min-h-16 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
 
 const metadataBlockClass =
-  "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
+  "text-wrap-anywhere rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
 
-const libraryBulkButtonClass = "min-w-0 px-2 font-normal md:font-normal";
+const libraryBulkButtonClass =
+  "min-w-0 overflow-hidden px-2 font-normal md:font-normal";
 
 export function SavedLibraryRow({
   id,
@@ -111,7 +112,10 @@ export function SavedLibraryRow({
       />
       <div className="min-w-0 leading-tight">
         <div className="min-w-0">
-          <div className="truncate font-medium" title={name}>
+          <div
+            className="text-wrap-anywhere line-clamp-2 font-medium"
+            title={name}
+          >
             {name}
           </div>
         </div>
@@ -205,8 +209,8 @@ function LibraryMenuItem({
         onSelect();
       }}
     >
-      <span className="[&_svg]:size-4">{icon}</span>
-      {label}
+      <span className="shrink-0 [&_svg]:size-4">{icon}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 }
@@ -240,7 +244,7 @@ export function SavedLibraryBulkActions({
         className={libraryBulkButtonClass}
       >
         <Rows3 />
-        Select all
+        <span className="min-w-0 truncate">Select all</span>
       </Button>
       <Button
         type="button"
@@ -250,7 +254,7 @@ export function SavedLibraryBulkActions({
         className={libraryBulkButtonClass}
       >
         <FolderOpen />
-        Open
+        <span className="min-w-0 truncate">Open</span>
       </Button>
       <Button
         type="button"
@@ -315,7 +319,10 @@ export function ShareLinkDialog({
             <div className={metadataBlockClass}>
               <div className="flex min-w-0 items-center gap-2">
                 <StorageBadge target="cloud" />
-                <p className="truncate font-medium" title={target.name}>
+                <p
+                  className="text-wrap-anywhere line-clamp-2 font-medium"
+                  title={target.name}
+                >
                   {target.name}
                 </p>
               </div>
@@ -329,7 +336,7 @@ export function ShareLinkDialog({
                 onClick={() => void navigator.clipboard?.writeText(shareUrl)}
               >
                 <Copy />
-                Copy link
+                <span className="min-w-0 truncate">Copy link</span>
               </Button>
               <Button
                 type="button"
@@ -337,7 +344,7 @@ export function ShareLinkDialog({
                 onClick={() => onRegenerate(target)}
               >
                 <RefreshCw />
-                Regenerate
+                <span className="min-w-0 truncate">Regenerate</span>
               </Button>
             </div>
             <Button
@@ -346,7 +353,7 @@ export function ShareLinkDialog({
               onClick={() => onDisable(target)}
             >
               <Trash2 />
-              Disable
+              <span className="min-w-0 truncate">Disable</span>
             </Button>
           </div>
         ) : null}

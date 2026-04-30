@@ -101,14 +101,14 @@ export function SourceDialog({
     >
       <DialogContent
         aria-busy={isLoading}
-        className="mobile-compact-controls top-auto bottom-0 left-0 max-h-[86dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-x-hidden overflow-y-auto rounded-t-2xl border border-border bg-popover p-3 text-popover-foreground shadow-[0_-18px_70px_rgba(18,10,10,0.55)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[82dvh] md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]"
+        className="mobile-compact-controls top-auto bottom-0 left-0 max-h-[86dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-x-hidden overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-popover p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-18px_70px_rgba(18,10,10,0.55)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[82dvh] md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:pb-3 md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]"
       >
         {isLoading ? (
           <div className="absolute inset-0 z-30 grid place-items-center bg-popover/82 px-6 backdrop-blur-sm">
             <div
               role="status"
               aria-live="polite"
-              className="grid justify-items-center gap-2 rounded-lg border border-border bg-background px-5 py-4 text-center shadow-[0_16px_48px_rgba(18,10,10,0.55)]"
+              className="grid max-w-full justify-items-center gap-2 rounded-lg border border-border bg-background px-5 py-4 text-center shadow-[0_16px_48px_rgba(18,10,10,0.55)]"
             >
               <Loader2 className="size-6 animate-spin text-primary" />
               <span className="text-sm font-medium">Preparing source</span>
@@ -198,7 +198,7 @@ export function SourceDialog({
                 >
                   <span className="grid justify-items-center gap-2">
                     <Upload className="size-5 text-primary" />
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="min-w-0 truncate text-sm font-medium text-foreground">
                       Files
                     </span>
                   </span>
@@ -229,7 +229,7 @@ export function SourceDialog({
                 >
                   <span className="grid justify-items-center gap-2">
                     <FolderOpen className="size-5 text-primary" />
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="min-w-0 truncate text-sm font-medium text-foreground">
                       Folder
                     </span>
                   </span>
@@ -418,8 +418,9 @@ function SegmentedControl({
           aria-pressed={value === optionValue}
           disabled={disabled}
           onClick={() => onChange(optionValue)}
+          className="min-w-0 overflow-hidden"
         >
-          {label}
+          <span className="min-w-0 truncate">{label}</span>
         </Button>
       ))}
     </div>

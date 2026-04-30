@@ -199,7 +199,7 @@ export function EditSourceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(18,10,10,0.72)] sm:max-w-2xl",
+          "w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden overscroll-contain border border-border bg-popover pb-[calc(1rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_24px_80px_rgba(18,10,10,0.72)] sm:max-w-2xl md:pb-4",
           isReddit
             ? "grid h-[min(92dvh,46rem)] grid-rows-[auto_minmax(0,1fr)]"
             : "max-h-[92dvh]",
@@ -217,9 +217,14 @@ export function EditSourceDialog({
             isReddit && "min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]",
           )}
         >
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
             <Pencil className="size-4 text-primary" />
-            <span className="truncate font-medium">{source.title}</span>
+            <span
+              className="text-wrap-anywhere line-clamp-2 font-medium"
+              title={source.title}
+            >
+              {source.title}
+            </span>
           </div>
 
           {isReddit ? (
@@ -312,7 +317,10 @@ export function EditSourceDialog({
                           key={itemId}
                           className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2"
                         >
-                          <span className="truncate text-xs font-medium">
+                          <span
+                            className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
+                            title={label}
+                          >
                             {label}
                           </span>
                           <Button
@@ -353,7 +361,7 @@ export function EditSourceDialog({
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                  <div className="text-wrap-anywhere rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
                     No runtime items in this source.
                   </div>
                 )}
@@ -382,7 +390,7 @@ export function EditSourceDialog({
           ) : (
             <div className="grid gap-2">
               {localEntries.length ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
                   {localEntries.map(({ file, previewUrl }, index) => (
                     <div
                       key={`${file.name}-${file.size}-${index}`}
@@ -397,15 +405,15 @@ export function EditSourceDialog({
                             className="size-full object-cover"
                           />
                         ) : file.type.startsWith("video/") ? (
-                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
                             Video
                           </span>
                         ) : file.type.startsWith("audio/") ? (
-                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
                             Audio
                           </span>
                         ) : (
-                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
                             File
                           </span>
                         )}
@@ -428,7 +436,7 @@ export function EditSourceDialog({
                         </Button>
                       </div>
                       <span
-                        className="truncate text-xs font-medium"
+                        className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
                         title={file.name}
                       >
                         {file.name}
@@ -437,7 +445,7 @@ export function EditSourceDialog({
                   ))}
                 </div>
               ) : (
-                <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                <div className="text-wrap-anywhere rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
                   Reload files before editing this source.
                 </div>
               )}

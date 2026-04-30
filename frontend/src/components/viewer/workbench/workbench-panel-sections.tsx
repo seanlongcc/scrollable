@@ -45,10 +45,10 @@ export function WorkbenchPanelDisclosure({
         type="button"
         variant="outline"
         aria-expanded={open}
-        className="h-12 w-full justify-between rounded-2xl px-3 md:h-8"
+        className="h-12 w-full min-w-0 justify-between rounded-2xl px-3 md:h-8"
         onClick={() => setOpen((current) => !current)}
       >
-        <span>{label}</span>
+        <span className="min-w-0 truncate">{label}</span>
         <ChevronDown
           className={cn(
             "transition-transform duration-200",
@@ -81,9 +81,10 @@ export function LayoutModeSection({
           aria-label="Fixed layout mode"
           disabled={layoutModeLocked}
           onClick={() => onLayoutModeChange("fixed")}
+          className="min-w-0"
         >
           <Grid2X2 />
-          Fixed
+          <span className="min-w-0 truncate">Fixed</span>
         </Button>
         <Button
           type="button"
@@ -92,9 +93,10 @@ export function LayoutModeSection({
           aria-label="Free layout mode"
           disabled={layoutModeLocked}
           onClick={() => onLayoutModeChange("free")}
+          className="min-w-0"
         >
           <LayoutGrid />
-          Free
+          <span className="min-w-0 truncate">Free</span>
         </Button>
       </div>
     </section>
@@ -118,7 +120,7 @@ export function LayerSection({
       <div
         role="group"
         aria-label="Layout layers"
-        className="grid grid-cols-3 gap-1 border-b border-border/70 pb-2"
+        className="grid grid-cols-[repeat(auto-fit,minmax(4.75rem,1fr))] gap-1 border-b border-border/70 pb-2"
       >
         {layers.map((layer) => (
           <Button
@@ -129,12 +131,13 @@ export function LayerSection({
             aria-label={`Select ${layer.name}`}
             aria-pressed={layer.id === activeLayerId}
             onClick={() => onSelectLayer(layer.id)}
+            className="min-w-0 px-2"
           >
-            {layer.name}
+            <span className="min-w-0 truncate">{layer.name}</span>
           </Button>
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(4.75rem,1fr))] gap-1">
         {layerStats.map((layer) => (
           <div
             key={layer.id}
@@ -285,7 +288,7 @@ export function ActionsSection({
 }) {
   const infoLabel = showAllInfo ? "Hide info" : "Show info";
   const actionButtonClass =
-    "h-10 min-h-10 text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
+    "h-10 min-h-10 min-w-0 justify-start overflow-hidden text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
 
   return (
     <section className="grid gap-2">
@@ -298,7 +301,7 @@ export function ActionsSection({
           className={actionButtonClass}
         >
           <Plus />
-          Add source
+          <span className="min-w-0 truncate">Add source</span>
         </Button>
         <Button
           type="button"
@@ -307,7 +310,7 @@ export function ActionsSection({
           className={actionButtonClass}
         >
           <EyeOff />
-          Hide UI
+          <span className="min-w-0 truncate">Hide UI</span>
         </Button>
         <Button
           type="button"
@@ -316,7 +319,7 @@ export function ActionsSection({
           className={actionButtonClass}
         >
           <Info />
-          {infoLabel}
+          <span className="min-w-0 truncate">{infoLabel}</span>
         </Button>
         <Button
           type="button"
@@ -325,7 +328,7 @@ export function ActionsSection({
           className={actionButtonClass}
         >
           <Save />
-          Save layout
+          <span className="min-w-0 truncate">Save layout</span>
         </Button>
         <Button
           type="button"
@@ -335,7 +338,7 @@ export function ActionsSection({
           className={actionButtonClass}
         >
           <Upload />
-          Import JSON
+          <span className="min-w-0 truncate">Import JSON</span>
         </Button>
         <Button
           type="button"
@@ -345,7 +348,7 @@ export function ActionsSection({
           className={actionButtonClass}
         >
           <Download />
-          Export JSON
+          <span className="min-w-0 truncate">Export JSON</span>
         </Button>
         {!isClearDisabled ? (
           <Button
@@ -356,7 +359,7 @@ export function ActionsSection({
             className={cn("col-span-2", actionButtonClass)}
           >
             <Trash2 />
-            Clear
+            <span className="min-w-0 truncate">Clear</span>
           </Button>
         ) : null}
       </div>

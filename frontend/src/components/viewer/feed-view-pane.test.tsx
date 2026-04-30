@@ -149,6 +149,141 @@ describe("FeedViewPane", () => {
     expect(onSelect).toHaveBeenCalledOnce();
   });
 
+  it("moves active feed forward and backward with vertical touch swipes", () => {
+    const onMove = vi.fn();
+    const { container } = render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+          ]),
+          feedItem("next", [
+            { type: "image", url: "https://cdn.test/next.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 2 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={onMove}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+    const pane = container.querySelector("article");
+    expect(pane).not.toBeNull();
+
+    fireEvent.touchStart(pane!, {
+      touches: [{ clientX: 160, clientY: 320 }],
+    });
+    fireEvent.touchMove(pane!, {
+      touches: [{ clientX: 158, clientY: 220 }],
+    });
+    fireEvent.touchEnd(pane!, {
+      changedTouches: [{ clientX: 158, clientY: 220 }],
+    });
+
+    expect(onMove).toHaveBeenLastCalledWith(1);
+
+    fireEvent.touchStart(pane!, {
+      touches: [{ clientX: 160, clientY: 220 }],
+    });
+    fireEvent.touchEnd(pane!, {
+      changedTouches: [{ clientX: 162, clientY: 320 }],
+    });
+
+    expect(onMove).toHaveBeenLastCalledWith(-1);
+  });
+
+  it("tracks touch movement without preventing default passive touch events", () => {
+    const onMove = vi.fn();
+    const { container } = render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+          ]),
+          feedItem("next", [
+            { type: "image", url: "https://cdn.test/next.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 2 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={onMove}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+    const pane = container.querySelector("article");
+    expect(pane).not.toBeNull();
+
+    fireEvent.touchStart(pane!, {
+      touches: [{ clientX: 160, clientY: 320 }],
+    });
+
+    const touchMove = new Event("touchmove", {
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(touchMove, "touches", {
+      value: [{ clientX: 158, clientY: 220 }],
+    });
+    const preventDefault = vi.spyOn(touchMove, "preventDefault");
+
+    fireEvent(pane!, touchMove);
+    fireEvent.touchEnd(pane!, {
+      changedTouches: [{ clientX: 158, clientY: 220 }],
+    });
+
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(onMove).toHaveBeenLastCalledWith(1);
+  });
+
+  it("moves gallery media with horizontal touch swipes", () => {
+    const onGalleryChange = vi.fn();
+    const onMove = vi.fn();
+    const { container } = render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+            { type: "image", url: "https://cdn.test/second.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{ active: 0 }}
+        onGalleryChange={onGalleryChange}
+        onMove={onMove}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+    const pane = container.querySelector("article");
+    expect(pane).not.toBeNull();
+
+    fireEvent.touchStart(pane!, {
+      touches: [{ clientX: 320, clientY: 180 }],
+    });
+    fireEvent.touchEnd(pane!, {
+      changedTouches: [{ clientX: 180, clientY: 182 }],
+    });
+
+    expect(onGalleryChange).toHaveBeenLastCalledWith("active", 1);
+    expect(onMove).not.toHaveBeenCalled();
+
+    fireEvent.touchStart(pane!, {
+      touches: [{ clientX: 180, clientY: 180 }],
+    });
+    fireEvent.touchEnd(pane!, {
+      changedTouches: [{ clientX: 320, clientY: 178 }],
+    });
+
+    expect(onGalleryChange).toHaveBeenLastCalledWith("active", -1);
+  });
+
   it("uses the toggle-select handler when selecting a source", () => {
     const onSelect = vi.fn();
     const onToggleSelect = vi.fn();
@@ -175,6 +310,42 @@ describe("FeedViewPane", () => {
 
     expect(onToggleSelect).toHaveBeenCalledOnce();
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("places selected source actions in the mobile rail opposite the workbench rail", () => {
+    render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        isFocused
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+        onSelect={vi.fn()}
+        onMaximize={vi.fn()}
+        onEdit={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    const actionRail = screen
+      .getByRole("button", { name: "Select r/pics" })
+      .closest("[data-source-action-rail]");
+
+    expect(actionRail).not.toBeNull();
+    expect(actionRail).toHaveAttribute("data-focused", "true");
+    expect(actionRail).toHaveClass(
+      "max-md:fixed",
+      "max-md:left-3",
+      "max-md:bottom-[8.5rem]",
+    );
   });
 
   it("shows source info without per-source playback controls", () => {

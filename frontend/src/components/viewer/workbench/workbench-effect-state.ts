@@ -6,6 +6,15 @@ import { isKeyboardEditingTarget, keyMoveDirection } from "./helpers";
 export const TIMER_TICK_MS = 250;
 export const HIDDEN_UI_REVEAL_TIMEOUT_MS = 1800;
 
+export function hasActiveSessionTimers(sessions: FeedSession[]) {
+  return sessions.some(
+    (session) =>
+      !session.timer.isPaused &&
+      session.timer.itemCount > 0 &&
+      session.timer.durationSeconds > 0,
+  );
+}
+
 export function advanceSessionTimers(
   sessions: FeedSession[],
   elapsedMs = TIMER_TICK_MS,

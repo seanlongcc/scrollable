@@ -329,46 +329,46 @@ export function WorkbenchChrome({
                 <MoreHorizontal />
               </RailButton>
               {isMoreOpen ? (
-                <div className="absolute right-12 bottom-0 grid w-36 gap-1 rounded-xl border border-border bg-popover/95 p-2 shadow-[0_18px_48px_rgba(18,10,10,0.5)] backdrop-blur">
+                <div className="absolute right-12 bottom-0 grid w-[min(12rem,calc(100vw-5rem))] gap-1 rounded-xl border border-border bg-popover/95 p-2 shadow-[0_18px_48px_rgba(18,10,10,0.5)] backdrop-blur">
                   {canCloneOrFillSelectedSource ? (
                     <>
                       <Button
                         type="button"
                         variant="outline"
-                        className="justify-start"
+                        className="min-w-0 justify-start"
                         onClick={() => {
                           setIsMoreOpen(false);
                           onCloneSelectedSource();
                         }}
                       >
                         <Copy />
-                        Clone
+                        <span className="min-w-0 truncate">Clone</span>
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
-                        className="justify-start"
+                        className="min-w-0 justify-start"
                         onClick={() => {
                           setIsMoreOpen(false);
                           onFillSelectedSourceSpace();
                         }}
                       >
                         <Grid2X2 />
-                        Fill
+                        <span className="min-w-0 truncate">Fill</span>
                       </Button>
                     </>
                   ) : null}
                   <Button
                     type="button"
                     variant="destructive"
-                    className="justify-start"
+                    className="min-w-0 justify-start"
                     onClick={() => {
                       setIsMoreOpen(false);
                       onRemoveSelectedSource();
                     }}
                   >
                     <Trash2 />
-                    Remove
+                    <span className="min-w-0 truncate">Remove</span>
                   </Button>
                 </div>
               ) : null}
@@ -438,7 +438,7 @@ export function WorkbenchChrome({
       <Sheet open={isWorkbenchSheetOpen} onOpenChange={setIsWorkbenchSheetOpen}>
         <SheetContent
           side="bottom"
-          className="mobile-compact-controls max-h-[82dvh] overflow-y-auto rounded-t-3xl border-border/70 bg-surface px-3 pb-4 shadow-[0_-22px_74px_rgba(18,10,10,0.62)] md:hidden"
+          className="mobile-compact-controls max-h-[82dvh] overflow-y-auto overscroll-contain rounded-t-3xl border-border/70 bg-surface px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-22px_74px_rgba(18,10,10,0.62)] md:hidden"
         >
           <div className="mx-auto h-1 w-10 rounded-full bg-border" />
           <SheetHeader className="px-0 pt-0">
@@ -665,9 +665,10 @@ function WorkbenchPanelContent({
                     selected.timerMode === "local" ? "global" : "local",
                   )
                 }
+                className="min-w-0"
               >
                 <Clock3 />
-                Local timer
+                <span className="min-w-0 truncate">Local timer</span>
               </Button>
               <NumberField
                 label="Local timer seconds"
@@ -682,13 +683,19 @@ function WorkbenchPanelContent({
                 variant="outline"
                 aria-label="Edit selected source"
                 onClick={onEditSelectedSource}
+                className="min-w-0"
               >
                 <Pencil />
-                Edit
+                <span className="min-w-0 truncate">Edit</span>
               </Button>
-              <Button type="button" variant="outline" onClick={onOpenSatellite}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onOpenSatellite}
+                className="min-w-0"
+              >
                 <Maximize2 />
-                Focus
+                <span className="min-w-0 truncate">Focus</span>
               </Button>
               {canCloneOrFillSelectedSource ? (
                 <>
@@ -697,18 +704,20 @@ function WorkbenchPanelContent({
                     variant="outline"
                     aria-label="Clone selected source"
                     onClick={onCloneSelectedSource}
+                    className="min-w-0"
                   >
                     <Copy />
-                    Clone
+                    <span className="min-w-0 truncate">Clone</span>
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     aria-label="Fill empty spaces with selected source"
                     onClick={onFillSelectedSourceSpace}
+                    className="min-w-0"
                   >
                     <Grid2X2 />
-                    Fill
+                    <span className="min-w-0 truncate">Fill</span>
                   </Button>
                 </>
               ) : null}
@@ -716,10 +725,10 @@ function WorkbenchPanelContent({
                 type="button"
                 variant="destructive"
                 onClick={onRemoveSelectedSource}
-                className="col-span-2"
+                className="col-span-2 min-w-0"
               >
                 <Trash2 />
-                Remove
+                <span className="min-w-0 truncate">Remove</span>
               </Button>
             </div>
             {layoutMode === "free" ? (
@@ -751,7 +760,7 @@ function WorkbenchPanelContent({
 
 function WorkbenchLegalFooter() {
   return (
-    <footer className="mt-auto flex items-center justify-center gap-5 border-t border-border/60 pt-3 font-mono text-[10px] text-muted-foreground">
+    <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-border/60 pt-3 font-mono text-[10px] text-muted-foreground">
       <Link className="hover:text-foreground" href="/privacy">
         Privacy
       </Link>

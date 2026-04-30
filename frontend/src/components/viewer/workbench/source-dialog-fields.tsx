@@ -21,10 +21,13 @@ export function LabeledSelect<T extends string>({
   onValueChange: (value: T) => void;
 }) {
   return (
-    <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
+    <Label className="grid min-w-0 gap-1 text-xs font-medium text-muted-foreground">
       {label}
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger aria-label={label} className="h-9 w-full bg-background">
+        <SelectTrigger
+          aria-label={label}
+          className="h-9 w-full min-w-0 bg-background"
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

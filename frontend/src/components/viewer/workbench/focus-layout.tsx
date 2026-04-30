@@ -112,7 +112,7 @@ export function FocusLayout({
             <Maximize2 />
             Exit satellite
           </Button>
-          <div className="flex min-h-0 gap-px overflow-x-auto md:grid md:content-start md:overflow-x-hidden md:overflow-y-auto">
+          <div className="flex min-h-0 min-w-0 gap-px overflow-x-auto md:grid md:content-start md:overflow-x-hidden md:overflow-y-auto">
             <h2 className="sr-only">Satellite sources</h2>
             {satellites.length ? (
               satellites.map((session) => (
@@ -152,7 +152,7 @@ export function FocusLayout({
                 </div>
               ))
             ) : (
-              <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
+              <div className="text-wrap-anywhere rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
                 No satellite views
               </div>
             )}

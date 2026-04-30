@@ -28,6 +28,8 @@ import {
   type TimerState,
 } from "@/lib/viewer/timer";
 import { MediaRenderer } from "./media-renderer";
+import { sourceActionRailClass } from "./source-action-rail";
+import { useFeedSwipe } from "./use-feed-swipe";
 
 const PREFETCH_NEXT_ITEM_COUNT = 6;
 const CONSTRAINED_PREFETCH_CONNECTION_TYPES = new Set(["slow-2g", "2g"]);
@@ -163,6 +165,11 @@ export function FeedViewPane({
     },
     [activeItem, onGalleryChange, onMove],
   );
+  const touchHandlers = useFeedSwipe({
+    activeItem,
+    onGalleryChange,
+    onMove,
+  });
   function selectThen(action?: () => void) {
     onSelect?.();
     action?.();
@@ -170,8 +177,9 @@ export function FeedViewPane({
 
   return (
     <article
-      className="group/source relative grid size-full min-h-0 overflow-hidden rounded-none border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)] md:rounded-2xl"
+      className="group/source relative grid size-full min-h-0 touch-none overflow-hidden rounded-none border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)] md:rounded-2xl"
       onWheel={handleWheel}
+      {...touchHandlers}
     >
       {showProgress ? (
         <div
@@ -201,9 +209,9 @@ export function FeedViewPane({
             }
           />
         ) : (
-          <div className="grid size-full place-items-center bg-background text-xs text-muted-foreground">
-            <div className="grid justify-items-center gap-3 px-4 text-center">
-              <span>
+          <div className="grid size-full place-items-center overflow-auto bg-background text-xs text-muted-foreground">
+            <div className="grid max-h-full max-w-full justify-items-center gap-3 p-4 text-center">
+              <span className="text-wrap-anywhere">
                 {isRuntimeLoading ? "Loading runtime media" : emptyMessage}
               </span>
               {!isRuntimeLoading ? emptyAction : null}
@@ -220,10 +228,13 @@ export function FeedViewPane({
           )}
         >
           <div className="min-w-0 flex-1 rounded-xl border border-border/60 bg-background/78 px-2 py-1.5 backdrop-blur">
-            <div className="truncate text-xs font-medium" title={title}>
+            <div
+              className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
+              title={title}
+            >
               {title}
             </div>
-            <div className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+            <div className="flex min-w-0 flex-wrap items-center gap-1 font-mono text-[10px] text-muted-foreground">
               {items.length ? timer.activeIndex + 1 : 0}/{items.length} ·{" "}
               {timer.durationSeconds}s ·{" "}
               <TimerModeIcon
@@ -268,10 +279,9 @@ export function FeedViewPane({
 
       {!hideUi && (onRemove || onMaximize || onEdit || onSelect) ? (
         <div
-          className={cn(
-            "pointer-events-none absolute top-2 left-2 z-30 grid gap-1 md:left-auto md:right-2",
-            sourceChromeClass,
-          )}
+          data-source-action-rail
+          data-focused={isFocused ? "true" : "false"}
+          className={sourceActionRailClass(isFocused)}
         >
           {onRemove ? (
             <Button
@@ -344,14 +354,20 @@ export function FeedViewPane({
                   : "rounded-t-xl rounded-b-none border-x-0 border-b-0",
               )}
             >
-              <div className="line-clamp-2 text-xs font-medium">
+              <div className="text-wrap-anywhere line-clamp-2 text-xs font-medium">
                 {activeItem.title}
               </div>
-              <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+              <div className="mt-1 flex min-w-0 flex-wrap gap-2 text-[10px] text-muted-foreground">
                 {activeItem.subreddit ? (
-                  <span>r/{activeItem.subreddit}</span>
+                  <span className="max-w-full truncate">
+                    r/{activeItem.subreddit}
+                  </span>
                 ) : null}
-                {activeItem.author ? <span>u/{activeItem.author}</span> : null}
+                {activeItem.author ? (
+                  <span className="max-w-full truncate">
+                    u/{activeItem.author}
+                  </span>
+                ) : null}
                 {activeItem.isNsfw ? <span>NSFW</span> : null}
                 {activeItem.permalink ? (
                   <a
