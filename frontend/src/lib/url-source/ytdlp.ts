@@ -24,6 +24,10 @@ type YtDlpFailureDiagnosticInput = {
   error: unknown;
 };
 
+type YtDlpRuntimeResolutionOptions = {
+  diagnostics?: YtDlpFailureDiagnostic[];
+};
+
 export type YtDlpFailureDiagnostic = {
   event: "yt_dlp_resolution_failed";
   sourceHost: string;
@@ -73,6 +77,7 @@ export async function extractYtDlpRuntimeItems(
 
 export async function extractYtDlpRuntimeResolution(
   url: string,
+  options: YtDlpRuntimeResolutionOptions = {},
 ): Promise<YtDlpRuntimeResolution | null> {
   if (!isHttpUrl(url)) return null;
 
@@ -81,27 +86,36 @@ export async function extractYtDlpRuntimeResolution(
       const info = await runYtDlp(candidate, url);
       const resolution = ytDlpInfoToRuntimeResolution(url, info);
       if (!resolution) {
-        logYtDlpDiagnostic({
-          event: "yt_dlp_resolution_failed",
-          sourceHost: hostFromUrl(url),
-          candidate: commandCandidateLabel(candidate),
-          reason: "no_playable_media",
-        });
+        logYtDlpDiagnostic(
+          {
+            event: "yt_dlp_resolution_failed",
+            sourceHost: hostFromUrl(url),
+            candidate: commandCandidateLabel(candidate),
+            reason: "no_playable_media",
+          },
+          options.diagnostics,
+        );
       }
       return resolution;
     } catch (error) {
       if (error instanceof YtDlpUnavailableError) continue;
-      logYtDlpDiagnostic(ytDlpFailureDiagnostic({ url, candidate, error }));
+      logYtDlpDiagnostic(
+        ytDlpFailureDiagnostic({ url, candidate, error }),
+        options.diagnostics,
+      );
       return null;
     }
   }
 
-  logYtDlpDiagnostic({
-    event: "yt_dlp_resolution_failed",
-    sourceHost: hostFromUrl(url),
-    candidate: "all",
-    reason: "unavailable",
-  });
+  logYtDlpDiagnostic(
+    {
+      event: "yt_dlp_resolution_failed",
+      sourceHost: hostFromUrl(url),
+      candidate: "all",
+      reason: "unavailable",
+    },
+    options.diagnostics,
+  );
 
   return null;
 }
@@ -218,7 +232,11 @@ export function ytDlpFailureDiagnostic({
   };
 }
 
-function logYtDlpDiagnostic(diagnostic: YtDlpFailureDiagnostic) {
+function logYtDlpDiagnostic(
+  diagnostic: YtDlpFailureDiagnostic,
+  diagnostics?: YtDlpFailureDiagnostic[],
+) {
+  diagnostics?.push(diagnostic);
   console.warn("[url-source] yt-dlp resolution failed", diagnostic);
 }
 

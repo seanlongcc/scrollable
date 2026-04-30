@@ -166,7 +166,9 @@ async function resolveYtDlpProvider(
       return null;
     }
   } else {
-    const resolution = await extractYtDlpRuntimeResolution(source.url);
+    const resolution = await extractYtDlpRuntimeResolution(source.url, {
+      diagnostics: options.ytDlpDiagnostics,
+    });
     if (resolution) {
       return {
         status: "resolved",
