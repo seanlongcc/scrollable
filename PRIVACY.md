@@ -2,7 +2,7 @@
 
 Last updated: April 30, 2026
 
-This Privacy Policy explains how Scrollable, operated by Sean Long Chacon Cai, collects, uses, stores, and shares information when you use https://scrollable.app.
+This Privacy Policy explains how Scrollable collects, uses, stores, and shares information when you use https://scrollable.app.
 
 For questions, privacy requests, or abuse reports, contact contact@scrollable.app.
 

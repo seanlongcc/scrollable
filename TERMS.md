@@ -2,7 +2,7 @@
 
 Last updated: April 30, 2026
 
-These Terms of Service govern your use of Scrollable, available at https://scrollable.app. Scrollable is operated by Sean Long Chacon Cai. If you do not agree to these Terms, do not use Scrollable.
+These Terms of Service govern your use of Scrollable, available at https://scrollable.app. If you do not agree to these Terms, do not use Scrollable.
 
 For questions, privacy requests, or abuse reports, contact contact@scrollable.app.
 

@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       title="Privacy Policy"
       updatedAt={updatedAt}
       intro={[
-        "This Privacy Policy explains how Scrollable, operated by Sean Long Chacon Cai, collects, uses, stores, and shares information when you use https://scrollable.app.",
+        "This Privacy Policy explains how Scrollable collects, uses, stores, and shares information when you use https://scrollable.app.",
         "For questions, privacy requests, or abuse reports, contact contact@scrollable.app.",
       ]}
       sections={[
