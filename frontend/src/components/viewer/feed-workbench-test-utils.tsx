@@ -31,6 +31,17 @@ vi.mock("@/lib/local-uploads/file-cache", () => ({
   saveLocalFiles: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/components/release-version-link", () => ({
+  ReleaseVersionLink: ({ className }: { className?: string }) => (
+    <a
+      className={className}
+      href="https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0"
+    >
+      v0.2.0
+    </a>
+  ),
+}));
+
 const fileCache = await import("@/lib/local-uploads/file-cache");
 const feedWorkbench = await import("./feed-workbench");
 const workbenchPanel = await import("./workbench/workbench-panel");
