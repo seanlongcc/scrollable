@@ -86,4 +86,70 @@ describe("ChangelogPage", () => {
       screen.getByText("Release history is temporarily unavailable."),
     ).toBeInTheDocument();
   });
+
+  it("does not render markdown images from release notes", async () => {
+    vi.mocked(fetchPublishedGitHubReleases).mockResolvedValue({
+      status: "ok",
+      releases: [
+        {
+          tagName: "v0.3.0",
+          name: "Version 0.3.0",
+          publishedAt: "2026-05-01T12:00:00Z",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.3.0",
+          body: "![tracking pixel](https://example.com/tracker.gif)",
+        },
+      ],
+    });
+
+    const { container } = render(await ChangelogPage());
+
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+  });
+
+  it("resolves relative markdown links against the GitHub repository", async () => {
+    vi.mocked(fetchPublishedGitHubReleases).mockResolvedValue({
+      status: "ok",
+      releases: [
+        {
+          tagName: "v0.3.0",
+          name: "Version 0.3.0",
+          publishedAt: "2026-05-01T12:00:00Z",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.3.0",
+          body: "[compare changes](compare/v0.2.0...v0.3.0)",
+        },
+      ],
+    });
+
+    render(await ChangelogPage());
+
+    expect(
+      screen.getByRole("link", { name: "compare changes" }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/seanlongcc/scrollable/compare/v0.2.0...v0.3.0",
+    );
+  });
+
+  it("renders a disclosure cue for release summaries", async () => {
+    vi.mocked(fetchPublishedGitHubReleases).mockResolvedValue({
+      status: "ok",
+      releases: [
+        {
+          tagName: "v0.3.0",
+          name: "Version 0.3.0",
+          publishedAt: "2026-05-01T12:00:00Z",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.3.0",
+          body: "Release notes",
+        },
+      ],
+    });
+
+    render(await ChangelogPage());
+
+    const release = screen.getByTestId("release-v0.3.0");
+    expect(within(release).getByText("Details")).toBeInTheDocument();
+  });
 });

@@ -5,6 +5,8 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import { SiteLogo } from "@/components/site-logo";
 import { fetchPublishedGitHubReleases } from "@/lib/releases/github";
 
+const GITHUB_REPOSITORY_URL = "https://github.com/seanlongcc/scrollable/";
+
 export const metadata: Metadata = {
   title: "Changelog | Scrollable",
   description: "Release history for Scrollable.",
@@ -27,16 +29,22 @@ const markdownComponents: Components = {
     </ul>
   ),
   li: ({ children }) => <li className="list-disc">{children}</li>,
-  a: ({ children, href }) => (
-    <a
-      className="font-medium text-foreground underline underline-offset-4 hover:text-secondary"
-      href={href}
-      rel="noreferrer"
-      target="_blank"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ children, href }) => {
+    const resolvedHref = releaseMarkdownHref(href);
+
+    if (!resolvedHref) return <>{children}</>;
+
+    return (
+      <a
+        className="font-medium text-foreground underline underline-offset-4 hover:text-secondary"
+        href={resolvedHref}
+        rel="noreferrer"
+        target="_blank"
+      >
+        {children}
+      </a>
+    );
+  },
 };
 
 export default async function ChangelogPage() {
@@ -87,12 +95,12 @@ export default async function ChangelogPage() {
             <section className="grid gap-3">
               {result.releases.map((release, index) => (
                 <details
-                  className="rounded-lg border border-border bg-card p-4 open:grid open:gap-4"
+                  className="group rounded-lg border border-border bg-card p-4 open:grid open:gap-4"
                   data-testid={`release-${release.tagName}`}
                   key={release.tagName}
                   open={index === 0}
                 >
-                  <summary className="cursor-pointer list-none">
+                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
                     <div className="grid gap-1">
                       <h2 className="text-xl font-semibold tracking-normal">
                         {release.name}
@@ -102,11 +110,36 @@ export default async function ChangelogPage() {
                         {release.tagName}
                       </p>
                     </div>
+                    <span
+                      aria-hidden="true"
+                      className="mt-1 inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground"
+                    >
+                      <span className="transition-transform group-open:rotate-90">
+                        &gt;
+                      </span>
+                      Details
+                    </span>
                   </summary>
 
                   <div className="grid gap-4">
                     {release.body.trim() ? (
-                      <ReactMarkdown components={markdownComponents}>
+                      <ReactMarkdown
+                        allowedElements={[
+                          "a",
+                          "blockquote",
+                          "br",
+                          "code",
+                          "em",
+                          "h2",
+                          "li",
+                          "ol",
+                          "p",
+                          "pre",
+                          "strong",
+                          "ul",
+                        ]}
+                        components={markdownComponents}
+                      >
                         {release.body}
                       </ReactMarkdown>
                     ) : (
@@ -141,4 +174,28 @@ function formatReleaseDate(publishedAt: string | null) {
     dateStyle: "medium",
     timeZone: "UTC",
   }).format(new Date(publishedAt));
+}
+
+function releaseMarkdownHref(href?: string) {
+  if (!href) return undefined;
+
+  try {
+    const parsedHref = new URL(href);
+    if (
+      parsedHref.protocol === "http:" ||
+      parsedHref.protocol === "https:" ||
+      parsedHref.protocol === "mailto:"
+    ) {
+      return parsedHref.href;
+    }
+
+    return undefined;
+  } catch {
+    try {
+      const repositoryRelativeHref = href.replace(/^\/+/, "");
+      return new URL(repositoryRelativeHref, GITHUB_REPOSITORY_URL).href;
+    } catch {
+      return undefined;
+    }
+  }
 }
