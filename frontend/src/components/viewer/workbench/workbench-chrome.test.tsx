@@ -262,7 +262,7 @@ describe("WorkbenchChrome", () => {
     }
   });
 
-  it("shows legal links at the bottom of the desktop workbench panel", async () => {
+  it("shows legal and release links at the bottom of the desktop workbench panel", async () => {
     render(<WorkbenchChrome {...chromeProps()} />);
 
     const panel = screen.getByLabelText("Workbench contextual panel");
@@ -274,6 +274,9 @@ describe("WorkbenchChrome", () => {
       "href",
       "/terms",
     );
+    expect(
+      within(panel).getByRole("link", { name: "Changelog" }),
+    ).toHaveAttribute("href", "/changelog");
   });
 
   it("places JSON import to the left of JSON export in workbench actions", async () => {

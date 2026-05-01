@@ -2,6 +2,7 @@ import { LogOut, RefreshCw, Trash2, X } from "lucide-react";
 import Link from "next/link";
 
 import { SignInPanel } from "@/components/auth/sign-in-panel";
+import { ReleaseVersionLink } from "@/components/release-version-link";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -150,6 +151,10 @@ export function AccountDialog({
           <Link className="hover:text-foreground" href="/terms">
             Terms
           </Link>
+          <Link className="hover:text-foreground" href="/changelog">
+            Changelog
+          </Link>
+          <ReleaseVersionLink className="hover:text-foreground" />
         </footer>
       </DialogContent>
     </Dialog>

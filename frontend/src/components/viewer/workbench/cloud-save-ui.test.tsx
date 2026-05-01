@@ -410,7 +410,7 @@ describe("cloud save UI", () => {
     ).toHaveAttribute("aria-valuenow", "20");
   });
 
-  it("shows legal links in the account dialog", () => {
+  it("shows legal and release links in the account dialog", () => {
     render(
       <AccountDialog
         open
@@ -433,6 +433,9 @@ describe("cloud save UI", () => {
       "href",
       "/terms",
     );
+    expect(
+      within(dialog).getByRole("link", { name: "Changelog" }),
+    ).toHaveAttribute("href", "/changelog");
   });
 
   it("shows unlimited Cloud metadata usage for admins", () => {

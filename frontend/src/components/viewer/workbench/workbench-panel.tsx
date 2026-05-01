@@ -3,6 +3,7 @@
 import { Clock3, Copy, Grid2X2, Maximize2, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 
+import { ReleaseVersionLink } from "@/components/release-version-link";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -364,14 +365,20 @@ export function WorkbenchPanelContent({
 }
 
 function WorkbenchLegalFooter() {
+  const linkClass = "hover:text-foreground";
+
   return (
     <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-border/60 pt-3 font-mono text-[10px] text-muted-foreground">
-      <Link className="hover:text-foreground" href="/privacy">
+      <Link className={linkClass} href="/privacy">
         Privacy
       </Link>
-      <Link className="hover:text-foreground" href="/terms">
+      <Link className={linkClass} href="/terms">
         Terms
       </Link>
+      <Link className={linkClass} href="/changelog">
+        Changelog
+      </Link>
+      <ReleaseVersionLink className={linkClass} />
     </footer>
   );
 }
