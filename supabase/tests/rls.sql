@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(20);
 
 select has_table('public', 'feed_configs', 'feed_configs exists');
 select has_table('public', 'collections', 'collections exists');
@@ -192,6 +192,45 @@ select lives_ok(
   $$,
   'authenticated owner can create Cloud layout and template share links'
 );
+
+set local role anon;
+select is(
+  (select count(*)::integer from public.share_links where slug = 'rls-layout-share'),
+  1,
+  'anonymous users can read Cloud layout share links'
+);
+select is(
+  (select count(*)::integer from public.viewer_sessions where id = '10000000-0000-4000-8000-000000000101'),
+  1,
+  'anonymous users can read shared Cloud layout metadata'
+);
+select is(
+  (select count(*)::integer from public.viewer_templates where id = '10000000-0000-4000-8000-000000000201'),
+  1,
+  'anonymous users can read shared Cloud template metadata'
+);
+reset role;
+
+insert into auth.users (id, aud, role, email)
+values (
+  '10000000-0000-4000-8000-000000000002',
+  'authenticated',
+  'authenticated',
+  'rls-share-reader@example.test'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '10000000-0000-4000-8000-000000000002',
+  true
+);
+select is(
+  (select count(*)::integer from public.viewer_sessions where id = '10000000-0000-4000-8000-000000000101'),
+  1,
+  'other authenticated users can read shared Cloud layout metadata'
+);
+reset role;
 
 select * from finish();
 

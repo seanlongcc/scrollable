@@ -1,6 +1,7 @@
 "use client";
 
 import { Globe, Mail, UserPlus } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,10 +10,15 @@ import { Label } from "@/components/ui/label";
 import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { toast } from "@/lib/toast";
+import {
+  toAuthCallbackUrl,
+  toAuthErrorMessage,
+  toForgotPasswordHref,
+  validateNewPassword,
+  withSignedInFlag,
+} from "./auth-helpers";
 
 const authButtonClass = "font-normal md:font-normal";
-const passwordPolicyMessage =
-  "Password needs lowercase, uppercase, number, and symbol.";
 const signupSuccessMessage =
   "If this email can create an account, we sent a confirmation link. Already signed up? Sign in or check your inbox.";
 
@@ -52,7 +58,7 @@ export function SignInPanel({
   }
 
   async function signUpWithEmailPassword() {
-    const validationError = validateSignupPassword(password, confirmPassword);
+    const validationError = validateNewPassword(password, confirmPassword);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -140,6 +146,14 @@ export function SignInPanel({
           />
         </Label>
       ) : null}
+      {!isSigningUp ? (
+        <Link
+          className="w-fit text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          href={toForgotPasswordHref(next)}
+        >
+          Forgot password?
+        </Link>
+      ) : null}
       <div className="grid gap-2">
         <Button
           type="submit"
@@ -164,44 +178,4 @@ export function SignInPanel({
       </div>
     </form>
   );
-}
-
-function validateSignupPassword(password: string, confirmPassword: string) {
-  if (password !== confirmPassword) return "Passwords do not match.";
-
-  const hasLowercase = /[a-z]/.test(password);
-  const hasUppercase = /[A-Z]/.test(password);
-  const hasNumber = /\d/.test(password);
-  const hasSymbol = /[^A-Za-z0-9]/.test(password);
-
-  if (!hasLowercase || !hasUppercase || !hasNumber || !hasSymbol) {
-    return passwordPolicyMessage;
-  }
-
-  return null;
-}
-
-function toAuthErrorMessage(message: string) {
-  if (
-    message.includes("Password should contain") ||
-    message.includes("Password must contain")
-  ) {
-    return passwordPolicyMessage;
-  }
-
-  return message;
-}
-
-function toAuthCallbackUrl(next: string) {
-  const url = new URL("/auth/callback", window.location.origin);
-  url.searchParams.set("next", next);
-
-  return url.toString();
-}
-
-function withSignedInFlag(path: string) {
-  const url = new URL(path, window.location.origin);
-  url.searchParams.set("signedIn", "1");
-
-  return `${url.pathname}${url.search}${url.hash}`;
 }

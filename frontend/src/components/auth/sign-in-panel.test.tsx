@@ -74,6 +74,9 @@ describe("SignInPanel", () => {
       screen.getByPlaceholderText("Minimum 8 characters"),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Confirm password")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Forgot password?" }),
+    ).toHaveAttribute("href", "/forgot-password?next=%2F");
     expect(screen.getByRole("button", { name: "Google" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Reddit" }),
