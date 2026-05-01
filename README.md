@@ -82,6 +82,8 @@ GitHub Actions runs the release gates on pull requests to `main`, pushes to `mai
 - Vercel preview deployment for same-repository pull requests
 - Vercel production deployment for pushes to `main`
 
+GitHub Releases are created through the separate manual `Release` workflow. Run it from `main` after production deployment, provide a semantic version such as `v0.2.0`, and it will rerun the core gates, refuse duplicate tags/releases, create the tag-backed GitHub Release, and prepend deployment metadata to generated release notes.
+
 The Supabase CI job uses the local Docker database only. It does not use production credentials, `--linked`, `db push`, or a remote database URL.
 
 Configure these GitHub repository secrets before enabling deploys:

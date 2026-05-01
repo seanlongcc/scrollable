@@ -47,6 +47,7 @@ Current package/runtime defaults:
 - Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
 - GitHub Actions workflow `.github/workflows/ci-cd.yml` runs format check, ESLint, typecheck, Vitest, Next build, local Supabase DB tests, and Playwright desktop/mobile e2e on pull requests and `main`.
 - GitHub Actions deploys Vercel previews for same-repository pull requests and production for pushes to `main`. Required repository secrets are `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
+- GitHub Actions workflow `.github/workflows/release.yml` manually creates GitHub Releases from `main`. It requires a human-selected `vX.Y.Z` version, reruns core gates, refuses duplicate tags/releases, and prepends production URL plus commit metadata to generated release notes.
 - CI Supabase tests must stay local-only. Do not add `--linked`, `db push`, `SUPABASE_ACCESS_TOKEN`, or remote database URLs to the test workflow unless the production/staging database deployment strategy is explicitly changed.
 - Saved free-layout templates use `viewer_templates` in Supabase and `scrollable.workspace-templates.v1` in localStorage.
 
