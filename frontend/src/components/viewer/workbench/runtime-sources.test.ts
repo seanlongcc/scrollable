@@ -10,46 +10,26 @@ afterEach(() => {
 });
 
 describe("fetchRedditRuntimeItems", () => {
-  it("fetches Reddit listing JSON directly from the browser", async () => {
+  it("fetches Reddit listing media through the app API", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-
-      if (url.startsWith("/api/reddit/listing")) {
-        return {
-          ok: true,
-          json: async () => ({
-            items: [
-              {
-                id: "reddit:legacy",
-                source: "reddit",
-                title: "Legacy API item",
-                subreddit: "pics",
-                isNsfw: false,
-                createdAt: "2026-04-24T00:00:00.000Z",
-                media: [{ type: "image", url: "https://cdn.test/legacy.jpg" }],
-              },
-            ],
-          }),
-        };
-      }
 
       return {
         ok: true,
         json: async () => ({
-          kind: "Listing",
-          data: {
-            children: [
-              {
-                data: {
-                  id: "direct",
-                  title: "Direct browser item",
+          items: url.startsWith("/api/reddit/listing")
+            ? [
+                {
+                  id: "reddit:api",
+                  source: "reddit",
+                  title: "API item",
                   subreddit: "pics",
-                  post_hint: "image",
-                  url: "https://cdn.test/direct.jpg",
+                  isNsfw: false,
+                  createdAt: "2026-04-24T00:00:00.000Z",
+                  media: [{ type: "image", url: "https://cdn.test/api.jpg" }],
                 },
-              },
-            ],
-          },
+              ]
+            : [],
         }),
       };
     });
@@ -62,72 +42,49 @@ describe("fetchRedditRuntimeItems", () => {
 
     expect(items).toMatchObject([
       {
-        id: "reddit:direct",
-        title: "Direct browser item",
-        media: [{ url: "https://cdn.test/direct.jpg" }],
+        id: "reddit:api",
+        title: "API item",
+        media: [{ url: "https://cdn.test/api.jpg" }],
       },
     ]);
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
-      { cache: "no-store" },
+    const requestUrl = new URL(
+      String(fetchMock.mock.calls[0]?.[0]),
+      "http://localhost",
     );
+    expect(requestUrl.pathname).toBe("/api/reddit/listing");
+    expect(requestUrl.searchParams.get("urls")).toBe(
+      "https://www.reddit.com/r/pics/top/?t=week",
+    );
+    expect(requestUrl.searchParams.get("allowNsfw")).toBe("true");
+    expect(requestUrl.searchParams.get("limit")).toBe("24");
   });
 
-  it("resolves Reddit URL sources directly from the browser", async () => {
+  it("resolves Reddit URL sources through the app API", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
-      if (url.startsWith("/api/url/resolve")) {
+      if (url.startsWith("/api/reddit/listing")) {
         return {
           ok: true,
           json: async () => ({
-            resolution: {
-              status: "resolved",
-              mode: "provider",
-              hint: "provider:reddit",
-              provider: "reddit",
-              title: "Server Reddit URL",
-              externalUrl:
-                "https://www.reddit.com/r/pics/comments/abc123/title/",
-              items: [
-                {
-                  id: "reddit:server",
-                  source: "reddit",
-                  title: "Server item",
-                  subreddit: "pics",
-                  isNsfw: false,
-                  createdAt: "2026-04-24T00:00:00.000Z",
-                  media: [
-                    { type: "image", url: "https://cdn.test/server.jpg" },
-                  ],
-                },
-              ],
-            },
-            nextResolverHint: "provider:reddit",
+            items: [
+              {
+                id: "reddit:api-url",
+                source: "reddit",
+                title: "API URL item",
+                subreddit: "pics",
+                isNsfw: false,
+                createdAt: "2026-04-24T00:00:00.000Z",
+                media: [{ type: "image", url: "https://cdn.test/api-url.jpg" }],
+              },
+            ],
           }),
         };
       }
 
       return {
         ok: true,
-        json: async () => [
-          {
-            kind: "Listing",
-            data: {
-              children: [
-                {
-                  data: {
-                    id: "direct-url",
-                    title: "Direct URL item",
-                    subreddit: "pics",
-                    post_hint: "image",
-                    url: "https://cdn.test/direct-url.jpg",
-                  },
-                },
-              ],
-            },
-          },
-        ],
+        json: async () => ({ items: [] }),
       };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -141,9 +98,9 @@ describe("fetchRedditRuntimeItems", () => {
       title: "r/pics",
       items: [
         {
-          id: "reddit:direct-url",
-          title: "Direct URL item",
-          media: [{ url: "https://cdn.test/direct-url.jpg" }],
+          id: "reddit:api-url",
+          title: "API URL item",
+          media: [{ url: "https://cdn.test/api-url.jpg" }],
         },
       ],
       urlResolution: {
@@ -159,10 +116,15 @@ describe("fetchRedditRuntimeItems", () => {
         resolverHint: "provider:reddit",
       },
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/pics/comments/abc123/title/.json?raw_json=1",
-      { cache: "no-store" },
+    const requestUrl = new URL(
+      String(fetchMock.mock.calls[0]?.[0]),
+      "http://localhost",
     );
+    expect(requestUrl.pathname).toBe("/api/reddit/listing");
+    expect(requestUrl.searchParams.get("urls")).toBe(
+      "https://www.reddit.com/r/pics/comments/abc123/title/",
+    );
+    expect(requestUrl.searchParams.get("allowNsfw")).toBe("true");
     expect(
       fetchMock.mock.calls.some(([input]) =>
         String(input).startsWith("/api/url/resolve"),

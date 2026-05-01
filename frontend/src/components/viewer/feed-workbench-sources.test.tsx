@@ -40,12 +40,11 @@ describe("FeedWorkbench URL sources", () => {
     expect(
       within(sourceType).getByRole("button", { name: "Local" }),
     ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      within(sourceType).getByRole("button", { name: "Local" }).className,
-    ).toContain("!h-10");
-    expect(
-      within(sourceType).getByRole("button", { name: "Local" }).className,
-    ).not.toContain("!h-11");
+    const localButtonClassName = within(sourceType).getByRole("button", {
+      name: "Local",
+    }).className;
+    expect(localButtonClassName).toContain("!h-10");
+    expect(localButtonClassName).not.toContain("!h-11");
     expect(
       within(dialog).getByRole("group", { name: "Local upload picker" }),
     ).toBeInTheDocument();

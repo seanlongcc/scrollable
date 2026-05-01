@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   FeedWorkbench,
   installFeedWorkbenchTestHooks,
-  redditListingFromRuntimeItems,
+  redditApiPayloadFromRuntimeItems,
   selectSourceGrouping,
   stubRuntimeFetch,
 } from "./feed-workbench-test-utils";
@@ -13,7 +13,7 @@ import {
 describe("FeedWorkbench Reddit source inputs", () => {
   installFeedWorkbenchTestHooks();
 
-  it("fetches pasted Reddit post links directly from Reddit", async () => {
+  it("fetches pasted Reddit post links through the app API", async () => {
     const fetchMock = stubRuntimeFetch();
 
     const user = userEvent.setup();
@@ -35,28 +35,14 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByRole("button", { name: "Remove r/pics, r/aww" });
-    const requestUrl = String(
-      (
-        fetchMock.mock.calls as unknown as Array<
-          [RequestInfo | URL, RequestInit?]
-        >
-      )[0]?.[0],
-    );
-    const secondRequestUrl = String(
-      (
-        fetchMock.mock.calls as unknown as Array<
-          [RequestInfo | URL, RequestInit?]
-        >
-      )[1]?.[0],
-    );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(requestUrl).toBe(
-      "https://www.reddit.com/r/pics/comments/abc123/runtime_image/.json?raw_json=1",
-    );
-    expect(secondRequestUrl).toBe(
-      "https://www.reddit.com/r/aww/comments/def456/runtime_image/.json?raw_json=1",
-    );
-    expect(requestUrl).not.toContain("/api/reddit/listing");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expectRedditApiRequest(fetchMock, {
+      urls: [
+        "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+        "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
+      ],
+      limit: 10,
+    });
   });
 
   it("sends subreddit listing URLs with a custom media count", async () => {
@@ -95,16 +81,10 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
-    const requestUrl = String(
-      (
-        fetchMock.mock.calls as unknown as Array<
-          [RequestInfo | URL, RequestInit?]
-        >
-      )[0]?.[0],
-    );
-    expect(requestUrl).toBe(
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
-    );
+    expectRedditApiRequest(fetchMock, {
+      urls: ["https://www.reddit.com/r/kpop/top/?t=week"],
+      limit: 24,
+    });
   });
 
   it("allows subreddit media counts up to 200", async () => {
@@ -136,14 +116,10 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
-    const requestUrl = String(
-      (
-        fetchMock.mock.calls as unknown as Array<
-          [RequestInfo | URL, RequestInit?]
-        >
-      )[0]?.[0],
-    );
-    expect(requestUrl).toContain("limit=200");
+    expectRedditApiRequest(fetchMock, {
+      urls: ["https://www.reddit.com/r/kpop/top/?t=week"],
+      limit: 200,
+    });
   });
 
   it("accepts a bare subreddit name with listing controls", async () => {
@@ -188,16 +164,10 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
-    const requestUrl = String(
-      (
-        fetchMock.mock.calls as unknown as Array<
-          [RequestInfo | URL, RequestInit?]
-        >
-      )[0]?.[0],
-    );
-    expect(requestUrl).toBe(
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
-    );
+    expectRedditApiRequest(fetchMock, {
+      urls: ["https://www.reddit.com/r/kpop/top/?t=week"],
+      limit: 10,
+    });
   });
 
   it("defaults subreddit listings to top week", async () => {
@@ -228,16 +198,10 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
-    const requestUrl = String(
-      (
-        fetchMock.mock.calls as unknown as Array<
-          [RequestInfo | URL, RequestInit?]
-        >
-      )[0]?.[0],
-    );
-    expect(requestUrl).toBe(
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
-    );
+    expectRedditApiRequest(fetchMock, {
+      urls: ["https://www.reddit.com/r/kpop/top/?t=week"],
+      limit: 10,
+    });
   });
 
   it("accepts multiple bare subreddit names with listing controls", async () => {
@@ -294,26 +258,14 @@ describe("FeedWorkbench Reddit source inputs", () => {
     expect(screen.getByAltText("Runtime kpop")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Global next" }));
     expect(screen.getByAltText("Runtime aww")).toBeInTheDocument();
-    const requestUrl = String(
-      (
-        fetchMock.mock.calls as unknown as Array<
-          [RequestInfo | URL, RequestInit?]
-        >
-      )[0]?.[0],
-    );
-    const secondRequestUrl = String(
-      (
-        fetchMock.mock.calls as unknown as Array<
-          [RequestInfo | URL, RequestInit?]
-        >
-      )[1]?.[0],
-    );
-    expect(requestUrl).toBe(
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
-    );
-    expect(secondRequestUrl).toBe(
-      "https://www.reddit.com/r/aww/top/.json?raw_json=1&t=week&limit=200",
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expectRedditApiRequest(fetchMock, {
+      urls: [
+        "https://www.reddit.com/r/kpop/top/?t=week",
+        "https://www.reddit.com/r/aww/top/?t=week",
+      ],
+      limit: 10,
+    });
   });
 
   it("keeps bare subreddit examples out of the Reddit links placeholder", async () => {
@@ -339,30 +291,40 @@ describe("FeedWorkbench Reddit source inputs", () => {
   it("can add Reddit post links as separate sources", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const requestUrl = String(input);
-      const subreddit = requestUrl.includes("/r/aww/") ? "aww" : "pics";
+      const items = [
+        {
+          id: "reddit:pics",
+          source: "reddit" as const,
+          title: "Runtime pics",
+          subreddit: "pics",
+          isNsfw: false,
+          createdAt: "2026-04-24T00:00:00.000Z",
+          media: [
+            {
+              type: "image" as const,
+              url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            },
+          ],
+        },
+        {
+          id: "reddit:aww",
+          source: "reddit" as const,
+          title: "Runtime aww",
+          subreddit: "aww",
+          isNsfw: false,
+          createdAt: "2026-04-24T00:00:00.000Z",
+          media: [
+            {
+              type: "image" as const,
+              url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            },
+          ],
+        },
+      ];
 
       return {
         ok: true,
-        json: async () =>
-          redditListingFromRuntimeItems(
-            [
-              {
-                id: `reddit:${subreddit}`,
-                source: "reddit",
-                title: `Runtime ${subreddit}`,
-                subreddit,
-                isNsfw: false,
-                createdAt: "2026-04-24T00:00:00.000Z",
-                media: [
-                  {
-                    type: "image",
-                    url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                  },
-                ],
-              },
-            ],
-            requestUrl,
-          ),
+        json: async () => redditApiPayloadFromRuntimeItems(items, requestUrl),
       };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -389,41 +351,55 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await screen.findByRole("button", { name: "Remove r/pics" });
     await screen.findByRole("button", { name: "Remove r/aww" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
-      "https://www.reddit.com/r/pics/comments/abc123/runtime_image/.json?raw_json=1",
-    );
-    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
-      "https://www.reddit.com/r/aww/comments/def456/runtime_image/.json?raw_json=1",
-    );
+    expectRedditApiRequest(fetchMock, {
+      urls: ["https://www.reddit.com/r/pics/comments/abc123/runtime_image/"],
+      limit: 10,
+    });
+    expectRedditApiRequest(fetchMock, {
+      index: 1,
+      urls: ["https://www.reddit.com/r/aww/comments/def456/runtime_image/"],
+      limit: 10,
+    });
   });
 
   it("edits a Reddit source by removing a link and refetching remaining media", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const requestUrl = String(input);
-      const subreddit = requestUrl.includes("/r/aww/") ? "aww" : "pics";
+      const callIndex = fetchMock.mock.calls.length;
+      const items = [
+        {
+          id: `reddit:pics-${callIndex}`,
+          source: "reddit" as const,
+          title: "Runtime pics",
+          subreddit: "pics",
+          isNsfw: false,
+          createdAt: "2026-04-24T00:00:00.000Z",
+          media: [
+            {
+              type: "image" as const,
+              url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            },
+          ],
+        },
+        {
+          id: `reddit:aww-${callIndex}`,
+          source: "reddit" as const,
+          title: "Runtime aww",
+          subreddit: "aww",
+          isNsfw: false,
+          createdAt: "2026-04-24T00:00:00.000Z",
+          media: [
+            {
+              type: "image" as const,
+              url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            },
+          ],
+        },
+      ];
 
       return {
         ok: true,
-        json: async () =>
-          redditListingFromRuntimeItems(
-            [
-              {
-                id: `reddit:${subreddit}-${fetchMock.mock.calls.length}`,
-                source: "reddit",
-                title: `Runtime ${subreddit}`,
-                subreddit,
-                isNsfw: false,
-                createdAt: "2026-04-24T00:00:00.000Z",
-                media: [
-                  {
-                    type: "image",
-                    url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                  },
-                ],
-              },
-            ],
-            requestUrl,
-          ),
+        json: async () => redditApiPayloadFromRuntimeItems(items, requestUrl),
       };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -461,10 +437,33 @@ describe("FeedWorkbench Reddit source inputs", () => {
     );
 
     await screen.findByRole("button", { name: "Edit r/aww" });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const refetchUrl = String(fetchMock.mock.calls[2]?.[0]);
-    expect(refetchUrl).toBe(
-      "https://www.reddit.com/r/aww/comments/def456/runtime_image/.json?raw_json=1",
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expectRedditApiRequest(fetchMock, {
+      index: 1,
+      urls: ["https://www.reddit.com/r/aww/comments/def456/runtime_image/"],
+      limit: 10,
+    });
   });
 });
+
+function expectRedditApiRequest(
+  fetchMock: ReturnType<typeof vi.fn>,
+  {
+    index = 0,
+    urls,
+    limit,
+  }: {
+    index?: number;
+    urls: string[];
+    limit: number;
+  },
+) {
+  const rawRequestUrl = String(fetchMock.mock.calls[index]?.[0]);
+  const requestUrl = new URL(rawRequestUrl, "http://localhost");
+
+  expect(rawRequestUrl).toMatch(/^\/api\/reddit\/listing\?/);
+  expect(requestUrl.pathname).toBe("/api/reddit/listing");
+  expect(requestUrl.searchParams.getAll("urls")).toEqual(urls);
+  expect(requestUrl.searchParams.get("allowNsfw")).toBe("true");
+  expect(requestUrl.searchParams.get("limit")).toBe(String(limit));
+}

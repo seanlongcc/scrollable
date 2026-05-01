@@ -296,75 +296,47 @@ test("warns before displaying provider page embeds", async ({ page }) => {
 test("keyboard and wheel move through runtime feed items", async ({
   page,
 }, testInfo) => {
-  await page.route(
-    "**reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          kind: "Listing",
-          data: {
-            children: [
+  const redditListingRequests: string[] = [];
+  await page.route("**/api/reddit/listing?**", async (route) => {
+    redditListingRequests.push(route.request().url());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "runtime-1",
+            source: "reddit",
+            title: "Runtime image 1",
+            subreddit: "pics",
+            isNsfw: false,
+            createdAt: "2026-04-24T00:00:00.000Z",
+            media: [
               {
-                data: {
-                  id: "runtime-1",
-                  title: "Runtime image 1",
-                  subreddit: "pics",
-                  post_hint: "image",
-                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                },
-              },
-              {
-                data: {
-                  id: "runtime-2",
-                  title: "Runtime image 2",
-                  subreddit: "pics",
-                  post_hint: "image",
-                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                },
+                type: "image",
+                url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
               },
             ],
           },
-        }),
-      });
-    },
-  );
-
-  await page.route(
-    "**api.reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          kind: "Listing",
-          data: {
-            children: [
+          {
+            id: "runtime-2",
+            source: "reddit",
+            title: "Runtime image 2",
+            subreddit: "pics",
+            isNsfw: false,
+            createdAt: "2026-04-24T00:00:00.000Z",
+            media: [
               {
-                data: {
-                  id: "runtime-1",
-                  title: "Runtime image 1",
-                  subreddit: "pics",
-                  post_hint: "image",
-                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                },
-              },
-              {
-                data: {
-                  id: "runtime-2",
-                  title: "Runtime image 2",
-                  subreddit: "pics",
-                  post_hint: "image",
-                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                },
+                type: "image",
+                url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
               },
             ],
           },
-        }),
-      });
-    },
-  );
+        ],
+        unsupportedIds: [],
+      }),
+    });
+  });
   await page.goto("/");
   await page.getByRole("button", { name: "Add source", exact: true }).click();
   await page.getByRole("button", { name: "Reddit" }).click();
@@ -373,6 +345,12 @@ test("keyboard and wheel move through runtime feed items", async ({
     .getByLabel("Paste Reddit post or subreddit links, one per line")
     .fill("https://www.reddit.com/r/pics/comments/abc123/runtime_image/");
   await page.getByRole("button", { name: "Open Reddit links" }).click();
+  await expect.poll(() => redditListingRequests.length).toBe(1);
+  const redditRequestUrl = new URL(redditListingRequests[0]);
+  expect(redditRequestUrl.pathname).toBe("/api/reddit/listing");
+  expect(redditRequestUrl.searchParams.get("urls")).toBe(
+    "https://www.reddit.com/r/pics/comments/abc123/runtime_image/",
+  );
 
   await openWorkbenchOnMobile(page, testInfo.project.name);
   await workbenchScope(page, testInfo.project.name)

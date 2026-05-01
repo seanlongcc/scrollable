@@ -113,6 +113,7 @@ Build mobile first. Treat the iPhone 15 Playwright project and narrow browser vi
 - Prefer single-column, thumb-reachable controls and compact progressive disclosure before adding desktop grids or wide toolbars.
 - Use responsive constraints that prevent overflow, clipped dialogs, hidden controls, and text collisions on mobile.
 - Keep desktop behavior as an enhancement of the mobile workflow, not a separate implementation.
+- `mobile-compact-controls` intentionally allows compact 40px controls. Do not increase those compact buttons to 44px to satisfy touch-target checks; preserve the 40px design and adjust tests for browser subpixel rounding when needed.
 - When UI, layout, interaction, dialogs, overlays, drag/drop, or fullscreen behavior changes, verify mobile and desktop before completion.
 - If mobile verification cannot run, report the exact blocker and do not claim mobile behavior passed.
 
