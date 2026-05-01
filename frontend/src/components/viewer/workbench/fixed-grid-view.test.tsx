@@ -67,6 +67,28 @@ describe("FixedGridView", () => {
     );
     expect(screen.getByTestId("source-selected-outline")).toBeInTheDocument();
   });
+
+  it("renders paused session media inactive", () => {
+    const pausedTimer = createTimerState({ durationSeconds: 10, itemCount: 1 });
+    pausedTimer.isPaused = true;
+    const { container } = render(
+      <FixedGridView
+        {...fixedGridProps({
+          sessions: [
+            session({
+              timer: pausedTimer,
+              media: [{ type: "video", url: "https://cdn.test/video.mp4" }],
+            }),
+          ],
+        })}
+      />,
+    );
+
+    const video = container.querySelector("video");
+
+    expect(video?.autoplay).toBe(false);
+    expect(video).toHaveAttribute("preload", "metadata");
+  });
 });
 
 function fixedGridProps(
@@ -98,16 +120,22 @@ function fixedGridProps(
   };
 }
 
-function session(): FeedSession {
+function session({
+  timer = createTimerState({ durationSeconds: 10, itemCount: 1 }),
+  media,
+}: {
+  timer?: FeedSession["timer"];
+  media?: RuntimeFeedItem["media"];
+} = {}): FeedSession {
   return {
     id: "session-1",
     title: "Selected source",
     layerId: "layer-1",
     timerMode: "global",
-    timer: createTimerState({ durationSeconds: 10, itemCount: 1 }),
+    timer,
     fixedSlot: 0,
     freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
-    items: [runtimeItem()],
+    items: [runtimeItem(media)],
     sourceConfig: { kind: "url", url: "https://example.test/source" },
   };
 }
@@ -119,13 +147,13 @@ function urlOnlySession(): FeedSession {
   };
 }
 
-function runtimeItem(): RuntimeFeedItem {
+function runtimeItem(media?: RuntimeFeedItem["media"]): RuntimeFeedItem {
   return {
     id: "item-1",
     source: "url",
     title: "Selected source",
     isNsfw: false,
     createdAt: "2026-04-30T00:00:00.000Z",
-    media: [{ type: "image", url: "https://cdn.test/source.jpg" }],
+    media: media ?? [{ type: "image", url: "https://cdn.test/source.jpg" }],
   };
 }

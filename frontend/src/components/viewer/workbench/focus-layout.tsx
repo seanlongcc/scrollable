@@ -79,7 +79,7 @@ export function FocusLayout({
           videoPositions={videoPositions}
           forceInfoVisible={showInfo}
           hideUi={hideUi}
-          isPlaybackActive
+          isPlaybackActive={!focused.timer.isPaused}
           isRuntimeLoading={focused.isRuntimeLoading}
           onGalleryChange={onGalleryChange}
           onVideoPositionChange={onVideoPositionChange}
@@ -129,7 +129,7 @@ export function FocusLayout({
                     compact
                     forceInfoVisible={showInfo}
                     hideUi
-                    isPlaybackActive
+                    isPlaybackActive={!session.timer.isPaused}
                     isRuntimeLoading={session.isRuntimeLoading}
                     onGalleryChange={onGalleryChange}
                     onVideoPositionChange={onVideoPositionChange}

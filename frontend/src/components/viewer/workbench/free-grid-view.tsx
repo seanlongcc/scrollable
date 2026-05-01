@@ -191,10 +191,7 @@ export function FreeGridView({
               key={session.id}
               data-testid={`free-cell-${session.id}`}
               className={cn(
-                "group/free relative min-h-0 rounded-2xl outline outline-1 outline-offset-0 outline-transparent transition",
-                !hideUi &&
-                  session.id === selectedId &&
-                  "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/15 shadow-[0_0_20px_oklch(62%_0.145_18_/_0.1)]",
+                "group/free relative min-h-0 rounded-2xl transition",
                 freeDrag?.targetType === "session" &&
                   freeDrag.id === session.id &&
                   "z-40 scale-[1.01]",
@@ -267,7 +264,7 @@ export function FreeGridView({
                 isFocused={session.id === selectedId}
                 forceInfoVisible={showInfo}
                 hideUi={hideUi}
-                isPlaybackActive={isPlaybackActive}
+                isPlaybackActive={isPlaybackActive && !session.timer.isPaused}
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}

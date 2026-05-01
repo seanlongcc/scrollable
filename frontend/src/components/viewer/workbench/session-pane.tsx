@@ -102,6 +102,7 @@ export function SessionPane({
           canMountUrlIframe &&
           (isPlaybackActive || shouldPreserveInactiveUrlIframe(session))
         }
+        isPlaybackActive={isPlaybackActive}
         iframePlaybackSeconds={
           urlIframePlaybackKey ? (videoPositions[urlIframePlaybackKey] ?? 0) : 0
         }

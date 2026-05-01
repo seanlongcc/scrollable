@@ -40,7 +40,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${next}`,
+        emailRedirectTo: toAuthCallbackUrl(next),
       },
     });
 
@@ -57,7 +57,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${next}`,
+        redirectTo: toAuthCallbackUrl(next),
       },
     });
 
@@ -131,6 +131,13 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
       </div>
     </form>
   );
+}
+
+function toAuthCallbackUrl(next: string) {
+  const url = new URL("/auth/callback", window.location.origin);
+  url.searchParams.set("next", next);
+
+  return url.toString();
 }
 
 function withSignedInFlag(path: string) {

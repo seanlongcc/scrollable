@@ -139,6 +139,58 @@ describe("UrlSourcePane", () => {
     expect(onIframePlaybackTimeChange).toHaveBeenLastCalledWith(55);
   });
 
+  it("pauses and resumes YouTube playback when playback activity changes", async () => {
+    const player = youtubePlayer({ currentTime: 55 });
+    const playerConstructor = vi.fn(function (_element, options) {
+      queueMicrotask(() => options.events?.onReady?.({ target: player }));
+      return player;
+    });
+    vi.stubGlobal("YT", { Player: playerConstructor });
+    const onIframePlaybackTimeChange = vi.fn();
+    const resolution = youtubeResolution();
+    const { rerender } = render(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        isPlaybackActive
+        iframePlaybackSeconds={12}
+        onIframePlaybackTimeChange={onIframePlaybackTimeChange}
+      />,
+    );
+
+    await waitFor(() => expect(playerConstructor).toHaveBeenCalled());
+    await waitFor(() => expect(player.playVideo).toHaveBeenCalled());
+    player.playVideo.mockClear();
+
+    rerender(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        isPlaybackActive={false}
+        iframePlaybackSeconds={12}
+        onIframePlaybackTimeChange={onIframePlaybackTimeChange}
+      />,
+    );
+
+    expect(player.pauseVideo).toHaveBeenCalledOnce();
+    expect(onIframePlaybackTimeChange).toHaveBeenLastCalledWith(55);
+
+    rerender(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        isPlaybackActive
+        iframePlaybackSeconds={12}
+        onIframePlaybackTimeChange={onIframePlaybackTimeChange}
+      />,
+    );
+
+    expect(player.playVideo).toHaveBeenCalledOnce();
+  });
+
   it("reports approximate YouTube playback time before unmount", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
@@ -262,6 +314,7 @@ function youtubePlayer({ currentTime = 0 } = {}) {
     destroy: vi.fn(),
     getCurrentTime: vi.fn(() => currentTime),
     mute: vi.fn(),
+    pauseVideo: vi.fn(),
     playVideo: vi.fn(),
     seekTo: vi.fn(),
   };
