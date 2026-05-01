@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   AccountDialog,
@@ -28,6 +28,10 @@ vi.mock("@/lib/toast", () => ({
 }));
 
 describe("cloud save UI", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("keeps Cloud selected and allows saving when local files become empty boxes", async () => {
     const user = userEvent.setup();
     const onSaveTargetChange = vi.fn();
@@ -410,7 +414,9 @@ describe("cloud save UI", () => {
     ).toHaveAttribute("aria-valuenow", "20");
   });
 
-  it("shows legal and release links in the account dialog", () => {
+  it("shows legal and release links in the account dialog", async () => {
+    stubLatestRelease();
+
     render(
       <AccountDialog
         open
@@ -436,6 +442,12 @@ describe("cloud save UI", () => {
     expect(
       within(dialog).getByRole("link", { name: "Changelog" }),
     ).toHaveAttribute("href", "/changelog");
+    expect(
+      await within(dialog).findByRole("link", { name: "v0.2.0" }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
+    );
   });
 
   it("shows unlimited Cloud metadata usage for admins", () => {
@@ -512,6 +524,25 @@ describe("cloud save UI", () => {
 
 function signedInAccount(): AccountState {
   return { status: "signed-in", email: "reader@example.com" };
+}
+
+function stubLatestRelease() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      if (input !== "/api/releases/latest") {
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }
+
+      return Response.json({
+        release: {
+          tagName: "v0.2.0",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
+        },
+      });
+    }),
+  );
 }
 
 function cloudUsage(

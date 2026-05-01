@@ -26,6 +26,7 @@ describe("WorkbenchChrome", () => {
 
   afterEach(() => {
     window.matchMedia = originalMatchMedia;
+    vi.unstubAllGlobals();
   });
 
   it("closes the mobile workbench sheet before opening add source", async () => {
@@ -263,6 +264,8 @@ describe("WorkbenchChrome", () => {
   });
 
   it("shows legal and release links at the bottom of the desktop workbench panel", async () => {
+    stubLatestRelease();
+
     render(<WorkbenchChrome {...chromeProps()} />);
 
     const panel = screen.getByLabelText("Workbench contextual panel");
@@ -277,6 +280,12 @@ describe("WorkbenchChrome", () => {
     expect(
       within(panel).getByRole("link", { name: "Changelog" }),
     ).toHaveAttribute("href", "/changelog");
+    expect(
+      await within(panel).findByRole("link", { name: "v0.2.0" }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
+    );
   });
 
   it("places JSON import to the left of JSON export in workbench actions", async () => {
@@ -402,6 +411,25 @@ function chromeProps(
     onFreeRectChange: vi.fn(),
     ...overrides,
   };
+}
+
+function stubLatestRelease() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      if (input !== "/api/releases/latest") {
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }
+
+      return Response.json({
+        release: {
+          tagName: "v0.2.0",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
+        },
+      });
+    }),
+  );
 }
 
 function mobileBottomNav(container: HTMLElement) {
