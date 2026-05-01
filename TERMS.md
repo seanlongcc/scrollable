@@ -36,7 +36,7 @@ Scrollable is not affiliated with, endorsed by, or sponsored by Reddit. Your use
 
 When you save configurations, collections, viewer sessions, templates, or shared links, you grant Scrollable a limited license to store, process, display, and transmit that data only as needed to operate Scrollable and the features you use.
 
-Shared links may expose configuration metadata to people who have the link. Shared NSFW feed configurations and collections may require sign-in before viewing where Scrollable supports that gate.
+Shared links may expose configuration metadata to people who have the link.
 
 Scrollable is designed not to persist or rehost third-party media. Saved views should contain configuration metadata, not third-party media previews or copied third-party payloads.
 

@@ -6,13 +6,14 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   addDefaultSubredditSource,
   FeedWorkbench,
   installFeedWorkbenchTestHooks,
   openSavedLayouts,
+  redditListingFromRuntimeItems,
   savedLayeredWorkspace,
   savedLocalUploadWorkspace,
   stubObjectUrls,
@@ -322,6 +323,103 @@ describe("FeedWorkbench workspaces", () => {
     expect(
       screen.getByRole("button", { name: "Movie wall" }),
     ).toBeInTheDocument();
+  });
+
+  it("hydrates shared Cloud Reddit layouts with browser Reddit JSON requests", async () => {
+    window.history.pushState({}, "", "/?openLayout=reddit-wall");
+    stubRandomUuids(["blank-workspace", "shared-copy"]);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const requestUrl = String(input);
+
+      if (requestUrl === "/api/share/layout/reddit-wall") {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "ok",
+            workspace: {
+              id: "cloud-layout",
+              name: "Cloud reddit",
+              layers: [{ id: "layer-1", name: "Layer 1" }],
+              activeLayerId: "layer-1",
+              layoutMode: "fixed",
+              fixedGrid: { columns: 2, rows: 1 },
+              globalTimerSeconds: 10,
+              sessions: [
+                {
+                  id: "session-1",
+                  title: "r/pics",
+                  layerId: "layer-1",
+                  timerMode: "global",
+                  timerSeconds: 10,
+                  fixedSlot: 0,
+                  freeRect: {
+                    column: 1,
+                    row: 1,
+                    columnSpan: 4,
+                    rowSpan: 4,
+                  },
+                  sourceConfig: {
+                    kind: "reddit",
+                    urls: ["https://www.reddit.com/r/pics/top/?t=week"],
+                    limit: 24,
+                    allowNsfw: true,
+                  },
+                },
+              ],
+              updatedAt: "2026-04-24T00:00:00.000Z",
+            },
+          }),
+        };
+      }
+
+      if (
+        requestUrl ===
+        "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200"
+      ) {
+        return {
+          ok: true,
+          json: async () =>
+            redditListingFromRuntimeItems(
+              [
+                {
+                  id: "reddit:shared",
+                  source: "reddit",
+                  title: "Shared runtime image",
+                  subreddit: "pics",
+                  isNsfw: true,
+                  createdAt: "2026-04-24T00:00:00.000Z",
+                  media: [
+                    {
+                      type: "image",
+                      url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                    },
+                  ],
+                },
+              ],
+              requestUrl,
+            ),
+        };
+      }
+
+      throw new Error(`Unexpected fetch: ${requestUrl}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<FeedWorkbench />);
+
+    expect(
+      await screen.findByAltText("Shared runtime image"),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/share/layout/reddit-wall");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
+      { cache: "no-store" },
+    );
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).startsWith("/api/reddit/listing"),
+      ),
+    ).toBe(false);
   });
 
   it("opens saved layouts on layer one without selecting a source", async () => {

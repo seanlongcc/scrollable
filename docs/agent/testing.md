@@ -84,6 +84,5 @@ High-value test areas:
 - Local upload feed behavior.
 - Multiple-feed grid layout.
 - Collection sharing permissions.
-- NSFW collection visibility for signed-out vs signed-in users.
 - Supabase RLS policies.
 - Mobile viewport layout and touch gestures.

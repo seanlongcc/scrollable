@@ -522,16 +522,9 @@ describe("FeedWorkbench Reddit source persistence", () => {
 
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
-    const requestUrl = new URL(
-      String(fetchMock.mock.calls[0]?.[0]),
-      "http://localhost",
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
     );
-    expect(requestUrl.pathname).toBe("/api/reddit/listing");
-    expect(requestUrl.searchParams.get("urls")).toBe(
-      "https://www.reddit.com/r/pics/top/?t=week",
-    );
-    expect(requestUrl.searchParams.get("allowNsfw")).toBe("true");
-    expect(requestUrl.searchParams.get("limit")).toBe("24");
   });
 
   it("refetches saved Reddit galleries as scrollable feed items", async () => {

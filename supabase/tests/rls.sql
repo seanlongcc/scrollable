@@ -45,7 +45,7 @@ select isnt_empty(
      where c.relname = 'share_links'
        and pg_get_expr(p.polqual, p.polrelid) ~* 'not[[:space:]]+fc[.]is_nsfw'
        and pg_get_expr(p.polqual, p.polrelid) ~* 'auth[.]uid[(][)][[:space:]]+is[[:space:]]+not[[:space:]]+null' $$,
-  'shared NSFW config metadata requires auth'
+  'sensitive shared config metadata requires auth'
 );
 
 select isnt_empty(
@@ -55,7 +55,7 @@ select isnt_empty(
      where c.relname = 'share_links'
        and pg_get_expr(p.polqual, p.polrelid) ~* 'not[[:space:]]+c[.]is_nsfw'
        and pg_get_expr(p.polqual, p.polrelid) ~* 'auth[.]uid[(][)][[:space:]]+is[[:space:]]+not[[:space:]]+null' $$,
-  'shared NSFW collection metadata requires auth'
+  'sensitive shared collection metadata requires auth'
 );
 
 select is_empty(

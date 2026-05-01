@@ -69,7 +69,6 @@ These rules are core product constraints. Keep them visible here because violati
 - Store only user-created configuration data and operational records needed for the app.
 - Fetch third-party media metadata at runtime through approved APIs where possible.
 - Do not display images or videos when browsing saved or shared collections. Collections should show configuration metadata only until a runtime feed is opened.
-- Treat NSFW metadata carefully. Shared NSFW feed configs and collections are visible only to authenticated users.
 
 Acceptable stored data:
 
@@ -191,7 +190,7 @@ Test ownership rules:
 3. Before completion, run lint, typecheck, tests, build, and browser verification when applicable. The GitHub Actions CI/CD workflow mirrors these checks and also runs local Supabase DB tests.
 4. Ensure the lint pass includes ESLint and run the configured Prettier check.
 5. For overlay-style UI changes, include a viewport-bounds check in browser verification.
-6. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases when those areas changed.
+6. Verify auth and RLS paths for signed-out, signed-in, owner, and shared recipient cases when those areas changed.
 7. Check `git status --short --branch`.
 8. Summarize changed files and any checks that could not be run.
 

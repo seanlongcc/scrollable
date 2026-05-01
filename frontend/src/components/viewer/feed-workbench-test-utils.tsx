@@ -82,6 +82,7 @@ export const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 
 export function installFeedWorkbenchTestHooks() {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/");
     if (!HTMLElement.prototype.hasPointerCapture) {
       HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
     }
@@ -148,33 +149,11 @@ export function stubRuntimeFetch(
 ) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => ({
     ok: true,
-    json: async () =>
-      String(input).startsWith("/api/reddit/listing")
-        ? redditApiPayloadFromRuntimeItems(items, String(input))
-        : redditListingFromRuntimeItems(items, String(input)),
+    json: async () => redditListingFromRuntimeItems(items, String(input)),
   }));
   vi.stubGlobal("fetch", fetchMock);
 
   return fetchMock;
-}
-
-export function redditApiPayloadFromRuntimeItems(
-  items: RuntimeFeedItem[],
-  requestUrl?: string,
-) {
-  const requestedSubreddits = requestUrl
-    ? subredditsFromRedditApiRequestUrl(requestUrl)
-    : [];
-  const matchingItems = requestedSubreddits.length
-    ? items.filter((item) =>
-        requestedSubreddits.includes(item.subreddit?.toLowerCase() ?? ""),
-      )
-    : items;
-
-  return {
-    items: matchingItems.length ? matchingItems : items,
-    unsupportedIds: [],
-  };
 }
 
 export function redditListingFromRuntimeItems(
@@ -285,18 +264,6 @@ function subredditFromRedditRequestUrl(value: string) {
   return null;
 }
 
-function subredditsFromRedditApiRequestUrl(value: string) {
-  try {
-    const requestUrl = new URL(value, "http://localhost");
-    return requestUrl.searchParams
-      .getAll("urls")
-      .flatMap((url) => subredditFromRedditRequestUrl(url) ?? [])
-      .map((subreddit) => subreddit.toLowerCase());
-  } catch {
-    return [];
-  }
-}
-
 export function stubUrlResolveFetch(
   payload: Record<string, unknown> | ((url: string) => Record<string, unknown>),
 ) {
@@ -329,9 +296,7 @@ export function deferredFetch(items: Parameters<typeof stubRuntimeFetch>[0]) {
       return {
         ok: true,
         json: async () =>
-          String(input).startsWith("/api/reddit/listing")
-            ? redditApiPayloadFromRuntimeItems(items ?? [], String(input))
-            : redditListingFromRuntimeItems(items ?? []),
+          redditListingFromRuntimeItems(items ?? [], String(input)),
       };
     }),
   );

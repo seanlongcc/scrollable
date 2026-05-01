@@ -13,10 +13,6 @@ export async function fetchPublicRedditRuntimePostLinks(
   input: RedditPostLinksInput,
 ) {
   const parsed = parseRedditPostLinksInput(input);
-  if (typeof window !== "undefined") {
-    return fetchRedditRuntimePostLinksFromApi(parsed);
-  }
-
   const items: RuntimeFeedItem[] = [];
   const unsupportedIds: string[] = [];
 
@@ -56,36 +52,4 @@ export async function fetchPublicRedditRuntimePostLinks(
   }
 
   return { items, unsupportedIds };
-}
-
-async function fetchRedditRuntimePostLinksFromApi(
-  input: ReturnType<typeof parseRedditPostLinksInput>,
-) {
-  const params = new URLSearchParams({
-    allowNsfw: String(input.allowNsfw),
-    limit: String(input.limit),
-  });
-  input.urls.forEach((url) => params.append("urls", url));
-
-  const response = await fetch(`/api/reddit/listing?${params}`, {
-    cache: "no-store",
-  });
-  const payload = (await response.json()) as {
-    items?: RuntimeFeedItem[];
-    unsupportedIds?: string[];
-    error?: string;
-  };
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "reddit_error");
-  }
-
-  if (!payload.items?.length) {
-    throw new Error("reddit_source_has_no_supported_media");
-  }
-
-  return {
-    items: payload.items,
-    unsupportedIds: payload.unsupportedIds ?? [],
-  };
 }
