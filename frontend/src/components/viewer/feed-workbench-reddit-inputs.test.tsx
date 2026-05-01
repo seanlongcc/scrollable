@@ -328,8 +328,10 @@ describe("FeedWorkbench Reddit source inputs", () => {
     const placeholder = screen
       .getByLabelText("Paste Reddit post or subreddit links, one per line")
       .getAttribute("placeholder");
-    expect(placeholder).toContain("Specific post link");
-    expect(placeholder).toContain("Sorted subreddit link");
+    expect(placeholder).toContain(
+      "https://www.reddit.com/r/pics/comments/abc123/title/",
+    );
+    expect(placeholder).toContain("https://www.reddit.com/r/pics/top/?t=week");
     expect(placeholder).not.toContain("Subreddit name");
     expect(placeholder).not.toContain("\nkpop");
   });

@@ -192,7 +192,7 @@ export function FixedGridView({
                 title="Add source to empty cell"
                 className="group grid size-full min-h-0 min-w-0 cursor-pointer place-items-center rounded-none border border-dashed border-border/65 bg-background/42 p-2 text-sm font-semibold text-muted-foreground transition-[background-color,border-color,color,box-shadow] hover:border-primary/70 hover:bg-primary-soft/35 hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none md:rounded-xl"
               >
-                <span className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-border/70 bg-background/78 px-3 py-2 shadow-[0_10px_28px_rgba(18,10,10,0.28)] transition-[border-color,background-color,color] group-hover:border-primary/50 group-hover:bg-surface-elevated/92">
+                <span className="inline-flex max-w-full min-w-0 items-center gap-2">
                   <Plus className="size-4 text-primary" />
                   <span className="min-w-0 truncate">Add source</span>
                 </span>

@@ -149,12 +149,14 @@ export function SourceDialog({
             <section className={sourceSectionClass}>
               <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
                 URL
-                <Input
+                <Textarea
                   value={urlValue}
                   disabled={isLoading}
                   onChange={(event) => setUrlValue(event.target.value)}
-                  placeholder="https://example.com/media-or-page"
-                  className="h-9 font-mono text-xs"
+                  placeholder={`Paste one or many links, one per line.
+
+https://example.com/media-or-page`}
+                  className="min-h-40 resize-none font-mono text-xs leading-5 md:min-h-56"
                 />
               </Label>
               <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
@@ -425,7 +427,7 @@ function SegmentedControl({
           aria-pressed={value === optionValue}
           disabled={disabled}
           onClick={() => onChange(optionValue)}
-          className="!h-11 !min-h-11 min-w-0 overflow-hidden rounded-lg md:!h-7 md:!min-h-0"
+          className="!h-10 !min-h-10 min-w-0 overflow-hidden rounded-lg md:!h-7 md:!min-h-0"
         >
           <span className="min-w-0 truncate">{label}</span>
         </Button>

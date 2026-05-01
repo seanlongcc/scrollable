@@ -63,6 +63,22 @@ export function buildUrlAddSourceConfig({
   };
 }
 
+export function buildUrlAddSourceConfigs({
+  urls,
+  urlTitle,
+}: {
+  urls: string[];
+  urlTitle: string;
+}): UrlSourceConfig[] {
+  const title = urlTitle.trim();
+
+  return urls.map((url) => ({
+    kind: "url",
+    url,
+    ...(title && urls.length === 1 ? { title } : {}),
+  }));
+}
+
 export async function createUrlSessionSource(
   sourceConfig: UrlSourceConfig,
 ): Promise<RuntimeSessionSource> {
@@ -75,6 +91,12 @@ export async function createUrlSessionSource(
     allItems: result.allItems,
     urlResolution: result.urlResolution,
   };
+}
+
+export function createUrlSessionSources(
+  sourceConfigs: UrlSourceConfig[],
+): Promise<RuntimeSessionSource[]> {
+  return Promise.all(sourceConfigs.map(createUrlSessionSource));
 }
 
 export async function createRedditSessionSources({

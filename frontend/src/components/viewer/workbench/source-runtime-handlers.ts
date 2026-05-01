@@ -13,7 +13,6 @@ import type {
 } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { toast } from "@/lib/toast";
-import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import {
   addPreparedLocalSourceAction,
   addRedditSourceAction,
@@ -63,7 +62,6 @@ import {
 import type {
   FeedSession,
   LayoutMode,
-  PersistedSourceConfig,
   RedditInputMode,
   RedditListingSort,
   RedditTimeRange,
@@ -192,7 +190,7 @@ export function useSourceRuntimeHandlers({
         return;
       }
 
-      addSession(result.source);
+      addSessions(result.sources);
       setIsSourceOpen(false);
     } finally {
       setIsLoading(false);
@@ -365,26 +363,6 @@ export function useSourceRuntimeHandlers({
 
   function createLocalRuntimeItems(files: File[]) {
     return createLocalRuntimeItemsForWorkbench(files, registryRef);
-  }
-
-  function addSession({
-    title,
-    items,
-    allItems,
-    urlResolution,
-    localFiles,
-    sourceConfig,
-  }: {
-    title: string;
-    items: RuntimeFeedItem[];
-    allItems?: RuntimeFeedItem[];
-    urlResolution?: UrlRuntimeResolution;
-    localFiles?: File[];
-    sourceConfig: PersistedSourceConfig;
-  }) {
-    addSessions([
-      { title, items, allItems, urlResolution, localFiles, sourceConfig },
-    ]);
   }
 
   function addSessions(sources: SessionPlacementSourceInput[]) {
