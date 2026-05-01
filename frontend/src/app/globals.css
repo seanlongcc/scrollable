@@ -159,13 +159,23 @@
   }
 
   @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select {
+      font-size: 1rem;
+    }
+
     .mobile-compact-controls [data-slot="button"],
     .mobile-compact-controls [data-slot="input"],
     .mobile-compact-controls [data-slot="select-trigger"] {
       min-height: 2.5rem;
       height: 2.5rem;
-      font-size: 0.78rem;
       font-weight: 400;
+    }
+
+    .mobile-compact-controls [data-slot="button"],
+    .mobile-compact-controls [data-slot="select-trigger"] {
+      font-size: 0.78rem;
     }
 
     .mobile-compact-controls [data-slot="button"] {
