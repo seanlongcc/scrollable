@@ -36,7 +36,7 @@ import type { GlobalTimerAction } from "./workbench-toolbar";
 const sectionHeadingClass =
   "font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase";
 export const workbenchActionButtonClass =
-  "h-10 min-h-10 min-w-0 justify-start overflow-hidden text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
+  "h-10 min-h-10 min-w-0 justify-start overflow-hidden rounded-lg text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
 
 export function WorkbenchPanelDisclosure({
   label,
@@ -53,7 +53,7 @@ export function WorkbenchPanelDisclosure({
         type="button"
         variant="outline"
         aria-expanded={open}
-        className="h-12 w-full min-w-0 justify-between rounded-2xl px-3 md:h-8"
+        className="h-12 w-full min-w-0 justify-between rounded-xl px-3 md:h-8"
         onClick={() => setOpen((current) => !current)}
       >
         <span className="min-w-0 truncate">{label}</span>
@@ -328,7 +328,7 @@ export function ActionsSection({
       <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
-          variant="outline"
+          variant="default"
           onMouseEnter={onPreloadOverlays}
           onFocus={onPreloadOverlays}
           onClick={onAddSource}

@@ -28,16 +28,13 @@ import {
   type TimerState,
 } from "@/lib/viewer/timer";
 import { MediaRenderer } from "./media-renderer";
+import {
+  collectImagePrefetchUrls,
+  getNextImagePrefetchCount,
+  shouldPrefetchLocalImages,
+} from "./feed-view-pane-prefetch";
 import { sourceActionRailClass } from "./source-action-rail";
 import { useFeedSwipe } from "./use-feed-swipe";
-
-const PREFETCH_NEXT_ITEM_COUNT = 6;
-const CONSTRAINED_PREFETCH_CONNECTION_TYPES = new Set(["slow-2g", "2g"]);
-
-type NavigatorConnectionLike = {
-  effectiveType?: string;
-  saveData?: boolean;
-};
 
 export function FeedViewPane({
   viewId,
@@ -114,13 +111,17 @@ export function FeedViewPane({
   const progress = getTimerProgressPercent(timer);
 
   useEffect(() => {
-    if (!shouldPrefetchNearbyImages()) return;
+    const prefetchNextItemCount = getNextImagePrefetchCount();
+    if (prefetchNextItemCount === 0) return;
 
+    const prefetchLocalImages = shouldPrefetchLocalImages();
     const prefetchedImageUrls = prefetchedImageUrlsRef.current;
     const urls = collectImagePrefetchUrls({
       items,
       activeIndex: timer.activeIndex,
       activeGalleryIndex,
+      prefetchNextItemCount,
+      prefetchLocalImages,
     });
 
     for (const url of urls) {
@@ -128,6 +129,7 @@ export function FeedViewPane({
 
       const image = new Image();
       image.decoding = "async";
+      if ("fetchPriority" in image) image.fetchPriority = "low";
       image.src = url;
       if (typeof image.decode === "function") {
         void image.decode().catch(() => undefined);
@@ -390,55 +392,4 @@ export function FeedViewPane({
       ) : null}
     </article>
   );
-}
-
-function shouldPrefetchNearbyImages() {
-  if (typeof navigator === "undefined") return true;
-
-  const connection = (
-    navigator as Navigator & {
-      connection?: NavigatorConnectionLike;
-    }
-  ).connection;
-
-  if (connection?.saveData) return false;
-  if (
-    connection?.effectiveType &&
-    CONSTRAINED_PREFETCH_CONNECTION_TYPES.has(connection.effectiveType)
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function collectImagePrefetchUrls({
-  items,
-  activeIndex,
-  activeGalleryIndex,
-}: {
-  items: RuntimeFeedItem[];
-  activeIndex: number;
-  activeGalleryIndex: number;
-}) {
-  const urls = new Set<string>();
-  const activeItem = items[activeIndex];
-
-  if (activeItem?.media.length && activeItem.media.length > 1) {
-    for (const galleryIndex of [
-      activeGalleryIndex - 1,
-      activeGalleryIndex + 1,
-    ]) {
-      const media = activeItem.media[galleryIndex];
-      if (media?.type === "image") urls.add(media.url);
-    }
-  }
-
-  for (let offset = 1; offset <= PREFETCH_NEXT_ITEM_COUNT; offset += 1) {
-    const item = items[activeIndex + offset];
-    const media = item?.media[0];
-    if (media?.type === "image") urls.add(media.url);
-  }
-
-  return [...urls];
 }

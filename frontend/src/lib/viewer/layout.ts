@@ -65,15 +65,16 @@ export function mobileFixedGridDisplay({
     return { columns: 1, rows: 2, visibleCells };
   }
 
-  const columns = Math.min(
-    Math.max(1, fixedGrid.columns),
-    MOBILE_FIXED_GRID_MAX,
-  );
-  const maxVisibleCells = columns * MOBILE_FIXED_GRID_MAX;
   const mobileVisibleCells = Math.min(
     Math.max(0, visibleCells),
-    maxVisibleCells,
+    MOBILE_FIXED_GRID_MAX * MOBILE_FIXED_GRID_MAX,
   );
+  const columns =
+    mobileVisibleCells <= MOBILE_FIXED_GRID_MAX
+      ? 1
+      : mobileVisibleCells <= MOBILE_FIXED_GRID_MAX * 2
+        ? 2
+        : MOBILE_FIXED_GRID_MAX;
   const rows = Math.max(
     1,
     Math.min(

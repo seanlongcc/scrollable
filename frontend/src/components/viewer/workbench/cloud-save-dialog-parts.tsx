@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { LocalFileCacheStorageStatus } from "@/lib/local-uploads/file-cache";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import {
   cloudUsagePercent,
@@ -32,19 +33,14 @@ import {
   type CloudUsageState,
   type SaveTarget,
 } from "./cloud-save-state";
+import { centeredDialogClass, metadataBlockClass } from "./dialog-styles";
 import type { LibraryMetadataLabel } from "./library-metadata";
 
-const centeredDialogClass =
-  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto overscroll-contain rounded-t-3xl border border-border/70 bg-surface pb-[calc(1rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-22px_74px_rgba(18,10,10,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:pb-4 md:shadow-[0_24px_80px_rgba(18,10,10,0.72)]";
-
 const libraryRowClass =
-  "grid min-h-16 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
-
-const metadataBlockClass =
-  "text-wrap-anywhere rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
+  "grid min-h-16 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
 
 const libraryBulkButtonClass =
-  "min-w-0 overflow-hidden px-2 font-normal md:font-normal";
+  "min-w-0 overflow-hidden rounded-lg px-2 font-normal md:font-normal";
 
 export function SavedLibraryRow({
   id,
@@ -197,22 +193,38 @@ function LibraryMenuItem({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      role="menuitem"
-      className={cn(
-        "flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-muted",
-        destructive && "text-destructive hover:bg-destructive/15",
-      )}
-      onClick={(event) => {
-        event.preventDefault();
+    <DropdownMenuPrimitive.Item
+      asChild
+      onSelect={() => {
         onSelect();
       }}
     >
-      <span className="shrink-0 [&_svg]:size-4">{icon}</span>
-      <span className="min-w-0 truncate">{label}</span>
-    </button>
+      <button
+        type="button"
+        className={cn(
+          "flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-muted",
+          destructive && "text-destructive hover:bg-destructive/15",
+        )}
+      >
+        <span className="shrink-0 [&_svg]:size-4">{icon}</span>
+        <span className="min-w-0 truncate">{label}</span>
+      </button>
+    </DropdownMenuPrimitive.Item>
   );
+}
+
+async function copyShareUrl(shareUrl: string) {
+  if (!navigator.clipboard?.writeText) {
+    toast.error("Clipboard unavailable");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    toast.success("Link copied");
+  } catch {
+    toast.error("Could not copy link");
+  }
 }
 
 export function SavedLibraryBulkActions({
@@ -331,10 +343,7 @@ export function ShareLinkDialog({
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                onClick={() => void navigator.clipboard?.writeText(shareUrl)}
-              >
+              <Button type="button" onClick={() => void copyShareUrl(shareUrl)}>
                 <Copy />
                 <span className="min-w-0 truncate">Copy link</span>
               </Button>

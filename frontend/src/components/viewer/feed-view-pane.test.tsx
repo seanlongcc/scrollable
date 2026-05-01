@@ -65,18 +65,139 @@ describe("FeedViewPane", () => {
       />,
     );
 
-    await waitFor(() =>
-      expect(prefetchedUrls).toEqual([
-        "https://cdn.test/gallery-next.jpg",
-        "https://cdn.test/next.jpg",
-        "https://cdn.test/second-next.jpg",
-        "https://cdn.test/third-next.jpg",
-        "https://cdn.test/fourth-next.jpg",
-        "https://cdn.test/fifth-next.jpg",
-      ]),
-    );
+    await waitFor(() => expect(prefetchedUrls).toHaveLength(6));
+    expect(prefetchedUrls).toEqual([
+      "https://cdn.test/gallery-next.jpg",
+      "https://cdn.test/next.jpg",
+      "https://cdn.test/second-next.jpg",
+      "https://cdn.test/third-next.jpg",
+      "https://cdn.test/fourth-next.jpg",
+      "https://cdn.test/fifth-next.jpg",
+    ]);
     await waitFor(() => expect(decodedUrls).toEqual(prefetchedUrls));
     expect(container.querySelectorAll("img")).toHaveLength(1);
+  });
+
+  it("limits nearby image prefetching on mobile-class connections", async () => {
+    const prefetchedUrls: string[] = [];
+
+    class MockImage {
+      currentSrc = "";
+
+      set src(value: string) {
+        this.currentSrc = value;
+        prefetchedUrls.push(value);
+      }
+
+      decode = vi.fn(async () => undefined);
+    }
+
+    vi.stubGlobal("Image", MockImage);
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      connection: { effectiveType: "3g", downlink: 1.4 },
+      deviceMemory: 4,
+    });
+
+    render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+            { type: "image", url: "https://cdn.test/gallery-next.jpg" },
+          ]),
+          feedItem("next", [
+            { type: "image", url: "https://cdn.test/next.jpg" },
+          ]),
+          feedItem("second-next", [
+            { type: "image", url: "https://cdn.test/second-next.jpg" },
+          ]),
+          feedItem("third-next", [
+            { type: "image", url: "https://cdn.test/third-next.jpg" },
+          ]),
+          feedItem("fourth-next", [
+            { type: "image", url: "https://cdn.test/fourth-next.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 5 })}
+        galleryIndexes={{ active: 0 }}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(prefetchedUrls).toHaveLength(3));
+    expect(prefetchedUrls).toEqual([
+      "https://cdn.test/gallery-next.jpg",
+      "https://cdn.test/next.jpg",
+      "https://cdn.test/second-next.jpg",
+    ]);
+  });
+
+  it("skips local image prefetching on mobile devices to avoid decoding many file blobs", async () => {
+    const prefetchedUrls: string[] = [];
+
+    class MockImage {
+      set src(value: string) {
+        prefetchedUrls.push(value);
+      }
+    }
+
+    vi.stubGlobal("Image", MockImage);
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      deviceMemory: 4,
+    });
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(pointer: coarse)",
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    render(
+      <FeedViewPane
+        title="Local upload"
+        items={[
+          feedItem(
+            "active",
+            [{ type: "image", url: "blob:http://localhost/active" }],
+            "local",
+          ),
+          feedItem(
+            "next",
+            [{ type: "image", url: "blob:http://localhost/next" }],
+            "local",
+          ),
+          feedItem(
+            "second-next",
+            [{ type: "image", url: "blob:http://localhost/second-next" }],
+            "local",
+          ),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 3 })}
+        galleryIndexes={{ active: 0 }}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByAltText("active")).toHaveAttribute(
+        "src",
+        "blob:http://localhost/active",
+      ),
+    );
+    expect(prefetchedUrls).toEqual([]);
   });
 
   it("skips nearby image prefetching on constrained connections", async () => {
@@ -423,10 +544,11 @@ describe("FeedViewPane", () => {
 function feedItem(
   id: string,
   media: RuntimeFeedItem["media"],
+  source: RuntimeFeedItem["source"] = "reddit",
 ): RuntimeFeedItem {
   return {
     id,
-    source: "reddit",
+    source,
     title: id,
     isNsfw: false,
     createdAt: "2026-04-24T00:00:00.000Z",

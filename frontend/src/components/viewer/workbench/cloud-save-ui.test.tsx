@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,19 @@ import type {
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
 } from "./types";
+
+const toastMocks = vi.hoisted(() => ({
+  toast: {
+    error: vi.fn(),
+    message: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/toast", () => ({
+  toast: toastMocks.toast,
+}));
 
 describe("cloud save UI", () => {
   it("keeps Cloud selected and allows saving when local files become empty boxes", async () => {
@@ -107,6 +120,52 @@ describe("cloud save UI", () => {
     expect(
       screen.getByRole("menuitem", { name: "Export JSON" }),
     ).toBeInTheDocument();
+  });
+
+  it("closes the Cloud row actions menu after opening the share link dialog", async () => {
+    const user = userEvent.setup();
+    const onShareCloudItem = vi.fn();
+
+    render(
+      <LayoutDialog
+        open
+        onOpenChange={vi.fn()}
+        localWorkspaces={[]}
+        cloudWorkspaces={[workspace("cloud-layout", "Cloud wall")]}
+        localTemplates={[]}
+        cloudTemplates={[]}
+        storageTarget="cloud"
+        onStorageTargetChange={vi.fn()}
+        onOpenWorkspaces={vi.fn()}
+        onOpenTemplates={vi.fn()}
+        onDeleteWorkspace={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onUploadWorkspaceToCloud={vi.fn()}
+        onUploadTemplateToCloud={vi.fn()}
+        onShareCloudItem={onShareCloudItem}
+        onExportJson={vi.fn()}
+        onImportJson={vi.fn()}
+        workspaceTabs={[{ id: "active", name: "Active" }]}
+        openWorkspaceStats={{ active: { sourceCount: 0, fileCount: 0 } }}
+        activeWorkspaceId="active"
+        onSelectWorkspace={vi.fn()}
+        onCreateWorkspaceTab={vi.fn()}
+        onCloseWorkspaceTab={vi.fn()}
+        onSaveCurrentLayout={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Library" });
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "More actions for Cloud wall",
+      }),
+    );
+
+    await user.click(screen.getByRole("menuitem", { name: "Share" }));
+
+    expect(onShareCloudItem).toHaveBeenCalledWith("layout", "cloud-layout");
+    expect(screen.queryByRole("menuitem", { name: "Share" })).toBeNull();
   });
 
   it("shows close controls for open layouts in the mobile library sheet", async () => {
@@ -398,6 +457,11 @@ describe("cloud save UI", () => {
     const user = userEvent.setup();
     const onRegenerate = vi.fn();
     const onDisable = vi.fn();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
 
     render(
       <ShareLinkDialog
@@ -419,6 +483,15 @@ describe("cloud save UI", () => {
     expect(
       within(dialog).getByRole("button", { name: "Copy link" }),
     ).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Copy link" }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      "https://scrollable.test/share/layout/abc12345",
+    );
+    await waitFor(() =>
+      expect(toastMocks.toast.success).toHaveBeenCalledWith("Link copied"),
+    );
 
     await user.click(
       within(dialog).getByRole("button", { name: "Regenerate" }),

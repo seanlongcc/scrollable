@@ -151,7 +151,7 @@ export function SaveLayoutDialog({
           {isCloud ? (
             <div
               className={cn(
-                "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm",
+                "rounded-xl border border-border/70 bg-background/65 p-3 text-sm",
                 cloudBlockReason
                   ? "border-destructive/45 bg-destructive/10 text-destructive"
                   : "text-muted-foreground",
@@ -177,7 +177,7 @@ export function SaveLayoutDialog({
               ) : null}
             </div>
           ) : localCacheStatus ? (
-            <div className="text-wrap-anywhere rounded-2xl border border-border/70 bg-background/65 p-3 font-mono text-[11px] text-muted-foreground">
+            <div className="text-wrap-anywhere rounded-xl border border-border/70 bg-background/65 p-3 font-mono text-[11px] text-muted-foreground">
               <div>{localCacheStatus.label}</div>
               {localCacheStatus.freeLabel ? (
                 <div>{localCacheStatus.freeLabel}</div>

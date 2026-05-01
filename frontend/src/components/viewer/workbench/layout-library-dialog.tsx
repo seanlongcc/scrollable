@@ -428,7 +428,7 @@ function OpenWorkspaceRow({
       <Button
         type="button"
         variant={isActive ? "default" : "outline"}
-        className="h-auto min-h-12 min-w-0 justify-start rounded-2xl px-2.5 py-1.5 text-left"
+        className="h-auto min-h-12 min-w-0 justify-start rounded-xl px-2.5 py-1.5 text-left"
         onClick={() => onSelectWorkspace(tab.id)}
       >
         <span className="min-w-0">
@@ -456,7 +456,7 @@ function OpenWorkspaceRow({
         aria-label={`Close ${tab.name}`}
         title={`Close ${tab.name}`}
         onClick={() => onCloseWorkspaceTab(tab.id)}
-        className="h-12 w-12 shrink-0 rounded-2xl md:w-10"
+        className="h-12 w-12 shrink-0 rounded-xl md:w-10"
       >
         <X />
       </Button>

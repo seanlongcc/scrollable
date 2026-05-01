@@ -351,6 +351,7 @@ export function MediaRenderer({
       <img
         src={media.url}
         alt={title}
+        decoding="async"
         className="h-full w-full object-contain"
         draggable={false}
         onError={handleMediaError}
