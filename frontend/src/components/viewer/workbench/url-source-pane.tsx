@@ -19,6 +19,7 @@ import {
 import {
   destroyYouTubePlayer,
   loadYouTubeIframeApi,
+  pauseYouTubePlayer,
   reportYouTubePlaybackTime,
   resumeYouTubePlayer,
   type YouTubePlayer,
@@ -31,6 +32,7 @@ export function UrlSourcePane({
   hideUi,
   isFocused,
   canMountIframe,
+  isPlaybackActive = true,
   iframePlaybackSeconds = 0,
   onIframePlaybackTimeChange,
   onSelect,
@@ -44,6 +46,7 @@ export function UrlSourcePane({
   hideUi?: boolean;
   isFocused?: boolean;
   canMountIframe: boolean;
+  isPlaybackActive?: boolean;
   iframePlaybackSeconds?: number;
   onIframePlaybackTimeChange?: (seconds: number) => void;
   onSelect?: () => void;
@@ -91,6 +94,7 @@ export function UrlSourcePane({
           key={iframeUrl}
           title={displayTitle}
           iframeUrl={iframeUrl ?? ""}
+          isPlaybackActive={isPlaybackActive}
           initialPlaybackSeconds={iframePlaybackSeconds}
           onPlaybackTimeChange={onIframePlaybackTimeChange}
         />
@@ -265,16 +269,19 @@ export function UrlSourcePane({
 function RuntimeIframe({
   title,
   iframeUrl,
+  isPlaybackActive,
   initialPlaybackSeconds,
   onPlaybackTimeChange,
 }: {
   title: string;
   iframeUrl: string;
+  isPlaybackActive: boolean;
   initialPlaybackSeconds: number;
   onPlaybackTimeChange?: (seconds: number) => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const onPlaybackTimeChangeRef = useRef(onPlaybackTimeChange);
+  const isPlaybackActiveRef = useRef(isPlaybackActive);
   const fallbackPlaybackRef = useRef({
     startedAt: 0,
     startSeconds: normalizedPlaybackSeconds(initialPlaybackSeconds),
@@ -295,6 +302,10 @@ function RuntimeIframe({
   useEffect(() => {
     onPlaybackTimeChangeRef.current = onPlaybackTimeChange;
   }, [onPlaybackTimeChange]);
+
+  useEffect(() => {
+    isPlaybackActiveRef.current = isPlaybackActive;
+  }, [isPlaybackActive]);
 
   useEffect(() => {
     fallbackPlaybackRef.current = {
@@ -319,11 +330,18 @@ function RuntimeIframe({
               player = event.target;
               youtubePlayerRef.current = event.target;
               youtubePlayerReadyRef.current = true;
-              resumeYouTubePlayer(
-                event.target,
-                pendingYoutubeSeekSecondsRef.current,
-                true,
-              );
+              if (isPlaybackActiveRef.current) {
+                resumeYouTubePlayer(
+                  event.target,
+                  pendingYoutubeSeekSecondsRef.current,
+                  true,
+                );
+              } else {
+                pauseYouTubePlayer(
+                  event.target,
+                  onPlaybackTimeChangeRef.current,
+                );
+              }
             },
           },
         });
@@ -357,6 +375,33 @@ function RuntimeIframe({
 
   useEffect(() => {
     if (!isYoutubeIframeUrl(iframeUrl)) return;
+    const player = youtubePlayerRef.current;
+    if (!player || !youtubePlayerReadyRef.current) return;
+
+    if (!isPlaybackActive) {
+      const reportedSeconds = pauseYouTubePlayer(
+        player,
+        onPlaybackTimeChangeRef.current,
+      );
+      if (reportedSeconds !== null) {
+        lastKnownPlaybackSecondsRef.current = reportedSeconds;
+        pendingYoutubeSeekSecondsRef.current = reportedSeconds;
+        hasAuthoritativeYoutubeTimeRef.current = true;
+      }
+      return;
+    }
+
+    const resumeSeconds = lastKnownPlaybackSecondsRef.current;
+    pendingYoutubeSeekSecondsRef.current = resumeSeconds;
+    fallbackPlaybackRef.current = {
+      startedAt: Date.now(),
+      startSeconds: resumeSeconds,
+    };
+    resumeYouTubePlayer(player, resumeSeconds, true);
+  }, [iframeUrl, isPlaybackActive]);
+
+  useEffect(() => {
+    if (!isYoutubeIframeUrl(iframeUrl)) return;
     const resumeSeconds = normalizedPlaybackSeconds(initialPlaybackSeconds);
     pendingYoutubeSeekSecondsRef.current = resumeSeconds;
 
@@ -381,6 +426,10 @@ function RuntimeIframe({
 
       const reportPlaybackTimeChange = onPlaybackTimeChangeRef.current;
       if (!reportPlaybackTimeChange) return;
+      if (!isPlaybackActive) {
+        reportPlaybackTimeChange(lastKnownPlaybackSecondsRef.current);
+        return;
+      }
       if (hasAuthoritativeYoutubeTimeRef.current) {
         reportPlaybackTimeChange(lastKnownPlaybackSecondsRef.current);
         return;
@@ -398,7 +447,7 @@ function RuntimeIframe({
       window.clearInterval(intervalId);
       reportPlaybackTime();
     };
-  }, [iframeUrl]);
+  }, [iframeUrl, isPlaybackActive]);
 
   return (
     <iframe

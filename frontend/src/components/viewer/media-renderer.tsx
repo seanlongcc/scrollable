@@ -33,6 +33,7 @@ export function MediaRenderer({
   onVideoTimeChange?: (seconds: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRestoreTargetRef = useRef<VideoRestoreTarget | null>(null);
   const restoredVideoKeyRef = useRef<string | null>(null);
   const lastReportedVideoSecondRef = useRef<number | null>(null);
@@ -204,6 +205,27 @@ export function MediaRenderer({
   ]);
 
   useEffect(() => {
+    if (
+      hasLoadError ||
+      !shouldLoadPlayback ||
+      (media.type !== "video" && media.type !== "audio")
+    ) {
+      return;
+    }
+
+    const element =
+      media.type === "video" ? videoRef.current : audioRef.current;
+    if (!element) return;
+
+    if (!shouldPlay) {
+      element.pause();
+      return;
+    }
+
+    requestMediaPlayback(element);
+  }, [hasLoadError, media.type, shouldLoadPlayback, shouldPlay, mediaKey]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (
       !video ||
@@ -228,14 +250,7 @@ export function MediaRenderer({
         return;
       }
 
-      try {
-        const playResult = videoElement.play();
-        if (playResult && typeof playResult.catch === "function") {
-          void playResult.catch(() => undefined);
-        }
-      } catch {
-        // Autoplay can be rejected by browser policy; controls stay available.
-      }
+      requestMediaPlayback(videoElement);
     }
 
     requestPlayback();
@@ -347,6 +362,7 @@ export function MediaRenderer({
     return (
       <div className="grid size-full place-items-center bg-background px-6">
         <audio
+          ref={audioRef}
           src={shouldLoadPlayback ? media.url : undefined}
           aria-label={title}
           className="w-full max-w-md"
@@ -387,6 +403,17 @@ function hostFromUrl(value: string) {
     return new URL(value).hostname;
   } catch {
     return "Media host";
+  }
+}
+
+function requestMediaPlayback(element: HTMLMediaElement) {
+  try {
+    const playResult = element.play();
+    if (playResult && typeof playResult.catch === "function") {
+      void playResult.catch(() => undefined);
+    }
+  } catch {
+    // Autoplay can be rejected by browser policy; controls stay available.
   }
 }
 

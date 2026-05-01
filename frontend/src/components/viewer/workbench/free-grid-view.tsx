@@ -264,7 +264,7 @@ export function FreeGridView({
                 isFocused={session.id === selectedId}
                 forceInfoVisible={showInfo}
                 hideUi={hideUi}
-                isPlaybackActive={isPlaybackActive}
+                isPlaybackActive={isPlaybackActive && !session.timer.isPaused}
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}

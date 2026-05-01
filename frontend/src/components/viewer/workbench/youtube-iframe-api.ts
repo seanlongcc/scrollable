@@ -2,6 +2,7 @@ export type YouTubePlayer = {
   destroy?: () => void;
   getCurrentTime?: () => number;
   mute?: () => void;
+  pauseVideo?: () => void;
   playVideo?: () => void;
   seekTo?: (seconds: number, allowSeekAhead: boolean) => void;
 };
@@ -107,6 +108,24 @@ export function reportYouTubePlaybackTime(
 
   const reportedSeconds = normalizedPlaybackSeconds(currentSeconds);
   onPlaybackTimeChange(reportedSeconds);
+  return reportedSeconds;
+}
+
+export function pauseYouTubePlayer(
+  player: YouTubePlayer,
+  onPlaybackTimeChange: ((seconds: number) => void) | undefined,
+) {
+  const reportedSeconds = reportYouTubePlaybackTime(
+    player,
+    onPlaybackTimeChange,
+  );
+
+  try {
+    player.pauseVideo?.();
+  } catch {
+    // Player may reject commands while iframe is being replaced.
+  }
+
   return reportedSeconds;
 }
 
