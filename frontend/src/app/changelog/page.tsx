@@ -6,6 +6,7 @@ import { SiteLogo } from "@/components/site-logo";
 import { fetchPublishedGitHubReleases } from "@/lib/releases/github";
 
 const GITHUB_REPOSITORY_URL = "https://github.com/seanlongcc/scrollable/";
+const SAFE_REPOSITORY_RELATIVE_HREF = /^[A-Za-z0-9._~!$&'()*+,;=:@/-]+$/;
 
 export const metadata: Metadata = {
   title: "Changelog | Scrollable",
@@ -191,11 +192,29 @@ function releaseMarkdownHref(href?: string) {
 
     return undefined;
   } catch {
-    try {
-      const repositoryRelativeHref = href.replace(/^\/+/, "");
-      return new URL(repositoryRelativeHref, GITHUB_REPOSITORY_URL).href;
-    } catch {
+    if (href.startsWith("//") || href.startsWith("#")) return undefined;
+
+    const isRepositoryRootRelative = href.startsWith("/");
+    const repositoryRelativeHref = isRepositoryRootRelative
+      ? href.replace(/^\/+/, "")
+      : href;
+
+    if (!isSafeRepositoryRelativeHref(repositoryRelativeHref)) {
       return undefined;
     }
+
+    if (
+      !isRepositoryRootRelative &&
+      !repositoryRelativeHref.includes("/") &&
+      !repositoryRelativeHref.includes(".")
+    ) {
+      return undefined;
+    }
+
+    return new URL(repositoryRelativeHref, GITHUB_REPOSITORY_URL).href;
   }
+}
+
+function isSafeRepositoryRelativeHref(href: string) {
+  return href === "" || SAFE_REPOSITORY_RELATIVE_HREF.test(href);
 }

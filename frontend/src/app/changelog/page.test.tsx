@@ -132,6 +132,52 @@ describe("ChangelogPage", () => {
     );
   });
 
+  it("renders malformed percent markdown links as plain text", async () => {
+    vi.mocked(fetchPublishedGitHubReleases).mockResolvedValue({
+      status: "ok",
+      releases: [
+        {
+          tagName: "v0.3.0",
+          name: "Version 0.3.0",
+          publishedAt: "2026-05-01T12:00:00Z",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.3.0",
+          body: "[bad percent](%zz)",
+        },
+      ],
+    });
+
+    render(await ChangelogPage());
+
+    expect(screen.getByText("bad percent")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "bad percent" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders angle-bracket markdown links as plain text", async () => {
+    vi.mocked(fetchPublishedGitHubReleases).mockResolvedValue({
+      status: "ok",
+      releases: [
+        {
+          tagName: "v0.3.0",
+          name: "Version 0.3.0",
+          publishedAt: "2026-05-01T12:00:00Z",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.3.0",
+          body: "[bad angle](<bad>)",
+        },
+      ],
+    });
+
+    render(await ChangelogPage());
+
+    expect(screen.getByText("bad angle")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "bad angle" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders a disclosure cue for release summaries", async () => {
     vi.mocked(fetchPublishedGitHubReleases).mockResolvedValue({
       status: "ok",
