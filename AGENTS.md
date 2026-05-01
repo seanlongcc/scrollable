@@ -198,6 +198,16 @@ Test ownership rules:
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` for current workflow context, or install hooks with `bd hooks install` when hook-based workflow injection is wanted.
 
+Bead creation expectations:
+
+- Default to creating or claiming a bead before changing code, docs, configuration, tests, schema, workflows, or deployment setup unless the user explicitly asks not to track the task.
+- Create beads for bug fixes, feature work, refactors, investigation tasks, verification tasks, and docs/process changes that future agents should remember.
+- If a request is more than a tiny one-shot answer or command, make a bead. When unsure, create the bead; extra tracked context is better than lost chat context.
+- For large or multi-part work, create a parent `epic` or `feature` bead plus child task/bug beads with dependencies instead of one oversized issue.
+- When substantial follow-up work is discovered but not handled immediately, create a new bead. If it belongs to the current work, add a note or dependency instead of leaving it only in the chat.
+- Do not create duplicate beads. Search existing open, in-progress, and recently closed issues first when the task sounds similar.
+- At completion, close completed beads with a reason and leave any remaining follow-up as open beads.
+
 Quick reference:
 
 - `bd ready` - Find unblocked work.

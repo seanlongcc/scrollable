@@ -33,7 +33,11 @@ import {
   type CloudUsageState,
   type SaveTarget,
 } from "./cloud-save-state";
-import { centeredDialogClass, metadataBlockClass } from "./dialog-styles";
+import {
+  centeredDialogClass,
+  dialogActionButtonClass,
+  metadataBlockClass,
+} from "./dialog-styles";
 import type { LibraryMetadataLabel } from "./library-metadata";
 
 const libraryRowClass =
@@ -342,8 +346,12 @@ export function ShareLinkDialog({
                 {shareUrl}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button type="button" onClick={() => void copyShareUrl(shareUrl)}>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button
+                type="button"
+                onClick={() => void copyShareUrl(shareUrl)}
+                className={dialogActionButtonClass}
+              >
                 <Copy />
                 <span className="min-w-0 truncate">Copy link</span>
               </Button>
@@ -351,6 +359,7 @@ export function ShareLinkDialog({
                 type="button"
                 variant="outline"
                 onClick={() => onRegenerate(target)}
+                className={dialogActionButtonClass}
               >
                 <RefreshCw />
                 <span className="min-w-0 truncate">Regenerate</span>
@@ -360,6 +369,7 @@ export function ShareLinkDialog({
               type="button"
               variant="destructive"
               onClick={() => onDisable(target)}
+              className={dialogActionButtonClass}
             >
               <Trash2 />
               <span className="min-w-0 truncate">Disable</span>

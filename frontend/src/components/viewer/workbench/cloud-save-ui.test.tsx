@@ -414,7 +414,7 @@ describe("cloud save UI", () => {
     ).toHaveAttribute("aria-valuenow", "20");
   });
 
-  it("shows legal and release links in the account dialog", async () => {
+  it("hides legal and release links in the desktop account dialog", () => {
     stubLatestRelease();
 
     render(
@@ -433,21 +433,17 @@ describe("cloud save UI", () => {
     const dialog = screen.getByRole("dialog", { name: "Account" });
 
     expect(
-      within(dialog).getByRole("link", { name: "Privacy" }),
-    ).toHaveAttribute("href", "/privacy");
-    expect(within(dialog).getByRole("link", { name: "Terms" })).toHaveAttribute(
-      "href",
-      "/terms",
-    );
+      within(dialog).queryByRole("link", { name: "Privacy" }),
+    ).not.toBeInTheDocument();
     expect(
-      within(dialog).getByRole("link", { name: "Changelog" }),
-    ).toHaveAttribute("href", "/changelog");
+      within(dialog).queryByRole("link", { name: "Terms" }),
+    ).not.toBeInTheDocument();
     expect(
-      await within(dialog).findByRole("link", { name: "v0.2.0" }),
-    ).toHaveAttribute(
-      "href",
-      "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
-    );
+      within(dialog).queryByRole("link", { name: "Changelog" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("link", { name: "v0.2.0" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows unlimited Cloud metadata usage for admins", () => {

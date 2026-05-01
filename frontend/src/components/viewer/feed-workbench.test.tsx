@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -69,11 +69,17 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
+    const accountDialog = await screen.findByRole("dialog", {
+      name: "Account",
+    });
+    await waitFor(() =>
+      expect(
+        within(accountDialog).getByRole("button", { name: "Sign up" }),
+      ).toBeInTheDocument(),
+    );
     expect(
-      await screen.findByRole("dialog", { name: "Account" }),
+      within(accountDialog).getByRole("button", { name: "Sign in" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Reddit" }),
     ).not.toBeInTheDocument();

@@ -15,6 +15,7 @@ import type { LocalFileCacheStorageStatus } from "@/lib/local-uploads/file-cache
 import { cn } from "@/lib/utils";
 import {
   centeredDialogClass,
+  dialogActionButtonClass,
   libraryTabsListClass,
   libraryTabTriggerClass,
   sectionLabelClass,
@@ -184,7 +185,12 @@ export function SaveLayoutDialog({
               ) : null}
             </div>
           ) : null}
-          <Button type="submit" title={submitLabel} disabled={submitDisabled}>
+          <Button
+            type="submit"
+            title={submitLabel}
+            disabled={submitDisabled}
+            className={dialogActionButtonClass}
+          >
             <Save />
             <span className="min-w-0 truncate">{submitLabel}</span>
           </Button>
