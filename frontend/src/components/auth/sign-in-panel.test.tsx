@@ -77,7 +77,11 @@ describe("SignInPanel", () => {
     expect(
       screen.getByRole("link", { name: "Forgot password?" }),
     ).toHaveAttribute("href", "/forgot-password?next=%2F");
-    expect(screen.getByRole("button", { name: "Google" })).toBeInTheDocument();
+    const googleButton = screen.getByRole("button", { name: "Google" });
+    expect(googleButton).toBeInTheDocument();
+    expect(
+      googleButton.querySelector('[data-brand-icon="google"]'),
+    ).toHaveAttribute("fill", "white");
     expect(
       screen.queryByRole("button", { name: "Reddit" }),
     ).not.toBeInTheDocument();

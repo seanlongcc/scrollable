@@ -1,7 +1,8 @@
 "use client";
 
-import { Globe, Mail, UserPlus } from "lucide-react";
+import { Mail, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { siGoogle } from "simple-icons";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,22 @@ const signupSuccessMessage =
   "If this email can create an account, we sent a confirmation link. Already signed up? Sign in or check your inbox.";
 
 type SignInPanelMode = "sign-in" | "sign-up";
+
+function GoogleBrandIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-3.5"
+      data-brand-icon="google"
+      fill="white"
+      focusable="false"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d={siGoogle.path} />
+    </svg>
+  );
+}
 
 export function SignInPanel({
   mode = "sign-in",
@@ -172,7 +189,7 @@ export function SignInPanel({
           disabled={!isConfigured}
           className={authButtonClass}
         >
-          <Globe />
+          <GoogleBrandIcon />
           Google
         </Button>
       </div>
