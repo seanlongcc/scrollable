@@ -19,7 +19,8 @@ describe("mapGitHubReleases", () => {
         tag_name: "v0.2.0",
         name: "Version 0.2.0",
         published_at: "2026-05-01T12:00:00Z",
-        html_url: "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
+        html_url:
+          "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
         body: "## Changed\n\n- Added changelog",
         draft: false,
         prerelease: false,
@@ -33,7 +34,8 @@ describe("mapGitHubReleases", () => {
       },
       {
         tag_name: "v0.1.0",
-        html_url: "https://github.com/seanlongcc/scrollable/releases/tag/v0.1.0",
+        html_url:
+          "https://github.com/seanlongcc/scrollable/releases/tag/v0.1.0",
         draft: true,
         prerelease: false,
       },
@@ -95,7 +97,8 @@ describe("latestPublishedRelease", () => {
           tagName: "v0.2.0",
           name: "v0.2.0",
           publishedAt: null,
-          htmlUrl: "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
           body: "",
         },
       ]),
