@@ -1,9 +1,20 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ResetPasswordPanel } from "@/components/auth/password-reset-panels";
 import { SiteLogo } from "@/components/site-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  ...createPageMetadata({
+    title: "Update password",
+    description: "Update your Scrollable account password.",
+    path: "/reset-password",
+    noIndex: true,
+  }),
+};
 
 export default async function ResetPasswordPage({
   searchParams,

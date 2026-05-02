@@ -1,9 +1,20 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ForgotPasswordPanel } from "@/components/auth/password-reset-panels";
 import { SiteLogo } from "@/components/site-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  ...createPageMetadata({
+    title: "Reset password",
+    description: "Request a Scrollable password reset link.",
+    path: "/forgot-password",
+    noIndex: true,
+  }),
+};
 
 export default async function ForgotPasswordPage({
   searchParams,

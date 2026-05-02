@@ -4,13 +4,17 @@ import ReactMarkdown, { type Components } from "react-markdown";
 
 import { SiteLogo } from "@/components/site-logo";
 import { fetchPublishedGitHubReleases } from "@/lib/releases/github";
+import { createPageMetadata } from "@/lib/seo";
 
 const GITHUB_REPOSITORY_URL = "https://github.com/seanlongcc/scrollable/";
 const SAFE_REPOSITORY_RELATIVE_HREF = /^[A-Za-z0-9._~!$&'()*+,;=:@/-]+$/;
 
 export const metadata: Metadata = {
-  title: "Changelog | Scrollable",
-  description: "Release history for Scrollable.",
+  ...createPageMetadata({
+    title: "Changelog",
+    description: "Release notes, fixes, and product changes for Scrollable.",
+    path: "/changelog",
+  }),
 };
 
 const markdownComponents: Components = {

@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 
 import { LegalPage } from "@/app/legal-page";
+import { createPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Scrollable",
-  description: "Privacy Policy for Scrollable.",
+  ...createPageMetadata({
+    title: "Privacy Policy",
+    description:
+      "How Scrollable handles account data, saved configuration metadata, local files, and runtime-only third-party media.",
+    path: "/privacy",
+  }),
 };
 
 const updatedAt = "April 30, 2026";

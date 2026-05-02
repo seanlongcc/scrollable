@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 
 import { LegalPage } from "@/app/legal-page";
+import { createPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Scrollable",
-  description: "Terms of Service for Scrollable.",
+  ...createPageMetadata({
+    title: "Terms of Service",
+    description:
+      "Rules for using Scrollable, including accounts, shared metadata links, local files, third-party media, and acceptable use.",
+    path: "/terms",
+  }),
 };
 
 const updatedAt = "April 30, 2026";

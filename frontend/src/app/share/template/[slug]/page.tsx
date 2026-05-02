@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SiteLogo } from "@/components/site-logo";
@@ -5,8 +6,24 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSharedTemplateMetadata } from "@/lib/data/share";
+import { createPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  return createPageMetadata({
+    title: "Shared template",
+    description: "Metadata-only shared Scrollable free-layout template link.",
+    path: `/share/template/${encodeURIComponent(slug)}`,
+    noIndex: true,
+  });
+}
 
 export default async function SharedTemplatePage({
   params,
