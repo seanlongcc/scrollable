@@ -78,60 +78,6 @@ describe("fetchRedditRuntimeItems", () => {
     ).toBe(false);
   });
 
-  it("keeps Reddit gallery media grouped for horizontal navigation", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => [
-        {
-          kind: "Listing",
-          data: {
-            children: [
-              {
-                data: {
-                  id: "gallery",
-                  title: "Direct gallery item",
-                  subreddit: "pics",
-                  is_gallery: true,
-                  gallery_data: {
-                    items: [{ media_id: "one" }, { media_id: "two" }],
-                  },
-                  media_metadata: {
-                    one: {
-                      status: "valid",
-                      e: "Image",
-                      s: { u: "https://cdn.test/one.jpg" },
-                    },
-                    two: {
-                      status: "valid",
-                      e: "Image",
-                      s: { u: "https://cdn.test/two.jpg" },
-                    },
-                  },
-                },
-              },
-            ],
-          },
-        },
-      ],
-    }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const items = await fetchRedditRuntimeItems([
-      "https://www.reddit.com/r/pics/comments/abc123/gallery/",
-    ]);
-
-    expect(items).toMatchObject([
-      {
-        id: "reddit:gallery",
-        title: "Direct gallery item",
-        media: [
-          { url: "https://cdn.test/one.jpg" },
-          { url: "https://cdn.test/two.jpg" },
-        ],
-      },
-    ]);
-  });
-
   it("resolves Reddit URL sources directly from Reddit", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);

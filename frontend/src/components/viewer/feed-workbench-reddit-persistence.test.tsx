@@ -354,7 +354,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
     await user.click(screen.getByRole("button", { name: "Show info" }));
-    await screen.findByText(/1\/1/);
+    await screen.findByText(/1\/2/);
 
     await user.click(screen.getByRole("button", { name: "Edit r/pics" }));
     const editDialog = await screen.findByRole("dialog", {
@@ -387,7 +387,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     expect(saved).not.toContain("Gallery post");
   });
 
-  it("treats Reddit gallery media as horizontal media inside one feed item", async () => {
+  it("treats Reddit gallery media like local feed items for timers and scrolling", async () => {
     stubRuntimeFetch([
       {
         id: "reddit:gallery",
@@ -424,26 +424,19 @@ describe("FeedWorkbench Reddit source persistence", () => {
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
-    await screen.findByRole("button", { name: "Next media for r/pics" });
+    await screen.findByLabelText("r/pics timer progress");
     await user.click(screen.getByRole("button", { name: "Show info" }));
-    expect(await screen.findByText(/1\/1/)).toBeInTheDocument();
-    expect(screen.getByText("Runtime gallery")).toBeInTheDocument();
+    expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Next media for r/pics" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Next media for r/pics" }),
+    ).not.toBeInTheDocument();
 
     const activeTitle = screen.getByText("Runtime gallery");
     const pane = activeTitle.closest("article");
     if (!pane) throw new Error("Feed pane not found");
-    fireEvent.wheel(pane, { deltaX: 500 });
+    fireEvent.wheel(pane, { deltaY: 500 });
 
-    expect(screen.getByTestId("feed-media-transition")).toHaveAttribute(
-      "data-media-transition",
-      "gallery-next",
-    );
-    expect(
-      screen.queryByRole("button", { name: "Next item for r/pics" }),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByText(/2\/2/)).toBeInTheDocument();
   });
 
   it("opens locally saved layouts and refetches Reddit runtime media", async () => {
@@ -534,7 +527,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     );
   });
 
-  it("refetches saved Reddit galleries as horizontal media", async () => {
+  it("refetches saved Reddit galleries as scrollable feed items", async () => {
     stubRuntimeFetch([
       {
         id: "reddit:gallery",
@@ -597,13 +590,8 @@ describe("FeedWorkbench Reddit source persistence", () => {
 
     expect(screen.getByLabelText("Global timer seconds")).toHaveValue("17");
     await user.click(screen.getByRole("button", { name: "Show info" }));
-    expect(await screen.findByText(/1\/1/)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Next media for r/pics" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Next item for r/pics" }),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
+    await screen.findByLabelText("r/pics timer progress");
   });
 
   it("shows loading instead of no-runtime-media while a saved Reddit source hydrates", async () => {
