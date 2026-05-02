@@ -10,6 +10,7 @@ This file is the hard-rules and orientation index. Longer reference material liv
 - `docs/agent/testing.md` - detailed testing decision policy and test priorities.
 - `docs/agent/tools.md` - MCP/tool-server usage map.
 - `docs/agent/skills.md` - skill usage map.
+- `skills/` - repo-local copies of skills referenced by `docs/agent/skills.md`.
 - Supabase migrations and current committed specs/plans - source of truth for schema and approved work.
 - `archive/ai-artifacts/README.md` - historical AI-generated specs, plans, prompts, and mockups; reference-only, not production source of truth.
 
@@ -243,5 +244,5 @@ Use the AGENTS.md maintenance subagent after substantial setup or workflow chang
 
 - Use MCP/tool servers according to the task. Prefer official or local project sources for current facts. See `docs/agent/tools.md`.
 - Use `impeccable` for frontend interface design, redesign, critique, audit, polish, and UI quality work.
-- When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task. See `docs/agent/skills.md`.
+- When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task. Prefer the repo-local copies in `skills/` for inspection and onboarding. See `docs/agent/skills.md`.
 - Supabase MCP is configured for project `ppxkvapcmblfkhregiwb`. Use it for schema inspection, migrations, RLS checks, and auth configuration when the current agent session exposes it; otherwise use Supabase CLI, local migrations, and official Supabase documentation.
