@@ -122,7 +122,7 @@ export async function createRedditSessionSources({
             allowNsfw: true,
           },
           items,
-          allItems: items,
+          allItems: flattenRuntimeMediaItems(items),
         };
       }),
     );
@@ -140,7 +140,7 @@ export async function createRedditSessionSources({
         allowNsfw: true,
       },
       items,
-      allItems: items,
+      allItems: flattenRuntimeMediaItems(items),
     },
   ];
 }
@@ -155,7 +155,7 @@ export async function fetchRedditRuntimeItems(
     limit,
   });
 
-  return flattenRuntimeMediaItems(result.items);
+  return result.items;
 }
 
 export function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
@@ -177,19 +177,31 @@ export async function filterHiddenRedditItems(
   if (!hiddenItemIdHashes.length) return items;
 
   const hidden = new Set(hiddenItemIdHashes);
-  const hashPairs = await Promise.all(
+  const filteredItems = await Promise.all(
     items.map(async (item) => {
-      return {
-        item,
-        hashes:
-          item.source === "reddit" ? await redditHashesForItemId(item.id) : [],
-      };
+      if (item.source !== "reddit") return item;
+
+      const itemHashes = await redditHashesForItemId(item.id);
+      if (itemHashes.some((hash) => hidden.has(hash))) return null;
+      if (item.id.includes(":media:")) return item;
+
+      const media = (
+        await Promise.all(
+          item.media.map(async (entry, index) => {
+            const mediaId = `${item.id}:media:${index}`;
+            const mediaHashes = await redditHashesForItemId(mediaId);
+            return mediaHashes.some((hash) => hidden.has(hash)) ? null : entry;
+          }),
+        )
+      ).filter((entry): entry is RuntimeFeedItem["media"][number] =>
+        Boolean(entry),
+      );
+
+      return media.length ? { ...item, media } : null;
     }),
   );
 
-  return hashPairs
-    .filter(({ hashes }) => hashes.every((hash) => !hidden.has(hash)))
-    .map(({ item }) => item);
+  return filteredItems.filter((item): item is RuntimeFeedItem => Boolean(item));
 }
 
 export async function fetchEditedRedditSource({
@@ -210,8 +222,9 @@ export async function fetchEditedRedditSource({
     hiddenItemIds,
     unhiddenItemHashes,
   });
-  const allItems = await fetchRedditRuntimeItems(urls, limit);
-  const items = await filterHiddenRedditItems(allItems, hiddenItemIdHashes);
+  const fetchedItems = await fetchRedditRuntimeItems(urls, limit);
+  const allItems = flattenRuntimeMediaItems(fetchedItems);
+  const items = await filterHiddenRedditItems(fetchedItems, hiddenItemIdHashes);
 
   return {
     title: redditLinksTitle(urls, allItems),
@@ -254,11 +267,12 @@ export async function fetchRuntimeItemsForSource(
     limit: sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT,
   });
 
-  const allItems = flattenRuntimeMediaItems(result.items);
+  const items = result.items;
+  const allItems = flattenRuntimeMediaItems(items);
 
   return {
     items: await filterHiddenRedditItems(
-      allItems,
+      items,
       redditHiddenItemHashes(sourceConfig),
     ),
     allItems,
@@ -292,8 +306,9 @@ export async function fetchUrlRuntimeItemsForSource(
     | undefined;
   const items =
     resolution.status === "resolved" && "items" in resolution
-      ? flattenRuntimeMediaItems(resolution.items as RuntimeFeedItem[])
+      ? (resolution.items as RuntimeFeedItem[])
       : [];
+  const allItems = flattenRuntimeMediaItems(items);
   const title =
     sourceConfig.title ??
     ("title" in resolution ? resolution.title : undefined) ??
@@ -302,7 +317,7 @@ export async function fetchUrlRuntimeItemsForSource(
   return {
     title,
     items,
-    allItems: items,
+    allItems,
     urlResolution: resolution,
     sourceConfig: {
       ...sourceConfig,
@@ -320,7 +335,8 @@ async function fetchRedditUrlRuntimeItemsForSource(
     urls: sourceConfig.url,
     allowNsfw: true,
   });
-  const items = flattenRuntimeMediaItems(result.items);
+  const items = result.items;
+  const allItems = flattenRuntimeMediaItems(items);
   const title =
     sourceConfig.title ?? redditLinksTitle([sourceConfig.url], items);
   const urlResolution = {
@@ -336,7 +352,7 @@ async function fetchRedditUrlRuntimeItemsForSource(
   return {
     title,
     items,
-    allItems: items,
+    allItems,
     urlResolution,
     sourceConfig: {
       ...sourceConfig,
