@@ -29,3 +29,27 @@ describe("global mobile form control styles", () => {
     );
   });
 });
+
+describe("global viewer media transition styles", () => {
+  it("uses connected full-frame motion for feed and gallery transitions", () => {
+    const css = readGlobalsCss();
+
+    expect(css).toMatch(
+      /\.feed-media-transition\[data-media-transition="feed-next"\]\s*\.feed-media-transition-incoming\s*\{[^}]*animation:\s*feed-media-enter-from-bottom\s+300ms/,
+    );
+    expect(css).toMatch(
+      /\.feed-media-transition\[data-media-transition="feed-next"\]\s*\.feed-media-transition-outgoing\s*\{[^}]*animation:\s*feed-media-exit-to-top\s+300ms/,
+    );
+    expect(css).toMatch(
+      /\.feed-media-transition\[data-media-transition="gallery-next"\]\s*\.feed-media-transition-incoming\s*\{[^}]*animation:\s*feed-media-enter-from-right\s+260ms/,
+    );
+    expect(css).toMatch(
+      /\.feed-media-transition\[data-media-transition="gallery-next"\]\s*\.feed-media-transition-outgoing\s*\{[^}]*animation:\s*feed-media-exit-to-left\s+260ms/,
+    );
+    expect(css).toContain("transform: translate3d(0, 100%, 0);");
+    expect(css).toContain("transform: translate3d(0, -100%, 0);");
+    expect(css).toContain("transform: translate3d(100%, 0, 0);");
+    expect(css).toContain("transform: translate3d(-100%, 0, 0);");
+    expect(css).not.toContain("opacity: 0.65;");
+  });
+});

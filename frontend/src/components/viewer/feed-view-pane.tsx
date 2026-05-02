@@ -17,10 +17,11 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { RuntimeFeedItem, RuntimeMedia } from "@/lib/feed/types";
 import { cn } from "@/lib/utils";
 import {
   getTimerProgressPercent,
@@ -33,8 +34,17 @@ import {
   getNextImagePrefetchCount,
   shouldPrefetchLocalImages,
 } from "./feed-view-pane-prefetch";
+import { useFeedMediaTransition } from "./feed-view-pane-motion";
 import { sourceActionRailClass } from "./source-action-rail";
 import { useFeedSwipe } from "./use-feed-swipe";
+
+type ActiveMediaFrame = {
+  key: string;
+  media: RuntimeMedia;
+  title: string;
+  initialVideoTime: number;
+  onVideoTimeChange?: (seconds: number) => void;
+};
 
 export function FeedViewPane({
   viewId,
@@ -95,6 +105,22 @@ export function FeedViewPane({
     ? (galleryIndexes[activeItem.id] ?? 0)
     : 0;
   const activeMedia = activeItem?.media[activeGalleryIndex];
+  const activeMediaKey =
+    activeItem && activeMedia
+      ? `${activeItem.id}:${activeGalleryIndex}:${activeMedia.type}:${activeMedia.url}`
+      : null;
+  const {
+    transition: mediaTransition,
+    setFeedDirection,
+    setGalleryDirection,
+  } = useFeedMediaTransition({
+    itemId: activeItem?.id ?? null,
+    activeIndex: timer.activeIndex,
+    itemCount: items.length,
+    galleryIndex: activeGalleryIndex,
+    galleryCount: activeItem?.media.length ?? 0,
+    mediaKey: activeMediaKey,
+  });
   const isVideo = activeMedia?.type === "video";
   const modeLabel = timerMode === "global" ? "global" : "local";
   const TimerModeIcon = timerMode === "global" ? Globe : GlobeOff;
@@ -108,6 +134,37 @@ export function FeedViewPane({
     },
     [onVideoPositionChange, videoPositionKey],
   );
+  const currentMediaFrame =
+    activeMediaKey && activeMedia && activeItem
+      ? {
+          key: activeMediaKey,
+          media: activeMedia,
+          title: activeItem.title,
+          initialVideoTime: videoPositionKey
+            ? (videoPositions[videoPositionKey] ?? 0)
+            : 0,
+          onVideoTimeChange: videoPositionKey
+            ? handleVideoTimeChange
+            : undefined,
+        }
+      : null;
+  const [mediaFrameState, setMediaFrameState] = useState<{
+    current: ActiveMediaFrame | null;
+    outgoing: ActiveMediaFrame | null;
+  }>({
+    current: currentMediaFrame,
+    outgoing: null,
+  });
+  if (
+    (mediaFrameState.current?.key ?? null) !== (currentMediaFrame?.key ?? null)
+  ) {
+    setMediaFrameState({
+      current: currentMediaFrame,
+      outgoing: mediaFrameState.current,
+    });
+  }
+  const outgoingMediaFrame =
+    mediaTransition === "idle" ? null : mediaFrameState.outgoing;
   const progress = getTimerProgressPercent(timer);
 
   useEffect(() => {
@@ -145,6 +202,20 @@ export function FeedViewPane({
       !forceInfoVisible &&
       "opacity-0 group-hover/source:opacity-100 group-focus-within/source:opacity-100",
   );
+  const handleGalleryChange = useCallback(
+    (itemId: string, direction: 1 | -1) => {
+      setGalleryDirection(direction);
+      onGalleryChange(itemId, direction);
+    },
+    [onGalleryChange, setGalleryDirection],
+  );
+  const handleMove = useCallback(
+    (direction: 1 | -1) => {
+      setFeedDirection(direction);
+      onMove(direction);
+    },
+    [onMove, setFeedDirection],
+  );
   const handleWheel = useCallback(
     (event: WheelEvent<HTMLElement>) => {
       const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
@@ -159,18 +230,18 @@ export function FeedViewPane({
         activeItem?.media.length &&
         activeItem.media.length > 1
       ) {
-        onGalleryChange(activeItem.id, direction);
+        handleGalleryChange(activeItem.id, direction);
         return;
       }
 
-      onMove(direction);
+      handleMove(direction);
     },
-    [activeItem, onGalleryChange, onMove],
+    [activeItem, handleGalleryChange, handleMove],
   );
   const touchHandlers = useFeedSwipe({
     activeItem,
-    onGalleryChange,
-    onMove,
+    onGalleryChange: handleGalleryChange,
+    onMove: handleMove,
   });
   function selectThen(action?: () => void) {
     onSelect?.();
@@ -199,19 +270,47 @@ export function FeedViewPane({
       ) : null}
 
       <div className="absolute inset-0 z-0 flex items-center justify-center">
-        {activeItem && activeMedia ? (
-          <MediaRenderer
-            media={activeMedia}
-            title={activeItem.title}
-            showControls={!hideUi}
-            shouldPlay={isPlaybackActive}
-            initialVideoTime={
-              videoPositionKey ? (videoPositions[videoPositionKey] ?? 0) : 0
-            }
-            onVideoTimeChange={
-              videoPositionKey ? handleVideoTimeChange : undefined
-            }
-          />
+        {currentMediaFrame ? (
+          <div
+            key={activeMediaKey}
+            data-testid="feed-media-transition"
+            data-media-transition={mediaTransition}
+            data-media-layer="incoming"
+            className="feed-media-transition relative size-full overflow-hidden"
+          >
+            {outgoingMediaFrame ? (
+              <div
+                key={`outgoing:${outgoingMediaFrame.key}`}
+                data-testid="feed-media-transition-outgoing"
+                data-media-transition={mediaTransition}
+                data-media-layer="outgoing"
+                className="feed-media-transition-outgoing pointer-events-none absolute inset-0"
+                aria-hidden="true"
+              >
+                <MediaRenderer
+                  media={outgoingMediaFrame.media}
+                  title={outgoingMediaFrame.title}
+                  showControls={false}
+                  shouldPlay={false}
+                  initialVideoTime={outgoingMediaFrame.initialVideoTime}
+                />
+              </div>
+            ) : null}
+            <div
+              key={`incoming:${currentMediaFrame.key}`}
+              data-media-layer="incoming"
+              className="feed-media-transition-incoming absolute inset-0"
+            >
+              <MediaRenderer
+                media={currentMediaFrame.media}
+                title={currentMediaFrame.title}
+                showControls={!hideUi}
+                shouldPlay={isPlaybackActive}
+                initialVideoTime={currentMediaFrame.initialVideoTime}
+                onVideoTimeChange={currentMediaFrame.onVideoTimeChange}
+              />
+            </div>
+          </div>
         ) : (
           <div className="grid size-full place-items-center overflow-auto bg-background text-xs text-muted-foreground">
             <div className="grid max-h-full max-w-full justify-items-center gap-3 p-4 text-center">
@@ -236,7 +335,9 @@ export function FeedViewPane({
             size="icon-sm"
             variant="outline"
             className="pointer-events-auto border-border bg-background/75 text-foreground"
-            onClick={() => selectThen(() => onGalleryChange(activeItem.id, -1))}
+            onClick={() =>
+              selectThen(() => handleGalleryChange(activeItem.id, -1))
+            }
             aria-label={`Previous media for ${title}`}
           >
             <ChevronLeft />
@@ -246,7 +347,9 @@ export function FeedViewPane({
             size="icon-sm"
             variant="outline"
             className="pointer-events-auto border-border bg-background/75 text-foreground"
-            onClick={() => selectThen(() => onGalleryChange(activeItem.id, 1))}
+            onClick={() =>
+              selectThen(() => handleGalleryChange(activeItem.id, 1))
+            }
             aria-label={`Next media for ${title}`}
           >
             <ChevronRight />

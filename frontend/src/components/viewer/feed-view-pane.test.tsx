@@ -405,6 +405,188 @@ describe("FeedViewPane", () => {
     expect(onGalleryChange).toHaveBeenLastCalledWith("active", -1);
   });
 
+  it("marks active feed media changes with vertical transition direction", () => {
+    const items = [
+      feedItem("first", [{ type: "image", url: "https://cdn.test/first.jpg" }]),
+      feedItem("second", [
+        { type: "image", url: "https://cdn.test/second.jpg" },
+      ]),
+      feedItem("third", [{ type: "image", url: "https://cdn.test/third.jpg" }]),
+    ];
+    const { rerender } = render(
+      <FeedViewPane
+        title="r/pics"
+        items={items}
+        timer={timerState({ activeIndex: 1, itemCount: 3 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("feed-media-transition")).toHaveAttribute(
+      "data-media-transition",
+      "idle",
+    );
+
+    rerender(
+      <FeedViewPane
+        title="r/pics"
+        items={items}
+        timer={timerState({ activeIndex: 2, itemCount: 3 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("feed-media-transition")).toHaveAttribute(
+      "data-media-transition",
+      "feed-next",
+    );
+    expect(
+      screen.getByTestId("feed-media-transition-outgoing"),
+    ).toHaveAttribute("data-media-transition", "feed-next");
+    expect(
+      screen.getByTestId("feed-media-transition-outgoing"),
+    ).toHaveAttribute("data-media-layer", "outgoing");
+    expect(screen.getByAltText("second")).toBeInTheDocument();
+    expect(screen.getByAltText("third")).toBeInTheDocument();
+
+    rerender(
+      <FeedViewPane
+        title="r/pics"
+        items={items}
+        timer={timerState({ activeIndex: 1, itemCount: 3 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("feed-media-transition")).toHaveAttribute(
+      "data-media-transition",
+      "feed-previous",
+    );
+    expect(
+      screen.getByTestId("feed-media-transition-outgoing"),
+    ).toHaveAttribute("data-media-transition", "feed-previous");
+  });
+
+  it("marks gallery media changes with horizontal transition direction", () => {
+    const items = [
+      feedItem("gallery", [
+        { type: "image", url: "https://cdn.test/first.jpg" },
+        { type: "image", url: "https://cdn.test/second.jpg" },
+        { type: "image", url: "https://cdn.test/third.jpg" },
+      ]),
+    ];
+    const { rerender } = render(
+      <FeedViewPane
+        title="r/pics"
+        items={items}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{ gallery: 0 }}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    rerender(
+      <FeedViewPane
+        title="r/pics"
+        items={items}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{ gallery: 1 }}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("feed-media-transition")).toHaveAttribute(
+      "data-media-transition",
+      "gallery-next",
+    );
+    expect(
+      screen.getByTestId("feed-media-transition-outgoing"),
+    ).toHaveAttribute("data-media-transition", "gallery-next");
+    expect(screen.getAllByAltText("gallery")).toHaveLength(2);
+
+    rerender(
+      <FeedViewPane
+        title="r/pics"
+        items={items}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{ gallery: 0 }}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("feed-media-transition")).toHaveAttribute(
+      "data-media-transition",
+      "gallery-previous",
+    );
+  });
+
+  it("does not keep outgoing media when the same slot receives replacement media", () => {
+    const { rerender } = render(
+      <FeedViewPane
+        title="Layered source"
+        items={[
+          feedItem("background", [
+            { type: "image", url: "https://cdn.test/background.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    rerender(
+      <FeedViewPane
+        title="Layered source"
+        items={[
+          feedItem("foreground", [
+            { type: "image", url: "https://cdn.test/foreground.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("feed-media-transition")).toHaveAttribute(
+      "data-media-transition",
+      "idle",
+    );
+    expect(
+      screen.queryByTestId("feed-media-transition-outgoing"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByAltText("background")).not.toBeInTheDocument();
+    expect(screen.getByAltText("foreground")).toBeInTheDocument();
+  });
+
   it("uses the toggle-select handler when selecting a source", () => {
     const onSelect = vi.fn();
     const onToggleSelect = vi.fn();
