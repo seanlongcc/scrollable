@@ -5,6 +5,7 @@ import type { KeyboardEvent, WheelEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WorkspaceTab } from "./types";
+import { MAX_OPEN_WORKSPACE_TABS } from "./workspace-actions";
 
 export function WorkspaceTabs({
   tabs,
@@ -34,6 +35,7 @@ export function WorkspaceTabs({
   onCreateWorkspaceTab: () => void;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
+  const isAtTabLimit = tabs.length >= MAX_OPEN_WORKSPACE_TABS;
   const [scrollState, setScrollState] = useState({
     canScrollLeft: false,
     canScrollRight: false,
@@ -198,7 +200,13 @@ export function WorkspaceTabs({
             variant="ghost"
             className="rounded-full bg-surface-elevated/50 shadow-[0_4px_14px_rgba(18,10,10,0.28)]"
             onClick={onCreateWorkspaceTab}
+            disabled={isAtTabLimit}
             aria-label="New layout"
+            title={
+              isAtTabLimit
+                ? `Maximum ${MAX_OPEN_WORKSPACE_TABS} open layouts`
+                : "New layout"
+            }
           >
             <Plus />
           </Button>

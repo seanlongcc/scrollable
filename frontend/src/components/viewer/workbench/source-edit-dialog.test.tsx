@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { createTimerState } from "@/lib/viewer/timer";
@@ -6,6 +7,31 @@ import { EditSourceDialog } from "./source-edit-dialog";
 import type { FeedSession } from "./types";
 
 describe("EditSourceDialog", () => {
+  it("keeps focus in a Reddit source URL while typing", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <EditSourceDialog
+        source={redditSession()}
+        open
+        onOpenChange={vi.fn()}
+        onSaveReddit={vi.fn()}
+        onSaveUrl={vi.fn()}
+        onSaveLocal={vi.fn()}
+      />,
+    );
+
+    const urlInput = screen.getByLabelText<HTMLInputElement>("Reddit source 1");
+    await user.click(urlInput);
+    urlInput.setSelectionRange(urlInput.value.length, urlInput.value.length);
+    await user.keyboard("top");
+
+    expect(screen.getByLabelText("Reddit source 1")).toHaveValue(
+      "https://www.reddit.com/r/pics/top",
+    );
+    expect(screen.getByLabelText("Reddit source 1")).toHaveFocus();
+  });
+
   it("puts Reddit source URLs before a full-width media count field", () => {
     render(
       <EditSourceDialog
@@ -26,6 +52,7 @@ describe("EditSourceDialog", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(countInput.closest("label")?.parentElement).toHaveClass("w-full");
+    expect(countInput).toHaveClass("text-foreground");
   });
 
   it("keeps Reddit hide item rows content-sized", () => {

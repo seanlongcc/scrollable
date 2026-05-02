@@ -3,7 +3,7 @@
 import { Mail, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { siGoogle } from "simple-icons";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,9 @@ export function SignInPanel({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const emailInputId = useId();
+  const passwordInputId = useId();
+  const confirmPasswordInputId = useId();
   const isConfigured = Boolean(getSupabaseEnv());
   const isSigningUp = mode === "sign-up";
   const canUseEmailPassword =
@@ -128,40 +131,49 @@ export function SignInPanel({
           Supabase env missing. Runtime feeds still work.
         </p>
       ) : null}
-      <Label className="grid gap-1 text-sm">
-        Email
+      <div>
+        <Label className="sr-only" htmlFor={emailInputId}>
+          Email
+        </Label>
         <Input
+          id={emailInputId}
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
+          placeholder="email"
           autoComplete="email"
           disabled={!isConfigured}
         />
-      </Label>
-      <Label className="grid gap-1 text-sm">
-        Password
+      </div>
+      <div>
+        <Label className="sr-only" htmlFor={passwordInputId}>
+          Password
+        </Label>
         <Input
+          id={passwordInputId}
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="Minimum 8 characters"
+          placeholder="password"
           autoComplete={isSigningUp ? "new-password" : "current-password"}
           disabled={!isConfigured}
         />
-      </Label>
+      </div>
       {isSigningUp ? (
-        <Label className="grid gap-1 text-sm">
-          Confirm password
+        <div>
+          <Label className="sr-only" htmlFor={confirmPasswordInputId}>
+            Confirm password
+          </Label>
           <Input
+            id={confirmPasswordInputId}
             type="password"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
-            placeholder="Repeat password"
+            placeholder="confirm password"
             autoComplete="new-password"
             disabled={!isConfigured}
           />
-        </Label>
+        </div>
       ) : null}
       {!isSigningUp ? (
         <Link

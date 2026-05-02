@@ -1,12 +1,4 @@
-import {
-  Cloud,
-  FolderOpen,
-  Monitor,
-  Pencil,
-  Save,
-  Upload,
-  X,
-} from "lucide-react";
+import { Cloud, Monitor, Pencil, X } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -27,11 +19,9 @@ import {
   centeredDialogClass,
   dialogActionButtonClass,
   emptyStateClass,
-  libraryCommandButtonClass,
   libraryListClass,
   libraryTabsListClass,
   libraryTabTriggerClass,
-  sectionLabelClass,
 } from "./dialog-styles";
 import {
   SavedLibraryBulkActions,
@@ -42,7 +32,6 @@ import { serializedMetadataBytes } from "./cloud-save-state";
 import { limitLayoutName, workspaceFileCount } from "./helpers";
 import {
   layoutLibraryMetadata,
-  sourceFileLibraryMetadata,
   templateLibraryMetadata,
 } from "./library-metadata";
 import type {
@@ -51,20 +40,17 @@ import type {
   SerializedWorkspaceTemplate,
   WorkspaceTab,
 } from "./types";
+import {
+  WorkspaceDialogContent,
+  type WorkspaceStats,
+} from "./workspace-dialog-content";
 
-export type WorkspaceStats = {
-  sourceCount: number;
-  fileCount: number;
-};
-
-const EMPTY_WORKSPACE_STATS: WorkspaceStats = {
-  sourceCount: 0,
-  fileCount: 0,
-};
+export type { WorkspaceStats };
 
 export function LayoutDialog({
   open,
   onOpenChange,
+  view = "library",
   workspaces,
   templates,
   localWorkspaces = workspaces ?? [],
@@ -84,16 +70,19 @@ export function LayoutDialog({
   onShareCloudItem = () => undefined,
   onExportJson = () => undefined,
   onImportJson = () => undefined,
+  onImportCurrentWorkspaceJson = () => undefined,
   workspaceTabs,
   openWorkspaceStats,
   activeWorkspaceId,
   onSelectWorkspace,
   onCreateWorkspaceTab,
   onCloseWorkspaceTab,
+  onCloseWorkspaceTabs = () => undefined,
   onSaveCurrentLayout,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  view?: "library" | "workspace";
   workspaces?: SerializedWorkspace[];
   templates?: SerializedWorkspaceTemplate[];
   localWorkspaces?: SerializedWorkspace[];
@@ -125,17 +114,20 @@ export function LayoutDialog({
     target: SaveTarget,
   ) => void;
   onImportJson?: (target: SaveTarget) => void;
+  onImportCurrentWorkspaceJson?: () => void;
   workspaceTabs: WorkspaceTab[];
   openWorkspaceStats: Record<string, WorkspaceStats>;
   activeWorkspaceId: string;
   onSelectWorkspace: (id: string) => void;
   onCreateWorkspaceTab: () => void;
   onCloseWorkspaceTab: (id: string) => void;
+  onCloseWorkspaceTabs?: (ids: string[]) => void;
   onSaveCurrentLayout: () => void;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [libraryKind, setLibraryKind] = useState<LibraryKind>("layouts");
+  const [searchQuery, setSearchQuery] = useState("");
   const [renameTarget, setRenameTarget] = useState<{
     kind: "layout" | "template";
     id: string;
@@ -154,22 +146,41 @@ export function LayoutDialog({
   const sortedTemplates = [...activeTemplates].sort((first, second) =>
     second.updatedAt.localeCompare(first.updatedAt),
   );
-  const visibleIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const visibleWorkspaces = normalizedSearch
+    ? sortedWorkspaces.filter((workspace) =>
+        workspace.name.toLowerCase().includes(normalizedSearch),
+      )
+    : sortedWorkspaces;
+  const visibleTemplates = normalizedSearch
+    ? sortedTemplates.filter((template) =>
+        template.name.toLowerCase().includes(normalizedSearch),
+      )
+    : sortedTemplates;
+  const visibleIds = new Set(
+    visibleWorkspaces.map((workspace) => workspace.id),
+  );
   const visibleSelectedIds = selectedIds.filter((id) => visibleIds.has(id));
   const selectedCount = visibleSelectedIds.length;
+  const allVisibleLayoutsSelected =
+    visibleWorkspaces.length > 0 && selectedCount === visibleWorkspaces.length;
   const visibleTemplateIds = new Set(
-    activeTemplates.map((template) => template.id),
+    visibleTemplates.map((template) => template.id),
   );
   const visibleSelectedTemplateIds = selectedTemplateIds.filter((id) =>
     visibleTemplateIds.has(id),
   );
   const selectedTemplateCount = visibleSelectedTemplateIds.length;
+  const allVisibleTemplatesSelected =
+    visibleTemplates.length > 0 &&
+    selectedTemplateCount === visibleTemplates.length;
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
       setSelectedIds([]);
       setSelectedTemplateIds([]);
       setLibraryKind("layouts");
+      setSearchQuery("");
       setRenameTarget(null);
       setRenameDraft("");
       setRenameError(null);
@@ -239,17 +250,15 @@ export function LayoutDialog({
   }
 
   function selectAllLayouts() {
+    if (allVisibleLayoutsSelected) {
+      setSelectedIds((current) => current.filter((id) => !visibleIds.has(id)));
+      return;
+    }
+
     setSelectedIds((current) => [
       ...current.filter((id) => !visibleIds.has(id)),
-      ...sortedWorkspaces.map((workspace) => workspace.id),
+      ...visibleWorkspaces.map((workspace) => workspace.id),
     ]);
-  }
-
-  function deleteSelectedLayouts() {
-    for (const id of visibleSelectedIds) {
-      onDeleteWorkspace(id, storageTarget);
-    }
-    setSelectedIds((current) => current.filter((id) => !visibleIds.has(id)));
   }
 
   function toggleTemplateSelection(id: string, checked: boolean) {
@@ -268,19 +277,17 @@ export function LayoutDialog({
   }
 
   function selectAllTemplates() {
+    if (allVisibleTemplatesSelected) {
+      setSelectedTemplateIds((current) =>
+        current.filter((id) => !visibleTemplateIds.has(id)),
+      );
+      return;
+    }
+
     setSelectedTemplateIds((current) => [
       ...current.filter((id) => !visibleTemplateIds.has(id)),
-      ...sortedTemplates.map((template) => template.id),
+      ...visibleTemplates.map((template) => template.id),
     ]);
-  }
-
-  function deleteSelectedTemplates() {
-    for (const id of visibleSelectedTemplateIds) {
-      onDeleteTemplate(id, storageTarget);
-    }
-    setSelectedTemplateIds((current) =>
-      current.filter((id) => !visibleTemplateIds.has(id)),
-    );
   }
 
   return (
@@ -289,7 +296,9 @@ export function LayoutDialog({
         <DialogContent className={anchoredDialogClass} showCloseButton={false}>
           <DialogHeader>
             <div className="flex items-center justify-between gap-3">
-              <DialogTitle className="font-semibold">Library</DialogTitle>
+              <DialogTitle className="font-semibold">
+                {view === "workspace" ? "Workspace" : "Library"}
+              </DialogTitle>
               <DialogClose asChild>
                 <Button
                   type="button"
@@ -303,198 +312,187 @@ export function LayoutDialog({
               </DialogClose>
             </div>
             <DialogDescription className="sr-only">
-              Browse saved metadata-only layouts and templates.
+              {view === "workspace"
+                ? "Manage currently open layouts."
+                : "Browse saved metadata-only layouts and templates."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(9.75rem,1fr))] gap-2">
-            <Button
-              type="button"
-              onClick={onSaveCurrentLayout}
-              className={libraryCommandButtonClass}
-            >
-              <Save />
-              <span className="min-w-0 truncate">Save layout</span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onImportJson(storageTarget)}
-              className={libraryCommandButtonClass}
-            >
-              <Upload />
-              <span className="min-w-0 truncate">Import JSON</span>
-            </Button>
-          </div>
-          <Tabs
-            value={storageTarget}
-            onValueChange={(value) => {
-              setSelectedIds([]);
-              setSelectedTemplateIds([]);
-              onStorageTargetChange(value as SaveTarget);
-            }}
-            className="gap-2"
-          >
-            <TabsList className={libraryTabsListClass}>
-              <TabsTrigger value="local" className={libraryTabTriggerClass}>
-                <Monitor />
-                Local
-              </TabsTrigger>
-              <TabsTrigger value="cloud" className={libraryTabTriggerClass}>
-                <Cloud />
-                Cloud
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCreateWorkspaceTab}
-            className={libraryCommandButtonClass}
-          >
-            <FolderOpen />
-            <span className="min-w-0 truncate">New blank</span>
-          </Button>
-          <section className="grid gap-2">
-            <h2 className={sectionLabelClass}>Open layouts</h2>
-            <div className="grid gap-1">
-              {workspaceTabs.map((tab) => (
-                <OpenWorkspaceRow
-                  key={tab.id}
-                  tab={tab}
-                  stats={openWorkspaceStats[tab.id] ?? EMPTY_WORKSPACE_STATS}
-                  isActive={tab.id === activeWorkspaceId}
-                  onSelectWorkspace={onSelectWorkspace}
-                  onCloseWorkspaceTab={onCloseWorkspaceTab}
-                />
-              ))}
-            </div>
-          </section>
-          <Tabs
-            value={libraryKind}
-            onValueChange={(value) => setLibraryKind(value as LibraryKind)}
-            className="gap-3"
-          >
-            <TabsList className={libraryTabsListClass}>
-              <TabsTrigger value="layouts" className={libraryTabTriggerClass}>
-                Layouts
-              </TabsTrigger>
-              <TabsTrigger value="templates" className={libraryTabTriggerClass}>
-                Templates
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="layouts" className="grid gap-3">
-              <div
-                role="group"
-                aria-label="Saved layouts list"
-                className={libraryListClass}
+          {view === "workspace" ? (
+            <WorkspaceDialogContent
+              workspaceTabs={workspaceTabs}
+              openWorkspaceStats={openWorkspaceStats}
+              activeWorkspaceId={activeWorkspaceId}
+              onSelectWorkspace={onSelectWorkspace}
+              onCreateWorkspaceTab={onCreateWorkspaceTab}
+              onCloseWorkspaceTab={onCloseWorkspaceTab}
+              onCloseWorkspaceTabs={onCloseWorkspaceTabs}
+              onImportJson={onImportCurrentWorkspaceJson}
+              onSaveCurrentLayout={onSaveCurrentLayout}
+            />
+          ) : (
+            <>
+              <Tabs
+                value={storageTarget}
+                onValueChange={(value) => {
+                  setSelectedIds([]);
+                  setSelectedTemplateIds([]);
+                  onStorageTargetChange(value as SaveTarget);
+                }}
+                className="gap-2"
               >
-                {sortedWorkspaces.length ? (
-                  sortedWorkspaces.map((workspace) => {
-                    const sourceCount = workspace.sessions.length;
-                    const fileCount = workspaceFileCount(workspace);
-
-                    return (
-                      <SavedLibraryRow
-                        key={workspace.id}
-                        id={workspace.id}
-                        name={workspace.name}
-                        checked={selectedIds.includes(workspace.id)}
-                        target={storageTarget}
-                        kind="layout"
-                        metadata={layoutLibraryMetadata(
-                          workspace.layoutMode,
-                          sourceCount,
-                          fileCount,
-                        )}
-                        bytes={serializedMetadataBytes(workspace)}
-                        onCheckedChange={toggleSelection}
-                        onOpen={(id) => onOpenWorkspaces([id])}
-                        onUploadToCloud={onUploadWorkspaceToCloud}
-                        onShare={onShareCloudItem}
-                        onRename={(id) =>
-                          openRenameDialog({
-                            kind: "layout",
-                            id,
-                            name: workspace.name,
-                          })
-                        }
-                        onExportJson={onExportJson}
-                        onDelete={(id) => onDeleteWorkspace(id, storageTarget)}
-                      />
-                    );
-                  })
-                ) : (
-                  <div className={emptyStateClass}>
-                    No {storageTarget} layouts yet. Use Save layout first.
-                  </div>
-                )}
-              </div>
-              {sortedWorkspaces.length ? (
-                <SavedLibraryBulkActions
-                  kind="layouts"
-                  selectedCount={selectedCount}
-                  hasItems={sortedWorkspaces.length > 0}
-                  onSelectAll={selectAllLayouts}
-                  onOpenSelected={openSelectedLayouts}
-                  onDeleteSelected={deleteSelectedLayouts}
-                />
-              ) : null}
-            </TabsContent>
-            <TabsContent value="templates" className="grid gap-3">
-              <div
-                role="group"
-                aria-label="Saved templates list"
-                className={libraryListClass}
+                <TabsList className={libraryTabsListClass}>
+                  <TabsTrigger value="local" className={libraryTabTriggerClass}>
+                    <Monitor />
+                    Local
+                  </TabsTrigger>
+                  <TabsTrigger value="cloud" className={libraryTabTriggerClass}>
+                    <Cloud />
+                    Cloud
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Tabs
+                value={libraryKind}
+                onValueChange={(value) => setLibraryKind(value as LibraryKind)}
+                className="gap-3"
               >
-                {sortedTemplates.length ? (
-                  sortedTemplates.map((template) => {
-                    const boxCount = template.slots.length;
-
-                    return (
-                      <SavedLibraryRow
-                        key={template.id}
-                        id={template.id}
-                        name={template.name}
-                        checked={selectedTemplateIds.includes(template.id)}
-                        target={storageTarget}
-                        kind="template"
-                        metadata={templateLibraryMetadata(boxCount)}
-                        bytes={serializedMetadataBytes(template)}
-                        onCheckedChange={toggleTemplateSelection}
-                        onOpen={(id) => onOpenTemplates([id])}
-                        onUploadToCloud={onUploadTemplateToCloud}
-                        onShare={onShareCloudItem}
-                        onRename={(id) =>
-                          openRenameDialog({
-                            kind: "template",
-                            id,
-                            name: template.name,
-                          })
-                        }
-                        onExportJson={onExportJson}
-                        onDelete={(id) => onDeleteTemplate(id, storageTarget)}
-                      />
-                    );
-                  })
-                ) : (
-                  <div className={emptyStateClass}>
-                    No {storageTarget} templates yet. Save a free layout as a
-                    template first.
-                  </div>
-                )}
-              </div>
-              {sortedTemplates.length ? (
-                <SavedLibraryBulkActions
-                  kind="templates"
-                  selectedCount={selectedTemplateCount}
-                  hasItems={sortedTemplates.length > 0}
-                  onSelectAll={selectAllTemplates}
-                  onOpenSelected={openSelectedTemplates}
-                  onDeleteSelected={deleteSelectedTemplates}
+                <TabsList className={libraryTabsListClass}>
+                  <TabsTrigger
+                    value="layouts"
+                    className={libraryTabTriggerClass}
+                  >
+                    Layouts
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="templates"
+                    className={libraryTabTriggerClass}
+                  >
+                    Templates
+                  </TabsTrigger>
+                </TabsList>
+                <Input
+                  type="search"
+                  value={searchQuery}
+                  aria-label="Search saved items"
+                  placeholder="Search"
+                  onChange={(event) => setSearchQuery(event.target.value)}
                 />
-              ) : null}
-            </TabsContent>
-          </Tabs>
+                <TabsContent value="layouts" className="grid gap-3">
+                  <SavedLibraryBulkActions
+                    kind="layouts"
+                    selectedCount={selectedCount}
+                    hasItems={visibleWorkspaces.length > 0}
+                    allSelected={allVisibleLayoutsSelected}
+                    onSelectAll={selectAllLayouts}
+                    onOpenSelected={openSelectedLayouts}
+                    onImportJson={() => onImportJson(storageTarget)}
+                  />
+                  <div
+                    role="group"
+                    aria-label="Saved layouts list"
+                    className={libraryListClass}
+                  >
+                    {visibleWorkspaces.length ? (
+                      visibleWorkspaces.map((workspace) => {
+                        const sourceCount = workspace.sessions.length;
+                        const fileCount = workspaceFileCount(workspace);
+
+                        return (
+                          <SavedLibraryRow
+                            key={workspace.id}
+                            id={workspace.id}
+                            name={workspace.name}
+                            checked={selectedIds.includes(workspace.id)}
+                            target={storageTarget}
+                            kind="layout"
+                            metadata={layoutLibraryMetadata(
+                              workspace.layoutMode,
+                              sourceCount,
+                              fileCount,
+                            )}
+                            bytes={serializedMetadataBytes(workspace)}
+                            onCheckedChange={toggleSelection}
+                            onOpen={(id) => onOpenWorkspaces([id])}
+                            onUploadToCloud={onUploadWorkspaceToCloud}
+                            onShare={onShareCloudItem}
+                            onRename={(id) =>
+                              openRenameDialog({
+                                kind: "layout",
+                                id,
+                                name: workspace.name,
+                              })
+                            }
+                            onExportJson={onExportJson}
+                            onDelete={(id) =>
+                              onDeleteWorkspace(id, storageTarget)
+                            }
+                          />
+                        );
+                      })
+                    ) : (
+                      <div className={emptyStateClass}>
+                        No matching {storageTarget} layouts.
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="templates" className="grid gap-3">
+                  <SavedLibraryBulkActions
+                    kind="templates"
+                    selectedCount={selectedTemplateCount}
+                    hasItems={visibleTemplates.length > 0}
+                    allSelected={allVisibleTemplatesSelected}
+                    onSelectAll={selectAllTemplates}
+                    onOpenSelected={openSelectedTemplates}
+                    onImportJson={() => onImportJson(storageTarget)}
+                  />
+                  <div
+                    role="group"
+                    aria-label="Saved templates list"
+                    className={libraryListClass}
+                  >
+                    {visibleTemplates.length ? (
+                      visibleTemplates.map((template) => {
+                        const boxCount = template.slots.length;
+
+                        return (
+                          <SavedLibraryRow
+                            key={template.id}
+                            id={template.id}
+                            name={template.name}
+                            checked={selectedTemplateIds.includes(template.id)}
+                            target={storageTarget}
+                            kind="template"
+                            metadata={templateLibraryMetadata(boxCount)}
+                            bytes={serializedMetadataBytes(template)}
+                            onCheckedChange={toggleTemplateSelection}
+                            onOpen={(id) => onOpenTemplates([id])}
+                            onUploadToCloud={onUploadTemplateToCloud}
+                            onShare={onShareCloudItem}
+                            onRename={(id) =>
+                              openRenameDialog({
+                                kind: "template",
+                                id,
+                                name: template.name,
+                              })
+                            }
+                            onExportJson={onExportJson}
+                            onDelete={(id) =>
+                              onDeleteTemplate(id, storageTarget)
+                            }
+                          />
+                        );
+                      })
+                    ) : (
+                      <div className={emptyStateClass}>
+                        No matching {storageTarget} templates.
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
         </DialogContent>
       </Dialog>
       <RenameSavedItemDialog
@@ -579,64 +577,5 @@ function RenameSavedItemDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function OpenWorkspaceRow({
-  tab,
-  stats,
-  isActive,
-  onSelectWorkspace,
-  onCloseWorkspaceTab,
-}: {
-  tab: WorkspaceTab;
-  stats: WorkspaceStats;
-  isActive: boolean;
-  onSelectWorkspace: (id: string) => void;
-  onCloseWorkspaceTab: (id: string) => void;
-}) {
-  const metadata = sourceFileLibraryMetadata(
-    stats.sourceCount,
-    stats.fileCount,
-  );
-
-  return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5">
-      <Button
-        type="button"
-        variant={isActive ? "default" : "outline"}
-        className="h-auto min-h-12 min-w-0 justify-start rounded-xl px-2.5 py-1.5 text-left"
-        onClick={() => onSelectWorkspace(tab.id)}
-      >
-        <span className="min-w-0">
-          <span
-            className="text-wrap-anywhere line-clamp-2 font-medium"
-            title={tab.name}
-          >
-            {tab.name}
-          </span>
-          <span
-            className={cn(
-              "block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] leading-4 tabular-nums",
-              isActive ? "text-primary-foreground/70" : "text-muted-foreground",
-            )}
-            title={metadata.title}
-          >
-            {metadata.visible}
-          </span>
-        </span>
-      </Button>
-      <Button
-        type="button"
-        size="icon"
-        variant="outline"
-        aria-label={`Close ${tab.name}`}
-        title={`Close ${tab.name}`}
-        onClick={() => onCloseWorkspaceTab(tab.id)}
-        className="h-12 w-12 shrink-0 rounded-xl md:w-10"
-      >
-        <X />
-      </Button>
-    </div>
   );
 }

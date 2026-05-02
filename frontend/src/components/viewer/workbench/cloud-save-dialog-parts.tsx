@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Rows3,
   Trash2,
+  Upload,
   UploadCloud,
 } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
@@ -243,20 +244,23 @@ export function SavedLibraryBulkActions({
   kind,
   selectedCount,
   hasItems,
+  allSelected,
   onSelectAll,
   onOpenSelected,
-  onDeleteSelected,
+  onImportJson,
 }: {
   kind: "layouts" | "templates";
   selectedCount: number;
   hasItems: boolean;
+  allSelected: boolean;
   onSelectAll: () => void;
   onOpenSelected: () => void;
-  onDeleteSelected: () => void;
+  onImportJson: () => void;
 }) {
   const noun = kind === "layouts" ? "layouts" : "templates";
-
-  if (!hasItems) return null;
+  const selectLabel = allSelected
+    ? `Deselect all ${noun}`
+    : `Select all ${noun}`;
 
   return (
     <div className="grid grid-cols-[1fr_1fr_auto] gap-1.5">
@@ -264,11 +268,14 @@ export function SavedLibraryBulkActions({
         type="button"
         variant="outline"
         onClick={onSelectAll}
-        aria-label={`Select all ${noun}`}
+        disabled={!hasItems}
+        aria-label={selectLabel}
         className={libraryBulkButtonClass}
       >
         <Rows3 />
-        <span className="min-w-0 truncate">Select all</span>
+        <span className="min-w-0 truncate">
+          {allSelected ? "Deselect all" : "Select all"}
+        </span>
       </Button>
       <Button
         type="button"
@@ -282,13 +289,12 @@ export function SavedLibraryBulkActions({
       </Button>
       <Button
         type="button"
-        variant="destructive"
-        onClick={onDeleteSelected}
-        disabled={selectedCount === 0}
-        aria-label={`Delete selected ${noun}`}
+        variant="outline"
+        onClick={onImportJson}
+        aria-label="Import JSON"
         className="w-12 px-0"
       >
-        <Trash2 />
+        <Upload />
       </Button>
     </div>
   );

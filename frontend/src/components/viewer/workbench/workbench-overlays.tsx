@@ -38,6 +38,7 @@ export function WorkbenchOverlays({
   onClearLocalCache,
   isLayoutsOpen,
   setIsLayoutsOpen,
+  layoutDialogView,
   savedWorkspaces,
   cloudWorkspaces,
   savedTemplates,
@@ -56,6 +57,7 @@ export function WorkbenchOverlays({
   regenerateCloudShareLink,
   disableCloudShareLink,
   exportSavedJson,
+  importCurrentWorkspaceJson,
   importSavedJson,
   workspaceTabs,
   openWorkspaceStats,
@@ -63,6 +65,7 @@ export function WorkbenchOverlays({
   selectWorkspace,
   createWorkspaceTab,
   closeWorkspaceTab,
+  closeWorkspaceTabs,
   openSaveDialog,
   isSaveOpen,
   setIsSaveOpen,
@@ -105,6 +108,7 @@ export function WorkbenchOverlays({
   onClearLocalCache: () => void | Promise<void>;
   isLayoutsOpen: boolean;
   setIsLayoutsOpen: Dispatch<SetStateAction<boolean>>;
+  layoutDialogView: "library" | "workspace";
   savedWorkspaces: Record<string, SerializedWorkspace>;
   cloudWorkspaces: Record<string, SerializedWorkspace>;
   savedTemplates: Record<string, SerializedWorkspaceTemplate>;
@@ -135,6 +139,7 @@ export function WorkbenchOverlays({
     id: string,
     target: SaveTarget,
   ) => void;
+  importCurrentWorkspaceJson: () => void;
   importSavedJson: (target: SaveTarget) => void;
   workspaceTabs: WorkspaceTab[];
   openWorkspaceStats: Record<
@@ -145,6 +150,7 @@ export function WorkbenchOverlays({
   selectWorkspace: (id: string) => void;
   createWorkspaceTab: () => void;
   closeWorkspaceTab: (id: string) => void;
+  closeWorkspaceTabs: (ids: string[]) => void;
   openSaveDialog: () => void;
   isSaveOpen: boolean;
   setIsSaveOpen: Dispatch<SetStateAction<boolean>>;
@@ -205,6 +211,7 @@ export function WorkbenchOverlays({
         <LayoutDialog
           open={isLayoutsOpen}
           onOpenChange={setIsLayoutsOpen}
+          view={layoutDialogView}
           localWorkspaces={Object.values(savedWorkspaces)}
           cloudWorkspaces={Object.values(cloudWorkspaces)}
           localTemplates={Object.values(savedTemplates)}
@@ -230,6 +237,7 @@ export function WorkbenchOverlays({
             shareCloudItem({ kind, id, name: item.name });
           }}
           onExportJson={exportSavedJson}
+          onImportCurrentWorkspaceJson={importCurrentWorkspaceJson}
           onImportJson={importSavedJson}
           workspaceTabs={workspaceTabs}
           openWorkspaceStats={openWorkspaceStats}
@@ -237,6 +245,7 @@ export function WorkbenchOverlays({
           onSelectWorkspace={selectWorkspace}
           onCreateWorkspaceTab={createWorkspaceTab}
           onCloseWorkspaceTab={closeWorkspaceTab}
+          onCloseWorkspaceTabs={closeWorkspaceTabs}
           onSaveCurrentLayout={openSaveDialog}
         />
       ) : null}

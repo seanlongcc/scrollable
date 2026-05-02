@@ -106,6 +106,202 @@ describe("FeedWorkbench workspaces", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the Library sheet focused on saved layouts only", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        activeWorkspaceId: "saved-local",
+        workspaces: [savedLocalUploadWorkspace()],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "New layout" }));
+    await user.click(screen.getByRole("button", { name: "Library" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Library" });
+
+    expect(
+      within(dialog).getAllByRole("button", { name: "Import JSON" }),
+    ).toHaveLength(1);
+    expect(
+      within(dialog).queryByRole("button", { name: "Delete selected layouts" }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("tab", { name: "Local" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    expect(
+      within(dialog).getByRole("tab", { name: "Layouts" }),
+    ).toHaveAttribute("data-state", "active");
+    expect(
+      within(dialog).getByRole("searchbox", { name: "Search saved items" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "Save layout" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "New blank" }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Open layouts")).not.toBeInTheDocument();
+  });
+
+  it("opens a separate Workspace sheet for open layout management", async () => {
+    stubRandomUuids(["workspace-1", "workspace-2"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "New layout" }));
+    await user.click(screen.getByRole("button", { name: "Workspace" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Workspace" });
+
+    expect(
+      within(dialog).getByRole("button", { name: "Save layout" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Import JSON" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "New blank" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Close all" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "Select all" }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Close Untitled layout" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", {
+        name: /More actions for Untitled layout/,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("imports Workspace JSON into the current layout without saving it to the Library", async () => {
+    const imported = savedLocalUploadWorkspace(undefined, "Imported current");
+    const file = new File(
+      [JSON.stringify({ type: "scrollable.layout.v1", item: imported })],
+      "imported-current.json",
+      { type: "application/json" },
+    );
+    const originalCreateElement = document.createElement.bind(document);
+    const createElement = vi
+      .spyOn(document, "createElement")
+      .mockImplementation((tagName, options) =>
+        originalCreateElement(tagName, options),
+      );
+    let fileInput: HTMLInputElement | null = null;
+    createElement.mockImplementation((tagName, options) => {
+      const element = originalCreateElement(tagName, options);
+      if (tagName === "input") fileInput = element as HTMLInputElement;
+      return element;
+    });
+
+    const user = userEvent.setup();
+    try {
+      render(<FeedWorkbench />);
+
+      await user.click(screen.getByRole("button", { name: "Workspace" }));
+      const workspaceDialog = await screen.findByRole("dialog", {
+        name: "Workspace",
+      });
+      await user.click(
+        within(workspaceDialog).getByRole("button", { name: "Import JSON" }),
+      );
+      expect(fileInput).not.toBeNull();
+      await user.upload(fileInput!, file);
+
+      expect(
+        await within(workspaceDialog).findByRole("button", {
+          name: "Close Imported current",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "",
+      ).not.toContain("Imported current");
+
+      await user.click(
+        within(workspaceDialog).getByRole("button", { name: "Close dialog" }),
+      );
+      await user.click(screen.getByRole("button", { name: "Library" }));
+      const libraryDialog = await screen.findByRole("dialog", {
+        name: "Library",
+      });
+
+      expect(
+        within(libraryDialog).queryByRole("checkbox", {
+          name: "Select Imported current",
+        }),
+      ).not.toBeInTheDocument();
+    } finally {
+      createElement.mockRestore();
+    }
+  });
+
+  it("keeps Workspace rows unselectable and uses Close all", async () => {
+    stubRandomUuids(["workspace-1", "workspace-2"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Workspace" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Workspace" });
+    await user.click(within(dialog).getByRole("button", { name: "New blank" }));
+
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Close all" }));
+
+    expect(
+      within(dialog).queryByRole("button", { name: "Close Untitled layout" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getAllByRole("button", {
+        name: /^Close (Untitled layout|Layout \d+)$/,
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("closes all open layouts from the Workspace sheet", async () => {
+    stubRandomUuids(["workspace-1", "workspace-2", "workspace-3"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Workspace" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Workspace" });
+    await user.click(within(dialog).getByRole("button", { name: "New blank" }));
+    await user.click(within(dialog).getByRole("button", { name: "New blank" }));
+
+    await user.click(within(dialog).getByRole("button", { name: "Close all" }));
+
+    expect(
+      within(dialog).queryByRole("button", { name: "Close Untitled layout" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "Close Layout 2" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Close Layout 1" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getAllByRole("button", {
+        name: /^Close (Untitled layout|Layout \d+)$/,
+      }),
+    ).toHaveLength(1);
+  });
+
   it("shows local file counts in saved layouts", async () => {
     stubObjectUrls();
     stubRandomUuids(["workspace-1", "local-1", "local-2", "session-1"]);
@@ -159,7 +355,7 @@ describe("FeedWorkbench workspaces", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps saved layout lists scrollable without forcing empty height", async () => {
+  it("lets the Library dialog own scrolling for long saved layout lists", async () => {
     stubRandomUuids(["blank-workspace"]);
     window.localStorage.setItem(
       WORKSPACE_STORAGE_KEY,
@@ -183,10 +379,9 @@ describe("FeedWorkbench workspaces", () => {
       name: "Saved layouts list",
     });
 
-    expect(layoutList).toHaveClass(
-      "max-h-[min(16rem,38dvh)]",
-      "overflow-y-auto",
-    );
+    expect(dialog).toHaveClass("overflow-y-auto");
+    expect(layoutList).not.toHaveClass("overflow-y-auto");
+    expect(layoutList.className).not.toContain("max-h-[");
     expect(within(layoutList).getAllByRole("checkbox")).toHaveLength(8);
   });
 

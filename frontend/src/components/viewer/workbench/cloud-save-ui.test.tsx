@@ -172,7 +172,7 @@ describe("cloud save UI", () => {
     expect(screen.queryByRole("menuitem", { name: "Share" })).toBeNull();
   });
 
-  it("shows close controls for open layouts in the mobile library sheet", async () => {
+  it("shows close controls for open layouts in the workspace sheet", async () => {
     const user = userEvent.setup();
     const onCloseWorkspaceTab = vi.fn();
 
@@ -180,6 +180,7 @@ describe("cloud save UI", () => {
       <LayoutDialog
         open
         onOpenChange={vi.fn()}
+        view="workspace"
         localWorkspaces={[]}
         cloudWorkspaces={[]}
         localTemplates={[]}
@@ -205,7 +206,7 @@ describe("cloud save UI", () => {
       />,
     );
 
-    const dialog = screen.getByRole("dialog", { name: "Library" });
+    const dialog = screen.getByRole("dialog", { name: "Workspace" });
     const closeButton = within(dialog).getByRole("button", {
       name: "Close Active",
     });
@@ -217,9 +218,52 @@ describe("cloud save UI", () => {
     expect(onCloseWorkspaceTab).toHaveBeenCalledWith("active");
   });
 
-  it("selects all visible layouts and deletes selected layouts", async () => {
+  it("disables New blank in the workspace sheet at 20 open tabs", () => {
+    const workspaceTabs = Array.from({ length: 20 }, (_, index) => ({
+      id: `layout-${index + 1}`,
+      name: `Layout ${index + 1}`,
+    }));
+
+    render(
+      <LayoutDialog
+        open
+        onOpenChange={vi.fn()}
+        view="workspace"
+        localWorkspaces={[]}
+        cloudWorkspaces={[]}
+        localTemplates={[]}
+        cloudTemplates={[]}
+        storageTarget="local"
+        onStorageTargetChange={vi.fn()}
+        onOpenWorkspaces={vi.fn()}
+        onOpenTemplates={vi.fn()}
+        onDeleteWorkspace={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onUploadWorkspaceToCloud={vi.fn()}
+        onUploadTemplateToCloud={vi.fn()}
+        onShareCloudItem={vi.fn()}
+        onExportJson={vi.fn()}
+        onImportJson={vi.fn()}
+        workspaceTabs={workspaceTabs}
+        openWorkspaceStats={{}}
+        activeWorkspaceId="layout-1"
+        onSelectWorkspace={vi.fn()}
+        onCreateWorkspaceTab={vi.fn()}
+        onCloseWorkspaceTab={vi.fn()}
+        onSaveCurrentLayout={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Workspace" });
+
+    expect(
+      within(dialog).getByRole("button", { name: "New blank" }),
+    ).toBeDisabled();
+  });
+
+  it("selects all visible layouts and imports JSON from the bulk action", async () => {
     const user = userEvent.setup();
-    const onDeleteWorkspace = vi.fn();
+    const onImportJson = vi.fn();
 
     render(
       <LayoutDialog
@@ -236,13 +280,13 @@ describe("cloud save UI", () => {
         onStorageTargetChange={vi.fn()}
         onOpenWorkspaces={vi.fn()}
         onOpenTemplates={vi.fn()}
-        onDeleteWorkspace={onDeleteWorkspace}
+        onDeleteWorkspace={vi.fn()}
         onDeleteTemplate={vi.fn()}
         onUploadWorkspaceToCloud={vi.fn()}
         onUploadTemplateToCloud={vi.fn()}
         onShareCloudItem={vi.fn()}
         onExportJson={vi.fn()}
-        onImportJson={vi.fn()}
+        onImportJson={onImportJson}
         workspaceTabs={[{ id: "active", name: "Active" }]}
         openWorkspaceStats={{ active: { sourceCount: 0, fileCount: 0 } }}
         activeWorkspaceId="active"
@@ -266,11 +310,89 @@ describe("cloud save UI", () => {
     ).toBeChecked();
 
     await user.click(
-      within(dialog).getByRole("button", { name: "Delete selected layouts" }),
+      within(dialog).getByRole("button", { name: "Deselect all layouts" }),
     );
 
-    expect(onDeleteWorkspace).toHaveBeenCalledWith("local-layout", "local");
-    expect(onDeleteWorkspace).toHaveBeenCalledWith("movie-layout", "local");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select Local wall" }),
+    ).not.toBeChecked();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select Movie wall" }),
+    ).not.toBeChecked();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Select all layouts" }),
+    );
+
+    expect(
+      within(dialog).queryByRole("button", { name: "Delete selected layouts" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Import JSON" }),
+    );
+
+    expect(onImportJson).toHaveBeenCalledWith("local");
+  });
+
+  it("deselects all visible templates from the Templates bulk action", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <LayoutDialog
+        open
+        onOpenChange={vi.fn()}
+        localWorkspaces={[]}
+        cloudWorkspaces={[]}
+        localTemplates={[
+          template("template-1", "mango"),
+          template("template-2", "evanshi3"),
+        ]}
+        cloudTemplates={[]}
+        storageTarget="local"
+        onStorageTargetChange={vi.fn()}
+        onOpenWorkspaces={vi.fn()}
+        onOpenTemplates={vi.fn()}
+        onDeleteWorkspace={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onUploadWorkspaceToCloud={vi.fn()}
+        onUploadTemplateToCloud={vi.fn()}
+        onShareCloudItem={vi.fn()}
+        onExportJson={vi.fn()}
+        onImportJson={vi.fn()}
+        workspaceTabs={[{ id: "active", name: "Active" }]}
+        openWorkspaceStats={{ active: { sourceCount: 0, fileCount: 0 } }}
+        activeWorkspaceId="active"
+        onSelectWorkspace={vi.fn()}
+        onCreateWorkspaceTab={vi.fn()}
+        onCloseWorkspaceTab={vi.fn()}
+        onSaveCurrentLayout={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Library" });
+    await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Select all templates" }),
+    );
+
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select mango" }),
+    ).toBeChecked();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select evanshi3" }),
+    ).toBeChecked();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Deselect all templates" }),
+    );
+
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select mango" }),
+    ).not.toBeChecked();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select evanshi3" }),
+    ).not.toBeChecked();
   });
 
   it("keeps double-digit layout counts compact on one metadata line", () => {

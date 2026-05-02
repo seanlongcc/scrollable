@@ -78,6 +78,7 @@ export type FeedWorkbenchRenderProps = {
   clearCurrentLayout: () => void;
   clearLocalCache: () => void | Promise<void>;
   closeWorkspaceTab: (id: string) => void;
+  closeWorkspaceTabs: (ids: string[]) => void;
   cloneSelectedSource: () => void;
   cloudBlockReason: string | null;
   cloudShareTarget: CloudShareTarget | null;
@@ -106,6 +107,7 @@ export type FeedWorkbenchRenderProps = {
   freeGridRef: RefObject<HTMLDivElement | null>;
   galleryIndexes: Record<string, number>;
   globalSeconds: number;
+  importCurrentWorkspaceJson: () => void;
   importSavedJson: (target: SaveTarget) => void;
   isAccountOpen: boolean;
   isAnySheetOpen: boolean;
@@ -123,6 +125,7 @@ export type FeedWorkbenchRenderProps = {
   layers: WorkspaceLayer[];
   layoutMode: LayoutMode;
   layoutModeLocked: boolean;
+  layoutDialogView: "library" | "workspace";
   libraryStorageTarget: SaveTarget;
   localCacheStatus: LocalFileCacheStorageStatus | null;
   localCacheStorageFullStatus: LocalFileCacheStorageStatus | null;
@@ -203,6 +206,7 @@ export type FeedWorkbenchRenderProps = {
   setIsAccountOpen: Dispatch<SetStateAction<boolean>>;
   setIsClearOpen: Dispatch<SetStateAction<boolean>>;
   setIsDesktopWorkbenchCollapsed: Dispatch<SetStateAction<boolean>>;
+  setLayoutDialogView: Dispatch<SetStateAction<"library" | "workspace">>;
   setIsLayoutsOpen: Dispatch<SetStateAction<boolean>>;
   setIsSaveOpen: Dispatch<SetStateAction<boolean>>;
   setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
@@ -280,6 +284,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     clearCurrentLayout,
     clearLocalCache,
     closeWorkspaceTab,
+    closeWorkspaceTabs,
     cloneSelectedSource,
     cloudBlockReason,
     cloudShareTarget,
@@ -304,6 +309,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     freeGridRef,
     galleryIndexes,
     globalSeconds,
+    importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
     isAnySheetOpen,
@@ -321,6 +327,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     layers,
     layoutMode,
     layoutModeLocked,
+    layoutDialogView,
     libraryStorageTarget,
     localCacheStatus,
     localCacheStorageFullStatus,
@@ -376,6 +383,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     setIsAccountOpen,
     setIsClearOpen,
     setIsDesktopWorkbenchCollapsed,
+    setLayoutDialogView,
     setIsLayoutsOpen,
     setIsSaveOpen,
     setIsSourceOpen,
@@ -516,6 +524,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onClearLocalCache={clearLocalCache}
           isLayoutsOpen={isLayoutsOpen}
           setIsLayoutsOpen={setIsLayoutsOpen}
+          layoutDialogView={layoutDialogView}
           savedWorkspaces={savedWorkspaces}
           cloudWorkspaces={cloudWorkspaces}
           savedTemplates={savedTemplates}
@@ -534,6 +543,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           regenerateCloudShareLink={regenerateCloudShareLink}
           disableCloudShareLink={disableCloudShareLink}
           exportSavedJson={exportSavedJson}
+          importCurrentWorkspaceJson={importCurrentWorkspaceJson}
           importSavedJson={importSavedJson}
           workspaceTabs={workspaceTabs}
           openWorkspaceStats={openWorkspaceStats}
@@ -541,6 +551,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           selectWorkspace={selectWorkspace}
           createWorkspaceTab={createWorkspaceTab}
           closeWorkspaceTab={closeWorkspaceTab}
+          closeWorkspaceTabs={closeWorkspaceTabs}
           openSaveDialog={() => {
             showWorkbenchOverlays();
             setIsLayoutsOpen(false);
@@ -666,6 +677,12 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onAddSource={() => openSourcePanelWithOverlay()}
           onOpenLibrary={() => {
             showWorkbenchOverlays();
+            setLayoutDialogView("library");
+            setIsLayoutsOpen(true);
+          }}
+          onOpenWorkspace={() => {
+            showWorkbenchOverlays();
+            setLayoutDialogView("workspace");
             setIsLayoutsOpen(true);
           }}
           onOpenSaveDialog={() => {

@@ -244,7 +244,7 @@ export function EditSourceDialog({
 
                   return (
                     <div
-                      key={`${url}-${index}`}
+                      key={`reddit-source-url-${index}`}
                       className="grid grid-cols-[minmax(0,1fr)_auto] gap-2"
                     >
                       <Input
@@ -295,7 +295,7 @@ export function EditSourceDialog({
 
                       setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
                     }}
-                    className="h-9 text-center"
+                    className="h-9 text-center text-foreground"
                   />
                 </Label>
               </div>

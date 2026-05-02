@@ -27,12 +27,14 @@ import {
   deleteSavedTemplateRecord,
   deleteSavedWorkspaceRecord,
   prepareCloseWorkspaceTab,
+  prepareCloseWorkspaceTabs,
   prepareCreateWorkspaceTab,
   prepareOpenSavedTemplates,
   prepareOpenSavedWorkspaces,
   prepareSelectWorkspaceTab,
   prepareWorkspaceRename,
   prepareWorkspaceSnapshotApply,
+  MAX_OPEN_WORKSPACE_TABS,
 } from "./workspace-actions";
 import {
   createCurrentWorkspaceState,
@@ -56,6 +58,7 @@ import {
   prepareSavedTemplateRename,
   prepareSavedWorkspaceRename,
 } from "./workspace-rename-actions";
+import { importCurrentWorkspaceJsonFile } from "./workspace-import-actions";
 import {
   deleteViewerCloudItem,
   renameViewerCloudItem,
@@ -287,6 +290,21 @@ export function useWorkspaceHandlers({
     toast.success("Exported layout JSON");
   }
 
+  function importCurrentWorkspaceJson() {
+    importCurrentWorkspaceJsonFile({
+      activeWorkspaceId,
+      workspaceName,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+      setWorkspaceTabs,
+      setWorkspaceStates,
+      setEditingWorkspaceId,
+      setEditingWorkspaceName,
+      applyWorkspaceSnapshot,
+    });
+  }
+
   function persistCurrentWorkspace(
     nameOverride = workspaceName,
     tabsOverride = workspaceTabs,
@@ -379,6 +397,10 @@ export function useWorkspaceHandlers({
       savedWorkspaces,
       createId,
     });
+    if (!nextState) {
+      toast.error(`Maximum ${MAX_OPEN_WORKSPACE_TABS} open layouts`);
+      return;
+    }
 
     setWorkspaceTabs(nextState.nextTabs);
     setWorkspaceStates(nextState.nextStates);
@@ -484,6 +506,29 @@ export function useWorkspaceHandlers({
     );
   }
 
+  function closeWorkspaceTabs(ids: string[]) {
+    const current = currentWorkspaceState();
+    const nextState = prepareCloseWorkspaceTabs({
+      ids,
+      current,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+      createId,
+    });
+
+    setWorkspaceTabs(nextState.nextTabs);
+    setWorkspaceStates(nextState.nextStates);
+    setActiveWorkspaceId(nextState.activeWorkspaceId);
+    applyWorkspaceSnapshot(nextState.activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
+    writeWorkspaceSessionStore(
+      nextState.nextTabs,
+      nextState.activeWorkspaceId,
+      savedWorkspaces,
+    );
+  }
+
   function openSavedWorkspaces(ids: string[]) {
     const current = currentWorkspaceState();
     const sourceWorkspaces =
@@ -496,7 +541,10 @@ export function useWorkspaceHandlers({
       savedWorkspaces: sourceWorkspaces,
     });
 
-    if (!nextState) return;
+    if (!nextState) {
+      toast.error(`Maximum ${MAX_OPEN_WORKSPACE_TABS} open layouts`);
+      return;
+    }
 
     setWorkspaceTabs(nextState.nextTabs);
     setWorkspaceStates(nextState.nextStates);
@@ -525,7 +573,10 @@ export function useWorkspaceHandlers({
       createId,
     });
 
-    if (!nextState) return;
+    if (!nextState) {
+      toast.error(`Maximum ${MAX_OPEN_WORKSPACE_TABS} open layouts`);
+      return;
+    }
 
     setWorkspaceTabs(nextState.nextTabs);
     setWorkspaceStates(nextState.nextStates);
@@ -728,6 +779,7 @@ export function useWorkspaceHandlers({
     beginWorkspaceRename,
     commitWorkspaceRename,
     closeWorkspaceTab,
+    closeWorkspaceTabs,
     openSavedWorkspaces,
     openSavedTemplates,
     deleteSavedWorkspace,
@@ -735,6 +787,7 @@ export function useWorkspaceHandlers({
     renameSavedWorkspace,
     renameSavedTemplate,
     exportCurrentWorkspaceJson,
+    importCurrentWorkspaceJson,
     applyWorkspaceSnapshot,
   };
 }

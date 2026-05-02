@@ -19,8 +19,7 @@ export const libraryCommandButtonClass =
 export const dialogActionButtonClass =
   "min-w-0 overflow-hidden rounded-lg px-2 font-semibold md:font-semibold";
 
-export const libraryListClass =
-  "grid max-h-[min(16rem,38dvh)] content-start gap-1.5 overflow-y-auto overscroll-contain pr-1";
+export const libraryListClass = "grid content-start gap-1.5 pr-1";
 
 export const emptyStateClass =
   "text-wrap-anywhere rounded-xl border border-dashed border-border/70 bg-background/55 p-3 text-sm text-muted-foreground";

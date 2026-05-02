@@ -70,9 +70,8 @@ describe("SignInPanel", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText("Minimum 8 characters"),
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("email")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("password")).toBeInTheDocument();
     expect(screen.queryByLabelText("Confirm password")).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Forgot password?" }),
@@ -96,6 +95,7 @@ describe("SignInPanel", () => {
     render(<SignInPanel mode="sign-up" next="/" />);
 
     expect(screen.getByLabelText("Confirm password")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("confirm password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Sign in" }),
