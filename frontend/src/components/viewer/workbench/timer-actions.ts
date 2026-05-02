@@ -9,7 +9,7 @@ import {
 import { clamp, toMultiTimerState } from "./helpers";
 import type { FeedSession } from "./types";
 
-export type GlobalTimerAction = "next" | "pause" | "restart";
+export type GlobalTimerAction = "back" | "next" | "pause" | "restart";
 
 export function applyGlobalTimerSecondsState({
   sessions,
@@ -93,11 +93,13 @@ export function applyGlobalTimerActionState({
 }) {
   const timers = toMultiTimerState(sessions);
   const nextTimers =
-    action === "next"
-      ? globalMoveTimerIndexes(timers, 1)
-      : action === "pause"
-        ? globalTogglePaused(timers)
-        : globalRestartTimers(timers);
+    action === "back"
+      ? globalMoveTimerIndexes(timers, -1)
+      : action === "next"
+        ? globalMoveTimerIndexes(timers, 1)
+        : action === "pause"
+          ? globalTogglePaused(timers)
+          : globalRestartTimers(timers);
 
   return applyTimerState(sessions, nextTimers);
 }

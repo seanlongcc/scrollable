@@ -11,6 +11,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  SkipBack,
   SkipForward,
   Trash2,
   UnfoldHorizontal,
@@ -245,53 +246,69 @@ export function GlobalTimerSection({
   return (
     <section className="grid gap-2">
       <h2 className={sectionHeadingClass}>Global timer</h2>
-      <div
-        className={cn(
-          mode === "desktop"
-            ? "grid grid-cols-[3fr_repeat(3,minmax(0,1fr))] items-center gap-2"
-            : "grid grid-cols-[minmax(0,3fr)_repeat(3,minmax(0,1fr))] items-center gap-2",
-        )}
-      >
-        <NumberField
-          label="Global timer seconds"
-          icon={<Clock3 className="size-3.5" />}
-          value={globalSeconds}
-          min={1}
-          max={120}
-          className="min-w-0"
-          inputClassName="w-full min-w-0 flex-1"
-          onChange={onGlobalTimerSecondsChange}
-        />
-        <Button
-          type="button"
-          size={mode === "desktop" ? "icon" : "icon-sm"}
-          variant="outline"
-          aria-label="Global pause"
-          onClick={() => onGlobalTimerAction("pause")}
-          className="h-11 min-h-0 min-w-0 w-full md:h-8"
+      <div className="grid gap-2">
+        <div
+          role="group"
+          aria-label="Global timer duration"
+          className="grid grid-cols-2 items-center gap-2"
         >
-          {hasRunningSessionTimer ? <Pause /> : <Play />}
-        </Button>
-        <Button
-          type="button"
-          size={mode === "desktop" ? "icon" : "icon-sm"}
-          variant="outline"
-          aria-label="Global next"
-          onClick={() => onGlobalTimerAction("next")}
-          className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          <NumberField
+            label="Global timer seconds"
+            icon={<Clock3 className="size-3.5" />}
+            value={globalSeconds}
+            min={1}
+            max={120}
+            className="min-w-0"
+            inputClassName="w-full min-w-0 flex-1"
+            onChange={onGlobalTimerSecondsChange}
+          />
+          <Button
+            type="button"
+            size={mode === "desktop" ? "icon" : "icon-sm"}
+            variant="outline"
+            aria-label="Global restart"
+            onClick={() => onGlobalTimerAction("restart")}
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          >
+            <RotateCcw />
+          </Button>
+        </div>
+        <div
+          role="group"
+          aria-label="Global timer transport"
+          className="grid grid-cols-3 items-center gap-2"
         >
-          <SkipForward />
-        </Button>
-        <Button
-          type="button"
-          size={mode === "desktop" ? "icon" : "icon-sm"}
-          variant="outline"
-          aria-label="Global restart"
-          onClick={() => onGlobalTimerAction("restart")}
-          className="h-11 min-h-0 min-w-0 w-full md:h-8"
-        >
-          <RotateCcw />
-        </Button>
+          <Button
+            type="button"
+            size={mode === "desktop" ? "icon" : "icon-sm"}
+            variant="outline"
+            aria-label="Global back"
+            onClick={() => onGlobalTimerAction("back")}
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          >
+            <SkipBack />
+          </Button>
+          <Button
+            type="button"
+            size={mode === "desktop" ? "icon" : "icon-sm"}
+            variant="outline"
+            aria-label="Global pause"
+            onClick={() => onGlobalTimerAction("pause")}
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          >
+            {hasRunningSessionTimer ? <Pause /> : <Play />}
+          </Button>
+          <Button
+            type="button"
+            size={mode === "desktop" ? "icon" : "icon-sm"}
+            variant="outline"
+            aria-label="Global next"
+            onClick={() => onGlobalTimerAction("next")}
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          >
+            <SkipForward />
+          </Button>
+        </div>
       </div>
     </section>
   );
