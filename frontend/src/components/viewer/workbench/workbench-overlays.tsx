@@ -1,9 +1,4 @@
-import type {
-  ChangeEvent,
-  Dispatch,
-  DragEvent as ReactDragEvent,
-  SetStateAction,
-} from "react";
+import type { Dispatch, SetStateAction } from "react";
 import type {
   LocalFileByteCacheConfirmation,
   LocalFileCacheStorageStatus,
@@ -18,7 +13,7 @@ import {
   SaveLayoutDialog,
   ShareLinkDialog,
 } from "./dialogs";
-import { EditSourceDialog, SourceDialog } from "./source-dialogs";
+import { EditSourceDialog } from "./source-dialogs";
 import type {
   CloudShareTarget,
   CloudUsageState,
@@ -28,45 +23,13 @@ import type {
   AccountState,
   FeedSession,
   LayoutMode,
-  RedditInputMode,
-  RedditListingSort,
-  RedditTimeRange,
   SaveKind,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
-  SourceGroupingMode,
   WorkspaceTab,
 } from "./types";
 
 export function WorkbenchOverlays({
-  isSourceOpen,
-  onSourceOpenChange,
-  urlValue,
-  urlTitle,
-  redditUrls,
-  redditInputMode,
-  subredditName,
-  redditSort,
-  redditTimeRange,
-  redditLimit,
-  isLoading,
-  sourceGroupingMode,
-  setUrlValue,
-  setUrlTitle,
-  setRedditUrls,
-  setRedditInputMode,
-  setSubredditName,
-  setRedditSort,
-  setRedditTimeRange,
-  setRedditLimit,
-  setSourceGroupingMode,
-  openUrlSource,
-  fetchRedditFeed,
-  addLocalFiles,
-  selectLocalFilesWithHandles,
-  selectLocalFolderWithHandles,
-  addDroppedLocalFiles,
-  allowLocalFileDrop,
   largeLocalByteCachePrompt,
   onLargeLocalByteCacheOpenChange,
   onConfirmLargeLocalByteCache,
@@ -132,34 +95,6 @@ export function WorkbenchOverlays({
   signOut,
   onRefreshLocalCacheStatus,
 }: {
-  isSourceOpen: boolean;
-  onSourceOpenChange: (open: boolean) => void;
-  urlValue: string;
-  urlTitle: string;
-  redditUrls: string;
-  redditInputMode: RedditInputMode;
-  subredditName: string;
-  redditSort: RedditListingSort;
-  redditTimeRange: RedditTimeRange;
-  redditLimit: number;
-  isLoading: boolean;
-  sourceGroupingMode: SourceGroupingMode;
-  setUrlValue: Dispatch<SetStateAction<string>>;
-  setUrlTitle: Dispatch<SetStateAction<string>>;
-  setRedditUrls: Dispatch<SetStateAction<string>>;
-  setRedditInputMode: Dispatch<SetStateAction<RedditInputMode>>;
-  setSubredditName: Dispatch<SetStateAction<string>>;
-  setRedditSort: Dispatch<SetStateAction<RedditListingSort>>;
-  setRedditTimeRange: Dispatch<SetStateAction<RedditTimeRange>>;
-  setRedditLimit: Dispatch<SetStateAction<number>>;
-  setSourceGroupingMode: Dispatch<SetStateAction<SourceGroupingMode>>;
-  openUrlSource: () => void;
-  fetchRedditFeed: () => void;
-  addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
-  selectLocalFilesWithHandles: () => Promise<boolean>;
-  selectLocalFolderWithHandles: () => Promise<boolean>;
-  addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
-  allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
   largeLocalByteCachePrompt: LocalFileByteCacheConfirmation | null;
   onLargeLocalByteCacheOpenChange: (open: boolean) => void;
   onConfirmLargeLocalByteCache: () => void;
@@ -240,36 +175,6 @@ export function WorkbenchOverlays({
 }) {
   return (
     <>
-      <SourceDialog
-        open={isSourceOpen}
-        onOpenChange={onSourceOpenChange}
-        urlValue={urlValue}
-        urlTitle={urlTitle}
-        redditUrls={redditUrls}
-        redditInputMode={redditInputMode}
-        subredditName={subredditName}
-        redditSort={redditSort}
-        redditTimeRange={redditTimeRange}
-        redditLimit={redditLimit}
-        isLoading={isLoading}
-        sourceGroupingMode={sourceGroupingMode}
-        setUrlValue={setUrlValue}
-        setUrlTitle={setUrlTitle}
-        setRedditUrls={setRedditUrls}
-        setRedditInputMode={setRedditInputMode}
-        setSubredditName={setSubredditName}
-        setRedditSort={setRedditSort}
-        setRedditTimeRange={setRedditTimeRange}
-        setRedditLimit={setRedditLimit}
-        setSourceGroupingMode={setSourceGroupingMode}
-        openUrlSource={openUrlSource}
-        fetchRedditFeed={fetchRedditFeed}
-        addLocalFiles={addLocalFiles}
-        selectLocalFilesWithHandles={selectLocalFilesWithHandles}
-        selectLocalFolderWithHandles={selectLocalFolderWithHandles}
-        addDroppedLocalFiles={addDroppedLocalFiles}
-        allowLocalFileDrop={allowLocalFileDrop}
-      />
       <LargeLocalCacheDialog
         open={Boolean(largeLocalByteCachePrompt)}
         totalBytes={largeLocalByteCachePrompt?.totalBytes ?? 0}

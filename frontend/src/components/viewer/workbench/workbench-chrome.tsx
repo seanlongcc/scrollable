@@ -535,6 +535,7 @@ function RailButton({
       variant={active ? "default" : "outline"}
       aria-label={ariaLabel}
       onMouseEnter={onPreload}
+      onPointerDown={onPreload}
       onFocus={onPreload}
       onClick={onClick}
       className={cn(

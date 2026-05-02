@@ -106,7 +106,7 @@ export function SourceDialog({
     >
       <DialogContent
         aria-busy={isLoading}
-        className="mobile-compact-controls top-auto bottom-0 left-0 max-h-[86dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-x-hidden overflow-y-auto overscroll-contain rounded-t-2xl border border-border/70 bg-popover p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-18px_64px_rgba(18,10,10,0.58)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[82dvh] md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:pb-3 md:shadow-[0_20px_64px_rgba(18,10,10,0.62)]"
+        className="mobile-compact-controls top-auto bottom-0 left-0 max-h-[86dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-x-hidden overflow-y-auto overscroll-contain rounded-t-2xl border border-border/70 bg-popover p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-18px_64px_rgba(18,10,10,0.58)] data-open:animate-none data-closed:animate-none sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[82dvh] md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:pb-3 md:shadow-[0_20px_64px_rgba(18,10,10,0.62)]"
       >
         {isLoading ? (
           <div className="absolute inset-0 z-30 grid place-items-center bg-popover/82 px-6 backdrop-blur-sm">

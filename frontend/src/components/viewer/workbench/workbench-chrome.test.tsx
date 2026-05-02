@@ -354,9 +354,10 @@ describe("WorkbenchChrome", () => {
     });
 
     fireEvent.mouseEnter(addSource);
+    fireEvent.pointerDown(addSource);
     fireEvent.focus(saveLayout);
 
-    expect(onPreloadOverlays).toHaveBeenCalledTimes(4);
+    expect(onPreloadOverlays).toHaveBeenCalledTimes(5);
   });
 });
 

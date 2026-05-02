@@ -45,6 +45,7 @@ import { WorkbenchChrome } from "./workbench/workbench-chrome";
 import type { WorkbenchPanelComponents } from "./workbench/workbench-chrome";
 import { WorkbenchHeader } from "./workbench/workbench-header";
 import { WorkbenchStage } from "./workbench/workbench-stage";
+import { SourceDialog } from "./workbench/source-add-dialog";
 import type { GlobalTimerAction } from "./workbench/workbench-toolbar";
 
 export const loadWorkbenchOverlays = () =>
@@ -450,42 +451,45 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
         />
       ) : null}
 
+      <SourceDialog
+        open={isSourceOpen}
+        onOpenChange={(open) => {
+          setIsSourceOpen(open);
+          if (!open) {
+            setPendingFixedSlot(null);
+            setPendingTemplateSlotId(null);
+          }
+        }}
+        urlValue={urlValue}
+        urlTitle={urlTitle}
+        redditUrls={redditUrls}
+        redditInputMode={redditInputMode}
+        subredditName={subredditName}
+        redditSort={redditSort}
+        redditTimeRange={redditTimeRange}
+        redditLimit={redditLimit}
+        isLoading={isLoading}
+        sourceGroupingMode={sourceGroupingMode}
+        setUrlValue={setUrlValue}
+        setUrlTitle={setUrlTitle}
+        setRedditUrls={setRedditUrls}
+        setRedditInputMode={setRedditInputMode}
+        setSubredditName={setSubredditName}
+        setRedditSort={setRedditSort}
+        setRedditTimeRange={setRedditTimeRange}
+        setRedditLimit={setRedditLimit}
+        setSourceGroupingMode={setSourceGroupingMode}
+        openUrlSource={openUrlSource}
+        fetchRedditFeed={fetchRedditFeed}
+        addLocalFiles={addLocalFiles}
+        selectLocalFilesWithHandles={selectLocalFilesWithHandles}
+        selectLocalFolderWithHandles={selectLocalFolderWithHandles}
+        addDroppedLocalFiles={addDroppedLocalFiles}
+        allowLocalFileDrop={allowLocalFileDrop}
+      />
+
       {shouldMountOverlays ? (
         <WorkbenchOverlays
-          isSourceOpen={isSourceOpen}
-          onSourceOpenChange={(open) => {
-            setIsSourceOpen(open);
-            if (!open) {
-              setPendingFixedSlot(null);
-              setPendingTemplateSlotId(null);
-            }
-          }}
-          urlValue={urlValue}
-          urlTitle={urlTitle}
-          redditUrls={redditUrls}
-          redditInputMode={redditInputMode}
-          subredditName={subredditName}
-          redditSort={redditSort}
-          redditTimeRange={redditTimeRange}
-          redditLimit={redditLimit}
-          isLoading={isLoading}
-          sourceGroupingMode={sourceGroupingMode}
-          setUrlValue={setUrlValue}
-          setUrlTitle={setUrlTitle}
-          setRedditUrls={setRedditUrls}
-          setRedditInputMode={setRedditInputMode}
-          setSubredditName={setSubredditName}
-          setRedditSort={setRedditSort}
-          setRedditTimeRange={setRedditTimeRange}
-          setRedditLimit={setRedditLimit}
-          setSourceGroupingMode={setSourceGroupingMode}
-          openUrlSource={openUrlSource}
-          fetchRedditFeed={fetchRedditFeed}
-          addLocalFiles={addLocalFiles}
-          selectLocalFilesWithHandles={selectLocalFilesWithHandles}
-          selectLocalFolderWithHandles={selectLocalFolderWithHandles}
-          addDroppedLocalFiles={addDroppedLocalFiles}
-          allowLocalFileDrop={allowLocalFileDrop}
           largeLocalByteCachePrompt={largeLocalByteCachePrompt}
           onLargeLocalByteCacheOpenChange={(open) => {
             if (!open) answerLargeLocalByteCachePrompt(false);

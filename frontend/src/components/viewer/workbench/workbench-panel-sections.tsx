@@ -330,6 +330,7 @@ export function ActionsSection({
           type="button"
           variant="default"
           onMouseEnter={onPreloadOverlays}
+          onPointerDown={onPreloadOverlays}
           onFocus={onPreloadOverlays}
           onClick={onAddSource}
           className={workbenchActionButtonClass}
@@ -359,6 +360,7 @@ export function ActionsSection({
           type="button"
           variant="outline"
           onMouseEnter={onPreloadOverlays}
+          onPointerDown={onPreloadOverlays}
           onFocus={onPreloadOverlays}
           onClick={onOpenSaveDialog}
           className={workbenchActionButtonClass}
