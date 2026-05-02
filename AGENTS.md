@@ -10,7 +10,8 @@ This file is the hard-rules and orientation index. Longer reference material liv
 - `docs/agent/testing.md` - detailed testing decision policy and test priorities.
 - `docs/agent/tools.md` - MCP/tool-server usage map.
 - `docs/agent/skills.md` - skill usage map.
-- Supabase migrations and committed specs/plans - source of truth for schema and approved work.
+- Supabase migrations and current committed specs/plans - source of truth for schema and approved work.
+- `archive/ai-artifacts/README.md` - historical AI-generated specs, plans, prompts, and mockups; reference-only, not production source of truth.
 
 ## Project State
 
