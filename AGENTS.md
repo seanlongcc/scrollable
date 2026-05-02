@@ -5,6 +5,8 @@ Guidance for AI coding agents working in this repository.
 This file is the hard-rules and orientation index. Longer reference material lives in:
 
 - `README.md` - project overview.
+- `docs/product.md` - product strategy, users, brand, and design principles.
+- `docs/design.md` / `docs/design.json` - visual design system and machine-readable sidecar.
 - `docs/media-persistence.md` - media persistence policy details.
 - `docs/agent/product.md` - product intent plus Reddit/NSFW notes.
 - `docs/agent/testing.md` - detailed testing decision policy and test priorities.
