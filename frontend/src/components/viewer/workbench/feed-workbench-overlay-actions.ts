@@ -1,7 +1,16 @@
-import { type SetStateAction, useCallback, useMemo, useState } from "react";
+import {
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import type { CloudShareTarget } from "./cloud-save-state";
-import { createWorkbenchOverlayIntentPreload } from "./workbench-preload";
+import {
+  createWorkbenchOverlayIntentPreload,
+  scheduleInitialWorkbenchOverlayPreload,
+} from "./workbench-preload";
 
 type WorkbenchOverlaysLoader = () => Promise<
   typeof import("./workbench-overlays")
@@ -14,6 +23,14 @@ export function useWorkbenchOverlayMounting(
   const preloadWorkbenchOverlays = useMemo(
     () => createWorkbenchOverlayIntentPreload(loadWorkbenchOverlays),
     [loadWorkbenchOverlays],
+  );
+  useEffect(
+    () =>
+      scheduleInitialWorkbenchOverlayPreload(() => {
+        preloadWorkbenchOverlays();
+        setHasMountedOverlays(true);
+      }),
+    [preloadWorkbenchOverlays],
   );
   const showWorkbenchOverlays = useCallback(() => {
     preloadWorkbenchOverlays();

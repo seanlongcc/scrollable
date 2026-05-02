@@ -2,8 +2,9 @@ import {
   Clock3,
   Copy,
   EyeOff,
-  FolderOpen,
+  FolderOpenDot,
   Grid2X2,
+  Library,
   Maximize2,
   MoreHorizontal,
   Pencil,
@@ -82,6 +83,7 @@ export type WorkbenchChromeProps = {
   onHideUi: () => void;
   onAddSource: () => void;
   onOpenLibrary: () => void;
+  onOpenWorkspace: () => void;
   onOpenSaveDialog: () => void;
   onImportJson: () => void;
   onExportCurrentJson: () => void;
@@ -135,6 +137,7 @@ export function WorkbenchChrome({
   onHideUi,
   onAddSource,
   onOpenLibrary,
+  onOpenWorkspace,
   onOpenSaveDialog,
   onImportJson,
   onExportCurrentJson,
@@ -161,7 +164,7 @@ export function WorkbenchChrome({
   const mobileBottomButtonClass =
     "h-12 w-full rounded-none border-0 bg-transparent p-0 text-muted-foreground shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2 [&_svg:not([class*='size-'])]:size-5";
   const desktopRailButtonClass =
-    "h-10 w-full rounded-2xl shadow-[0_14px_34px_rgba(18,10,10,0.42)]";
+    "h-10 w-full rounded-xl shadow-[0_10px_26px_rgba(18,10,10,0.34)]";
   const panelProps = {
     workspaceName,
     layoutMode,
@@ -222,6 +225,11 @@ export function WorkbenchChrome({
     onOpenLibrary();
   }
 
+  function openWorkspace() {
+    closeMobileChrome();
+    onOpenWorkspace();
+  }
+
   function openSaveDialog() {
     closeMobileChrome();
     onOpenSaveDialog();
@@ -250,7 +258,7 @@ export function WorkbenchChrome({
           aria-label="Desktop context actions"
           className={cn(
             "grid w-full items-center gap-2",
-            isDesktopWorkbenchCollapsed ? "grid-cols-1" : "grid-cols-3",
+            isDesktopWorkbenchCollapsed ? "grid-cols-1" : "grid-cols-4",
           )}
         >
           <Button
@@ -278,7 +286,19 @@ export function WorkbenchChrome({
             onClick={openLibrary}
             className={desktopRailButtonClass}
           >
-            <FolderOpen />
+            <Library />
+          </Button>
+          <Button
+            type="button"
+            size="icon-lg"
+            variant="outline"
+            aria-label="Workspace"
+            onMouseEnter={onPreloadOverlays}
+            onFocus={onPreloadOverlays}
+            onClick={openWorkspace}
+            className={desktopRailButtonClass}
+          >
+            <FolderOpenDot />
           </Button>
           <Button
             type="button"
@@ -300,7 +320,7 @@ export function WorkbenchChrome({
         ) : (
           <div
             id="desktop-workbench-panel"
-            className="min-h-0 overflow-y-auto rounded-2xl border border-border/60 bg-surface/72 p-3 shadow-[0_24px_70px_rgba(18,10,10,0.42)] backdrop-blur"
+            className="min-h-0 overflow-y-auto rounded-xl border border-border/70 bg-surface/90 p-3 shadow-[0_18px_54px_rgba(18,10,10,0.42)] backdrop-blur-sm"
           >
             <Suspense fallback={null}>
               <WorkbenchPanelContentComponent mode="desktop" {...panelProps} />
@@ -353,7 +373,7 @@ export function WorkbenchChrome({
                 <MoreHorizontal />
               </RailButton>
               {isMoreOpen ? (
-                <div className="absolute right-12 bottom-0 grid w-[min(12rem,calc(100vw-5rem))] gap-1 rounded-xl border border-border bg-popover/95 p-2 shadow-[0_18px_48px_rgba(18,10,10,0.5)] backdrop-blur">
+                <div className="absolute right-12 bottom-0 grid w-[min(12rem,calc(100vw-5rem))] gap-1 rounded-xl border border-border/80 bg-popover/96 p-2 shadow-[0_16px_44px_rgba(18,10,10,0.48)] backdrop-blur-sm">
                   {canCloneOrFillSelectedSource ? (
                     <>
                       <Button
@@ -429,7 +449,7 @@ export function WorkbenchChrome({
 
       <nav
         aria-label="Mobile bottom navigation"
-        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 items-center border-t border-border/60 bg-background/95 px-1 pt-0 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(18,10,10,0.58)] backdrop-blur md:hidden"
+        className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 items-center border-t border-border/70 bg-background/97 px-1 pt-0 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-14px_42px_rgba(18,10,10,0.54)] backdrop-blur-sm md:hidden"
       >
         <Button
           type="button"
@@ -452,7 +472,18 @@ export function WorkbenchChrome({
           onClick={openLibrary}
           className={mobileBottomButtonClass}
         >
-          <FolderOpen />
+          <Library />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          aria-label="Workspace"
+          onMouseEnter={onPreloadOverlays}
+          onFocus={onPreloadOverlays}
+          onClick={openWorkspace}
+          className={mobileBottomButtonClass}
+        >
+          <FolderOpenDot />
         </Button>
         <Button
           type="button"
@@ -535,11 +566,12 @@ function RailButton({
       variant={active ? "default" : "outline"}
       aria-label={ariaLabel}
       onMouseEnter={onPreload}
+      onPointerDown={onPreload}
       onFocus={onPreload}
       onClick={onClick}
       className={cn(
-        "rounded-full shadow-[0_12px_34px_rgba(18,10,10,0.48)] backdrop-blur",
-        !active && "border-border/70 bg-surface/86",
+        "rounded-full shadow-[0_10px_30px_rgba(18,10,10,0.44)] backdrop-blur-sm",
+        !active && "border-border/70 bg-surface/92",
       )}
     >
       {children}

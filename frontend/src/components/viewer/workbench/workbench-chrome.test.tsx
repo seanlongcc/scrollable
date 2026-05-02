@@ -26,6 +26,7 @@ describe("WorkbenchChrome", () => {
 
   afterEach(() => {
     window.matchMedia = originalMatchMedia;
+    vi.unstubAllGlobals();
   });
 
   it("closes the mobile workbench sheet before opening add source", async () => {
@@ -111,9 +112,10 @@ describe("WorkbenchChrome", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("closes the mobile workbench sheet before opening library and account overlays", async () => {
+  it("closes the mobile workbench sheet before opening library, workspace, and account overlays", async () => {
     const user = userEvent.setup();
     const onOpenLibrary = vi.fn();
+    const onOpenWorkspace = vi.fn();
     const onOpenAccount = vi.fn();
 
     const { container, rerender } = render(
@@ -125,6 +127,16 @@ describe("WorkbenchChrome", () => {
     fireEvent.click(buttonIn(nav, "Library"));
 
     expect(onOpenLibrary).toHaveBeenCalledOnce();
+    expect(
+      document.querySelector('[data-slot="sheet-content"]'),
+    ).not.toBeInTheDocument();
+
+    rerender(<WorkbenchChrome {...chromeProps({ onOpenWorkspace })} />);
+
+    await user.click(buttonIn(nav, "Workbench"));
+    fireEvent.click(buttonIn(nav, "Workspace"));
+
+    expect(onOpenWorkspace).toHaveBeenCalledOnce();
     expect(
       document.querySelector('[data-slot="sheet-content"]'),
     ).not.toBeInTheDocument();
@@ -164,11 +176,15 @@ describe("WorkbenchChrome", () => {
 
     expect(buttonIn(nav, "Workbench")).toBeInTheDocument();
     expect(buttonIn(nav, "Library")).toBeInTheDocument();
+    expect(buttonIn(nav, "Workspace")).toBeInTheDocument();
     expect(buttonIn(nav, "Account")).toBeInTheDocument();
     expect(buttonIn(nav, "Workbench")).toHaveClass(
       "[&_svg:not([class*='size-'])]:size-5",
     );
     expect(buttonIn(nav, "Library")).toHaveClass(
+      "[&_svg:not([class*='size-'])]:size-5",
+    );
+    expect(buttonIn(nav, "Workspace")).toHaveClass(
       "[&_svg:not([class*='size-'])]:size-5",
     );
     expect(buttonIn(nav, "Account")).toHaveClass(
@@ -179,6 +195,9 @@ describe("WorkbenchChrome", () => {
     ).not.toBeInTheDocument();
     expect(
       within(nav as HTMLElement).queryByText("Library"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(nav as HTMLElement).queryByText("Workspace"),
     ).not.toBeInTheDocument();
     expect(
       within(nav as HTMLElement).queryByText("Account"),
@@ -262,7 +281,9 @@ describe("WorkbenchChrome", () => {
     }
   });
 
-  it("shows legal links at the bottom of the desktop workbench panel", async () => {
+  it("shows legal and release links at the bottom of the desktop workbench panel", async () => {
+    stubLatestRelease();
+
     render(<WorkbenchChrome {...chromeProps()} />);
 
     const panel = screen.getByLabelText("Workbench contextual panel");
@@ -273,6 +294,15 @@ describe("WorkbenchChrome", () => {
     expect(within(panel).getByRole("link", { name: "Terms" })).toHaveAttribute(
       "href",
       "/terms",
+    );
+    expect(
+      within(panel).getByRole("link", { name: "Changelog" }),
+    ).toHaveAttribute("href", "/changelog");
+    expect(
+      await within(panel).findByRole("link", { name: "v0.2.0" }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
     );
   });
 
@@ -324,7 +354,7 @@ describe("WorkbenchChrome", () => {
     expect(onExportCurrentJson).toHaveBeenCalledOnce();
   });
 
-  it("preloads overlays from Add, Library, Account, and Save intent", async () => {
+  it("preloads overlays from Add, Library, Workspace, Account, and Save intent", async () => {
     const onPreloadOverlays = vi.fn();
 
     render(<WorkbenchChrome {...chromeProps({ onPreloadOverlays })} />);
@@ -332,6 +362,7 @@ describe("WorkbenchChrome", () => {
     fireEvent.mouseEnter(
       await screen.findByRole("button", { name: "Library" }),
     );
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Workspace" }));
     fireEvent.focus(screen.getByRole("button", { name: "Account" }));
 
     const addSource = await screen.findByRole("button", {
@@ -342,9 +373,10 @@ describe("WorkbenchChrome", () => {
     });
 
     fireEvent.mouseEnter(addSource);
+    fireEvent.pointerDown(addSource);
     fireEvent.focus(saveLayout);
 
-    expect(onPreloadOverlays).toHaveBeenCalledTimes(4);
+    expect(onPreloadOverlays).toHaveBeenCalledTimes(6);
   });
 });
 
@@ -389,6 +421,7 @@ function chromeProps(
     onHideUi: vi.fn(),
     onAddSource: vi.fn(),
     onOpenLibrary: vi.fn(),
+    onOpenWorkspace: vi.fn(),
     onOpenSaveDialog: vi.fn(),
     onImportJson: vi.fn(),
     onExportCurrentJson: vi.fn(),
@@ -399,6 +432,25 @@ function chromeProps(
     onFreeRectChange: vi.fn(),
     ...overrides,
   };
+}
+
+function stubLatestRelease() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      if (input !== "/api/releases/latest") {
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }
+
+      return Response.json({
+        release: {
+          tagName: "v0.2.0",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
+        },
+      });
+    }),
+  );
 }
 
 function mobileBottomNav(container: HTMLElement) {

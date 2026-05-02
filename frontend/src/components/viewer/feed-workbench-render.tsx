@@ -45,6 +45,7 @@ import { WorkbenchChrome } from "./workbench/workbench-chrome";
 import type { WorkbenchPanelComponents } from "./workbench/workbench-chrome";
 import { WorkbenchHeader } from "./workbench/workbench-header";
 import { WorkbenchStage } from "./workbench/workbench-stage";
+import { SourceDialog } from "./workbench/source-add-dialog";
 import type { GlobalTimerAction } from "./workbench/workbench-toolbar";
 
 export const loadWorkbenchOverlays = () =>
@@ -77,6 +78,7 @@ export type FeedWorkbenchRenderProps = {
   clearCurrentLayout: () => void;
   clearLocalCache: () => void | Promise<void>;
   closeWorkspaceTab: (id: string) => void;
+  closeWorkspaceTabs: (ids: string[]) => void;
   cloneSelectedSource: () => void;
   cloudBlockReason: string | null;
   cloudShareTarget: CloudShareTarget | null;
@@ -105,6 +107,7 @@ export type FeedWorkbenchRenderProps = {
   freeGridRef: RefObject<HTMLDivElement | null>;
   galleryIndexes: Record<string, number>;
   globalSeconds: number;
+  importCurrentWorkspaceJson: () => void;
   importSavedJson: (target: SaveTarget) => void;
   isAccountOpen: boolean;
   isAnySheetOpen: boolean;
@@ -122,6 +125,7 @@ export type FeedWorkbenchRenderProps = {
   layers: WorkspaceLayer[];
   layoutMode: LayoutMode;
   layoutModeLocked: boolean;
+  layoutDialogView: "library" | "workspace";
   libraryStorageTarget: SaveTarget;
   localCacheStatus: LocalFileCacheStorageStatus | null;
   localCacheStorageFullStatus: LocalFileCacheStorageStatus | null;
@@ -157,6 +161,16 @@ export type FeedWorkbenchRenderProps = {
   requestLocalCacheAccess: (id: string) => void;
   refreshLocalCacheStatus: () => Promise<LocalFileCacheStorageStatus>;
   refreshLocalCacheStatusForCurrentLayout: () => Promise<LocalFileCacheStorageStatus | null>;
+  renameSavedTemplate: (input: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) => Promise<string | null>;
+  renameSavedWorkspace: (input: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) => Promise<string | null>;
   restartSelectedSource: () => void;
   runGlobalAction: (action: GlobalTimerAction) => void;
   saveError: string | null;
@@ -192,6 +206,7 @@ export type FeedWorkbenchRenderProps = {
   setIsAccountOpen: Dispatch<SetStateAction<boolean>>;
   setIsClearOpen: Dispatch<SetStateAction<boolean>>;
   setIsDesktopWorkbenchCollapsed: Dispatch<SetStateAction<boolean>>;
+  setLayoutDialogView: Dispatch<SetStateAction<"library" | "workspace">>;
   setIsLayoutsOpen: Dispatch<SetStateAction<boolean>>;
   setIsSaveOpen: Dispatch<SetStateAction<boolean>>;
   setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
@@ -269,6 +284,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     clearCurrentLayout,
     clearLocalCache,
     closeWorkspaceTab,
+    closeWorkspaceTabs,
     cloneSelectedSource,
     cloudBlockReason,
     cloudShareTarget,
@@ -293,6 +309,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     freeGridRef,
     galleryIndexes,
     globalSeconds,
+    importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
     isAnySheetOpen,
@@ -310,6 +327,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     layers,
     layoutMode,
     layoutModeLocked,
+    layoutDialogView,
     libraryStorageTarget,
     localCacheStatus,
     localCacheStorageFullStatus,
@@ -336,6 +354,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     requestLocalCacheAccess,
     refreshLocalCacheStatus,
     refreshLocalCacheStatusForCurrentLayout,
+    renameSavedTemplate,
+    renameSavedWorkspace,
     restartSelectedSource,
     runGlobalAction,
     saveError,
@@ -363,6 +383,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     setIsAccountOpen,
     setIsClearOpen,
     setIsDesktopWorkbenchCollapsed,
+    setLayoutDialogView,
     setIsLayoutsOpen,
     setIsSaveOpen,
     setIsSourceOpen,
@@ -450,42 +471,45 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
         />
       ) : null}
 
+      <SourceDialog
+        open={isSourceOpen}
+        onOpenChange={(open) => {
+          setIsSourceOpen(open);
+          if (!open) {
+            setPendingFixedSlot(null);
+            setPendingTemplateSlotId(null);
+          }
+        }}
+        urlValue={urlValue}
+        urlTitle={urlTitle}
+        redditUrls={redditUrls}
+        redditInputMode={redditInputMode}
+        subredditName={subredditName}
+        redditSort={redditSort}
+        redditTimeRange={redditTimeRange}
+        redditLimit={redditLimit}
+        isLoading={isLoading}
+        sourceGroupingMode={sourceGroupingMode}
+        setUrlValue={setUrlValue}
+        setUrlTitle={setUrlTitle}
+        setRedditUrls={setRedditUrls}
+        setRedditInputMode={setRedditInputMode}
+        setSubredditName={setSubredditName}
+        setRedditSort={setRedditSort}
+        setRedditTimeRange={setRedditTimeRange}
+        setRedditLimit={setRedditLimit}
+        setSourceGroupingMode={setSourceGroupingMode}
+        openUrlSource={openUrlSource}
+        fetchRedditFeed={fetchRedditFeed}
+        addLocalFiles={addLocalFiles}
+        selectLocalFilesWithHandles={selectLocalFilesWithHandles}
+        selectLocalFolderWithHandles={selectLocalFolderWithHandles}
+        addDroppedLocalFiles={addDroppedLocalFiles}
+        allowLocalFileDrop={allowLocalFileDrop}
+      />
+
       {shouldMountOverlays ? (
         <WorkbenchOverlays
-          isSourceOpen={isSourceOpen}
-          onSourceOpenChange={(open) => {
-            setIsSourceOpen(open);
-            if (!open) {
-              setPendingFixedSlot(null);
-              setPendingTemplateSlotId(null);
-            }
-          }}
-          urlValue={urlValue}
-          urlTitle={urlTitle}
-          redditUrls={redditUrls}
-          redditInputMode={redditInputMode}
-          subredditName={subredditName}
-          redditSort={redditSort}
-          redditTimeRange={redditTimeRange}
-          redditLimit={redditLimit}
-          isLoading={isLoading}
-          sourceGroupingMode={sourceGroupingMode}
-          setUrlValue={setUrlValue}
-          setUrlTitle={setUrlTitle}
-          setRedditUrls={setRedditUrls}
-          setRedditInputMode={setRedditInputMode}
-          setSubredditName={setSubredditName}
-          setRedditSort={setRedditSort}
-          setRedditTimeRange={setRedditTimeRange}
-          setRedditLimit={setRedditLimit}
-          setSourceGroupingMode={setSourceGroupingMode}
-          openUrlSource={openUrlSource}
-          fetchRedditFeed={fetchRedditFeed}
-          addLocalFiles={addLocalFiles}
-          selectLocalFilesWithHandles={selectLocalFilesWithHandles}
-          selectLocalFolderWithHandles={selectLocalFolderWithHandles}
-          addDroppedLocalFiles={addDroppedLocalFiles}
-          allowLocalFileDrop={allowLocalFileDrop}
           largeLocalByteCachePrompt={largeLocalByteCachePrompt}
           onLargeLocalByteCacheOpenChange={(open) => {
             if (!open) answerLargeLocalByteCachePrompt(false);
@@ -500,6 +524,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onClearLocalCache={clearLocalCache}
           isLayoutsOpen={isLayoutsOpen}
           setIsLayoutsOpen={setIsLayoutsOpen}
+          layoutDialogView={layoutDialogView}
           savedWorkspaces={savedWorkspaces}
           cloudWorkspaces={cloudWorkspaces}
           savedTemplates={savedTemplates}
@@ -510,12 +535,15 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           openSavedTemplates={openSavedTemplates}
           deleteSavedWorkspace={deleteSavedWorkspace}
           deleteSavedTemplate={deleteSavedTemplate}
+          renameSavedWorkspace={renameSavedWorkspace}
+          renameSavedTemplate={renameSavedTemplate}
           uploadWorkspaceToCloud={uploadWorkspaceToCloud}
           uploadTemplateToCloud={uploadTemplateToCloud}
           shareCloudItem={shareCloudItem}
           regenerateCloudShareLink={regenerateCloudShareLink}
           disableCloudShareLink={disableCloudShareLink}
           exportSavedJson={exportSavedJson}
+          importCurrentWorkspaceJson={importCurrentWorkspaceJson}
           importSavedJson={importSavedJson}
           workspaceTabs={workspaceTabs}
           openWorkspaceStats={openWorkspaceStats}
@@ -523,6 +551,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           selectWorkspace={selectWorkspace}
           createWorkspaceTab={createWorkspaceTab}
           closeWorkspaceTab={closeWorkspaceTab}
+          closeWorkspaceTabs={closeWorkspaceTabs}
           openSaveDialog={() => {
             showWorkbenchOverlays();
             setIsLayoutsOpen(false);
@@ -648,6 +677,12 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onAddSource={() => openSourcePanelWithOverlay()}
           onOpenLibrary={() => {
             showWorkbenchOverlays();
+            setLayoutDialogView("library");
+            setIsLayoutsOpen(true);
+          }}
+          onOpenWorkspace={() => {
+            showWorkbenchOverlays();
+            setLayoutDialogView("workspace");
             setIsLayoutsOpen(true);
           }}
           onOpenSaveDialog={() => {

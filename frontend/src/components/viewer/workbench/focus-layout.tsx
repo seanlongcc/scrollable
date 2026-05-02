@@ -101,7 +101,7 @@ export function FocusLayout({
       </div>
 
       {!hideUi ? (
-        <aside className="grid min-h-0 gap-px md:grid-rows-[auto_minmax(0,1fr)]">
+        <aside className="grid min-h-0 gap-px md:grid-rows-[auto_minmax(0,1fr)] md:gap-2 md:p-2">
           <Button
             type="button"
             variant="outline"

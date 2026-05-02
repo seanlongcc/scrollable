@@ -1,6 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   AccountDialog,
@@ -14,7 +14,24 @@ import type {
   SerializedWorkspaceTemplate,
 } from "./types";
 
+const toastMocks = vi.hoisted(() => ({
+  toast: {
+    error: vi.fn(),
+    message: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/toast", () => ({
+  toast: toastMocks.toast,
+}));
+
 describe("cloud save UI", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("keeps Cloud selected and allows saving when local files become empty boxes", async () => {
     const user = userEvent.setup();
     const onSaveTargetChange = vi.fn();
@@ -109,7 +126,53 @@ describe("cloud save UI", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows close controls for open layouts in the mobile library sheet", async () => {
+  it("closes the Cloud row actions menu after opening the share link dialog", async () => {
+    const user = userEvent.setup();
+    const onShareCloudItem = vi.fn();
+
+    render(
+      <LayoutDialog
+        open
+        onOpenChange={vi.fn()}
+        localWorkspaces={[]}
+        cloudWorkspaces={[workspace("cloud-layout", "Cloud wall")]}
+        localTemplates={[]}
+        cloudTemplates={[]}
+        storageTarget="cloud"
+        onStorageTargetChange={vi.fn()}
+        onOpenWorkspaces={vi.fn()}
+        onOpenTemplates={vi.fn()}
+        onDeleteWorkspace={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onUploadWorkspaceToCloud={vi.fn()}
+        onUploadTemplateToCloud={vi.fn()}
+        onShareCloudItem={onShareCloudItem}
+        onExportJson={vi.fn()}
+        onImportJson={vi.fn()}
+        workspaceTabs={[{ id: "active", name: "Active" }]}
+        openWorkspaceStats={{ active: { sourceCount: 0, fileCount: 0 } }}
+        activeWorkspaceId="active"
+        onSelectWorkspace={vi.fn()}
+        onCreateWorkspaceTab={vi.fn()}
+        onCloseWorkspaceTab={vi.fn()}
+        onSaveCurrentLayout={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Library" });
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "More actions for Cloud wall",
+      }),
+    );
+
+    await user.click(screen.getByRole("menuitem", { name: "Share" }));
+
+    expect(onShareCloudItem).toHaveBeenCalledWith("layout", "cloud-layout");
+    expect(screen.queryByRole("menuitem", { name: "Share" })).toBeNull();
+  });
+
+  it("shows close controls for open layouts in the workspace sheet", async () => {
     const user = userEvent.setup();
     const onCloseWorkspaceTab = vi.fn();
 
@@ -117,6 +180,7 @@ describe("cloud save UI", () => {
       <LayoutDialog
         open
         onOpenChange={vi.fn()}
+        view="workspace"
         localWorkspaces={[]}
         cloudWorkspaces={[]}
         localTemplates={[]}
@@ -142,7 +206,7 @@ describe("cloud save UI", () => {
       />,
     );
 
-    const dialog = screen.getByRole("dialog", { name: "Library" });
+    const dialog = screen.getByRole("dialog", { name: "Workspace" });
     const closeButton = within(dialog).getByRole("button", {
       name: "Close Active",
     });
@@ -154,9 +218,52 @@ describe("cloud save UI", () => {
     expect(onCloseWorkspaceTab).toHaveBeenCalledWith("active");
   });
 
-  it("selects all visible layouts and deletes selected layouts", async () => {
+  it("disables New blank in the workspace sheet at 20 open tabs", () => {
+    const workspaceTabs = Array.from({ length: 20 }, (_, index) => ({
+      id: `layout-${index + 1}`,
+      name: `Layout ${index + 1}`,
+    }));
+
+    render(
+      <LayoutDialog
+        open
+        onOpenChange={vi.fn()}
+        view="workspace"
+        localWorkspaces={[]}
+        cloudWorkspaces={[]}
+        localTemplates={[]}
+        cloudTemplates={[]}
+        storageTarget="local"
+        onStorageTargetChange={vi.fn()}
+        onOpenWorkspaces={vi.fn()}
+        onOpenTemplates={vi.fn()}
+        onDeleteWorkspace={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onUploadWorkspaceToCloud={vi.fn()}
+        onUploadTemplateToCloud={vi.fn()}
+        onShareCloudItem={vi.fn()}
+        onExportJson={vi.fn()}
+        onImportJson={vi.fn()}
+        workspaceTabs={workspaceTabs}
+        openWorkspaceStats={{}}
+        activeWorkspaceId="layout-1"
+        onSelectWorkspace={vi.fn()}
+        onCreateWorkspaceTab={vi.fn()}
+        onCloseWorkspaceTab={vi.fn()}
+        onSaveCurrentLayout={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Workspace" });
+
+    expect(
+      within(dialog).getByRole("button", { name: "New blank" }),
+    ).toBeDisabled();
+  });
+
+  it("selects all visible layouts and imports JSON from the bulk action", async () => {
     const user = userEvent.setup();
-    const onDeleteWorkspace = vi.fn();
+    const onImportJson = vi.fn();
 
     render(
       <LayoutDialog
@@ -173,13 +280,13 @@ describe("cloud save UI", () => {
         onStorageTargetChange={vi.fn()}
         onOpenWorkspaces={vi.fn()}
         onOpenTemplates={vi.fn()}
-        onDeleteWorkspace={onDeleteWorkspace}
+        onDeleteWorkspace={vi.fn()}
         onDeleteTemplate={vi.fn()}
         onUploadWorkspaceToCloud={vi.fn()}
         onUploadTemplateToCloud={vi.fn()}
         onShareCloudItem={vi.fn()}
         onExportJson={vi.fn()}
-        onImportJson={vi.fn()}
+        onImportJson={onImportJson}
         workspaceTabs={[{ id: "active", name: "Active" }]}
         openWorkspaceStats={{ active: { sourceCount: 0, fileCount: 0 } }}
         activeWorkspaceId="active"
@@ -203,11 +310,89 @@ describe("cloud save UI", () => {
     ).toBeChecked();
 
     await user.click(
-      within(dialog).getByRole("button", { name: "Delete selected layouts" }),
+      within(dialog).getByRole("button", { name: "Deselect all layouts" }),
     );
 
-    expect(onDeleteWorkspace).toHaveBeenCalledWith("local-layout", "local");
-    expect(onDeleteWorkspace).toHaveBeenCalledWith("movie-layout", "local");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select Local wall" }),
+    ).not.toBeChecked();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select Movie wall" }),
+    ).not.toBeChecked();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Select all layouts" }),
+    );
+
+    expect(
+      within(dialog).queryByRole("button", { name: "Delete selected layouts" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Import JSON" }),
+    );
+
+    expect(onImportJson).toHaveBeenCalledWith("local");
+  });
+
+  it("deselects all visible templates from the Templates bulk action", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <LayoutDialog
+        open
+        onOpenChange={vi.fn()}
+        localWorkspaces={[]}
+        cloudWorkspaces={[]}
+        localTemplates={[
+          template("template-1", "mango"),
+          template("template-2", "evanshi3"),
+        ]}
+        cloudTemplates={[]}
+        storageTarget="local"
+        onStorageTargetChange={vi.fn()}
+        onOpenWorkspaces={vi.fn()}
+        onOpenTemplates={vi.fn()}
+        onDeleteWorkspace={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onUploadWorkspaceToCloud={vi.fn()}
+        onUploadTemplateToCloud={vi.fn()}
+        onShareCloudItem={vi.fn()}
+        onExportJson={vi.fn()}
+        onImportJson={vi.fn()}
+        workspaceTabs={[{ id: "active", name: "Active" }]}
+        openWorkspaceStats={{ active: { sourceCount: 0, fileCount: 0 } }}
+        activeWorkspaceId="active"
+        onSelectWorkspace={vi.fn()}
+        onCreateWorkspaceTab={vi.fn()}
+        onCloseWorkspaceTab={vi.fn()}
+        onSaveCurrentLayout={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Library" });
+    await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Select all templates" }),
+    );
+
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select mango" }),
+    ).toBeChecked();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select evanshi3" }),
+    ).toBeChecked();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Deselect all templates" }),
+    );
+
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select mango" }),
+    ).not.toBeChecked();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select evanshi3" }),
+    ).not.toBeChecked();
   });
 
   it("keeps double-digit layout counts compact on one metadata line", () => {
@@ -284,9 +469,9 @@ describe("cloud save UI", () => {
     await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
 
     expect(within(dialog).queryByText(/tmpl/)).not.toBeInTheDocument();
-    expect(within(dialog).getByText("free · 3 lyr · 3 box")).toHaveAttribute(
+    expect(within(dialog).getByText("free · 3 box")).toHaveAttribute(
       "title",
-      "free template · 3 layers · 3 boxes",
+      "free template · 3 boxes",
     );
 
     const checkbox = within(dialog).getByRole("checkbox", {
@@ -351,7 +536,9 @@ describe("cloud save UI", () => {
     ).toHaveAttribute("aria-valuenow", "20");
   });
 
-  it("shows legal links in the account dialog", () => {
+  it("hides legal and release links in the desktop account dialog", () => {
+    stubLatestRelease();
+
     render(
       <AccountDialog
         open
@@ -368,12 +555,17 @@ describe("cloud save UI", () => {
     const dialog = screen.getByRole("dialog", { name: "Account" });
 
     expect(
-      within(dialog).getByRole("link", { name: "Privacy" }),
-    ).toHaveAttribute("href", "/privacy");
-    expect(within(dialog).getByRole("link", { name: "Terms" })).toHaveAttribute(
-      "href",
-      "/terms",
-    );
+      within(dialog).queryByRole("link", { name: "Privacy" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("link", { name: "Terms" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("link", { name: "Changelog" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("link", { name: "v0.2.0" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows unlimited Cloud metadata usage for admins", () => {
@@ -398,6 +590,11 @@ describe("cloud save UI", () => {
     const user = userEvent.setup();
     const onRegenerate = vi.fn();
     const onDisable = vi.fn();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
 
     render(
       <ShareLinkDialog
@@ -420,6 +617,15 @@ describe("cloud save UI", () => {
       within(dialog).getByRole("button", { name: "Copy link" }),
     ).toBeInTheDocument();
 
+    await user.click(within(dialog).getByRole("button", { name: "Copy link" }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      "https://scrollable.test/share/layout/abc12345",
+    );
+    await waitFor(() =>
+      expect(toastMocks.toast.success).toHaveBeenCalledWith("Link copied"),
+    );
+
     await user.click(
       within(dialog).getByRole("button", { name: "Regenerate" }),
     );
@@ -436,6 +642,25 @@ describe("cloud save UI", () => {
 
 function signedInAccount(): AccountState {
   return { status: "signed-in", email: "reader@example.com" };
+}
+
+function stubLatestRelease() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      if (input !== "/api/releases/latest") {
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }
+
+      return Response.json({
+        release: {
+          tagName: "v0.2.0",
+          htmlUrl:
+            "https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0",
+        },
+      });
+    }),
+  );
 }
 
 function cloudUsage(

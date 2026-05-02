@@ -49,3 +49,18 @@ export function createWorkbenchOverlayIntentPreload(
     void load();
   };
 }
+
+export function scheduleInitialWorkbenchOverlayPreload(
+  load: () => Promise<unknown> | unknown,
+  win: WorkbenchPreloadWindow = window,
+) {
+  let isCancelled = false;
+  const preloadId = win.setTimeout(() => {
+    if (!isCancelled) void load();
+  }, 0);
+
+  return () => {
+    isCancelled = true;
+    win.clearTimeout(preloadId);
+  };
+}

@@ -75,6 +75,27 @@ describe("viewer layout", () => {
         fixedGrid: { columns: 2, rows: 8 },
         visibleCells: 16,
       }),
+    ).toEqual({ columns: 3, rows: 3, visibleCells: 9 });
+  });
+
+  it("packs small fixed grids into portrait-first mobile surfaces", () => {
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: { columns: 3, rows: 1 },
+        visibleCells: 3,
+      }),
+    ).toEqual({ columns: 1, rows: 3, visibleCells: 3 });
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: { columns: 2, rows: 2 },
+        visibleCells: 4,
+      }),
+    ).toEqual({ columns: 2, rows: 2, visibleCells: 4 });
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: { columns: 3, rows: 2 },
+        visibleCells: 6,
+      }),
     ).toEqual({ columns: 2, rows: 3, visibleCells: 6 });
   });
 

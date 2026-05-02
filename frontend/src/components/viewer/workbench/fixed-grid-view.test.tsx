@@ -36,6 +36,24 @@ describe("FixedGridView", () => {
     expect(screen.getByTestId("fixed-cell-9")).toHaveClass("max-md:hidden");
   });
 
+  it("uses a portrait-first mobile surface for three sources", () => {
+    const { container } = render(
+      <FixedGridView
+        {...fixedGridProps({
+          fixedGrid: { columns: 3, rows: 1 },
+          visibleCells: 3,
+        })}
+      />,
+    );
+
+    const grid = container.firstElementChild as HTMLElement;
+
+    expect(grid.style.getPropertyValue("--mobile-grid-columns")).toBe("1");
+    expect(grid.style.getPropertyValue("--mobile-grid-rows")).toBe("3");
+    expect(grid.style.getPropertyValue("--desktop-grid-columns")).toBe("3");
+    expect(grid.style.getPropertyValue("--desktop-grid-rows")).toBe("1");
+  });
+
   it("does not draw the selected outline outside the grid cell", () => {
     render(
       <FixedGridView

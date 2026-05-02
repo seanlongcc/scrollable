@@ -19,7 +19,6 @@ Planned capabilities:
 - Support saved feed configurations and collections of configurations.
 - Support sharing configurations and collections.
 - Support collection tags and NSFW marking.
-- Require sign-in before viewing NSFW collections.
 
 ## Reddit And NSFW Notes
 

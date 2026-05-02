@@ -9,6 +9,7 @@ import {
   Play,
   Plus,
   RotateCcw,
+  SkipBack,
   SkipForward,
   UnfoldHorizontal,
   UnfoldVertical,
@@ -18,9 +19,10 @@ import { Button } from "@/components/ui/button";
 import type { FixedGrid } from "@/lib/viewer/layout";
 import { NumberField, placeCaretAfterInputValue } from "./fields";
 import { clamp } from "./numeric-helpers";
+import type { GlobalTimerAction } from "./timer-actions";
 import type { LayoutMode } from "./types";
 
-export type GlobalTimerAction = "next" | "pause" | "restart";
+export type { GlobalTimerAction } from "./timer-actions";
 
 export function WorkbenchToolbar({
   layoutMode,
@@ -116,8 +118,17 @@ export function WorkbenchToolbar({
             onGlobalTimerSecondsChange(clamp(next, 1, 120));
           }}
           aria-label="Global timer seconds"
-          className="h-6 w-11 rounded-md border border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground outline-none focus-visible:border-primary"
+          className="h-6 w-9 rounded-md border border-border/70 bg-background/70 px-1 text-center font-mono text-[11px] text-foreground outline-none focus-visible:border-primary"
         />
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          onClick={() => onGlobalTimerAction("back")}
+          aria-label="Global back"
+        >
+          <SkipBack />
+        </Button>
         <Button
           type="button"
           size="icon-sm"

@@ -29,12 +29,11 @@ export function sourceFileLibraryMetadata(
 }
 
 export function templateLibraryMetadata(
-  layerCount: number,
   boxCount: number,
 ): LibraryMetadataLabel {
   return {
-    visible: `free · ${layerCount} lyr · ${boxCount} box`,
-    title: `free template · ${countLabel(layerCount, "layer")} · ${countLabel(boxCount, "box", "boxes")}`,
+    visible: `free · ${boxCount} box`,
+    title: `free template · ${countLabel(boxCount, "box", "boxes")}`,
   };
 }
 

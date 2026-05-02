@@ -3,6 +3,7 @@
 import { Clock3, Copy, Grid2X2, Maximize2, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 
+import { ReleaseVersionLink } from "@/components/release-version-link";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -98,7 +99,7 @@ export function WorkbenchPanelSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="mobile-compact-controls max-h-[82dvh] overflow-y-auto overscroll-contain rounded-t-3xl border-border/70 bg-surface px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-22px_74px_rgba(18,10,10,0.62)] md:hidden"
+        className="mobile-compact-controls max-h-[82dvh] overflow-y-auto overscroll-contain rounded-t-2xl border-border/70 bg-surface px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_64px_rgba(18,10,10,0.58)] md:hidden"
       >
         <div className="mx-auto h-1 w-10 rounded-full bg-border" />
         <SheetHeader className="px-0 pt-0">
@@ -155,9 +156,24 @@ export function WorkbenchPanelContent({
 }: WorkbenchPanelContentProps) {
   const maxGridSize =
     mode === "mobile" ? MOBILE_FIXED_GRID_MAX : DESKTOP_FIXED_GRID_MAX;
+  const removeSelectedSourceButton = (className?: string) => (
+    <Button
+      type="button"
+      variant="destructive"
+      onClick={onRemoveSelectedSource}
+      className={cn(
+        selectedSourceButtonClass,
+        "w-full justify-center",
+        className,
+      )}
+    >
+      <Trash2 />
+      <span className="min-w-0 truncate">Remove</span>
+    </Button>
+  );
 
   return (
-    <div className="flex min-h-full flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-3">
       <div className="hidden min-w-0 text-sm font-semibold md:block">
         <div className="truncate" title={workspaceName}>
           {workspaceName}
@@ -314,24 +330,18 @@ export function WorkbenchPanelContent({
                   </Button>
                 </>
               ) : null}
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={onRemoveSelectedSource}
-                className={cn(
-                  selectedSourceButtonClass,
-                  "col-span-2 justify-center",
-                )}
-              >
-                <Trash2 />
-                <span className="min-w-0 truncate">Remove</span>
-              </Button>
+              {layoutMode !== "free"
+                ? removeSelectedSourceButton("col-span-2")
+                : null}
             </div>
             {layoutMode === "free" ? (
-              <SelectedFreeLayoutControls
-                selected={selected}
-                onFreeRectChange={onFreeRectChange}
-              />
+              <>
+                <SelectedFreeLayoutControls
+                  selected={selected}
+                  onFreeRectChange={onFreeRectChange}
+                />
+                {removeSelectedSourceButton()}
+              </>
             ) : null}
           </section>
           <section className="grid gap-2">
@@ -355,14 +365,20 @@ export function WorkbenchPanelContent({
 }
 
 function WorkbenchLegalFooter() {
+  const linkClass = "hover:text-foreground";
+
   return (
     <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-border/60 pt-3 font-mono text-[10px] text-muted-foreground">
-      <Link className="hover:text-foreground" href="/privacy">
+      <Link className={linkClass} href="/privacy">
         Privacy
       </Link>
-      <Link className="hover:text-foreground" href="/terms">
+      <Link className={linkClass} href="/terms">
         Terms
       </Link>
+      <Link className={linkClass} href="/changelog">
+        Changelog
+      </Link>
+      <ReleaseVersionLink className={linkClass} />
     </footer>
   );
 }

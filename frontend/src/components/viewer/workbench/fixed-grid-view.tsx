@@ -190,10 +190,10 @@ export function FixedGridView({
                 onClick={() => openSourcePanel(slot)}
                 aria-label="Add source to empty cell"
                 title="Add source to empty cell"
-                className="grid size-full min-h-0 min-w-0 cursor-pointer place-items-center rounded-2xl border border-dashed border-border/70 bg-surface/35 p-2 text-sm font-semibold text-muted-foreground transition hover:border-primary/70 hover:text-primary"
+                className="group grid size-full min-h-0 min-w-0 cursor-pointer place-items-center rounded-none border border-dashed border-border/65 bg-background/42 p-2 text-sm font-semibold text-muted-foreground transition-[background-color,border-color,color,box-shadow] hover:border-primary/70 hover:bg-primary-soft/35 hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none md:rounded-xl"
               >
                 <span className="inline-flex max-w-full min-w-0 items-center gap-2">
-                  <Plus className="size-4" />
+                  <Plus className="size-4 text-primary" />
                   <span className="min-w-0 truncate">Add source</span>
                 </span>
               </button>

@@ -47,6 +47,8 @@ export type WorkspaceTabActionState = {
   activeSnapshot: RuntimeWorkspace;
 };
 
+export const MAX_OPEN_WORKSPACE_TABS = 20;
+
 export function prepareCreateWorkspaceTab({
   current,
   workspaceTabs,
@@ -59,7 +61,9 @@ export function prepareCreateWorkspaceTab({
   workspaceStates: Record<string, RuntimeWorkspace>;
   savedWorkspaces: Record<string, SerializedWorkspace>;
   createId: () => string;
-}): WorkspaceTabActionState {
+}): WorkspaceTabActionState | null {
+  if (workspaceTabs.length >= MAX_OPEN_WORKSPACE_TABS) return null;
+
   const nextId = createId();
   const nextName = nextLayoutName(workspaceTabs, savedWorkspaces);
   const empty = toRuntimeWorkspace(createEmptyWorkspace(nextId, nextName));
@@ -218,6 +222,84 @@ export function prepareCloseWorkspaceTab({
   };
 }
 
+export function prepareCloseWorkspaceTabs({
+  ids,
+  current,
+  workspaceTabs,
+  workspaceStates,
+  savedWorkspaces,
+  createId,
+}: {
+  ids: string[];
+  current: RuntimeWorkspace;
+  workspaceTabs: WorkspaceTab[];
+  workspaceStates: Record<string, RuntimeWorkspace>;
+  savedWorkspaces: Record<string, SerializedWorkspace>;
+  createId: () => string;
+}): WorkspaceTabActionState {
+  const idsToClose = new Set(ids);
+  const closingIndexes = workspaceTabs
+    .map((tab, index) => (idsToClose.has(tab.id) ? index : -1))
+    .filter((index) => index >= 0);
+
+  if (!closingIndexes.length) {
+    return {
+      nextTabs: workspaceTabs,
+      nextStates: { ...workspaceStates, [current.id]: current },
+      activeWorkspaceId: current.id,
+      activeSnapshot: current,
+    };
+  }
+
+  const statesWithCurrent = { ...workspaceStates, [current.id]: current };
+  const nextTabs = workspaceTabs.filter((tab) => !idsToClose.has(tab.id));
+
+  if (!nextTabs.length) {
+    const nextId = createId();
+    const nextTab = { id: nextId, name: "Layout 1" };
+    const empty = toRuntimeWorkspace(
+      createEmptyWorkspace(nextId, nextTab.name),
+    );
+
+    return {
+      nextTabs: [nextTab],
+      nextStates: { [nextId]: empty },
+      activeWorkspaceId: nextId,
+      activeSnapshot: empty,
+    };
+  }
+
+  const firstClosingIndex = Math.min(...closingIndexes);
+  const activeWorkspaceId = idsToClose.has(current.id)
+    ? (nextTabs[Math.max(0, firstClosingIndex - 1)]?.id ?? nextTabs[0].id)
+    : current.id;
+  const nextStates = { ...statesWithCurrent };
+
+  for (const id of idsToClose) {
+    if (!savedWorkspaces[id]) {
+      delete nextStates[id];
+    }
+  }
+
+  const activeSnapshot =
+    nextStates[activeWorkspaceId] ??
+    toRuntimeWorkspace(
+      savedWorkspaces[activeWorkspaceId] ??
+        createEmptyWorkspace(
+          activeWorkspaceId,
+          nextTabs.find((tab) => tab.id === activeWorkspaceId)?.name ??
+            "Layout",
+        ),
+    );
+
+  return {
+    nextTabs,
+    nextStates: { ...nextStates, [activeWorkspaceId]: activeSnapshot },
+    activeWorkspaceId,
+    activeSnapshot,
+  };
+}
+
 export function prepareOpenSavedWorkspaces({
   ids,
   current,
@@ -237,25 +319,30 @@ export function prepareOpenSavedWorkspaces({
       Boolean(workspace),
     );
 
-  if (!snapshots.length) return null;
-
   const currentAwareStates = { ...workspaceStates, [current.id]: current };
   const nextTabs = [...workspaceTabs];
   const nextStates = { ...currentAwareStates };
+  const openedSnapshots: SerializedWorkspace[] = [];
 
   for (const snapshot of snapshots) {
+    const isAlreadyOpen = nextTabs.some((tab) => tab.id === snapshot.id);
+    if (!isAlreadyOpen && nextTabs.length >= MAX_OPEN_WORKSPACE_TABS) continue;
+
     nextStates[snapshot.id] = withFirstLayerActive(
       toRuntimeWorkspaceWithLocalRuntime(
         snapshot,
         currentAwareStates[snapshot.id],
       ),
     );
-    if (!nextTabs.some((tab) => tab.id === snapshot.id)) {
+    if (!isAlreadyOpen) {
       nextTabs.push({ id: snapshot.id, name: snapshot.name });
     }
+    openedSnapshots.push(snapshot);
   }
 
-  const activeWorkspaceId = snapshots[0].id;
+  if (!openedSnapshots.length) return null;
+
+  const activeWorkspaceId = openedSnapshots[0].id;
   const activeSnapshot = nextStates[activeWorkspaceId];
 
   return {
@@ -289,14 +376,15 @@ export function prepareOpenSavedTemplates({
       Boolean(template),
     );
 
-  if (!templates.length) return null;
-
   const currentAwareStates = { ...workspaceStates, [current.id]: current };
   const nextTabs = [...workspaceTabs];
   const nextStates = { ...currentAwareStates };
   let activeWorkspaceId = current.id;
+  let openedCount = 0;
 
   for (const template of templates) {
+    if (nextTabs.length >= MAX_OPEN_WORKSPACE_TABS) break;
+
     const nextId = createId();
     const name = uniqueWorkspaceName(template.name, nextTabs, savedWorkspaces);
     const workspace = workspaceFromTemplate(template, nextId, name);
@@ -304,7 +392,10 @@ export function prepareOpenSavedTemplates({
     nextTabs.push({ id: nextId, name });
     nextStates[nextId] = workspace;
     activeWorkspaceId = nextId;
+    openedCount += 1;
   }
+
+  if (!openedCount) return null;
 
   const activeSnapshot = nextStates[activeWorkspaceId];
 

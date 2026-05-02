@@ -3,8 +3,10 @@ import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
 import type { SessionPlacementSourceInput } from "./session-placement";
 import {
   buildUrlAddSourceConfig,
+  buildUrlAddSourceConfigs,
   createRedditSessionSources,
   createUrlSessionSource,
+  createUrlSessionSources,
 } from "./runtime-sources";
 import {
   createLocalSessionSources,
@@ -16,6 +18,7 @@ import type { SourceAddFormState } from "./source-add-state";
 import {
   resolveRedditAddInput,
   separateSourceSlotError,
+  splitUrlValues,
 } from "./source-add-state";
 import type { SourceGroupingMode } from "./types";
 
@@ -40,7 +43,7 @@ export type RedditSourceAddActionResult =
 export type UrlSourceAddActionResult =
   | {
       status: "ready";
-      source: SessionPlacementSourceInput;
+      sources: SessionPlacementSourceInput[];
     }
   | SourceAddActionError;
 
@@ -116,11 +119,20 @@ export async function addUrlSourceAction({
   urlTitle: string;
 }): Promise<UrlSourceAddActionResult> {
   try {
+    const urls = splitUrlValues(urlValue);
+
     return {
       status: "ready",
-      source: await createUrlSessionSource(
-        buildUrlAddSourceConfig({ urlValue, urlTitle }),
-      ),
+      sources:
+        urls.length === 1
+          ? [
+              await createUrlSessionSource(
+                buildUrlAddSourceConfig({ urlValue: urls[0]!, urlTitle }),
+              ),
+            ]
+          : await createUrlSessionSources(
+              buildUrlAddSourceConfigs({ urls, urlTitle }),
+            ),
     };
   } catch (error) {
     return {

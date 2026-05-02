@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe("fetchRedditRuntimeItems", () => {
-  it("fetches Reddit listing JSON directly from the browser", async () => {
+  it("fetches Reddit listing media directly from Reddit", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -20,13 +20,13 @@ describe("fetchRedditRuntimeItems", () => {
           json: async () => ({
             items: [
               {
-                id: "reddit:legacy",
+                id: "reddit:api",
                 source: "reddit",
-                title: "Legacy API item",
+                title: "API item",
                 subreddit: "pics",
                 isNsfw: false,
                 createdAt: "2026-04-24T00:00:00.000Z",
-                media: [{ type: "image", url: "https://cdn.test/legacy.jpg" }],
+                media: [{ type: "image", url: "https://cdn.test/api.jpg" }],
               },
             ],
           }),
@@ -42,7 +42,7 @@ describe("fetchRedditRuntimeItems", () => {
               {
                 data: {
                   id: "direct",
-                  title: "Direct browser item",
+                  title: "Direct Reddit item",
                   subreddit: "pics",
                   post_hint: "image",
                   url: "https://cdn.test/direct.jpg",
@@ -63,7 +63,7 @@ describe("fetchRedditRuntimeItems", () => {
     expect(items).toMatchObject([
       {
         id: "reddit:direct",
-        title: "Direct browser item",
+        title: "Direct Reddit item",
         media: [{ url: "https://cdn.test/direct.jpg" }],
       },
     ]);
@@ -71,39 +71,32 @@ describe("fetchRedditRuntimeItems", () => {
       "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
       { cache: "no-store" },
     );
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).startsWith("/api/reddit/listing"),
+      ),
+    ).toBe(false);
   });
 
-  it("resolves Reddit URL sources directly from the browser", async () => {
+  it("resolves Reddit URL sources directly from Reddit", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
-      if (url.startsWith("/api/url/resolve")) {
+      if (url.startsWith("/api/reddit/listing")) {
         return {
           ok: true,
           json: async () => ({
-            resolution: {
-              status: "resolved",
-              mode: "provider",
-              hint: "provider:reddit",
-              provider: "reddit",
-              title: "Server Reddit URL",
-              externalUrl:
-                "https://www.reddit.com/r/pics/comments/abc123/title/",
-              items: [
-                {
-                  id: "reddit:server",
-                  source: "reddit",
-                  title: "Server item",
-                  subreddit: "pics",
-                  isNsfw: false,
-                  createdAt: "2026-04-24T00:00:00.000Z",
-                  media: [
-                    { type: "image", url: "https://cdn.test/server.jpg" },
-                  ],
-                },
-              ],
-            },
-            nextResolverHint: "provider:reddit",
+            items: [
+              {
+                id: "reddit:api-url",
+                source: "reddit",
+                title: "API URL item",
+                subreddit: "pics",
+                isNsfw: false,
+                createdAt: "2026-04-24T00:00:00.000Z",
+                media: [{ type: "image", url: "https://cdn.test/api-url.jpg" }],
+              },
+            ],
           }),
         };
       }
@@ -163,6 +156,11 @@ describe("fetchRedditRuntimeItems", () => {
       "https://www.reddit.com/r/pics/comments/abc123/title/.json?raw_json=1",
       { cache: "no-store" },
     );
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).startsWith("/api/reddit/listing"),
+      ),
+    ).toBe(false);
     expect(
       fetchMock.mock.calls.some(([input]) =>
         String(input).startsWith("/api/url/resolve"),

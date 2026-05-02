@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createWorkbenchOverlayIntentPreload,
+  scheduleInitialWorkbenchOverlayPreload,
   scheduleDeferredWorkbenchTask,
 } from "./workbench-preload";
 
@@ -74,5 +75,37 @@ describe("scheduleDeferredWorkbenchTask", () => {
 
     vi.advanceTimersByTime(1);
     expect(load).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("scheduleInitialWorkbenchOverlayPreload", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("warms the overlay chunk on the next task after first paint", () => {
+    const load = vi.fn();
+
+    scheduleInitialWorkbenchOverlayPreload(load);
+
+    expect(load).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(0);
+
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("can cancel the initial overlay preload before it runs", () => {
+    const load = vi.fn();
+
+    const cancel = scheduleInitialWorkbenchOverlayPreload(load);
+    cancel();
+    vi.advanceTimersByTime(0);
+
+    expect(load).not.toHaveBeenCalled();
   });
 });

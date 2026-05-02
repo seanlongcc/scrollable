@@ -134,6 +134,9 @@ export function FeedWorkbench({
   >(null);
   const [isSourceOpen, setIsSourceOpen] = useState(false);
   const [isLayoutsOpen, setIsLayoutsOpen] = useState(false);
+  const [layoutDialogView, setLayoutDialogView] = useState<
+    "library" | "workspace"
+  >("library");
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [account, setAccount] = useState<AccountState>(() =>
     getSupabaseEnv() ? { status: "loading" } : { status: "unconfigured" },
@@ -391,11 +394,15 @@ export function FeedWorkbench({
     beginWorkspaceRename,
     commitWorkspaceRename,
     closeWorkspaceTab,
+    closeWorkspaceTabs,
     openSavedWorkspaces,
     openSavedTemplates,
     deleteSavedWorkspace,
     deleteSavedTemplate,
+    renameSavedWorkspace,
+    renameSavedTemplate,
     exportCurrentWorkspaceJson,
+    importCurrentWorkspaceJson,
     applyWorkspaceSnapshot,
   } = useWorkspaceHandlers({
     workspaceName,
@@ -633,6 +640,7 @@ export function FeedWorkbench({
     clearCurrentLayout,
     clearLocalCache,
     closeWorkspaceTab,
+    closeWorkspaceTabs,
     cloneSelectedSource,
     cloudBlockReason,
     cloudShareTarget,
@@ -657,6 +665,7 @@ export function FeedWorkbench({
     freeGridRef,
     galleryIndexes,
     globalSeconds,
+    importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
     isAnySheetOpen,
@@ -674,6 +683,7 @@ export function FeedWorkbench({
     layers,
     layoutMode,
     layoutModeLocked,
+    layoutDialogView,
     libraryStorageTarget,
     localCacheStatus,
     localCacheStorageFullStatus,
@@ -713,6 +723,8 @@ export function FeedWorkbench({
     saveUrlSourceEdit,
     savedTemplates,
     savedWorkspaces,
+    renameSavedTemplate,
+    renameSavedWorkspace,
     selectLayer,
     selectLocalFilesWithHandles,
     selectLocalFolderWithHandles,
@@ -728,6 +740,7 @@ export function FeedWorkbench({
     setIsAccountOpen,
     setIsClearOpen,
     setIsDesktopWorkbenchCollapsed,
+    setLayoutDialogView,
     setIsLayoutsOpen,
     setIsSaveOpen,
     setIsSourceOpen,

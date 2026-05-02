@@ -11,6 +11,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  SkipBack,
   SkipForward,
   Trash2,
   UnfoldHorizontal,
@@ -36,7 +37,7 @@ import type { GlobalTimerAction } from "./workbench-toolbar";
 const sectionHeadingClass =
   "font-mono text-[10px] font-semibold tracking-normal text-muted-foreground uppercase";
 export const workbenchActionButtonClass =
-  "h-10 min-h-10 min-w-0 justify-start overflow-hidden text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
+  "h-10 min-h-10 min-w-0 justify-start overflow-hidden rounded-lg text-[0.78rem] font-normal md:h-8 md:min-h-0 md:text-xs md:font-medium";
 
 export function WorkbenchPanelDisclosure({
   label,
@@ -53,7 +54,7 @@ export function WorkbenchPanelDisclosure({
         type="button"
         variant="outline"
         aria-expanded={open}
-        className="h-12 w-full min-w-0 justify-between rounded-2xl px-3 md:h-8"
+        className="h-12 w-full min-w-0 justify-between rounded-xl px-3 md:h-8"
         onClick={() => setOpen((current) => !current)}
       >
         <span className="min-w-0 truncate">{label}</span>
@@ -245,53 +246,69 @@ export function GlobalTimerSection({
   return (
     <section className="grid gap-2">
       <h2 className={sectionHeadingClass}>Global timer</h2>
-      <div
-        className={cn(
-          mode === "desktop"
-            ? "grid grid-cols-[3fr_repeat(3,minmax(0,1fr))] items-center gap-2"
-            : "grid grid-cols-[minmax(0,3fr)_repeat(3,minmax(0,1fr))] items-center gap-2",
-        )}
-      >
-        <NumberField
-          label="Global timer seconds"
-          icon={<Clock3 className="size-3.5" />}
-          value={globalSeconds}
-          min={1}
-          max={120}
-          className="min-w-0"
-          inputClassName="w-full min-w-0 flex-1"
-          onChange={onGlobalTimerSecondsChange}
-        />
-        <Button
-          type="button"
-          size={mode === "desktop" ? "icon" : "icon-sm"}
-          variant="outline"
-          aria-label="Global pause"
-          onClick={() => onGlobalTimerAction("pause")}
-          className="h-11 min-h-0 min-w-0 w-full md:h-8"
+      <div className="grid gap-2">
+        <div
+          role="group"
+          aria-label="Global timer duration"
+          className="grid grid-cols-2 items-center gap-2"
         >
-          {hasRunningSessionTimer ? <Pause /> : <Play />}
-        </Button>
-        <Button
-          type="button"
-          size={mode === "desktop" ? "icon" : "icon-sm"}
-          variant="outline"
-          aria-label="Global next"
-          onClick={() => onGlobalTimerAction("next")}
-          className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          <NumberField
+            label="Global timer seconds"
+            icon={<Clock3 className="size-3.5" />}
+            value={globalSeconds}
+            min={1}
+            max={120}
+            className="min-w-0"
+            inputClassName="w-full min-w-0 flex-1"
+            onChange={onGlobalTimerSecondsChange}
+          />
+          <Button
+            type="button"
+            size={mode === "desktop" ? "icon" : "icon-sm"}
+            variant="outline"
+            aria-label="Global restart"
+            onClick={() => onGlobalTimerAction("restart")}
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          >
+            <RotateCcw />
+          </Button>
+        </div>
+        <div
+          role="group"
+          aria-label="Global timer transport"
+          className="grid grid-cols-3 items-center gap-2"
         >
-          <SkipForward />
-        </Button>
-        <Button
-          type="button"
-          size={mode === "desktop" ? "icon" : "icon-sm"}
-          variant="outline"
-          aria-label="Global restart"
-          onClick={() => onGlobalTimerAction("restart")}
-          className="h-11 min-h-0 min-w-0 w-full md:h-8"
-        >
-          <RotateCcw />
-        </Button>
+          <Button
+            type="button"
+            size={mode === "desktop" ? "icon" : "icon-sm"}
+            variant="outline"
+            aria-label="Global back"
+            onClick={() => onGlobalTimerAction("back")}
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          >
+            <SkipBack />
+          </Button>
+          <Button
+            type="button"
+            size={mode === "desktop" ? "icon" : "icon-sm"}
+            variant="outline"
+            aria-label="Global pause"
+            onClick={() => onGlobalTimerAction("pause")}
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          >
+            {hasRunningSessionTimer ? <Pause /> : <Play />}
+          </Button>
+          <Button
+            type="button"
+            size={mode === "desktop" ? "icon" : "icon-sm"}
+            variant="outline"
+            aria-label="Global next"
+            onClick={() => onGlobalTimerAction("next")}
+            className="h-11 min-h-0 min-w-0 w-full md:h-8"
+          >
+            <SkipForward />
+          </Button>
+        </div>
       </div>
     </section>
   );
@@ -328,8 +345,9 @@ export function ActionsSection({
       <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
-          variant="outline"
+          variant="default"
           onMouseEnter={onPreloadOverlays}
+          onPointerDown={onPreloadOverlays}
           onFocus={onPreloadOverlays}
           onClick={onAddSource}
           className={workbenchActionButtonClass}
@@ -359,6 +377,7 @@ export function ActionsSection({
           type="button"
           variant="outline"
           onMouseEnter={onPreloadOverlays}
+          onPointerDown={onPreloadOverlays}
           onFocus={onPreloadOverlays}
           onClick={onOpenSaveDialog}
           className={workbenchActionButtonClass}

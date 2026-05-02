@@ -34,6 +34,9 @@ export function LegalPage({
             <Link className="hover:text-foreground" href="/privacy">
               Privacy
             </Link>
+            <Link className="hover:text-foreground" href="/changelog">
+              Changelog
+            </Link>
           </nav>
         </header>
 

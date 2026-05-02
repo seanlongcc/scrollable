@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -27,6 +27,47 @@ describe("FeedWorkbench", () => {
     expect(
       screen.getByRole("button", { name: "Global next" }),
     ).toBeInTheDocument();
+    const durationRow = screen.getByRole("group", {
+      name: "Global timer duration",
+    });
+    const transportRow = screen.getByRole("group", {
+      name: "Global timer transport",
+    });
+    const globalTimerInput = screen.getByLabelText("Global timer seconds");
+    const globalRestart = screen.getByRole("button", {
+      name: "Global restart",
+    });
+    const globalBack = screen.getByRole("button", { name: "Global back" });
+    const globalPause = screen.getByRole("button", { name: "Global pause" });
+    expect(durationRow).toHaveClass("grid-cols-2");
+    expect(within(durationRow).getByLabelText("Global timer seconds")).toBe(
+      globalTimerInput,
+    );
+    expect(
+      within(durationRow).getByRole("button", { name: "Global restart" }),
+    ).toBe(globalRestart);
+    expect(
+      within(transportRow).getByRole("button", { name: "Global back" }),
+    ).toBe(globalBack);
+    expect(
+      within(transportRow).getByRole("button", { name: "Global pause" }),
+    ).toBe(globalPause);
+    expect(
+      within(transportRow).getByRole("button", { name: "Global next" }),
+    ).toBe(screen.getByRole("button", { name: "Global next" }));
+    expect(globalBack).toBeInTheDocument();
+    expect(
+      globalTimerInput.compareDocumentPosition(globalRestart) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      globalRestart.compareDocumentPosition(globalBack) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      globalBack.compareDocumentPosition(globalPause) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Add source" }),
     ).toBeInTheDocument();
@@ -69,11 +110,17 @@ describe("FeedWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
+    const accountDialog = await screen.findByRole("dialog", {
+      name: "Account",
+    });
+    await waitFor(() =>
+      expect(
+        within(accountDialog).getByRole("button", { name: "Sign up" }),
+      ).toBeInTheDocument(),
+    );
     expect(
-      await screen.findByRole("dialog", { name: "Account" }),
+      within(accountDialog).getByRole("button", { name: "Sign in" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Reddit" }),
     ).not.toBeInTheDocument();

@@ -1,7 +1,9 @@
 "use client";
 
-import { Globe, Mail, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { Mail, UserPlus } from "lucide-react";
+import Link from "next/link";
+import { siGoogle } from "simple-icons";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,15 +11,56 @@ import { Label } from "@/components/ui/label";
 import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { toast } from "@/lib/toast";
+import {
+  toAuthCallbackUrl,
+  toAuthErrorMessage,
+  toForgotPasswordHref,
+  validateNewPassword,
+  withSignedInFlag,
+} from "./auth-helpers";
 
 const authButtonClass = "font-normal md:font-normal";
+const signupSuccessMessage =
+  "If this email can create an account, we sent a confirmation link. Already signed up? Sign in or check your inbox.";
 
-export function SignInPanel({ next = "/" }: { next?: string }) {
+type SignInPanelMode = "sign-in" | "sign-up";
+
+function GoogleBrandIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-3.5"
+      data-brand-icon="google"
+      fill="white"
+      focusable="false"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d={siGoogle.path} />
+    </svg>
+  );
+}
+
+export function SignInPanel({
+  mode = "sign-in",
+  next = "/",
+}: {
+  mode?: SignInPanelMode;
+  next?: string;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const emailInputId = useId();
+  const passwordInputId = useId();
+  const confirmPasswordInputId = useId();
   const isConfigured = Boolean(getSupabaseEnv());
+  const isSigningUp = mode === "sign-up";
   const canUseEmailPassword =
-    isConfigured && email.length > 0 && password.length >= 8;
+    isConfigured &&
+    email.trim().length > 0 &&
+    password.length >= 8 &&
+    (!isSigningUp || confirmPassword.length > 0);
 
   async function signInWithEmailPassword() {
     const supabase = await createLazySupabaseBrowserClient();
@@ -27,7 +70,7 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(toAuthErrorMessage(error.message));
       return;
     }
 
@@ -35,6 +78,12 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
   }
 
   async function signUpWithEmailPassword() {
+    const validationError = validateNewPassword(password, confirmPassword);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     const supabase = await createLazySupabaseBrowserClient();
     const { error } = await supabase.auth.signUp({
       email,
@@ -45,11 +94,14 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
     });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(toAuthErrorMessage(error.message));
       return;
     }
 
-    toast.success("Check email to confirm account");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    toast.success(signupSuccessMessage);
   }
 
   async function signInWithGoogle() {
@@ -69,7 +121,9 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
       className="grid gap-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (canUseEmailPassword) void signInWithEmailPassword();
+        if (!canUseEmailPassword) return;
+        if (isSigningUp) void signUpWithEmailPassword();
+        else void signInWithEmailPassword();
       }}
     >
       {!isConfigured ? (
@@ -77,44 +131,66 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
           Supabase env missing. Runtime feeds still work.
         </p>
       ) : null}
-      <Label className="grid gap-1 text-sm">
-        Email
+      <div>
+        <Label className="sr-only" htmlFor={emailInputId}>
+          Email
+        </Label>
         <Input
+          id={emailInputId}
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
+          placeholder="email"
+          autoComplete="email"
           disabled={!isConfigured}
         />
-      </Label>
-      <Label className="grid gap-1 text-sm">
-        Password
+      </div>
+      <div>
+        <Label className="sr-only" htmlFor={passwordInputId}>
+          Password
+        </Label>
         <Input
+          id={passwordInputId}
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="Minimum 8 characters"
+          placeholder="password"
+          autoComplete={isSigningUp ? "new-password" : "current-password"}
           disabled={!isConfigured}
         />
-      </Label>
-      <div className="grid grid-cols-2 gap-2">
+      </div>
+      {isSigningUp ? (
+        <div>
+          <Label className="sr-only" htmlFor={confirmPasswordInputId}>
+            Confirm password
+          </Label>
+          <Input
+            id={confirmPasswordInputId}
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            placeholder="confirm password"
+            autoComplete="new-password"
+            disabled={!isConfigured}
+          />
+        </div>
+      ) : null}
+      {!isSigningUp ? (
+        <Link
+          className="w-fit text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          href={toForgotPasswordHref(next)}
+        >
+          Forgot password?
+        </Link>
+      ) : null}
+      <div className="grid gap-2">
         <Button
           type="submit"
           disabled={!canUseEmailPassword}
           className={authButtonClass}
         >
-          <Mail />
-          Sign in
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={signUpWithEmailPassword}
-          disabled={!canUseEmailPassword}
-          className={authButtonClass}
-        >
-          <UserPlus />
-          Sign up
+          {isSigningUp ? <UserPlus /> : <Mail />}
+          {isSigningUp ? "Sign up" : "Sign in"}
         </Button>
       </div>
       <div className="grid gap-2">
@@ -125,24 +201,10 @@ export function SignInPanel({ next = "/" }: { next?: string }) {
           disabled={!isConfigured}
           className={authButtonClass}
         >
-          <Globe />
+          <GoogleBrandIcon />
           Google
         </Button>
       </div>
     </form>
   );
-}
-
-function toAuthCallbackUrl(next: string) {
-  const url = new URL("/auth/callback", window.location.origin);
-  url.searchParams.set("next", next);
-
-  return url.toString();
-}
-
-function withSignedInFlag(path: string) {
-  const url = new URL(path, window.location.origin);
-  url.searchParams.set("signedIn", "1");
-
-  return `${url.pathname}${url.search}${url.hash}`;
 }

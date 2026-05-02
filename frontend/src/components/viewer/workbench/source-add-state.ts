@@ -70,6 +70,17 @@ export function resolveRedditAddInput({
   };
 }
 
+export function splitUrlValues(value: string) {
+  const urls = value
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (!urls.length) throw new Error("Enter one or more URLs");
+
+  return urls;
+}
+
 export function separateSourceSlotError({
   sourceGroupingMode,
   requestedCount,

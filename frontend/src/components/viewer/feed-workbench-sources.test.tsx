@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,6 +13,7 @@ import {
   installFeedWorkbenchTestHooks,
   isLocalFileCacheSupported,
   openSavedLayouts,
+  selectSourceGrouping,
   stubRandomUuids,
   stubUrlResolveFetch,
   WORKSPACE_STORAGE_KEY,
@@ -33,6 +40,11 @@ describe("FeedWorkbench URL sources", () => {
     expect(
       within(sourceType).getByRole("button", { name: "Local" }),
     ).toHaveAttribute("aria-pressed", "true");
+    const localButtonClassName = within(sourceType).getByRole("button", {
+      name: "Local",
+    }).className;
+    expect(localButtonClassName).toContain("!h-10");
+    expect(localButtonClassName).not.toContain("!h-11");
     expect(
       within(dialog).getByRole("group", { name: "Local upload picker" }),
     ).toBeInTheDocument();
@@ -127,9 +139,9 @@ describe("FeedWorkbench URL sources", () => {
     expect(screen.getByLabelText("URL")).toHaveValue("");
     expect(screen.getByLabelText("URL")).toHaveAttribute(
       "placeholder",
-      "https://example.com/media-or-page",
+      expect.stringContaining("https://example.com/media-or-page"),
     );
-    await user.type(screen.getByLabelText("URL"), "https://cdn.test/photo.jpg");
+    setUrlValue("https://cdn.test/photo.jpg");
     await user.click(screen.getByRole("button", { name: "Open URL" }));
 
     expect(await screen.findByAltText("Direct image")).toBeInTheDocument();
@@ -146,6 +158,50 @@ describe("FeedWorkbench URL sources", () => {
     expect(saved).toContain('"resolverHint":"direct-media"');
     expect(saved).not.toContain("url:https://cdn.test/photo.jpg");
     expect(saved).not.toContain('"media"');
+  });
+
+  it("adds pasted URL links as separate URL sources", async () => {
+    const fetchMock = stubUrlResolveFetch((url) => ({
+      resolution: {
+        status: "resolved",
+        mode: "direct-media",
+        hint: "direct-media",
+        title: new URL(url).hostname,
+        externalUrl: url,
+        items: [
+          {
+            id: `url:${url}`,
+            source: "url",
+            title: new URL(url).hostname,
+            isNsfw: false,
+            createdAt: "2026-04-25T00:00:00.000Z",
+            media: [{ type: "image", url }],
+          },
+        ],
+      },
+      nextResolverHint: "direct-media",
+    }));
+    stubRandomUuids(["workspace-1", "session-1", "session-2"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await openAddSourceUrlPanel(user);
+    await selectSourceGrouping(user, "Separate sources");
+    setUrlValue(
+      "https://cdn-one.test/photo.jpg\nhttps://cdn-two.test/photo.jpg",
+    );
+    await user.click(screen.getByRole("button", { name: "Open URL" }));
+
+    expect(await screen.findByAltText("cdn-one.test")).toBeInTheDocument();
+    expect(await screen.findByAltText("cdn-two.test")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "url=https%3A%2F%2Fcdn-one.test%2Fphoto.jpg",
+    );
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+      "url=https%3A%2F%2Fcdn-two.test%2Fphoto.jpg",
+    );
   });
 
   it("adds a gallery URL source and saves only the gallery resolver hint", async () => {
@@ -181,10 +237,7 @@ describe("FeedWorkbench URL sources", () => {
     render(<FeedWorkbench />);
 
     await openAddSourceUrlPanel(user);
-    await user.type(
-      screen.getByLabelText("URL"),
-      "https://nhentai.net/g/123456/",
-    );
+    setUrlValue("https://nhentai.net/g/123456/");
     await user.click(screen.getByRole("button", { name: "Open URL" }));
 
     expect(await screen.findByAltText("Gallery image")).toBeInTheDocument();
@@ -206,7 +259,7 @@ describe("FeedWorkbench URL sources", () => {
     render(<FeedWorkbench />);
 
     await openAddSourceUrlPanel(user);
-    await user.type(screen.getByLabelText("URL"), "https://old.example/video");
+    setUrlValue("https://old.example/video");
     await user.type(screen.getByLabelText("Title"), "Old title");
     await user.click(await screen.findByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
@@ -318,8 +371,7 @@ describe("FeedWorkbench URL sources", () => {
     render(<FeedWorkbench />);
 
     await openAddSourceUrlPanel(user);
-    await user.clear(screen.getByLabelText("URL"));
-    await user.type(screen.getByLabelText("URL"), "https://blocked.example/");
+    setUrlValue("https://blocked.example/");
     await user.click(screen.getByRole("button", { name: "Open URL" }));
 
     expect((await screen.findAllByText("Blocked site"))[0]).toBeVisible();
@@ -401,8 +453,7 @@ describe("FeedWorkbench URL sources", () => {
     const { container } = render(<FeedWorkbench />);
 
     await openAddSourceUrlPanel(user);
-    await user.clear(screen.getByLabelText("URL"));
-    await user.type(screen.getByLabelText("URL"), resolution.externalUrl);
+    setUrlValue(resolution.externalUrl);
     await user.click(screen.getByRole("button", { name: "Open URL" }));
 
     expect(
@@ -438,11 +489,7 @@ describe("FeedWorkbench URL sources", () => {
     const { container } = render(<FeedWorkbench />);
 
     await openAddSourceUrlPanel(user);
-    await user.clear(screen.getByLabelText("URL"));
-    await user.type(
-      screen.getByLabelText("URL"),
-      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    );
+    setUrlValue("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await user.click(screen.getByRole("button", { name: "Open URL" }));
 
     expect(await screen.findByTitle("YouTube video")).toBeInTheDocument();
@@ -482,11 +529,7 @@ describe("FeedWorkbench URL sources", () => {
     const { container } = render(<FeedWorkbench />);
 
     await openAddSourceUrlPanel(user);
-    await user.clear(screen.getByLabelText("URL"));
-    await user.type(
-      screen.getByLabelText("URL"),
-      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    );
+    setUrlValue("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await user.click(screen.getByRole("button", { name: "Open URL" }));
     expect(await screen.findByTitle("YouTube video")).toBeInTheDocument();
 
@@ -582,6 +625,12 @@ async function openAddSourceUrlPanel(user: ReturnType<typeof userEvent.setup>) {
   await user.click(within(dialog).getByRole("button", { name: "URL" }));
 
   return dialog;
+}
+
+function setUrlValue(value: string) {
+  fireEvent.change(screen.getByLabelText("URL"), {
+    target: { value },
+  });
 }
 
 function expectYoutubeIframeSrc(

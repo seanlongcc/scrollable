@@ -63,6 +63,26 @@ describe("Workbench grid controls", () => {
     expect(within(layoutSection).getByLabelText("Rows")).toHaveValue("2");
   });
 
+  it("shows three mobile sources as a single portrait column", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          mode: "mobile",
+          fixedGrid: { columns: 3, rows: 1 },
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Layout" }));
+    const layoutSection = screen.getByRole("button", {
+      name: "Layout",
+    }).parentElement!;
+
+    expect(within(layoutSection).getByLabelText("Columns")).toHaveValue("1");
+    expect(within(layoutSection).getByLabelText("Rows")).toHaveValue("3");
+  });
+
   it("keeps desktop fixed grid controls at 16 and reports the desktop range", async () => {
     const user = userEvent.setup();
     const onFixedGridChange = vi.fn();

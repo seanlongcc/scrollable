@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
 test("home renders multi-view wall without media previews", async ({
   page,
@@ -296,13 +296,17 @@ test("warns before displaying provider page embeds", async ({ page }) => {
 test("keyboard and wheel move through runtime feed items", async ({
   page,
 }, testInfo) => {
-  await page.route(
-    "**reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
+  const redditListingRequests: string[] = [];
+  const fulfillRedditListing = async (route: Route) => {
+    redditListingRequests.push(route.request().url());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: {
+        "access-control-allow-origin": "*",
+      },
+      body: JSON.stringify([
+        {
           kind: "Listing",
           data: {
             children: [
@@ -326,44 +330,17 @@ test("keyboard and wheel move through runtime feed items", async ({
               },
             ],
           },
-        }),
-      });
-    },
+        },
+      ]),
+    });
+  };
+  await page.route(
+    "**www.reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
+    fulfillRedditListing,
   );
-
   await page.route(
     "**api.reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          kind: "Listing",
-          data: {
-            children: [
-              {
-                data: {
-                  id: "runtime-1",
-                  title: "Runtime image 1",
-                  subreddit: "pics",
-                  post_hint: "image",
-                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                },
-              },
-              {
-                data: {
-                  id: "runtime-2",
-                  title: "Runtime image 2",
-                  subreddit: "pics",
-                  post_hint: "image",
-                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                },
-              },
-            ],
-          },
-        }),
-      });
-    },
+    fulfillRedditListing,
   );
   await page.goto("/");
   await page.getByRole("button", { name: "Add source", exact: true }).click();
@@ -373,6 +350,10 @@ test("keyboard and wheel move through runtime feed items", async ({
     .getByLabel("Paste Reddit post or subreddit links, one per line")
     .fill("https://www.reddit.com/r/pics/comments/abc123/runtime_image/");
   await page.getByRole("button", { name: "Open Reddit links" }).click();
+  await expect.poll(() => redditListingRequests.length).toBe(1);
+  expect(redditListingRequests[0]).toContain(
+    "https://www.reddit.com/r/pics/comments/abc123/runtime_image/.json?raw_json=1",
+  );
 
   await openWorkbenchOnMobile(page, testInfo.project.name);
   await workbenchScope(page, testInfo.project.name)
