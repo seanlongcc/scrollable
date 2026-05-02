@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  addDefaultSubredditSource,
   FeedWorkbench,
   installFeedWorkbenchTestHooks,
   redditListingFromRuntimeItems,
@@ -118,6 +119,25 @@ describe("FeedWorkbench Reddit source inputs", () => {
     expectRedditJsonRequest(fetchMock, {
       url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
     });
+  });
+
+  it("does not focus the media count field when editing a Reddit source", async () => {
+    stubRuntimeFetch();
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await addDefaultSubredditSource(user);
+    await screen.findByRole("button", { name: "Edit r/pics" });
+
+    await user.click(screen.getByRole("button", { name: "Edit r/pics" }));
+
+    const editDialog = await screen.findByRole("dialog", {
+      name: "Edit source",
+    });
+    expect(
+      within(editDialog).getByLabelText("Reddit media count"),
+    ).not.toHaveFocus();
   });
 
   it("accepts a bare subreddit name with listing controls", async () => {

@@ -204,6 +204,43 @@ export async function deleteViewerCloudItem({
   }
 }
 
+export async function renameViewerCloudItem({
+  kind,
+  id,
+  name,
+  metadataBytes,
+}: {
+  kind: "layout" | "template";
+  id: string;
+  name: string;
+  metadataBytes?: number;
+}): Promise<WorkspaceSyncResult> {
+  if (!getSupabaseEnv()) return { status: "skipped" };
+
+  try {
+    const supabase = await createLazySupabaseBrowserClient();
+    const table = kind === "layout" ? "viewer_sessions" : "viewer_templates";
+    const { error } = await supabase
+      .from(table)
+      .update({
+        name,
+        ...(typeof metadataBytes === "number"
+          ? { metadata_bytes: metadataBytes }
+          : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    if (error) throw error;
+    return { status: "synced" };
+  } catch (error) {
+    return {
+      status: "error",
+      error: error instanceof Error ? error.message : "Cloud rename failed",
+    };
+  }
+}
+
 export async function ensureViewerShareLink({
   kind,
   id,

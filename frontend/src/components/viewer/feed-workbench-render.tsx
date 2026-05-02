@@ -158,6 +158,16 @@ export type FeedWorkbenchRenderProps = {
   requestLocalCacheAccess: (id: string) => void;
   refreshLocalCacheStatus: () => Promise<LocalFileCacheStorageStatus>;
   refreshLocalCacheStatusForCurrentLayout: () => Promise<LocalFileCacheStorageStatus | null>;
+  renameSavedTemplate: (input: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) => Promise<string | null>;
+  renameSavedWorkspace: (input: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) => Promise<string | null>;
   restartSelectedSource: () => void;
   runGlobalAction: (action: GlobalTimerAction) => void;
   saveError: string | null;
@@ -337,6 +347,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     requestLocalCacheAccess,
     refreshLocalCacheStatus,
     refreshLocalCacheStatusForCurrentLayout,
+    renameSavedTemplate,
+    renameSavedWorkspace,
     restartSelectedSource,
     runGlobalAction,
     saveError,
@@ -514,6 +526,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           openSavedTemplates={openSavedTemplates}
           deleteSavedWorkspace={deleteSavedWorkspace}
           deleteSavedTemplate={deleteSavedTemplate}
+          renameSavedWorkspace={renameSavedWorkspace}
+          renameSavedTemplate={renameSavedTemplate}
           uploadWorkspaceToCloud={uploadWorkspaceToCloud}
           uploadTemplateToCloud={uploadTemplateToCloud}
           shareCloudItem={shareCloudItem}

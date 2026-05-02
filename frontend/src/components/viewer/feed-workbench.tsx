@@ -395,6 +395,8 @@ export function FeedWorkbench({
     openSavedTemplates,
     deleteSavedWorkspace,
     deleteSavedTemplate,
+    renameSavedWorkspace,
+    renameSavedTemplate,
     exportCurrentWorkspaceJson,
     applyWorkspaceSnapshot,
   } = useWorkspaceHandlers({
@@ -713,6 +715,8 @@ export function FeedWorkbench({
     saveUrlSourceEdit,
     savedTemplates,
     savedWorkspaces,
+    renameSavedTemplate,
+    renameSavedWorkspace,
     selectLayer,
     selectLocalFilesWithHandles,
     selectLocalFolderWithHandles,

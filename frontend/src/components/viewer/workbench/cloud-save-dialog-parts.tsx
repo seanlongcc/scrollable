@@ -6,6 +6,7 @@ import {
   Link,
   Monitor,
   MoreHorizontal,
+  Pencil,
   RefreshCw,
   Rows3,
   Trash2,
@@ -58,6 +59,7 @@ export function SavedLibraryRow({
   onOpen,
   onUploadToCloud,
   onShare,
+  onRename,
   onExportJson,
   onDelete,
 }: {
@@ -72,6 +74,7 @@ export function SavedLibraryRow({
   onOpen: (id: string) => void;
   onUploadToCloud: (id: string) => void;
   onShare: (kind: "layout" | "template", id: string) => void;
+  onRename: (id: string) => void;
   onExportJson: (
     kind: "layout" | "template",
     id: string,
@@ -167,6 +170,11 @@ export function SavedLibraryRow({
                 onSelect={() => onShare(kind, id)}
               />
             )}
+            <LibraryMenuItem
+              icon={<Pencil />}
+              label="Rename"
+              onSelect={() => onRename(id)}
+            />
             <LibraryMenuItem
               icon={<Download />}
               label="Export JSON"

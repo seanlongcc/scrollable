@@ -323,9 +323,9 @@ https://www.reddit.com/r/pics/top/?t=week`}
                   />
                 </Label>
               )}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2">
                 <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
-                  Limit
+                  Reddit media count
                   <Input
                     aria-label="Reddit media count"
                     type="text"
@@ -350,7 +350,7 @@ https://www.reddit.com/r/pics/top/?t=week`}
 
                       setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
                     }}
-                    className="h-9"
+                    className="h-9 text-center"
                   />
                 </Label>
                 <div className="grid content-end">

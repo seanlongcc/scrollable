@@ -48,6 +48,8 @@ export function WorkbenchOverlays({
   openSavedTemplates,
   deleteSavedWorkspace,
   deleteSavedTemplate,
+  renameSavedWorkspace,
+  renameSavedTemplate,
   uploadWorkspaceToCloud,
   uploadTemplateToCloud,
   shareCloudItem,
@@ -113,6 +115,16 @@ export function WorkbenchOverlays({
   openSavedTemplates: (ids: string[]) => void;
   deleteSavedWorkspace: (id: string, target?: SaveTarget) => void;
   deleteSavedTemplate: (id: string, target?: SaveTarget) => void;
+  renameSavedWorkspace: (input: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) => Promise<string | null>;
+  renameSavedTemplate: (input: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) => Promise<string | null>;
   uploadWorkspaceToCloud: (id: string) => void;
   uploadTemplateToCloud: (id: string) => void;
   shareCloudItem: (target: CloudShareTarget) => void;
@@ -203,6 +215,12 @@ export function WorkbenchOverlays({
           onOpenTemplates={openSavedTemplates}
           onDeleteWorkspace={deleteSavedWorkspace}
           onDeleteTemplate={deleteSavedTemplate}
+          onRenameWorkspace={(id, name, target) =>
+            renameSavedWorkspace({ id, name, target })
+          }
+          onRenameTemplate={(id, name, target) =>
+            renameSavedTemplate({ id, name, target })
+          }
           onUploadWorkspaceToCloud={uploadWorkspaceToCloud}
           onUploadTemplateToCloud={uploadTemplateToCloud}
           onShareCloudItem={(kind, id) => {

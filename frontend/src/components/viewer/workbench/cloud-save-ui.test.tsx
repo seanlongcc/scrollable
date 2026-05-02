@@ -347,9 +347,9 @@ describe("cloud save UI", () => {
     await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
 
     expect(within(dialog).queryByText(/tmpl/)).not.toBeInTheDocument();
-    expect(within(dialog).getByText("free · 3 lyr · 3 box")).toHaveAttribute(
+    expect(within(dialog).getByText("free · 3 box")).toHaveAttribute(
       "title",
-      "free template · 3 layers · 3 boxes",
+      "free template · 3 boxes",
     );
 
     const checkbox = within(dialog).getByRole("checkbox", {

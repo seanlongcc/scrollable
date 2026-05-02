@@ -24,6 +24,13 @@ import {
   subredditFromRedditUrl,
 } from "./helpers";
 
+function focusEditDialogSurface(event: Event) {
+  event.preventDefault();
+  if (event.currentTarget instanceof HTMLElement) {
+    event.currentTarget.focus({ preventScroll: true });
+  }
+}
+
 export function EditSourceDialog({
   source,
   open,
@@ -205,6 +212,7 @@ export function EditSourceDialog({
             ? "grid h-[min(92dvh,46rem)] grid-rows-[auto_minmax(0,1fr)]"
             : "max-h-[92dvh]",
         )}
+        onOpenAutoFocus={focusEditDialogSurface}
       >
         <DialogHeader>
           <DialogTitle>Edit source</DialogTitle>
@@ -230,33 +238,6 @@ export function EditSourceDialog({
 
           {isReddit ? (
             <>
-              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                Reddit media count
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min={1}
-                  max={MAX_REDDIT_MEDIA_LIMIT}
-                  value={redditLimit || ""}
-                  onFocus={(event) =>
-                    placeCaretAfterInputValue(event.currentTarget)
-                  }
-                  onChange={(event) => {
-                    const nextDraft = event.target.value;
-                    if (!nextDraft.trim()) {
-                      setRedditLimit(0);
-                      return;
-                    }
-
-                    const next = Number(nextDraft);
-                    if (!Number.isInteger(next)) return;
-
-                    setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
-                  }}
-                  className="h-9"
-                />
-              </Label>
               <div className="grid gap-2">
                 {redditUrls.map((url, index) => {
                   const subreddit = subredditFromRedditUrl(url);
@@ -278,7 +259,7 @@ export function EditSourceDialog({
                         type="button"
                         size="icon"
                         variant="ghost"
-                        className="border-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                        className="size-10 min-h-10 min-w-10 rounded-lg border-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive md:size-8 md:min-h-0 md:min-w-0"
                         aria-label={`Remove ${subreddit ? `r/${subreddit}` : `Reddit ${index + 1}`} link`}
                         onClick={() => removeRedditUrl(index)}
                       >
@@ -287,6 +268,36 @@ export function EditSourceDialog({
                     </div>
                   );
                 })}
+              </div>
+              <div className="w-full">
+                <Label className="grid w-full gap-1 text-xs font-medium text-muted-foreground">
+                  Reddit media count
+                  <Input
+                    aria-label="Reddit media count"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={1}
+                    max={MAX_REDDIT_MEDIA_LIMIT}
+                    value={redditLimit || ""}
+                    onFocus={(event) =>
+                      placeCaretAfterInputValue(event.currentTarget)
+                    }
+                    onChange={(event) => {
+                      const nextDraft = event.target.value;
+                      if (!nextDraft.trim()) {
+                        setRedditLimit(0);
+                        return;
+                      }
+
+                      const next = Number(nextDraft);
+                      if (!Number.isInteger(next)) return;
+
+                      setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
+                    }}
+                    className="h-9 text-center"
+                  />
+                </Label>
               </div>
               <div className="grid min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-border bg-background/45 p-3">
                 <div className="grid w-full grid-cols-[minmax(0,1fr)_5rem] items-center gap-2">
@@ -319,7 +330,7 @@ export function EditSourceDialog({
                       return (
                         <div
                           key={itemId}
-                          className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2"
+                          className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2"
                         >
                           <span
                             className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
@@ -331,6 +342,7 @@ export function EditSourceDialog({
                             type="button"
                             size="icon-sm"
                             variant={isHidden ? "default" : "outline"}
+                            className="size-11 min-h-11 min-w-11 md:size-7 md:min-h-0 md:min-w-0"
                             aria-label={`${isHidden ? "Unhide" : "Hide"} ${label} from r/${subreddit}`}
                             onClick={() => {
                               if (savedMatches.length) {

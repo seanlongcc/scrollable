@@ -37,6 +37,13 @@ type AuthMode = "sign-in" | "sign-up";
 const accountAuthActionButtonClass =
   "min-w-0 overflow-hidden rounded-lg px-2 font-normal md:font-normal";
 
+function focusAuthDialogSurface(event: Event) {
+  event.preventDefault();
+  if (event.currentTarget instanceof HTMLElement) {
+    event.currentTarget.focus({ preventScroll: true });
+  }
+}
+
 export function AccountDialog({
   open,
   onOpenChange,
@@ -206,7 +213,10 @@ export function AccountDialog({
         </DialogContent>
       </Dialog>
       <Dialog open={isAuthOpen} onOpenChange={setIsAuthOpen}>
-        <DialogContent className={centeredDialogClass}>
+        <DialogContent
+          className={centeredDialogClass}
+          onOpenAutoFocus={focusAuthDialogSurface}
+        >
           <DialogHeader>
             <DialogTitle className="font-semibold">
               {authMode === "sign-up" ? "Sign up" : "Sign in"}

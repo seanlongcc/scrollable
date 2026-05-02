@@ -223,6 +223,28 @@ describe("FeedWorkbench account state", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("does not focus the email field when the signin auth surface opens", async () => {
+    authMocks.state.env = {
+      url: "https://supabase.test",
+      anonKey: "anon-key",
+    };
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+
+    const accountDialog = await screen.findByRole("dialog", {
+      name: "Account",
+    });
+    await user.click(
+      await within(accountDialog).findByRole("button", { name: "Sign in" }),
+    );
+
+    const authDialog = await screen.findByRole("dialog", { name: "Sign in" });
+    expect(within(authDialog).getByLabelText("Email")).not.toHaveFocus();
+  });
+
   it("does not describe Cloud load failures as signed out when the account is signed in", async () => {
     authMocks.state.env = {
       url: "https://supabase.test",
