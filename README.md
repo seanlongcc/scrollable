@@ -26,7 +26,7 @@ Third-party media stays runtime-only. Scrollable saves your layout and source se
 - View multiple feeds at once
 - Use touch, mouse, wheel, or keyboard controls
 - Auto-advance feeds with timers
-- Stack background, main, and overlay layers
+- Create multiple layers that continue auto-playing in the background
 
 ### Sources
 
