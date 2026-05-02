@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="docs/assets/scrollable_app_small.png" alt="Scrollable app preview" width="100%">
+  <a href="https://scrollable.app/" target="_blank" rel="noopener noreferrer">
+    <img src="docs/assets/scrollable_app_small.png" alt="Scrollable app preview" width="100%">
+  </a>
 </p>
 
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
