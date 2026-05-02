@@ -1,5 +1,5 @@
 import { FolderOpen, Globe, Grid2X2, Loader2, Upload } from "lucide-react";
-import { ChangeEvent, DragEvent as ReactDragEvent, useState } from "react";
+import { ChangeEvent, DragEvent as ReactDragEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,45 +28,17 @@ import type {
 } from "./types";
 import { clamp } from "./helpers";
 
-type SourceKind = "url" | "local" | "reddit";
+export type SourceKind = "url" | "local" | "reddit";
 
 const sourceSectionClass =
   "grid gap-3 rounded-xl border border-border/70 bg-background/55 p-3";
 const sourceDropZoneClass =
   "grid min-h-24 cursor-pointer place-items-center rounded-xl border border-dashed border-border/70 bg-surface/55 p-3 text-center transition-[background-color,border-color,box-shadow] hover:border-primary/70 hover:bg-muted/55 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none";
 
-export function SourceDialog({
-  open,
-  onOpenChange,
-  urlValue,
-  urlTitle,
-  redditUrls,
-  redditInputMode,
-  subredditName,
-  redditSort,
-  redditTimeRange,
-  redditLimit,
-  isLoading,
-  sourceGroupingMode,
-  setUrlValue,
-  setUrlTitle,
-  setRedditUrls,
-  setRedditInputMode,
-  setSubredditName,
-  setRedditSort,
-  setRedditTimeRange,
-  setRedditLimit,
-  setSourceGroupingMode,
-  openUrlSource,
-  fetchRedditFeed,
-  addLocalFiles,
-  selectLocalFilesWithHandles,
-  selectLocalFolderWithHandles,
-  addDroppedLocalFiles,
-  allowLocalFileDrop,
-}: {
+export type SourceDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  sourceKind: SourceKind;
   urlValue: string;
   urlTitle: string;
   redditUrls: string;
@@ -77,6 +49,7 @@ export function SourceDialog({
   redditLimit: number;
   isLoading: boolean;
   sourceGroupingMode: SourceGroupingMode;
+  setSourceKind: (value: SourceKind) => void;
   setUrlValue: (value: string) => void;
   setUrlTitle: (value: string) => void;
   setRedditUrls: (value: string) => void;
@@ -93,9 +66,40 @@ export function SourceDialog({
   selectLocalFolderWithHandles: () => Promise<boolean>;
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
   allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
-}) {
-  const [sourceKind, setSourceKind] = useState<SourceKind>("local");
+};
 
+export function SourceDialog({
+  open,
+  onOpenChange,
+  sourceKind,
+  urlValue,
+  urlTitle,
+  redditUrls,
+  redditInputMode,
+  subredditName,
+  redditSort,
+  redditTimeRange,
+  redditLimit,
+  isLoading,
+  sourceGroupingMode,
+  setSourceKind,
+  setUrlValue,
+  setUrlTitle,
+  setRedditUrls,
+  setRedditInputMode,
+  setSubredditName,
+  setRedditSort,
+  setRedditTimeRange,
+  setRedditLimit,
+  setSourceGroupingMode,
+  openUrlSource,
+  fetchRedditFeed,
+  addLocalFiles,
+  selectLocalFilesWithHandles,
+  selectLocalFolderWithHandles,
+  addDroppedLocalFiles,
+  allowLocalFileDrop,
+}: SourceDialogProps) {
   return (
     <Dialog
       open={open}
