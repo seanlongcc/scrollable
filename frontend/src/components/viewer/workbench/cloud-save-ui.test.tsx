@@ -126,6 +126,46 @@ describe("cloud save UI", () => {
     ).toBeInTheDocument();
   });
 
+  it("prompts signed-out users to sign in for empty Cloud layouts", () => {
+    render(
+      <LayoutDialog
+        open
+        onOpenChange={vi.fn()}
+        account={{ status: "signed-out" }}
+        localWorkspaces={[]}
+        cloudWorkspaces={[]}
+        localTemplates={[]}
+        cloudTemplates={[]}
+        storageTarget="cloud"
+        onStorageTargetChange={vi.fn()}
+        onOpenWorkspaces={vi.fn()}
+        onOpenTemplates={vi.fn()}
+        onDeleteWorkspace={vi.fn()}
+        onDeleteTemplate={vi.fn()}
+        onUploadWorkspaceToCloud={vi.fn()}
+        onUploadTemplateToCloud={vi.fn()}
+        onShareCloudItem={vi.fn()}
+        onExportJson={vi.fn()}
+        onImportJson={vi.fn()}
+        workspaceTabs={[{ id: "active", name: "Active" }]}
+        openWorkspaceStats={{ active: { sourceCount: 0, fileCount: 0 } }}
+        activeWorkspaceId="active"
+        onSelectWorkspace={vi.fn()}
+        onCreateWorkspaceTab={vi.fn()}
+        onCloseWorkspaceTab={vi.fn()}
+        onSaveCurrentLayout={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Library" });
+    expect(
+      within(dialog).getByText("Sign in to use Cloud layouts."),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("No matching cloud layouts."),
+    ).not.toBeInTheDocument();
+  });
+
   it("closes the Cloud row actions menu after opening the share link dialog", async () => {
     const user = userEvent.setup();
     const onShareCloudItem = vi.fn();

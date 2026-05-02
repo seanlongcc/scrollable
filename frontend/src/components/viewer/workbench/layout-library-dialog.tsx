@@ -35,6 +35,7 @@ import {
   templateLibraryMetadata,
 } from "./library-metadata";
 import type {
+  AccountState,
   LibraryKind,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
@@ -47,6 +48,22 @@ import {
 
 export type { WorkspaceStats };
 
+function libraryEmptyMessage({
+  account,
+  kind,
+  storageTarget,
+}: {
+  account: AccountState;
+  kind: LibraryKind;
+  storageTarget: SaveTarget;
+}) {
+  if (storageTarget === "cloud" && account.status !== "signed-in") {
+    return `Sign in to use Cloud ${kind}.`;
+  }
+
+  return `No matching ${storageTarget} ${kind}.`;
+}
+
 export function LayoutDialog({
   open,
   onOpenChange,
@@ -57,6 +74,7 @@ export function LayoutDialog({
   cloudWorkspaces = [],
   localTemplates = templates ?? [],
   cloudTemplates = [],
+  account = { status: "signed-out" },
   storageTarget = "local",
   onStorageTargetChange = () => undefined,
   onOpenWorkspaces,
@@ -89,6 +107,7 @@ export function LayoutDialog({
   cloudWorkspaces?: SerializedWorkspace[];
   localTemplates?: SerializedWorkspaceTemplate[];
   cloudTemplates?: SerializedWorkspaceTemplate[];
+  account?: AccountState;
   storageTarget?: SaveTarget;
   onStorageTargetChange?: (target: SaveTarget) => void;
   onOpenWorkspaces: (ids: string[]) => void;
@@ -157,6 +176,16 @@ export function LayoutDialog({
         template.name.toLowerCase().includes(normalizedSearch),
       )
     : sortedTemplates;
+  const emptyLayoutsMessage = libraryEmptyMessage({
+    account,
+    kind: "layouts",
+    storageTarget,
+  });
+  const emptyTemplatesMessage = libraryEmptyMessage({
+    account,
+    kind: "templates",
+    storageTarget,
+  });
   const visibleIds = new Set(
     visibleWorkspaces.map((workspace) => workspace.id),
   );
@@ -431,7 +460,7 @@ export function LayoutDialog({
                       })
                     ) : (
                       <div className={emptyStateClass}>
-                        No matching {storageTarget} layouts.
+                        {emptyLayoutsMessage}
                       </div>
                     )}
                   </div>
@@ -485,7 +514,7 @@ export function LayoutDialog({
                       })
                     ) : (
                       <div className={emptyStateClass}>
-                        No matching {storageTarget} templates.
+                        {emptyTemplatesMessage}
                       </div>
                     )}
                   </div>

@@ -160,6 +160,7 @@
 
   .feed-media-transition-incoming,
   .feed-media-transition-outgoing {
+    background: var(--background);
     transform: translate3d(0, 0, 0);
   }
 

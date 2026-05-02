@@ -35,17 +35,16 @@ import {
   type CloudUsageState,
   type SaveTarget,
 } from "./cloud-save-state";
-import {
-  centeredDialogClass,
-  dialogActionButtonClass,
-  metadataBlockClass,
-} from "./dialog-styles";
+import { centeredDialogClass, metadataBlockClass } from "./dialog-styles";
 import type { LibraryMetadataLabel } from "./library-metadata";
 
 const libraryRowClass =
   "grid min-h-16 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
 
 const libraryBulkButtonClass =
+  "min-w-0 overflow-hidden rounded-lg px-2 font-normal md:font-normal";
+
+const shareDialogActionButtonClass =
   "min-w-0 overflow-hidden rounded-lg px-2 font-normal md:font-normal";
 
 export function SavedLibraryRow({
@@ -364,7 +363,7 @@ export function ShareLinkDialog({
               <Button
                 type="button"
                 onClick={() => void copyShareUrl(shareUrl)}
-                className={dialogActionButtonClass}
+                className={shareDialogActionButtonClass}
               >
                 <Copy />
                 <span className="min-w-0 truncate">Copy link</span>
@@ -373,7 +372,7 @@ export function ShareLinkDialog({
                 type="button"
                 variant="outline"
                 onClick={() => onRegenerate(target)}
-                className={dialogActionButtonClass}
+                className={shareDialogActionButtonClass}
               >
                 <RefreshCw />
                 <span className="min-w-0 truncate">Regenerate</span>
@@ -383,7 +382,7 @@ export function ShareLinkDialog({
               type="button"
               variant="destructive"
               onClick={() => onDisable(target)}
-              className={dialogActionButtonClass}
+              className={shareDialogActionButtonClass}
             >
               <Trash2 />
               <span className="min-w-0 truncate">Disable</span>

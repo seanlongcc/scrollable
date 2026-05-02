@@ -216,6 +216,7 @@ export function WorkbenchOverlays({
           cloudWorkspaces={Object.values(cloudWorkspaces)}
           localTemplates={Object.values(savedTemplates)}
           cloudTemplates={Object.values(cloudTemplates)}
+          account={account}
           storageTarget={libraryStorageTarget}
           onStorageTargetChange={setLibraryStorageTarget}
           onOpenWorkspaces={openSavedWorkspaces}

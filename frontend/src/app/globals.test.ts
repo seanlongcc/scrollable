@@ -52,4 +52,12 @@ describe("global viewer media transition styles", () => {
     expect(css).toContain("transform: translate3d(-100%, 0, 0);");
     expect(css).not.toContain("opacity: 0.65;");
   });
+
+  it("paints media transition layers so mixed aspect-ratio frames do not overlap", () => {
+    const css = readGlobalsCss();
+
+    expect(css).toMatch(
+      /\.feed-media-transition-incoming,\s*\.feed-media-transition-outgoing\s*\{[^}]*background:\s*var\(--background\);/,
+    );
+  });
 });

@@ -46,23 +46,14 @@ import { WorkbenchChrome } from "./workbench/workbench-chrome";
 import type { WorkbenchPanelComponents } from "./workbench/workbench-chrome";
 import { WorkbenchHeader } from "./workbench/workbench-header";
 import { WorkbenchStage } from "./workbench/workbench-stage";
-import type {
-  SourceDialogProps,
-  SourceKind,
-} from "./workbench/source-add-dialog";
+import type { SourceKind } from "./workbench/source-add-dialog";
+import { SourceDialog } from "./workbench/source-add-dialog";
 import type { GlobalTimerAction } from "./workbench/workbench-toolbar";
 
 export const loadWorkbenchOverlays = () =>
   import("./workbench/workbench-overlays");
 const WorkbenchOverlays = dynamic(
   () => loadWorkbenchOverlays().then((module) => module.WorkbenchOverlays),
-  { ssr: false },
-);
-const SourceDialog = dynamic<SourceDialogProps>(
-  () =>
-    import("./workbench/source-add-dialog").then(
-      (module) => module.SourceDialog,
-    ),
   { ssr: false },
 );
 

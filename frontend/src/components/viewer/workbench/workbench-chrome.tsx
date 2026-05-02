@@ -2,7 +2,7 @@ import {
   Clock3,
   Copy,
   EyeOff,
-  FolderOpenDot,
+  FolderOpen,
   Grid2X2,
   Library,
   Maximize2,
@@ -298,7 +298,7 @@ export function WorkbenchChrome({
             onClick={openWorkspace}
             className={desktopRailButtonClass}
           >
-            <FolderOpenDot />
+            <FolderOpen />
           </Button>
           <Button
             type="button"
@@ -483,7 +483,7 @@ export function WorkbenchChrome({
           onClick={openWorkspace}
           className={mobileBottomButtonClass}
         >
-          <FolderOpenDot />
+          <FolderOpen />
         </Button>
         <Button
           type="button"
