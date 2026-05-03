@@ -183,7 +183,11 @@ export function useSourceRuntimeHandlers({
   async function openUrlSource() {
     setIsLoading(true);
     try {
-      const result = await addUrlSourceAction({ urlValue, urlTitle });
+      const result = await addUrlSourceAction({
+        urlValue,
+        urlTitle,
+        availableSeparateSourceSlots,
+      });
 
       if (result.status !== "ready") {
         toast.error(result.error);

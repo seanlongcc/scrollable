@@ -129,11 +129,12 @@ describe("FeedViewPane", () => {
       />,
     );
 
-    await waitFor(() => expect(prefetchedUrls).toHaveLength(3));
+    await waitFor(() => expect(prefetchedUrls).toHaveLength(4));
     expect(prefetchedUrls).toEqual([
       "https://cdn.test/gallery-next.jpg",
       "https://cdn.test/next.jpg",
       "https://cdn.test/second-next.jpg",
+      "https://cdn.test/third-next.jpg",
     ]);
   });
 

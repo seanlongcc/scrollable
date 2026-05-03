@@ -1,8 +1,10 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 
-const DEFAULT_PREFETCH_NEXT_ITEM_COUNT = 6;
-const MOBILE_PREFETCH_NEXT_ITEM_COUNT = 3;
-const CONSERVATIVE_PREFETCH_NEXT_ITEM_COUNT = 2;
+const DEFAULT_PREFETCH_NEXT_ITEM_COUNT = 10;
+const MOBILE_PREFETCH_NEXT_ITEM_COUNT = 5;
+const CONSERVATIVE_PREFETCH_NEXT_ITEM_COUNT = 3;
+const PREFETCH_PREVIOUS_GALLERY_IMAGE_COUNT = 1;
+const PREFETCH_NEXT_GALLERY_IMAGE_COUNT = 4;
 const CONSTRAINED_PREFETCH_CONNECTION_TYPES = new Set(["slow-2g", "2g"]);
 const CONSERVATIVE_PREFETCH_CONNECTION_TYPES = new Set(["3g"]);
 
@@ -81,10 +83,31 @@ export function collectImagePrefetchUrls({
   const activeItem = items[activeIndex];
 
   if (activeItem?.media.length && activeItem.media.length > 1) {
-    for (const galleryIndex of [
-      activeGalleryIndex - 1,
-      activeGalleryIndex + 1,
-    ]) {
+    for (
+      let offset = PREFETCH_PREVIOUS_GALLERY_IMAGE_COUNT;
+      offset >= 1;
+      offset -= 1
+    ) {
+      const galleryIndex = activeGalleryIndex - offset;
+      const media = activeItem.media[galleryIndex];
+      if (
+        media?.type === "image" &&
+        canPrefetchImageUrl({
+          source: activeItem.source,
+          url: media.url,
+          prefetchLocalImages,
+        })
+      ) {
+        urls.add(media.url);
+      }
+    }
+
+    for (
+      let offset = 1;
+      offset <= PREFETCH_NEXT_GALLERY_IMAGE_COUNT;
+      offset += 1
+    ) {
+      const galleryIndex = activeGalleryIndex + offset;
       const media = activeItem.media[galleryIndex];
       if (
         media?.type === "image" &&

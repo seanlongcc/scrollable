@@ -45,6 +45,7 @@ export type UrlSourceAddActionResult =
       status: "ready";
       sources: SessionPlacementSourceInput[];
     }
+  | SourceAddSlotError
   | SourceAddActionError;
 
 export type LocalSourceAddPreparation =
@@ -114,12 +115,23 @@ export async function addRedditSourceAction({
 export async function addUrlSourceAction({
   urlValue,
   urlTitle,
+  availableSeparateSourceSlots,
 }: {
   urlValue: string;
   urlTitle: string;
+  availableSeparateSourceSlots: number;
 }): Promise<UrlSourceAddActionResult> {
   try {
     const urls = splitUrlValues(urlValue);
+    const slotError = separateSourceSlotError({
+      sourceGroupingMode: "separate",
+      requestedCount: urls.length,
+      availableSeparateSourceSlots,
+    });
+
+    if (slotError) {
+      return { status: "slot-error", error: slotError };
+    }
 
     return {
       status: "ready",

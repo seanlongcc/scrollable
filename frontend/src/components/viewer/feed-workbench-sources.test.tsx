@@ -107,6 +107,19 @@ describe("FeedWorkbench URL sources", () => {
         name: "Add Reddit links as separate sources",
       }),
     ).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "URL" }));
+
+    expect(
+      within(dialog).queryByRole("button", {
+        name: "Add sources as one stacked source",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Add sources as separate sources",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("adds a unified URL source and saves only URL metadata plus resolver hint", async () => {
@@ -202,6 +215,50 @@ describe("FeedWorkbench URL sources", () => {
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
       "url=https%3A%2F%2Fcdn-two.test%2Fphoto.jpg",
     );
+  });
+
+  it("rejects pasted URL links when they exceed available fixed slots", async () => {
+    const fetchMock = stubUrlResolveFetch((url) => ({
+      resolution: {
+        status: "resolved",
+        mode: "direct-media",
+        hint: "direct-media",
+        title: new URL(url).hostname,
+        externalUrl: url,
+        items: [
+          {
+            id: `url:${url}`,
+            source: "url",
+            title: new URL(url).hostname,
+            isNsfw: false,
+            createdAt: "2026-04-25T00:00:00.000Z",
+            media: [{ type: "image", url }],
+          },
+        ],
+      },
+      nextResolverHint: "direct-media",
+    }));
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    commitNumberField("Columns", "1");
+    commitNumberField("Rows", "1");
+    await openAddSourceUrlPanel(user);
+    setUrlValue(
+      "https://cdn-one.test/photo.jpg\nhttps://cdn-two.test/photo.jpg",
+    );
+    await user.click(screen.getByRole("button", { name: "Open URL" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Open URL" })).toBeEnabled(),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByAltText("cdn-one.test")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
+    expect(
+      screen.getByRole("button", { name: "Free layout mode" }),
+    ).toBeEnabled();
   });
 
   it("adds a gallery URL source and saves only the gallery resolver hint", async () => {
@@ -631,6 +688,12 @@ function setUrlValue(value: string) {
   fireEvent.change(screen.getByLabelText("URL"), {
     target: { value },
   });
+}
+
+function commitNumberField(label: string, value: string) {
+  const input = screen.getByLabelText(label);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
 }
 
 function expectYoutubeIframeSrc(
