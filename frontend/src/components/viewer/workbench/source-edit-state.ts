@@ -6,6 +6,7 @@ import type {
 import { createTimerState } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
 import { hashRedditItemId, redditHiddenItemHashes } from "./helpers";
+import { randomizeRuntimeItems } from "./source-order-state";
 
 export type EditedRedditSourceState = {
   title: string;
@@ -85,13 +86,18 @@ export function applyEditedRedditSourceToSession(
   session: FeedSession,
   result: EditedRedditSourceState,
 ): FeedSession {
-  const timer = timerForEditedItems(session, result.items.length);
+  const isOrderRandomized = session.isOrderRandomized !== false;
+  const items = isOrderRandomized
+    ? randomizeRuntimeItems(result.items)
+    : result.items;
+  const timer = timerForEditedItems(session, items.length);
 
   return {
     ...session,
     title: result.title,
-    items: result.items,
+    items,
     allItems: result.allItems,
+    isOrderRandomized,
     urlResolution: undefined,
     localFiles: undefined,
     isRuntimeLoading: false,

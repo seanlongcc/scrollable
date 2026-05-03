@@ -24,10 +24,13 @@ import type {
   SourceGroupingMode,
 } from "./types";
 import { separateSourceSlotError } from "./source-add-state";
+import { randomizeRuntimeItems } from "./source-order-state";
 
 export type LocalSessionSource = {
   title: string;
   items: RuntimeFeedItem[];
+  allItems?: RuntimeFeedItem[];
+  isOrderRandomized?: boolean;
   localFiles: File[];
   sourceConfig: PersistedSourceConfig;
 };
@@ -399,22 +402,26 @@ export async function createLocalSessionSources({
             ...(cacheSetId ? { cacheSetId } : {}),
           },
           items: [item],
+          allItems: [item],
         };
       }),
     );
   }
 
   const cacheSetId = await cacheFiles(fileReferences);
+  const randomizedItems = randomizeRuntimeItems(items);
 
   return [
     {
       title: "Local upload",
       sourceConfig: {
         kind: "local",
-        fileCount: items.length,
+        fileCount: randomizedItems.length,
         ...(cacheSetId ? { cacheSetId } : {}),
       },
-      items,
+      items: randomizedItems,
+      allItems: items,
+      isOrderRandomized: true,
       localFiles: files,
     },
   ];
@@ -435,9 +442,11 @@ export function applyLocalRuntimeItemsToSession({
     return { ...session, isRuntimeLoading: false };
   }
 
+  const isOrderRandomized = session.isOrderRandomized !== false;
+  const nextItems = isOrderRandomized ? randomizeRuntimeItems(items) : items;
   const timer = createTimerState({
     durationSeconds: session.timer.durationSeconds,
-    itemCount: items.length,
+    itemCount: nextItems.length,
   });
 
   return {
@@ -445,16 +454,18 @@ export function applyLocalRuntimeItemsToSession({
     title:
       session.sourceConfig.kind === "local" &&
       session.sourceConfig.fileCount === 1 &&
-      items.length === 1
-        ? items[0].title
+      nextItems.length === 1
+        ? nextItems[0].title
         : session.title,
-    items,
+    items: nextItems,
+    allItems: items,
+    isOrderRandomized,
     localFiles: files,
     localRestoreStatus: undefined,
     isRuntimeLoading: false,
     sourceConfig: {
       kind: "local",
-      fileCount: items.length,
+      fileCount: nextItems.length,
       ...(cacheSetId ? { cacheSetId } : {}),
     },
     timer: {

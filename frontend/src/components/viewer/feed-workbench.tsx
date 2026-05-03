@@ -62,6 +62,7 @@ import {
   useWorkbenchOverlayMounting,
 } from "./workbench/feed-workbench-overlay-actions";
 import { useSelectedSessionTimerControls } from "./workbench/feed-workbench-selection-actions";
+import { toggleSessionOrderRandomized } from "./workbench/source-order-state";
 import type { WorkbenchPanelComponents } from "./workbench/workbench-chrome";
 
 export function FeedWorkbench({
@@ -375,6 +376,10 @@ export function FeedWorkbench({
     setPendingTemplateSlotId,
     setTemplateSlots,
   });
+  const randomizeSelectedSource = useCallback(() => {
+    if (!selected) return;
+    updateSession(selected.id, toggleSessionOrderRandomized);
+  }, [selected, updateSession]);
   const {
     setCloudShareTargetWithOverlay,
     openSourcePanelWithOverlay,
@@ -707,6 +712,7 @@ export function FeedWorkbench({
     regenerateCloudShareLink,
     rememberVideoPosition,
     removeSession,
+    randomizeSelectedSource,
     removeTemplateSlot,
     replaceLocalSessionFiles,
     requestLocalCacheAccess,

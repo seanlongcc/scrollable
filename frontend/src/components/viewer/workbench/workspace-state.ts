@@ -208,6 +208,7 @@ export function createCurrentWorkspaceState({
       sourceConfig: session.sourceConfig,
       runtimeItems: session.items,
       allRuntimeItems: session.allItems,
+      isOrderRandomized: session.isOrderRandomized,
       urlResolution: session.urlResolution,
       localFiles: session.localFiles,
     })),
@@ -283,6 +284,8 @@ export function workspaceSnapshotToState(
       "allRuntimeItems" in session ? (session.allRuntimeItems ?? items) : items;
     const urlResolution =
       "urlResolution" in session ? session.urlResolution : undefined;
+    const isOrderRandomized =
+      "isOrderRandomized" in session ? session.isOrderRandomized : undefined;
     const activeIndex =
       items.length > 0
         ? clamp(session.timerActiveIndex ?? 0, 0, items.length - 1)
@@ -302,6 +305,7 @@ export function workspaceSnapshotToState(
       freeRect: session.freeRect,
       items,
       allItems,
+      isOrderRandomized,
       urlResolution,
       localFiles: "localFiles" in session ? session.localFiles : undefined,
       isRuntimeLoading:

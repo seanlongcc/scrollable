@@ -28,11 +28,13 @@ import {
   type EditedRedditSourceState,
   type EditedUrlSourceState,
 } from "./source-edit-state";
+import { randomizeRuntimeItems } from "./source-order-state";
 
 export type RuntimeSessionSource = {
   title: string;
   items: RuntimeFeedItem[];
   allItems?: RuntimeFeedItem[];
+  isOrderRandomized?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
   sourceConfig: PersistedSourceConfig;
@@ -43,6 +45,7 @@ export type RuntimeHydrationResult = {
   title?: string;
   items: RuntimeFeedItem[];
   allItems?: RuntimeFeedItem[];
+  isOrderRandomized?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
   localRestoreStatus?: LocalRestoreStatus;
@@ -111,7 +114,8 @@ export async function createRedditSessionSources({
   if (sourceGroupingMode === "separate") {
     return Promise.all(
       urls.map(async (url) => {
-        const items = await fetchRedditRuntimeItems([url], limit);
+        const allItems = await fetchRedditRuntimeItems([url], limit);
+        const items = randomizeRuntimeItems(allItems);
 
         return {
           title: redditLinksTitle([url], items),
@@ -122,13 +126,15 @@ export async function createRedditSessionSources({
             allowNsfw: true,
           },
           items,
-          allItems: items,
+          allItems,
+          isOrderRandomized: true,
         };
       }),
     );
   }
 
-  const items = await fetchRedditRuntimeItems(urls, limit);
+  const allItems = await fetchRedditRuntimeItems(urls, limit);
+  const items = randomizeRuntimeItems(allItems);
 
   return [
     {
@@ -140,7 +146,8 @@ export async function createRedditSessionSources({
         allowNsfw: true,
       },
       items,
-      allItems: items,
+      allItems,
+      isOrderRandomized: true,
     },
   ];
 }
@@ -255,13 +262,15 @@ export async function fetchRuntimeItemsForSource(
   });
 
   const allItems = flattenRuntimeMediaItems(result.items);
+  const items = await filterHiddenRedditItems(
+    allItems,
+    redditHiddenItemHashes(sourceConfig),
+  );
 
   return {
-    items: await filterHiddenRedditItems(
-      allItems,
-      redditHiddenItemHashes(sourceConfig),
-    ),
+    items: randomizeRuntimeItems(items),
     allItems,
+    isOrderRandomized: true,
   };
 }
 
@@ -421,7 +430,10 @@ export async function hydrateRuntimeSources({
                   sourceConfig: session.sourceConfig,
                   createLocalRuntimeItems,
                 });
-        return { id: session.id, ...result };
+        return {
+          id: session.id,
+          ...runtimeResultForOrderMode(session, result),
+        };
       } catch (error) {
         onError(session, error);
         return {
@@ -436,6 +448,30 @@ export async function hydrateRuntimeSources({
   );
 }
 
+function runtimeResultForOrderMode(
+  session: FeedSession,
+  result: Omit<RuntimeHydrationResult, "id">,
+): Omit<RuntimeHydrationResult, "id"> {
+  if (
+    session.sourceConfig.kind !== "reddit" &&
+    session.sourceConfig.kind !== "local"
+  ) {
+    return result;
+  }
+
+  if (session.isOrderRandomized !== false) return result;
+
+  const visibleIds = new Set(result.items.map((item) => item.id));
+  const orderedItems =
+    result.allItems?.filter((item) => visibleIds.has(item.id)) ?? result.items;
+
+  return {
+    ...result,
+    items: orderedItems.length ? orderedItems : result.items,
+    isOrderRandomized: false,
+  };
+}
+
 export function applyRuntimeHydrationResults(
   sessions: FeedSession[],
   hydrated: RuntimeHydrationResult[],
@@ -447,8 +483,14 @@ export function applyRuntimeHydrationResults(
   return sessions.map((session) => {
     const hydratedSession = hydratedBySession.get(session.id);
     if (!hydratedSession) return session;
-    const { items, allItems, localFiles, urlResolution, localRestoreStatus } =
-      hydratedSession;
+    const {
+      items,
+      allItems,
+      isOrderRandomized,
+      localFiles,
+      urlResolution,
+      localRestoreStatus,
+    } = hydratedSession;
     const { sourceConfig, title } = hydratedSession;
 
     return {
@@ -456,6 +498,7 @@ export function applyRuntimeHydrationResults(
       title: title ?? session.title,
       items,
       allItems,
+      isOrderRandomized,
       urlResolution,
       localFiles,
       localRestoreStatus,

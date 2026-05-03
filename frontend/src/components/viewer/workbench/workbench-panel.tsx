@@ -1,6 +1,14 @@
 "use client";
 
-import { Clock3, Copy, Grid2X2, Maximize2, Pencil, Trash2 } from "lucide-react";
+import {
+  Clock3,
+  Copy,
+  Grid2X2,
+  Maximize2,
+  Pencil,
+  Shuffle,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 
 import { ReleaseVersionLink } from "@/components/release-version-link";
@@ -23,6 +31,10 @@ import { cn } from "@/lib/utils";
 import { NumberField } from "./fields";
 import { SelectedFreeLayoutControls } from "./selected-free-layout-controls";
 import type { LayerStats } from "./selection-state";
+import {
+  canRandomizeSessionSource,
+  isSessionOrderRandomized,
+} from "./source-order-state";
 import type { FeedSession, LayoutMode, WorkspaceLayer } from "./types";
 import type { GlobalTimerAction } from "./workbench-toolbar";
 import { PlaybackControls } from "./workbench-playback-controls";
@@ -63,6 +75,7 @@ export type WorkbenchPanelContentProps = {
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
+  onRandomizeSelectedSource: () => void;
   onSelectedTimerModeChange: (mode: TimerMode) => void;
   onSelectedTimerSecondsChange: (seconds: number) => void;
   onSelectedMove: (direction: 1 | -1) => void;
@@ -136,6 +149,7 @@ export function WorkbenchPanelContent({
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
+  onRandomizeSelectedSource,
   onSelectedTimerModeChange,
   onSelectedTimerSecondsChange,
   onSelectedMove,
@@ -170,6 +184,28 @@ export function WorkbenchPanelContent({
       <Trash2 />
       <span className="min-w-0 truncate">Remove</span>
     </Button>
+  );
+  const canRandomizeSelectedSource = canRandomizeSessionSource(selected);
+  const isRandomizeSelectedSourceEnabled = isSessionOrderRandomized(selected);
+  const selectedSourceOrderButtons = (removeClassName?: string) => (
+    <>
+      {canRandomizeSelectedSource ? (
+        <Button
+          type="button"
+          variant={isRandomizeSelectedSourceEnabled ? "default" : "outline"}
+          aria-pressed={isRandomizeSelectedSourceEnabled}
+          aria-label="Randomize selected source"
+          onClick={onRandomizeSelectedSource}
+          className={selectedSourceButtonClass}
+        >
+          <Shuffle />
+          <span className="min-w-0 truncate">Randomize</span>
+        </Button>
+      ) : null}
+      {removeSelectedSourceButton(
+        canRandomizeSelectedSource ? removeClassName : "col-span-2",
+      )}
+    </>
   );
 
   return (
@@ -330,9 +366,7 @@ export function WorkbenchPanelContent({
                   </Button>
                 </>
               ) : null}
-              {layoutMode !== "free"
-                ? removeSelectedSourceButton("col-span-2")
-                : null}
+              {layoutMode !== "free" ? selectedSourceOrderButtons() : null}
             </div>
             {layoutMode === "free" ? (
               <>
@@ -340,7 +374,9 @@ export function WorkbenchPanelContent({
                   selected={selected}
                   onFreeRectChange={onFreeRectChange}
                 />
-                {removeSelectedSourceButton()}
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedSourceOrderButtons()}
+                </div>
               </>
             ) : null}
           </section>

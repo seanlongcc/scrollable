@@ -31,6 +31,7 @@ export type FeedSession = {
   freeRect: FreeRect;
   items: RuntimeFeedItem[];
   allItems?: RuntimeFeedItem[];
+  isOrderRandomized?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
   localRestoreStatus?: LocalRestoreStatus;

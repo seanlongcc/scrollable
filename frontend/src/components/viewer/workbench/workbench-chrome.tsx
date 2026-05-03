@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Shuffle,
   SlidersHorizontal,
   Trash2,
   UserCircle,
@@ -27,6 +28,10 @@ import type { FixedGrid, FreeRect } from "@/lib/viewer/layout";
 import type { TimerMode } from "@/lib/viewer/timer";
 import { cn } from "@/lib/utils";
 import type { LayerStats } from "./selection-state";
+import {
+  canRandomizeSessionSource,
+  isSessionOrderRandomized,
+} from "./source-order-state";
 import type { FeedSession, LayoutMode, WorkspaceLayer } from "./types";
 import type {
   WorkbenchPanelContentProps,
@@ -72,6 +77,7 @@ export type WorkbenchChromeProps = {
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
+  onRandomizeSelectedSource: () => void;
   onSelectedTimerModeChange: (mode: TimerMode) => void;
   onSelectedTimerSecondsChange: (seconds: number) => void;
   onSelectedMove: (direction: 1 | -1) => void;
@@ -126,6 +132,7 @@ export function WorkbenchChrome({
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
+  onRandomizeSelectedSource,
   onSelectedTimerModeChange,
   onSelectedTimerSecondsChange,
   onSelectedMove,
@@ -158,6 +165,8 @@ export function WorkbenchChrome({
     workbenchPanelComponents?.Sheet ?? LazyWorkbenchPanelSheet;
   const controlsHidden = isAnySheetOpen || isWorkbenchSheetOpen;
   const showPlaybackPill = Boolean(selected) && !controlsHidden;
+  const canRandomizeSelectedSource = canRandomizeSessionSource(selected);
+  const isRandomizeSelectedSourceEnabled = isSessionOrderRandomized(selected);
   const desktopWorkbenchButtonLabel = isDesktopWorkbenchCollapsed
     ? "Open workbench"
     : "Collapse workbench";
@@ -186,6 +195,7 @@ export function WorkbenchChrome({
     onCloneSelectedSource,
     onFillSelectedSourceSpace,
     onRemoveSelectedSource,
+    onRandomizeSelectedSource,
     onSelectedTimerModeChange,
     onSelectedTimerSecondsChange,
     onSelectedMove,
@@ -401,6 +411,23 @@ export function WorkbenchChrome({
                         <span className="min-w-0 truncate">Fill</span>
                       </Button>
                     </>
+                  ) : null}
+                  {canRandomizeSelectedSource ? (
+                    <Button
+                      type="button"
+                      variant={
+                        isRandomizeSelectedSourceEnabled ? "default" : "outline"
+                      }
+                      aria-pressed={isRandomizeSelectedSourceEnabled}
+                      className="min-w-0 justify-start"
+                      onClick={() => {
+                        setIsMoreOpen(false);
+                        onRandomizeSelectedSource();
+                      }}
+                    >
+                      <Shuffle />
+                      <span className="min-w-0 truncate">Randomize</span>
+                    </Button>
                   ) : null}
                   <Button
                     type="button"
