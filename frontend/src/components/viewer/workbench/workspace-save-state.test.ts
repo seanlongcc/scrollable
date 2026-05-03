@@ -68,7 +68,7 @@ describe("workspace save state", () => {
     expect(
       validateLayoutSaveName({
         name: "saved layout",
-        activeWorkspaceId: "workspace-1",
+        activeWorkspaceId: "workspace-3",
         workspaceTabs: tabs,
         savedWorkspaces,
       }),
@@ -88,7 +88,6 @@ describe("workspace save state", () => {
     expect(
       validateTemplateSaveName({
         name: "Poster wall copy",
-        activeWorkspaceId: "workspace-1",
         layoutMode: "fixed",
         savedTemplates,
       }),
@@ -100,7 +99,6 @@ describe("workspace save state", () => {
     expect(
       validateTemplateSaveName({
         name: "",
-        activeWorkspaceId: "workspace-1",
         layoutMode: "free",
         savedTemplates,
       }),
@@ -109,7 +107,6 @@ describe("workspace save state", () => {
     expect(
       validateTemplateSaveName({
         name: "Poster wall",
-        activeWorkspaceId: "workspace-1",
         layoutMode: "free",
         savedTemplates,
       }),
@@ -118,7 +115,6 @@ describe("workspace save state", () => {
     expect(
       validateTemplateSaveName({
         name: " Empty boxes ",
-        activeWorkspaceId: "workspace-1",
         layoutMode: "free",
         savedTemplates,
       }),

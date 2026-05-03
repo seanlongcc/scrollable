@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { ChangeEvent, type CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
-import type { FixedGrid } from "@/lib/viewer/layout";
+import { mobileFixedGridDisplay, type FixedGrid } from "@/lib/viewer/layout";
 import {
   moveTimerIndex,
   togglePaused,
@@ -71,13 +71,10 @@ export function FixedGridView({
 }) {
   let mountedIframeCount = 0;
   const iframeLimit = activeIframeFallbackLimit();
-  const shouldStackMobile =
-    fixedGrid.rows === 1 && fixedGrid.columns >= 2 && fixedGrid.columns <= 4;
-  const mobileColumns = shouldStackMobile ? 1 : fixedGrid.columns;
-  const mobileRows = shouldStackMobile ? fixedGrid.columns : fixedGrid.rows;
+  const mobileGrid = mobileFixedGridDisplay({ fixedGrid, visibleCells });
   const gridStyle = {
-    "--mobile-grid-columns": mobileColumns,
-    "--mobile-grid-rows": mobileRows,
+    "--mobile-grid-columns": mobileGrid.columns,
+    "--mobile-grid-rows": mobileGrid.rows,
     "--desktop-grid-columns": fixedGrid.columns,
     "--desktop-grid-rows": fixedGrid.rows,
   } as CSSProperties;
@@ -105,17 +102,19 @@ export function FixedGridView({
             key={slot}
             data-testid={`${cellTestIdPrefix}-${slot}`}
             className={cn(
-              "min-h-0 rounded-none outline outline-1 outline-offset-0 outline-transparent transition md:rounded-2xl",
-              !hideUi &&
-                session?.id === selectedId &&
-                "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/15",
+              "min-h-0 rounded-none transition md:rounded-2xl",
+              slot >= mobileGrid.visibleCells && "max-md:hidden",
             )}
             onClick={(event) => {
               if (!session) return;
               if ((event.target as HTMLElement).closest("button,a,input")) {
                 return;
               }
-              setSelectedId(session.id === selectedId ? null : session.id);
+              if (session.id === selectedId) {
+                if (event.target === event.currentTarget) setSelectedId(null);
+                return;
+              }
+              setSelectedId(session.id);
             }}
             onPointerDownCapture={(event) => {
               if (!session || session.id === selectedId) return;
@@ -136,7 +135,7 @@ export function FixedGridView({
                 isFocused={session.id === selectedId}
                 forceInfoVisible={showInfo}
                 hideUi={hideUi}
-                isPlaybackActive={isPlaybackActive}
+                isPlaybackActive={isPlaybackActive && !session.timer.isPaused}
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}
@@ -191,11 +190,11 @@ export function FixedGridView({
                 onClick={() => openSourcePanel(slot)}
                 aria-label="Add source to empty cell"
                 title="Add source to empty cell"
-                className="grid size-full min-h-0 cursor-pointer place-items-center rounded-2xl border border-dashed border-border/70 bg-surface/35 text-sm font-semibold text-muted-foreground transition hover:border-primary/70 hover:text-primary"
+                className="group grid size-full min-h-0 min-w-0 cursor-pointer place-items-center rounded-none border border-dashed border-border/65 bg-background/42 p-2 text-sm font-semibold text-muted-foreground transition-[background-color,border-color,color,box-shadow] hover:border-primary/70 hover:bg-primary-soft/35 hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none md:rounded-xl"
               >
-                <span className="inline-flex items-center gap-2">
-                  <Plus className="size-4" />
-                  Add source
+                <span className="inline-flex max-w-full min-w-0 items-center gap-2">
+                  <Plus className="size-4 text-primary" />
+                  <span className="min-w-0 truncate">Add source</span>
                 </span>
               </button>
             )}

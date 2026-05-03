@@ -16,7 +16,7 @@ export function HiddenUiRevealButton({
       size="sm"
       variant="outline"
       className={cn(
-        "fixed right-3 top-3 z-50 border-border bg-background/95 text-foreground shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur transition-opacity duration-300",
+        "fixed right-3 top-3 z-50 border-border bg-background/95 text-foreground shadow-[0_20px_60px_rgba(18,10,10,0.55)] backdrop-blur transition-opacity duration-300",
         !isVisible && "pointer-events-none opacity-0",
       )}
       onClick={onReveal}

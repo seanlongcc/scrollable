@@ -12,19 +12,82 @@ export type FreeRect = {
 
 export const DEFAULT_FIXED_GRID: FixedGrid = { columns: 2, rows: 1 };
 export const FREE_LAYOUT_SIZE = 16;
-const FIXED_GRID_MAX = 16;
+export const DESKTOP_FIXED_GRID_MAX = 16;
+export const MOBILE_FIXED_GRID_MAX = 3;
 const DEFAULT_FREE_RECT_SPAN = 4;
 
-export function createFixedGrid(columns: number, rows: number): FixedGrid {
-  if (!Number.isInteger(columns) || columns < 1 || columns > FIXED_GRID_MAX) {
-    throw new Error("Grid columns must be 1-16");
+function isDefaultMobileFixedGrid({
+  fixedGrid,
+  visibleCells,
+}: {
+  fixedGrid: FixedGrid;
+  visibleCells: number;
+}) {
+  return (
+    fixedGrid.columns === DEFAULT_FIXED_GRID.columns &&
+    fixedGrid.rows === DEFAULT_FIXED_GRID.rows &&
+    visibleCells === DEFAULT_FIXED_GRID.columns * DEFAULT_FIXED_GRID.rows
+  );
+}
+
+export function createFixedGrid(
+  columns: number,
+  rows: number,
+  options: { max?: number } = {},
+): FixedGrid {
+  const max = options.max ?? DESKTOP_FIXED_GRID_MAX;
+
+  if (!Number.isInteger(columns) || columns < 1 || columns > max) {
+    throw new Error(`Grid columns must be 1-${max}`);
   }
 
-  if (!Number.isInteger(rows) || rows < 1 || rows > FIXED_GRID_MAX) {
-    throw new Error("Grid rows must be 1-16");
+  if (!Number.isInteger(rows) || rows < 1 || rows > max) {
+    throw new Error(`Grid rows must be 1-${max}`);
   }
 
   return { columns, rows };
+}
+
+export function fixedGridRangeToastMessage(max: number) {
+  return max === MOBILE_FIXED_GRID_MAX
+    ? "Grid range is 1-3 on mobile"
+    : "Grid range is 1-16 on desktop";
+}
+
+export function mobileFixedGridDisplay({
+  fixedGrid,
+  visibleCells,
+}: {
+  fixedGrid: FixedGrid;
+  visibleCells: number;
+}) {
+  if (isDefaultMobileFixedGrid({ fixedGrid, visibleCells })) {
+    return { columns: 1, rows: 2, visibleCells };
+  }
+
+  const mobileVisibleCells = Math.min(
+    Math.max(0, visibleCells),
+    MOBILE_FIXED_GRID_MAX * MOBILE_FIXED_GRID_MAX,
+  );
+  const columns =
+    mobileVisibleCells <= MOBILE_FIXED_GRID_MAX
+      ? 1
+      : mobileVisibleCells <= MOBILE_FIXED_GRID_MAX * 2
+        ? 2
+        : MOBILE_FIXED_GRID_MAX;
+  const rows = Math.max(
+    1,
+    Math.min(
+      MOBILE_FIXED_GRID_MAX,
+      Math.ceil(mobileVisibleCells / columns) || 1,
+    ),
+  );
+
+  return {
+    columns,
+    rows,
+    visibleCells: Math.min(mobileVisibleCells, columns * rows),
+  };
 }
 
 export function createFreeRect(rect: FreeRect): FreeRect {

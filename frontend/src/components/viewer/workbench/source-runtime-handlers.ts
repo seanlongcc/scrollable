@@ -4,7 +4,6 @@ import type {
   DragEvent as ReactDragEvent,
   SetStateAction,
 } from "react";
-import { toast } from "sonner";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import type {
@@ -13,7 +12,7 @@ import type {
   LocalFileReference,
 } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
-import type { UrlRuntimeResolution } from "@/lib/url-source/types";
+import { toast } from "@/lib/toast";
 import {
   addPreparedLocalSourceAction,
   addRedditSourceAction,
@@ -63,7 +62,6 @@ import {
 import type {
   FeedSession,
   LayoutMode,
-  PersistedSourceConfig,
   RedditInputMode,
   RedditListingSort,
   RedditTimeRange,
@@ -185,14 +183,18 @@ export function useSourceRuntimeHandlers({
   async function openUrlSource() {
     setIsLoading(true);
     try {
-      const result = await addUrlSourceAction({ urlValue, urlTitle });
+      const result = await addUrlSourceAction({
+        urlValue,
+        urlTitle,
+        availableSeparateSourceSlots,
+      });
 
       if (result.status !== "ready") {
         toast.error(result.error);
         return;
       }
 
-      addSession(result.source);
+      addSessions(result.sources);
       setIsSourceOpen(false);
     } finally {
       setIsLoading(false);
@@ -367,58 +369,36 @@ export function useSourceRuntimeHandlers({
     return createLocalRuntimeItemsForWorkbench(files, registryRef);
   }
 
-  function addSession({
-    title,
-    items,
-    allItems,
-    urlResolution,
-    localFiles,
-    sourceConfig,
-  }: {
-    title: string;
-    items: RuntimeFeedItem[];
-    allItems?: RuntimeFeedItem[];
-    urlResolution?: UrlRuntimeResolution;
-    localFiles?: File[];
-    sourceConfig: PersistedSourceConfig;
-  }) {
-    addSessions([
-      { title, items, allItems, urlResolution, localFiles, sourceConfig },
-    ]);
-  }
-
   function addSessions(sources: SessionPlacementSourceInput[]) {
-    setSessions((current) => {
-      const result = placeSessions({
-        current,
-        sources,
-        activeLayerId,
-        globalSeconds,
-        pendingFixedSlot,
-        pendingTemplateSlotId,
-        templateSlots,
-        createId,
-      });
-
-      if (result.noFreeLayoutSpace) {
-        toast.error("No space left in free layout");
-      }
-
-      if (result.selectedSessionId) {
-        setSelectedId(result.selectedSessionId);
-        setPendingFixedSlot(null);
-        setPendingTemplateSlotId(null);
-        if (result.consumedTemplateSlotId) {
-          setTemplateSlots((currentSlots) =>
-            currentSlots.filter(
-              (slot) => slot.id !== result.consumedTemplateSlotId,
-            ),
-          );
-        }
-      }
-
-      return result.sessions;
+    const result = placeSessions({
+      current: sessions,
+      sources,
+      activeLayerId,
+      globalSeconds,
+      pendingFixedSlot,
+      pendingTemplateSlotId,
+      templateSlots,
+      createId,
     });
+
+    if (result.noFreeLayoutSpace) {
+      toast.error("No space left in free layout");
+    }
+
+    setSessions(result.sessions);
+
+    if (!result.selectedSessionId) return;
+
+    setSelectedId(result.selectedSessionId);
+    setPendingFixedSlot(null);
+    setPendingTemplateSlotId(null);
+    if (result.consumedTemplateSlotId) {
+      setTemplateSlots((currentSlots) =>
+        currentSlots.filter(
+          (slot) => slot.id !== result.consumedTemplateSlotId,
+        ),
+      );
+    }
   }
 
   function openSourcePanel(

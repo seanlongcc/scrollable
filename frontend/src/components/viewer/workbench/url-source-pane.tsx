@@ -9,7 +9,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { sourceActionRailClass } from "@/components/viewer/source-action-rail";
 import type { UrlRuntimeResolution } from "@/lib/url-source/types";
+import { cn } from "@/lib/utils";
 import {
   urlResolutionIframeUrl,
   urlResolutionRequiresDisplayWarning,
@@ -17,6 +19,7 @@ import {
 import {
   destroyYouTubePlayer,
   loadYouTubeIframeApi,
+  pauseYouTubePlayer,
   reportYouTubePlaybackTime,
   resumeYouTubePlayer,
   type YouTubePlayer,
@@ -29,6 +32,7 @@ export function UrlSourcePane({
   hideUi,
   isFocused,
   canMountIframe,
+  isPlaybackActive = true,
   iframePlaybackSeconds = 0,
   onIframePlaybackTimeChange,
   onSelect,
@@ -42,6 +46,7 @@ export function UrlSourcePane({
   hideUi?: boolean;
   isFocused?: boolean;
   canMountIframe: boolean;
+  isPlaybackActive?: boolean;
   iframePlaybackSeconds?: number;
   onIframePlaybackTimeChange?: (seconds: number) => void;
   onSelect?: () => void;
@@ -71,6 +76,11 @@ export function UrlSourcePane({
     iframeUrl &&
     !shouldShowDisplayWarning &&
     !shouldMountIframe;
+  const sourceChromeClass = cn(
+    "transition-opacity duration-200",
+    !isFocused &&
+      "opacity-0 group-hover/source:opacity-100 group-focus-within/source:opacity-100",
+  );
 
   function selectThen(action?: () => void) {
     onSelect?.();
@@ -84,15 +94,18 @@ export function UrlSourcePane({
           key={iframeUrl}
           title={displayTitle}
           iframeUrl={iframeUrl ?? ""}
+          isPlaybackActive={isPlaybackActive}
           initialPlaybackSeconds={iframePlaybackSeconds}
           onPlaybackTimeChange={onIframePlaybackTimeChange}
         />
       ) : (
-        <div className="absolute inset-0 z-0 grid place-items-center bg-background p-4">
-          <div className="grid max-w-md justify-items-center gap-3 text-center">
+        <div className="absolute inset-0 z-0 grid place-items-center overflow-auto bg-background p-4">
+          <div className="grid max-h-full max-w-md justify-items-center gap-3 text-center">
             <Globe className="size-8 text-primary" />
-            <div className="grid gap-1">
-              <h3 className="text-sm font-medium">{displayTitle}</h3>
+            <div className="grid max-w-full gap-1">
+              <h3 className="text-wrap-anywhere text-sm font-medium">
+                {displayTitle}
+              </h3>
               {isRuntimeLoading ? (
                 <p className="text-xs text-muted-foreground">
                   Loading runtime media
@@ -102,11 +115,13 @@ export function UrlSourcePane({
                 <>
                   {resolution.metadata.siteName ? (
                     <p className="text-[11px] font-medium text-primary">
-                      {resolution.metadata.siteName}
+                      <span className="text-wrap-anywhere">
+                        {resolution.metadata.siteName}
+                      </span>
                     </p>
                   ) : null}
                   {resolution.metadata.description ? (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-wrap-anywhere line-clamp-4 text-xs text-muted-foreground">
                       {resolution.metadata.description}
                     </p>
                   ) : null}
@@ -150,16 +165,17 @@ export function UrlSourcePane({
             {shouldShowDisplayWarning ? (
               <Button
                 size="sm"
+                className="min-w-0 max-w-full"
                 onClick={() =>
                   selectThen(() => setApprovedFallbackIframeUrl(iframeUrl))
                 }
               >
                 <Info />
-                Display site
+                <span className="min-w-0 truncate">Display site</span>
               </Button>
             ) : null}
             {externalUrl ? (
-              <Button asChild size="sm" variant="outline">
+              <Button asChild size="sm" variant="outline" className="min-w-0">
                 <a
                   href={externalUrl}
                   target="_blank"
@@ -167,7 +183,7 @@ export function UrlSourcePane({
                   onClick={onSelect}
                 >
                   <ExternalLink />
-                  Open externally
+                  <span className="min-w-0 truncate">Open externally</span>
                 </a>
               </Button>
             ) : null}
@@ -176,7 +192,11 @@ export function UrlSourcePane({
       )}
 
       {!hideUi && (onRemove || onMaximize || onSelect) ? (
-        <div className="pointer-events-none absolute top-2 left-2 z-30 grid gap-1 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100 md:left-auto md:right-2">
+        <div
+          data-source-action-rail
+          data-focused={isFocused ? "true" : "false"}
+          className={sourceActionRailClass(isFocused)}
+        >
           {onRemove ? (
             <Button
               type="button"
@@ -218,14 +238,29 @@ export function UrlSourcePane({
       ) : null}
 
       {!hideUi && isFocused ? (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 opacity-0 transition-opacity duration-200 group-hover/source:opacity-100 group-focus-within/source:opacity-100">
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2",
+            sourceChromeClass,
+          )}
+        >
           <div className="min-w-0 rounded-xl border border-border/60 bg-background/78 px-2 py-1.5 backdrop-blur">
-            <div className="truncate text-xs font-medium">{displayTitle}</div>
+            <div className="text-wrap-anywhere line-clamp-2 text-xs font-medium">
+              {displayTitle}
+            </div>
             <div className="font-mono text-[10px] text-muted-foreground">
               URL source
             </div>
           </div>
         </div>
+      ) : null}
+
+      {!hideUi && isFocused ? (
+        <div
+          data-testid="source-selected-outline"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-30 rounded-2xl border-2 border-primary ring-2 ring-primary/15"
+        />
       ) : null}
     </article>
   );
@@ -234,16 +269,19 @@ export function UrlSourcePane({
 function RuntimeIframe({
   title,
   iframeUrl,
+  isPlaybackActive,
   initialPlaybackSeconds,
   onPlaybackTimeChange,
 }: {
   title: string;
   iframeUrl: string;
+  isPlaybackActive: boolean;
   initialPlaybackSeconds: number;
   onPlaybackTimeChange?: (seconds: number) => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const onPlaybackTimeChangeRef = useRef(onPlaybackTimeChange);
+  const isPlaybackActiveRef = useRef(isPlaybackActive);
   const fallbackPlaybackRef = useRef({
     startedAt: 0,
     startSeconds: normalizedPlaybackSeconds(initialPlaybackSeconds),
@@ -264,6 +302,10 @@ function RuntimeIframe({
   useEffect(() => {
     onPlaybackTimeChangeRef.current = onPlaybackTimeChange;
   }, [onPlaybackTimeChange]);
+
+  useEffect(() => {
+    isPlaybackActiveRef.current = isPlaybackActive;
+  }, [isPlaybackActive]);
 
   useEffect(() => {
     fallbackPlaybackRef.current = {
@@ -288,11 +330,18 @@ function RuntimeIframe({
               player = event.target;
               youtubePlayerRef.current = event.target;
               youtubePlayerReadyRef.current = true;
-              resumeYouTubePlayer(
-                event.target,
-                pendingYoutubeSeekSecondsRef.current,
-                true,
-              );
+              if (isPlaybackActiveRef.current) {
+                resumeYouTubePlayer(
+                  event.target,
+                  pendingYoutubeSeekSecondsRef.current,
+                  true,
+                );
+              } else {
+                pauseYouTubePlayer(
+                  event.target,
+                  onPlaybackTimeChangeRef.current,
+                );
+              }
             },
           },
         });
@@ -326,6 +375,33 @@ function RuntimeIframe({
 
   useEffect(() => {
     if (!isYoutubeIframeUrl(iframeUrl)) return;
+    const player = youtubePlayerRef.current;
+    if (!player || !youtubePlayerReadyRef.current) return;
+
+    if (!isPlaybackActive) {
+      const reportedSeconds = pauseYouTubePlayer(
+        player,
+        onPlaybackTimeChangeRef.current,
+      );
+      if (reportedSeconds !== null) {
+        lastKnownPlaybackSecondsRef.current = reportedSeconds;
+        pendingYoutubeSeekSecondsRef.current = reportedSeconds;
+        hasAuthoritativeYoutubeTimeRef.current = true;
+      }
+      return;
+    }
+
+    const resumeSeconds = lastKnownPlaybackSecondsRef.current;
+    pendingYoutubeSeekSecondsRef.current = resumeSeconds;
+    fallbackPlaybackRef.current = {
+      startedAt: Date.now(),
+      startSeconds: resumeSeconds,
+    };
+    resumeYouTubePlayer(player, resumeSeconds, true);
+  }, [iframeUrl, isPlaybackActive]);
+
+  useEffect(() => {
+    if (!isYoutubeIframeUrl(iframeUrl)) return;
     const resumeSeconds = normalizedPlaybackSeconds(initialPlaybackSeconds);
     pendingYoutubeSeekSecondsRef.current = resumeSeconds;
 
@@ -350,6 +426,10 @@ function RuntimeIframe({
 
       const reportPlaybackTimeChange = onPlaybackTimeChangeRef.current;
       if (!reportPlaybackTimeChange) return;
+      if (!isPlaybackActive) {
+        reportPlaybackTimeChange(lastKnownPlaybackSecondsRef.current);
+        return;
+      }
       if (hasAuthoritativeYoutubeTimeRef.current) {
         reportPlaybackTimeChange(lastKnownPlaybackSecondsRef.current);
         return;
@@ -367,7 +447,7 @@ function RuntimeIframe({
       window.clearInterval(intervalId);
       reportPlaybackTime();
     };
-  }, [iframeUrl]);
+  }, [iframeUrl, isPlaybackActive]);
 
   return (
     <iframe

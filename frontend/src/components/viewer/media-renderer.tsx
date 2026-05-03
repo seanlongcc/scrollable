@@ -1,6 +1,5 @@
 "use client";
 
-import Hls from "hls.js";
 import { useEffect, useRef, useState } from "react";
 
 import type { RuntimeMedia } from "@/lib/feed/types";
@@ -15,6 +14,8 @@ type VideoRestoreTarget = {
   key: string;
   targetSeconds: number;
 };
+
+type HlsInstance = InstanceType<typeof import("hls.js").default>;
 
 export function MediaRenderer({
   media,
@@ -32,6 +33,7 @@ export function MediaRenderer({
   onVideoTimeChange?: (seconds: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRestoreTargetRef = useRef<VideoRestoreTarget | null>(null);
   const restoredVideoKeyRef = useRef<string | null>(null);
   const lastReportedVideoSecondRef = useRef<number | null>(null);
@@ -144,37 +146,52 @@ export function MediaRenderer({
       return () => unloadVideo(video);
     }
 
-    if (!Hls.isSupported()) {
-      video.src = playback.src;
-      return () => unloadVideo(video);
-    }
+    let isCancelled = false;
+    let hls: HlsInstance | null = null;
 
-    const hls = new Hls({
-      maxBufferLength: 90,
-      maxMaxBufferLength: 180,
-      backBufferLength: 30,
-      capLevelToPlayerSize: true,
-      startFragPrefetch: true,
-      ...(videoHlsSegmentQuery
-        ? {
-            xhrSetup(xhr, url) {
-              const nextUrl = appendHlsSegmentQuery(url, videoHlsSegmentQuery);
-              if (nextUrl !== url) xhr.open("GET", nextUrl, true);
-            },
-            fetchSetup(context, initParams) {
-              return new Request(
-                appendHlsSegmentQuery(context.url, videoHlsSegmentQuery),
-                initParams,
-              );
-            },
-          }
-        : {}),
-    });
-    hls.loadSource(playback.src);
-    hls.attachMedia(video);
+    void import("hls.js")
+      .then(({ default: Hls }) => {
+        if (isCancelled) return;
+
+        if (!Hls.isSupported()) {
+          video.src = playback.src;
+          return;
+        }
+
+        hls = new Hls({
+          maxBufferLength: 90,
+          maxMaxBufferLength: 180,
+          backBufferLength: 30,
+          capLevelToPlayerSize: true,
+          startFragPrefetch: true,
+          ...(videoHlsSegmentQuery
+            ? {
+                xhrSetup(xhr, url) {
+                  const nextUrl = appendHlsSegmentQuery(
+                    url,
+                    videoHlsSegmentQuery,
+                  );
+                  if (nextUrl !== url) xhr.open("GET", nextUrl, true);
+                },
+                fetchSetup(context, initParams) {
+                  return new Request(
+                    appendHlsSegmentQuery(context.url, videoHlsSegmentQuery),
+                    initParams,
+                  );
+                },
+              }
+            : {}),
+        });
+        hls.loadSource(playback.src);
+        hls.attachMedia(video);
+      })
+      .catch(() => {
+        if (!isCancelled) video.src = playback.src;
+      });
 
     return () => {
-      hls.destroy();
+      isCancelled = true;
+      hls?.destroy();
       unloadVideo(video);
     };
   }, [
@@ -186,6 +203,70 @@ export function MediaRenderer({
     videoPlaybackKey,
     videoUrl,
   ]);
+
+  useEffect(() => {
+    if (
+      hasLoadError ||
+      !shouldLoadPlayback ||
+      (media.type !== "video" && media.type !== "audio")
+    ) {
+      return;
+    }
+
+    const element =
+      media.type === "video" ? videoRef.current : audioRef.current;
+    if (!element) return;
+
+    if (!shouldPlay) {
+      element.pause();
+      return;
+    }
+
+    requestMediaPlayback(element);
+  }, [hasLoadError, media.type, shouldLoadPlayback, shouldPlay, mediaKey]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (
+      !video ||
+      media.type !== "video" ||
+      !shouldLoadPlayback ||
+      hasLoadError
+    ) {
+      return;
+    }
+    const videoElement = video;
+    let isCancelled = false;
+
+    videoElement.muted = true;
+    videoElement.defaultMuted = true;
+    videoElement.playsInline = true;
+    videoElement.autoplay = true;
+    videoElement.setAttribute("playsinline", "");
+    videoElement.setAttribute("webkit-playsinline", "");
+
+    function requestPlayback() {
+      if (isCancelled || !shouldLoadPlayback || videoElement.paused === false) {
+        return;
+      }
+
+      requestMediaPlayback(videoElement);
+    }
+
+    requestPlayback();
+    videoElement.addEventListener("loadedmetadata", requestPlayback);
+    videoElement.addEventListener("loadeddata", requestPlayback);
+    videoElement.addEventListener("canplay", requestPlayback);
+    videoElement.addEventListener("canplaythrough", requestPlayback);
+
+    return () => {
+      isCancelled = true;
+      videoElement.removeEventListener("loadedmetadata", requestPlayback);
+      videoElement.removeEventListener("loadeddata", requestPlayback);
+      videoElement.removeEventListener("canplay", requestPlayback);
+      videoElement.removeEventListener("canplaythrough", requestPlayback);
+    };
+  }, [hasLoadError, media.type, shouldLoadPlayback, videoPlaybackKey]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -270,6 +351,7 @@ export function MediaRenderer({
       <img
         src={media.url}
         alt={title}
+        decoding="async"
         className="h-full w-full object-contain"
         draggable={false}
         onError={handleMediaError}
@@ -281,6 +363,7 @@ export function MediaRenderer({
     return (
       <div className="grid size-full place-items-center bg-background px-6">
         <audio
+          ref={audioRef}
           src={shouldLoadPlayback ? media.url : undefined}
           aria-label={title}
           className="w-full max-w-md"
@@ -321,6 +404,17 @@ function hostFromUrl(value: string) {
     return new URL(value).hostname;
   } catch {
     return "Media host";
+  }
+}
+
+function requestMediaPlayback(element: HTMLMediaElement) {
+  try {
+    const playResult = element.play();
+    if (playResult && typeof playResult.catch === "function") {
+      void playResult.catch(() => undefined);
+    }
+  } catch {
+    // Autoplay can be rejected by browser policy; controls stay available.
   }
 }
 

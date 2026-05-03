@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Scrollable Pulse Console Mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: oklch(0.15 0.018 274);
+        --foreground: oklch(0.94 0.014 82);
+        --surface: oklch(0.2 0.024 273);
+        --surface-elevated: oklch(0.255 0.031 276);
+        --surface-raised: oklch(0.305 0.036 279);
+        --border: oklch(0.395 0.035 280);
+        --border-soft: oklch(0.395 0.035 280 / 0.52);
+        --muted: oklch(0.72 0.035 282);
+        --muted-low: oklch(0.54 0.032 282);
+        --primary: oklch(0.69 0.18 25);
+        --primary-hover: oklch(0.74 0.18 25);
+        --primary-foreground: oklch(0.15 0.018 274);
+        --selected: oklch(0.68 0.17 305);
+        --selected-soft: oklch(0.26 0.06 305);
+        --progress: oklch(0.82 0.15 82);
+        --progress-soft: oklch(0.27 0.05 82);
+        --info: oklch(0.72 0.12 220);
+        --success: oklch(0.75 0.13 158);
+        --destructive: oklch(0.65 0.19 18);
+        --shadow: 0 24px 80px oklch(0.07 0.015 274 / 0.74);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          linear-gradient(
+            135deg,
+            oklch(0.2 0.05 305 / 0.44),
+            transparent 420px
+          ),
+          linear-gradient(315deg, oklch(0.2 0.05 25 / 0.34), transparent 520px),
+          var(--background);
+        color: var(--foreground);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        display: grid;
+        min-height: 100vh;
+        gap: 24px;
+        padding: 28px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .board {
+        display: grid;
+        width: min(1200px, 100%);
+        grid-template-columns: minmax(290px, 410px) minmax(0, 1fr);
+        gap: 22px;
+        align-self: center;
+        justify-self: center;
+      }
+
+      .phone,
+      .desktop {
+        border: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .phone {
+        overflow: hidden;
+        border-radius: 28px;
+      }
+
+      .phone-screen {
+        position: relative;
+        aspect-ratio: 9 / 16;
+        min-height: 620px;
+        overflow: hidden;
+        background:
+          linear-gradient(
+            180deg,
+            oklch(0.2 0.034 274),
+            oklch(0.12 0.018 274) 58%
+          ),
+          var(--background);
+      }
+
+      .now-pill {
+        position: absolute;
+        z-index: 5;
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        display: flex;
+        min-height: 40px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border: 1px solid var(--border-soft);
+        border-radius: 999px;
+        background: oklch(0.15 0.018 274 / 0.88);
+        padding: 0 12px;
+      }
+
+      .now-pill strong {
+        color: var(--foreground);
+        font-size: 12px;
+        font-weight: 780;
+      }
+
+      .now-pill span {
+        color: var(--progress);
+        font-size: 11px;
+        font-weight: 760;
+      }
+
+      .stage {
+        position: absolute;
+        inset: 64px 12px 92px;
+        display: grid;
+        grid-template-rows: 1.3fr 0.7fr;
+        gap: 10px;
+      }
+
+      .pane {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: oklch(0.115 0.016 274);
+      }
+
+      .pane::after {
+        position: absolute;
+        inset: 0;
+        content: "";
+        background:
+          linear-gradient(
+            to bottom,
+            transparent 42%,
+            oklch(0.08 0.012 274 / 0.72)
+          ),
+          repeating-linear-gradient(
+            90deg,
+            transparent 0 18px,
+            oklch(0.94 0.014 82 / 0.018) 18px 19px
+          );
+        pointer-events: none;
+      }
+
+      .pane.selected {
+        border-color: oklch(0.68 0.17 305 / 0.82);
+        box-shadow:
+          0 0 0 1px oklch(0.68 0.17 305 / 0.24),
+          inset 0 0 42px oklch(0.68 0.17 305 / 0.08);
+      }
+
+      .media-shape {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          115deg,
+          oklch(0.19 0.05 274) 0 28%,
+          oklch(0.58 0.16 25 / 0.72) 28% 43%,
+          oklch(0.25 0.06 305) 43% 68%,
+          oklch(0.78 0.12 82 / 0.68) 68% 78%,
+          oklch(0.16 0.025 274) 78%
+        );
+      }
+
+      .media-shape.two {
+        background: linear-gradient(
+          140deg,
+          oklch(0.13 0.02 274) 0 24%,
+          oklch(0.67 0.16 305 / 0.65) 24% 42%,
+          oklch(0.2 0.05 220) 42% 66%,
+          oklch(0.72 0.12 220 / 0.52) 66% 76%,
+          oklch(0.14 0.02 274) 76%
+        );
+      }
+
+      .runtime-chip {
+        position: absolute;
+        z-index: 2;
+        top: 10px;
+        left: 10px;
+        display: grid;
+        gap: 2px;
+        max-width: calc(100% - 20px);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: oklch(0.13 0.018 274 / 0.88);
+        padding: 8px 10px;
+      }
+
+      .runtime-chip strong {
+        overflow: hidden;
+        color: var(--foreground);
+        font-size: 12px;
+        font-weight: 790;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .runtime-chip span {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 660;
+      }
+
+      .progress {
+        position: absolute;
+        z-index: 3;
+        right: 10px;
+        bottom: 10px;
+        left: 10px;
+        height: 5px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: oklch(0.94 0.014 82 / 0.12);
+      }
+
+      .progress span {
+        display: block;
+        width: 64%;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--progress);
+      }
+
+      .floating-rail {
+        position: absolute;
+        z-index: 4;
+        right: 14px;
+        bottom: 134px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .tool {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: oklch(0.2 0.024 273 / 0.94);
+        color: var(--foreground);
+        font-size: 13px;
+        font-weight: 780;
+      }
+
+      .tool.primary {
+        border-color: transparent;
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+
+      .tool.selected {
+        border-color: oklch(0.68 0.17 305 / 0.55);
+        color: var(--selected);
+      }
+
+      .tool.info {
+        border-color: oklch(0.72 0.12 220 / 0.45);
+        color: var(--info);
+      }
+
+      .bottom-nav {
+        position: absolute;
+        inset-inline: 0;
+        bottom: 0;
+        display: grid;
+        height: 78px;
+        grid-template-columns: repeat(4, 1fr);
+        align-items: center;
+        border-top: 1px solid var(--border-soft);
+        background: oklch(0.15 0.018 274 / 0.98);
+        padding: 6px 12px 10px;
+      }
+
+      .nav-item {
+        display: grid;
+        min-height: 48px;
+        place-items: center;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 720;
+      }
+
+      .nav-item.active {
+        color: var(--primary-hover);
+      }
+
+      .desktop {
+        display: grid;
+        min-height: 620px;
+        grid-template-rows: auto 1fr auto;
+        gap: 14px;
+        border-radius: 16px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid var(--border-soft);
+        padding: 14px 16px;
+      }
+
+      .brand {
+        display: grid;
+        gap: 3px;
+      }
+
+      h1 {
+        color: var(--foreground);
+        font-size: 18px;
+        font-weight: 790;
+        letter-spacing: 0;
+      }
+
+      .brand p {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 660;
+      }
+
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .tab {
+        min-height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface-elevated);
+        color: var(--muted);
+        padding: 0 12px;
+        font-size: 12px;
+        font-weight: 760;
+      }
+
+      .tab.active {
+        border-color: oklch(0.69 0.18 25 / 0.64);
+        color: var(--foreground);
+        box-shadow: 0 0 0 1px oklch(0.69 0.18 25 / 0.18);
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 88px 1fr minmax(220px, 266px);
+        gap: 12px;
+        padding: 0 14px;
+      }
+
+      .rail {
+        display: grid;
+        align-content: start;
+        gap: 8px;
+      }
+
+      .rail-button {
+        display: grid;
+        min-height: 54px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-elevated);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 760;
+      }
+
+      .rail-button.active {
+        border-color: oklch(0.82 0.15 82 / 0.55);
+        color: var(--progress);
+      }
+
+      .canvas {
+        display: grid;
+        grid-template-columns: 1fr 0.82fr;
+        grid-template-rows: 1fr 0.72fr;
+        gap: 10px;
+        min-height: 444px;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background:
+          linear-gradient(
+            transparent 0 23px,
+            oklch(0.94 0.014 82 / 0.026) 23px 24px
+          ),
+          linear-gradient(
+            90deg,
+            transparent 0 23px,
+            oklch(0.94 0.014 82 / 0.026) 23px 24px
+          ),
+          oklch(0.12 0.018 274);
+        background-size: 24px 24px;
+        padding: 10px;
+      }
+
+      .canvas .pane:first-child {
+        grid-row: span 2;
+      }
+
+      .side-panel {
+        display: grid;
+        align-content: start;
+        gap: 12px;
+      }
+
+      .panel-section {
+        display: grid;
+        gap: 10px;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: var(--surface-elevated);
+        padding: 12px;
+      }
+
+      h2 {
+        color: var(--foreground);
+        font-size: 13px;
+        font-weight: 790;
+        letter-spacing: 0;
+      }
+
+      .queue-item {
+        display: grid;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 10px;
+      }
+
+      .queue-item.active {
+        border-color: oklch(0.68 0.17 305 / 0.68);
+      }
+
+      .queue-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .queue-item strong {
+        color: var(--foreground);
+        font-size: 12px;
+      }
+
+      .queue-item span,
+      .meter-label {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 660;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--success);
+      }
+
+      .status-dot.provider {
+        background: var(--info);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .button {
+        min-height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-raised);
+        color: var(--foreground);
+        padding: 0 12px;
+        font-size: 12px;
+        font-weight: 780;
+      }
+
+      .button.primary {
+        border-color: transparent;
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+
+      .button.secondary {
+        border-color: oklch(0.82 0.15 82 / 0.42);
+        color: var(--progress);
+      }
+
+      .meter {
+        display: grid;
+        gap: 7px;
+      }
+
+      .meter-track {
+        height: 6px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: oklch(0.94 0.014 82 / 0.12);
+      }
+
+      .meter-track span {
+        display: block;
+        width: 72%;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--progress);
+      }
+
+      .footer {
+        display: grid;
+        gap: 14px;
+        border-top: 1px solid var(--border-soft);
+        padding: 14px 16px 16px;
+      }
+
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .swatch {
+        display: grid;
+        gap: 8px;
+        min-height: 78px;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: var(--surface-elevated);
+        padding: 8px;
+      }
+
+      .color {
+        height: 22px;
+        border: 1px solid oklch(0.94 0.014 82 / 0.16);
+        border-radius: 999px;
+      }
+
+      .swatch strong {
+        color: var(--foreground);
+        font-size: 11px;
+      }
+
+      .swatch span {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .bg {
+        background: var(--background);
+      }
+
+      .fg {
+        background: var(--foreground);
+      }
+
+      .sf {
+        background: var(--surface-elevated);
+      }
+
+      .pr {
+        background: var(--primary);
+      }
+
+      .sl {
+        background: var(--selected);
+      }
+
+      .pg {
+        background: var(--progress);
+      }
+
+      .in {
+        background: var(--info);
+      }
+
+      @media (max-width: 900px) {
+        main {
+          padding: 16px;
+        }
+
+        .board {
+          grid-template-columns: 1fr;
+        }
+
+        .phone-screen {
+          min-height: 560px;
+        }
+
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .rail,
+        .side-panel {
+          display: none;
+        }
+
+        .canvas {
+          min-height: 420px;
+        }
+
+        .swatches {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="board" aria-label="Pulse Console workbench mockup">
+        <div class="phone" aria-label="Mobile reels command center">
+          <div class="phone-screen">
+            <div class="now-pill">
+              <strong>Command queue</strong>
+              <span>14 reels ready</span>
+            </div>
+            <div class="stage">
+              <div class="pane selected">
+                <div class="media-shape"></div>
+                <div class="runtime-chip">
+                  <strong>focus reel</strong>
+                  <span>runtime only</span>
+                </div>
+                <div class="progress"><span></span></div>
+              </div>
+              <div class="pane">
+                <div class="media-shape two"></div>
+                <div class="runtime-chip">
+                  <strong>side stack</strong>
+                  <span>3 sources synced</span>
+                </div>
+              </div>
+            </div>
+            <div class="floating-rail" aria-label="Floating tools">
+              <button class="tool primary" type="button">+</button>
+              <button class="tool selected" type="button">Q</button>
+              <button class="tool info" type="button">i</button>
+              <button class="tool" type="button">S</button>
+            </div>
+            <nav class="bottom-nav" aria-label="Mobile navigation">
+              <span class="nav-item active">Watch</span>
+              <span class="nav-item">Queue</span>
+              <span class="nav-item">Layout</span>
+              <span class="nav-item">Save</span>
+            </nav>
+          </div>
+        </div>
+
+        <div class="desktop" aria-label="Desktop command center">
+          <header class="topbar">
+            <div class="brand">
+              <h1>Scrollable</h1>
+              <p>Pulse Console palette probe</p>
+            </div>
+            <div class="tabs" aria-label="Workspace tabs">
+              <button class="tab active" type="button">Command</button>
+              <button class="tab" type="button">Reels</button>
+              <button class="tab" type="button">Saved</button>
+            </div>
+          </header>
+
+          <section class="workspace">
+            <aside class="rail" aria-label="Workbench rail">
+              <button class="rail-button active" type="button">Watch</button>
+              <button class="rail-button" type="button">Queue</button>
+              <button class="rail-button" type="button">Timer</button>
+              <button class="rail-button" type="button">Focus</button>
+            </aside>
+
+            <div class="canvas" aria-label="Media stage">
+              <div class="pane selected">
+                <div class="media-shape"></div>
+                <div class="runtime-chip">
+                  <strong>selected reel</strong>
+                  <span>source active</span>
+                </div>
+                <div class="progress"><span></span></div>
+              </div>
+              <div class="pane">
+                <div class="media-shape two"></div>
+                <div class="runtime-chip">
+                  <strong>creator stack</strong>
+                  <span>listing config</span>
+                </div>
+              </div>
+              <div class="pane">
+                <div class="runtime-chip">
+                  <strong>open slot</strong>
+                  <span>drop source</span>
+                </div>
+              </div>
+            </div>
+
+            <aside class="side-panel" aria-label="Queue panel">
+              <section class="panel-section">
+                <h2>Queue</h2>
+                <div class="queue-item active">
+                  <div class="queue-line">
+                    <strong>focus reel</strong>
+                    <span class="status-dot"></span>
+                  </div>
+                  <span>local runtime cache</span>
+                </div>
+                <div class="queue-item">
+                  <div class="queue-line">
+                    <strong>creator stack</strong>
+                    <span class="status-dot provider"></span>
+                  </div>
+                  <span>provider hint</span>
+                </div>
+              </section>
+
+              <section class="panel-section">
+                <h2>Session</h2>
+                <div class="meter">
+                  <span class="meter-label">Auto advance</span>
+                  <div class="meter-track"><span></span></div>
+                </div>
+                <div class="actions">
+                  <button class="button primary" type="button">Add</button>
+                  <button class="button secondary" type="button">Timer</button>
+                  <button class="button" type="button">Save</button>
+                </div>
+              </section>
+            </aside>
+          </section>
+
+          <footer class="footer">
+            <div class="swatches" aria-label="Palette swatches">
+              <div class="swatch">
+                <span class="color bg"></span>
+                <strong>Night Violet</strong>
+                <span>background</span>
+              </div>
+              <div class="swatch">
+                <span class="color sf"></span>
+                <strong>Console Graphite</strong>
+                <span>chrome</span>
+              </div>
+              <div class="swatch">
+                <span class="color fg"></span>
+                <strong>Soft Chalk</strong>
+                <span>text</span>
+              </div>
+              <div class="swatch">
+                <span class="color pr"></span>
+                <strong>Pulse Coral</strong>
+                <span>primary</span>
+              </div>
+              <div class="swatch">
+                <span class="color sl"></span>
+                <strong>Queue Violet</strong>
+                <span>selected</span>
+              </div>
+              <div class="swatch">
+                <span class="color pg"></span>
+                <strong>Scrub Mango</strong>
+                <span>progress</span>
+              </div>
+              <div class="swatch">
+                <span class="color in"></span>
+                <strong>Signal Blue</strong>
+                <span>provider</span>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

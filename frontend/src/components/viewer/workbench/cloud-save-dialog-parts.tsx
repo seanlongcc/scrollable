@@ -6,9 +6,11 @@ import {
   Link,
   Monitor,
   MoreHorizontal,
+  Pencil,
   RefreshCw,
   Rows3,
   Trash2,
+  Upload,
   UploadCloud,
 } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
@@ -24,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { LocalFileCacheStorageStatus } from "@/lib/local-uploads/file-cache";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import {
   cloudUsagePercent,
@@ -32,16 +35,17 @@ import {
   type CloudUsageState,
   type SaveTarget,
 } from "./cloud-save-state";
+import { centeredDialogClass, metadataBlockClass } from "./dialog-styles";
 import type { LibraryMetadataLabel } from "./library-metadata";
 
-const centeredDialogClass =
-  "top-auto bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-t-3xl border border-border/70 bg-surface text-popover-foreground shadow-[0_-22px_74px_rgba(0,0,0,0.62)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:h-auto md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]";
-
 const libraryRowClass =
-  "grid min-h-16 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
+  "grid min-h-16 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/45 hover:bg-muted/50";
 
-const metadataBlockClass =
-  "rounded-2xl border border-border/70 bg-background/65 p-3 text-sm text-muted-foreground";
+const libraryBulkButtonClass =
+  "min-w-0 overflow-hidden rounded-lg px-2 font-normal md:font-normal";
+
+const shareDialogActionButtonClass =
+  "min-w-0 overflow-hidden rounded-lg px-2 font-normal md:font-normal";
 
 export function SavedLibraryRow({
   id,
@@ -55,6 +59,7 @@ export function SavedLibraryRow({
   onOpen,
   onUploadToCloud,
   onShare,
+  onRename,
   onExportJson,
   onDelete,
 }: {
@@ -69,6 +74,7 @@ export function SavedLibraryRow({
   onOpen: (id: string) => void;
   onUploadToCloud: (id: string) => void;
   onShare: (kind: "layout" | "template", id: string) => void;
+  onRename: (id: string) => void;
   onExportJson: (
     kind: "layout" | "template",
     id: string,
@@ -109,7 +115,10 @@ export function SavedLibraryRow({
       />
       <div className="min-w-0 leading-tight">
         <div className="min-w-0">
-          <div className="truncate font-medium" title={name}>
+          <div
+            className="text-wrap-anywhere line-clamp-2 font-medium"
+            title={name}
+          >
             {name}
           </div>
         </div>
@@ -141,7 +150,7 @@ export function SavedLibraryRow({
             align="start"
             sideOffset={8}
             collisionPadding={12}
-            className="z-60 grid min-w-44 gap-1 rounded-xl border border-border/80 bg-popover p-1 text-popover-foreground shadow-[0_16px_48px_rgba(0,0,0,0.55)] outline-none data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1"
+            className="z-60 grid min-w-44 gap-1 rounded-xl border border-border/80 bg-popover p-1 text-popover-foreground shadow-[0_16px_48px_rgba(18,10,10,0.55)] outline-none data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1"
           >
             <LibraryMenuItem
               icon={<FolderOpen />}
@@ -161,6 +170,11 @@ export function SavedLibraryRow({
                 onSelect={() => onShare(kind, id)}
               />
             )}
+            <LibraryMenuItem
+              icon={<Pencil />}
+              label="Rename"
+              onSelect={() => onRename(id)}
+            />
             <LibraryMenuItem
               icon={<Download />}
               label="Export JSON"
@@ -191,42 +205,61 @@ function LibraryMenuItem({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      role="menuitem"
-      className={cn(
-        "flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-muted",
-        destructive && "text-destructive hover:bg-destructive/15",
-      )}
-      onClick={(event) => {
-        event.preventDefault();
+    <DropdownMenuPrimitive.Item
+      asChild
+      onSelect={() => {
         onSelect();
       }}
     >
-      <span className="[&_svg]:size-4">{icon}</span>
-      {label}
-    </button>
+      <button
+        type="button"
+        className={cn(
+          "flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-muted",
+          destructive && "text-destructive hover:bg-destructive/15",
+        )}
+      >
+        <span className="shrink-0 [&_svg]:size-4">{icon}</span>
+        <span className="min-w-0 truncate">{label}</span>
+      </button>
+    </DropdownMenuPrimitive.Item>
   );
+}
+
+async function copyShareUrl(shareUrl: string) {
+  if (!navigator.clipboard?.writeText) {
+    toast.error("Clipboard unavailable");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    toast.success("Link copied");
+  } catch {
+    toast.error("Could not copy link");
+  }
 }
 
 export function SavedLibraryBulkActions({
   kind,
   selectedCount,
   hasItems,
+  allSelected,
   onSelectAll,
   onOpenSelected,
-  onDeleteSelected,
+  onImportJson,
 }: {
   kind: "layouts" | "templates";
   selectedCount: number;
   hasItems: boolean;
+  allSelected: boolean;
   onSelectAll: () => void;
   onOpenSelected: () => void;
-  onDeleteSelected: () => void;
+  onImportJson: () => void;
 }) {
   const noun = kind === "layouts" ? "layouts" : "templates";
-
-  if (!hasItems) return null;
+  const selectLabel = allSelected
+    ? `Deselect all ${noun}`
+    : `Select all ${noun}`;
 
   return (
     <div className="grid grid-cols-[1fr_1fr_auto] gap-1.5">
@@ -234,31 +267,33 @@ export function SavedLibraryBulkActions({
         type="button"
         variant="outline"
         onClick={onSelectAll}
-        aria-label={`Select all ${noun}`}
-        className="min-w-0 px-2"
+        disabled={!hasItems}
+        aria-label={selectLabel}
+        className={libraryBulkButtonClass}
       >
         <Rows3 />
-        Select all
+        <span className="min-w-0 truncate">
+          {allSelected ? "Deselect all" : "Select all"}
+        </span>
       </Button>
       <Button
         type="button"
         onClick={onOpenSelected}
         disabled={selectedCount === 0}
         aria-label={`Open selected ${noun}`}
-        className="min-w-0 px-2"
+        className={libraryBulkButtonClass}
       >
         <FolderOpen />
-        Open
+        <span className="min-w-0 truncate">Open</span>
       </Button>
       <Button
         type="button"
-        variant="destructive"
-        onClick={onDeleteSelected}
-        disabled={selectedCount === 0}
-        aria-label={`Delete selected ${noun}`}
+        variant="outline"
+        onClick={onImportJson}
+        aria-label="Import JSON"
         className="w-12 px-0"
       >
-        <Trash2 />
+        <Upload />
       </Button>
     </div>
   );
@@ -313,7 +348,10 @@ export function ShareLinkDialog({
             <div className={metadataBlockClass}>
               <div className="flex min-w-0 items-center gap-2">
                 <StorageBadge target="cloud" />
-                <p className="truncate font-medium" title={target.name}>
+                <p
+                  className="text-wrap-anywhere line-clamp-2 font-medium"
+                  title={target.name}
+                >
                   {target.name}
                 </p>
               </div>
@@ -321,30 +359,33 @@ export function ShareLinkDialog({
                 {shareUrl}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
               <Button
                 type="button"
-                onClick={() => void navigator.clipboard?.writeText(shareUrl)}
+                onClick={() => void copyShareUrl(shareUrl)}
+                className={shareDialogActionButtonClass}
               >
                 <Copy />
-                Copy link
+                <span className="min-w-0 truncate">Copy link</span>
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onRegenerate(target)}
+                className={shareDialogActionButtonClass}
               >
                 <RefreshCw />
-                Regenerate
+                <span className="min-w-0 truncate">Regenerate</span>
               </Button>
             </div>
             <Button
               type="button"
               variant="destructive"
               onClick={() => onDisable(target)}
+              className={shareDialogActionButtonClass}
             >
               <Trash2 />
-              Disable
+              <span className="min-w-0 truncate">Disable</span>
             </Button>
           </div>
         ) : null}
@@ -376,14 +417,14 @@ export function CloudUsageMeter({
     >
       <div
         className={cn(
-          "h-full rounded-full bg-primary transition-[width]",
+          "h-full w-full origin-left rounded-full bg-primary transition-transform",
           usage.status === "ready" &&
             !usage.isUnlimited &&
             percent >= 90 &&
             "bg-destructive",
         )}
         style={{
-          width: `${usage.status === "ready" ? percent : 0}%`,
+          transform: `scaleX(${(usage.status === "ready" ? percent : 0) / 100})`,
         }}
       />
     </div>
@@ -410,8 +451,8 @@ export function LocalCacheUsageMeter({
       className={cn("h-1.5 overflow-hidden rounded-full bg-input", className)}
     >
       <div
-        className="h-full rounded-full bg-secondary transition-[width]"
-        style={{ width: `${percent}%` }}
+        className="h-full w-full origin-left rounded-full bg-secondary transition-transform"
+        style={{ transform: `scaleX(${percent / 100})` }}
       />
     </div>
   );

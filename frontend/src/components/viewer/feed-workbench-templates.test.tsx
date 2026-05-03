@@ -34,7 +34,9 @@ describe("FeedWorkbench workspace templates", () => {
 
     await user.click(screen.getByRole("button", { name: "Save layout" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Save layout as" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Save layout as",
+    });
     expect(
       within(dialog).getByRole("button", { name: "Save as layout" }),
     ).toBeInTheDocument();
@@ -76,6 +78,84 @@ describe("FeedWorkbench workspace templates", () => {
     expect(saved).not.toContain("runtime-1");
   });
 
+  it("creates a separate saved template when saving a new unique template name", async () => {
+    stubRandomUuids(["template-copy"]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Free layout mode" }));
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("tab", { name: "Template" }));
+    await user.click(screen.getByRole("button", { name: "Save as template" }));
+
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
+    await user.click(screen.getByRole("tab", { name: "Template" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Save layout as",
+    });
+    const nameInput = within(dialog).getByLabelText("Template name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Template copy");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save as template" }),
+    );
+
+    const store = JSON.parse(
+      window.localStorage.getItem(WORKSPACE_TEMPLATE_STORAGE_KEY) ?? "{}",
+    ) as { templates: Array<{ id: string; name: string }> };
+    expect(store.templates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "Untitled layout" }),
+        expect.objectContaining({ id: "template-copy", name: "Template copy" }),
+      ]),
+    );
+    expect(store.templates).toHaveLength(2);
+  });
+
+  it("renames a saved template from the library more menu", async () => {
+    stubRandomUuids(["blank-workspace"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Library" }));
+    const dialog = await screen.findByRole("dialog", { name: "Library" });
+    await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "More actions for Poster wall",
+      }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Rename" }));
+
+    const renameDialog = await screen.findByRole("dialog", {
+      name: "Rename template",
+    });
+    const nameInput = within(renameDialog).getByLabelText("Template name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Renamed template");
+    await user.click(
+      within(renameDialog).getByRole("button", { name: "Rename template" }),
+    );
+
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Select Renamed template" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("checkbox", { name: "Select Poster wall" }),
+    ).not.toBeInTheDocument();
+
+    const store = JSON.parse(
+      window.localStorage.getItem(WORKSPACE_TEMPLATE_STORAGE_KEY) ?? "{}",
+    ) as { templates: Array<{ id: string; name: string }> };
+    expect(store.templates[0]?.name).toBe("Renamed template");
+  });
+
   it("opens saved templates as empty free layout boxes", async () => {
     stubRandomUuids(["blank-workspace", "opened-template"]);
     window.localStorage.setItem(
@@ -111,7 +191,9 @@ describe("FeedWorkbench workspace templates", () => {
       screen.getByTestId("template-slot-blank-workspace:slot-1"),
     );
 
-    expect(screen.getByRole("dialog", { name: "Add source" })).toBeVisible();
+    expect(
+      await screen.findByRole("dialog", { name: "Add source" }),
+    ).toBeVisible();
   });
 
   it("allows clearing template-only layouts", async () => {
@@ -230,7 +312,7 @@ describe("FeedWorkbench workspace templates", () => {
     await user.click(
       screen.getAllByRole("button", { name: "Add source to template box" })[0],
     );
-    const dialog = screen.getByRole("dialog", { name: "Add source" });
+    const dialog = await screen.findByRole("dialog", { name: "Add source" });
     await user.click(within(dialog).getByRole("button", { name: "Reddit" }));
     await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
@@ -263,7 +345,7 @@ describe("FeedWorkbench workspace templates", () => {
     await user.click(
       screen.getAllByRole("button", { name: "Add source to template box" })[0],
     );
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["video"], "large.mp4", { type: "video/mp4" }),

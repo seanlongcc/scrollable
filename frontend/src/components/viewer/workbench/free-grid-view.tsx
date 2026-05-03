@@ -169,10 +169,10 @@ export function FreeGridView({
               className="hidden cursor-pointer items-center gap-2 rounded-md bg-background/70 px-2 py-1 backdrop-blur transition hover:bg-background hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none md:inline-flex"
             >
               <Plus className="size-4" />
-              Add source
+              <span className="min-w-0 truncate">Add source</span>
             </button>
             {!hideUi ? (
-              <span className="rounded-md bg-background/70 px-2 py-1 text-[11px] backdrop-blur md:hidden">
+              <span className="text-wrap-anywhere rounded-md bg-background/70 px-2 py-1 text-[11px] backdrop-blur md:hidden">
                 Edit free layout on desktop.
               </span>
             ) : null}
@@ -191,10 +191,7 @@ export function FreeGridView({
               key={session.id}
               data-testid={`free-cell-${session.id}`}
               className={cn(
-                "group/free relative min-h-0 rounded-2xl outline outline-1 outline-offset-0 outline-transparent transition",
-                !hideUi &&
-                  session.id === selectedId &&
-                  "outline-2 outline-offset-1 outline-primary ring-2 ring-primary/15 shadow-[0_0_20px_rgba(143,239,225,0.08)]",
+                "group/free relative min-h-0 rounded-2xl transition",
                 freeDrag?.targetType === "session" &&
                   freeDrag.id === session.id &&
                   "z-40 scale-[1.01]",
@@ -207,7 +204,11 @@ export function FreeGridView({
                 if ((event.target as HTMLElement).closest("button,a,input")) {
                   return;
                 }
-                setSelectedId(session.id === selectedId ? null : session.id);
+                if (session.id === selectedId) {
+                  if (event.target === event.currentTarget) setSelectedId(null);
+                  return;
+                }
+                setSelectedId(session.id);
               }}
               onPointerDownCapture={(event) => {
                 if (session.id === selectedId) return;
@@ -263,7 +264,7 @@ export function FreeGridView({
                 isFocused={session.id === selectedId}
                 forceInfoVisible={showInfo}
                 hideUi={hideUi}
-                isPlaybackActive={isPlaybackActive}
+                isPlaybackActive={isPlaybackActive && !session.timer.isPaused}
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}
@@ -308,13 +309,13 @@ export function FreeGridView({
         })
       ) : templateSlots.length ? null : (
         <div
-          className="grid place-items-center rounded-2xl border border-dashed border-border/60 px-4 text-center text-sm text-muted-foreground"
+          className="grid min-w-0 place-items-center rounded-2xl border border-dashed border-border/60 px-4 text-center text-sm text-muted-foreground"
           style={{
             gridColumn: `1 / span ${FREE_LAYOUT_SIZE}`,
             gridRow: `1 / span ${FREE_LAYOUT_SIZE}`,
           }}
         >
-          <span>
+          <span className="text-wrap-anywhere">
             <span className="hidden md:inline">
               Add a source, then drag and resize it here.
             </span>

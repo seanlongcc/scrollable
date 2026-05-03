@@ -72,7 +72,7 @@ function SheetContent({
           <SheetPrimitive.Close data-slot="sheet-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2 size-12 min-h-12 min-w-12 rounded-full md:size-8 md:min-h-0 md:min-w-0 md:rounded-lg"
+              className="absolute top-[5px] right-3 size-11 min-h-11 min-w-11 rounded-full md:top-[11px] md:right-4 md:size-8 md:min-h-0 md:min-w-0 md:rounded-lg"
               size="icon-sm"
               aria-label="Close sheet"
             >
@@ -114,7 +114,7 @@ function SheetTitle({
     <SheetPrimitive.Title
       data-slot="sheet-title"
       className={cn(
-        "font-heading text-base font-medium text-foreground",
+        "font-heading text-3xl leading-none font-normal text-foreground",
         className,
       )}
       {...props}

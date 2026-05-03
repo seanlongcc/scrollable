@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example v0.2.0"
+        required: true
+        type: string
+      production_url:
+        description: "Canonical production URL"
+        required: false
+        default: "https://scrollable.app"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      PRODUCTION_URL: ${{ inputs.production_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate release version
+        run: |
+          if ! printf '%s' "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Release version must match vX.Y.Z, for example v0.2.0."
+            exit 1
+          fi
+
+      - name: Refuse duplicate tag
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "Tag already exists: $VERSION"
+            exit 1
+          fi
+
+      - name: Refuse duplicate release
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "GitHub Release already exists: $VERSION"
+            exit 1
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Create release
+        run: |
+          notes="$(cat <<NOTES
+          ## Deployment
+
+          - Production: $PRODUCTION_URL
+          - Commit: $GITHUB_SHA
+          - Verification: format check, ESLint, typecheck, unit tests, and build passed
+          NOTES
+          )"
+
+          gh release create "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --latest \
+            --generate-notes \
+            --notes "$notes"
+
+      - name: Summarize release
+        run: |
+          {
+            echo "## GitHub Release"
+            echo ""
+            echo "- Version: $VERSION"
+            echo "- Production: $PRODUCTION_URL"
+            echo "- Commit: $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  wrong-branch:
+    name: Refuse Non-Main Release
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - name: Explain release branch requirement
+        run: |
+          echo "Release workflow must be run from main."
+          echo "Current ref: $GITHUB_REF"
+          exit 1

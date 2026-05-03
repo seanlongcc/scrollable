@@ -54,10 +54,10 @@ export function FocusLayout({
   return (
     <section
       className={cn(
-        "relative grid min-h-0 gap-3",
+        "relative grid min-h-0 gap-px",
         hideUi
           ? "h-dvh p-0"
-          : "h-full grid-rows-[minmax(0,1fr)_7rem] p-3 md:grid-cols-[minmax(0,1fr)_220px] md:grid-rows-[minmax(0,1fr)]",
+          : "h-full grid-rows-[minmax(0,1fr)_6.75rem] p-px md:grid-cols-[minmax(0,1fr)_220px] md:grid-rows-[minmax(0,1fr)]",
       )}
     >
       {!hideUi ? (
@@ -65,7 +65,7 @@ export function FocusLayout({
           type="button"
           size="icon"
           variant="outline"
-          className="absolute top-3 right-3 z-40 rounded-full bg-background/80 backdrop-blur md:hidden"
+          className="absolute top-2 right-2 z-40 rounded-full bg-background/80 backdrop-blur md:hidden"
           onClick={onRestore}
           aria-label="Exit satellite"
         >
@@ -79,7 +79,7 @@ export function FocusLayout({
           videoPositions={videoPositions}
           forceInfoVisible={showInfo}
           hideUi={hideUi}
-          isPlaybackActive
+          isPlaybackActive={!focused.timer.isPaused}
           isRuntimeLoading={focused.isRuntimeLoading}
           onGalleryChange={onGalleryChange}
           onVideoPositionChange={onVideoPositionChange}
@@ -101,7 +101,7 @@ export function FocusLayout({
       </div>
 
       {!hideUi ? (
-        <aside className="grid min-h-0 gap-2 md:grid-rows-[auto_minmax(0,1fr)]">
+        <aside className="grid min-h-0 gap-px md:grid-rows-[auto_minmax(0,1fr)] md:gap-2 md:p-2">
           <Button
             type="button"
             variant="outline"
@@ -112,7 +112,7 @@ export function FocusLayout({
             <Maximize2 />
             Exit satellite
           </Button>
-          <div className="flex min-h-0 gap-2 overflow-x-auto md:grid md:content-start md:overflow-x-hidden md:overflow-y-auto">
+          <div className="flex min-h-0 min-w-0 gap-px overflow-x-auto md:grid md:content-start md:overflow-x-hidden md:overflow-y-auto">
             <h2 className="sr-only">Satellite sources</h2>
             {satellites.length ? (
               satellites.map((session) => (
@@ -120,7 +120,7 @@ export function FocusLayout({
                   key={session.id}
                   title={`Focus ${session.title}`}
                   data-testid={`satellite-pane-${session.id}`}
-                  className="relative h-full min-w-28 shrink-0 text-left md:h-32 md:min-w-0"
+                  className="relative h-full min-w-[6.75rem] shrink-0 text-left md:h-32 md:min-w-0"
                 >
                   <SessionPane
                     session={session}
@@ -129,7 +129,7 @@ export function FocusLayout({
                     compact
                     forceInfoVisible={showInfo}
                     hideUi
-                    isPlaybackActive
+                    isPlaybackActive={!session.timer.isPaused}
                     isRuntimeLoading={session.isRuntimeLoading}
                     onGalleryChange={onGalleryChange}
                     onVideoPositionChange={onVideoPositionChange}
@@ -152,7 +152,7 @@ export function FocusLayout({
                 </div>
               ))
             ) : (
-              <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
+              <div className="text-wrap-anywhere rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
                 No satellite views
               </div>
             )}

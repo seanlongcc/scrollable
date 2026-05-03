@@ -1,14 +1,21 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import path from "node:path";
 
 import type { RuntimeFeedItem, RuntimeMedia } from "@/lib/feed/types";
 import { youtubeEmbedUrlFromId } from "./youtube-embed";
 
 type YtDlpObject = Record<string, unknown>;
 
-type CommandCandidate = {
+export type CommandCandidate = {
   command: string;
   args: string[];
+};
+
+type YtDlpCommandCandidateOptions = {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  platform?: NodeJS.Platform;
 };
 
 type MediaCandidate = {
@@ -123,15 +130,67 @@ export function ytDlpInfoToRuntimeItems(
   ];
 }
 
-function commandCandidates(): CommandCandidate[] {
-  const configured = process.env.YTDLP_PATH?.trim();
+export function ytDlpCommandCandidates({
+  cwd = process.cwd(),
+  env = process.env,
+  platform = process.platform,
+}: YtDlpCommandCandidateOptions = {}): CommandCandidate[] {
+  const configured = env.YTDLP_PATH?.trim();
   if (configured) return [{ command: configured, args: [] }];
 
   return [
+    ...bundledYtDlpCommands({ cwd, env, platform }).map((command) => ({
+      command,
+      args: [],
+    })),
     { command: "yt-dlp", args: [] },
     { command: "python3", args: ["-m", "yt_dlp"] },
     { command: "python", args: ["-m", "yt_dlp"] },
   ];
+}
+
+function commandCandidates(): CommandCandidate[] {
+  return ytDlpCommandCandidates();
+}
+
+function bundledYtDlpCommands({
+  cwd,
+  env,
+  platform,
+}: Required<YtDlpCommandCandidateOptions>) {
+  const pathModule = platform === "win32" ? path.win32 : path;
+  const configuredFilename = env.YOUTUBE_DL_FILENAME?.trim();
+  const binaries = configuredFilename
+    ? [normalizeYtDlpBinaryName(configuredFilename, platform)]
+    : platformYtDlpBinaryNames(platform);
+  const configuredDir = env.YOUTUBE_DL_DIR?.trim();
+  const commands = binaries.flatMap((binary) => [
+    ...(configuredDir ? [pathModule.join(configuredDir, binary)] : []),
+    pathModule.join(cwd, "node_modules", "youtube-dl-exec", "bin", binary),
+    pathModule.join(
+      cwd,
+      "..",
+      "node_modules",
+      "youtube-dl-exec",
+      "bin",
+      binary,
+    ),
+  ]);
+
+  return Array.from(new Set(commands));
+}
+
+function platformYtDlpBinaryNames(platform: NodeJS.Platform) {
+  if (platform === "linux") return ["yt-dlp_linux", "yt-dlp"];
+  if (platform === "darwin") return ["yt-dlp_macos", "yt-dlp"];
+  if (platform === "win32") return ["yt-dlp.exe"];
+  return ["yt-dlp"];
+}
+
+function normalizeYtDlpBinaryName(filename: string, platform: NodeJS.Platform) {
+  return platform === "win32" && !filename.endsWith(".exe")
+    ? `${filename}.exe`
+    : filename;
 }
 
 function runYtDlp(candidate: CommandCandidate, url: string): Promise<unknown> {
@@ -197,7 +256,7 @@ function runYtDlp(candidate: CommandCandidate, url: string): Promise<unknown> {
           return;
         }
 
-        reject(new Error("yt_dlp_extraction_failed"));
+        reject(new Error(stderr.trim() || "yt_dlp_extraction_failed"));
         return;
       }
 

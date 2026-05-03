@@ -5,6 +5,7 @@ import type { KeyboardEvent, WheelEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WorkspaceTab } from "./types";
+import { MAX_OPEN_WORKSPACE_TABS } from "./workspace-actions";
 
 export function WorkspaceTabs({
   tabs,
@@ -34,6 +35,7 @@ export function WorkspaceTabs({
   onCreateWorkspaceTab: () => void;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
+  const isAtTabLimit = tabs.length >= MAX_OPEN_WORKSPACE_TABS;
   const [scrollState, setScrollState] = useState({
     canScrollLeft: false,
     canScrollRight: false,
@@ -92,13 +94,16 @@ export function WorkspaceTabs({
 
     updateScrollState();
 
-    const resizeObserver = new ResizeObserver(updateScrollState);
-    resizeObserver.observe(rail);
+    const resizeObserver =
+      typeof ResizeObserver === "function"
+        ? new ResizeObserver(updateScrollState)
+        : null;
+    resizeObserver?.observe(rail);
     window.addEventListener("resize", updateScrollState);
     rail.addEventListener("scroll", updateScrollState, { passive: true });
 
     return () => {
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", updateScrollState);
       rail.removeEventListener("scroll", updateScrollState);
     };
@@ -106,9 +111,9 @@ export function WorkspaceTabs({
 
   useEffect(() => {
     const rail = railRef.current;
-    const activeTab = rail?.querySelector<HTMLElement>(
-      `[data-workspace-tab-id="${CSS.escape(activeWorkspaceId)}"]`,
-    );
+    const activeTab = rail
+      ? findWorkspaceTabElement(rail, activeWorkspaceId)
+      : null;
 
     if (!activeTab) return;
 
@@ -125,7 +130,7 @@ export function WorkspaceTabs({
           type="button"
           size="icon-xs"
           variant="outline"
-          className="absolute top-1/2 left-0 z-10 -translate-x-[calc(100%+0.25rem)] -translate-y-1/2 rounded-full bg-background/90 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur"
+          className="absolute top-1/2 left-0 z-10 -translate-x-[calc(100%+0.25rem)] -translate-y-1/2 rounded-full bg-background/90 shadow-[0_8px_24px_rgba(18,10,10,0.45)] backdrop-blur"
           onClick={() => scrollTabs(-1)}
           aria-label="Scroll tabs left"
         >
@@ -150,7 +155,7 @@ export function WorkspaceTabs({
               className={cn(
                 "flex h-8 min-w-28 overflow-hidden rounded-full border font-mono text-muted-foreground transition",
                 tab.id === activeWorkspaceId
-                  ? "border-primary/55 bg-primary/10 text-foreground shadow-[0_0_0_1px_rgba(129,230,217,0.16)]"
+                  ? "border-primary/55 bg-primary/10 text-foreground shadow-[0_0_0_1px_oklch(62%_0.145_18_/_0.16)]"
                   : "border-border/50 bg-surface/65 hover:bg-surface-elevated",
               )}
             >
@@ -173,7 +178,7 @@ export function WorkspaceTabs({
                   onClick={() => onSelectWorkspace(tab.id)}
                   onDoubleClick={() => onBeginWorkspaceRename(tab)}
                   title={`Open ${tab.name}`}
-                  className="h-full min-w-0 flex-1 cursor-pointer px-3 text-left text-[11px]"
+                  className="h-full min-w-0 flex-1 cursor-pointer truncate px-3 text-left text-[11px]"
                 >
                   {tab.name}
                 </button>
@@ -193,9 +198,15 @@ export function WorkspaceTabs({
             type="button"
             size="icon-xs"
             variant="ghost"
-            className="rounded-full bg-surface-elevated/50 shadow-[0_4px_14px_rgba(0,0,0,0.28)]"
+            className="rounded-full bg-surface-elevated/50 shadow-[0_4px_14px_rgba(18,10,10,0.28)]"
             onClick={onCreateWorkspaceTab}
+            disabled={isAtTabLimit}
             aria-label="New layout"
+            title={
+              isAtTabLimit
+                ? `Maximum ${MAX_OPEN_WORKSPACE_TABS} open layouts`
+                : "New layout"
+            }
           >
             <Plus />
           </Button>
@@ -206,7 +217,7 @@ export function WorkspaceTabs({
           type="button"
           size="icon-xs"
           variant="outline"
-          className="absolute top-1/2 right-0 z-10 translate-x-[calc(100%+0.25rem)] -translate-y-1/2 rounded-full bg-background/90 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur"
+          className="absolute top-1/2 right-0 z-10 translate-x-[calc(100%+0.25rem)] -translate-y-1/2 rounded-full bg-background/90 shadow-[0_8px_24px_rgba(18,10,10,0.45)] backdrop-blur"
           onClick={() => scrollTabs(1)}
           aria-label="Scroll tabs right"
         >
@@ -214,5 +225,19 @@ export function WorkspaceTabs({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+function findWorkspaceTabElement(root: HTMLElement, id: string) {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return root.querySelector<HTMLElement>(
+      `[data-workspace-tab-id="${CSS.escape(id)}"]`,
+    );
+  }
+
+  return (
+    [...root.querySelectorAll<HTMLElement>("[data-workspace-tab-id]")].find(
+      (element) => element.dataset.workspaceTabId === id,
+    ) ?? null
   );
 }

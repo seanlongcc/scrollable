@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { placeCaretAfterInputValue } from "./fields";
 import { DEFAULT_REDDIT_MEDIA_LIMIT, MAX_REDDIT_MEDIA_LIMIT } from "./types";
 import type { FeedSession } from "./types";
 import {
@@ -22,6 +23,13 @@ import {
   redditRuntimeItemLabels,
   subredditFromRedditUrl,
 } from "./helpers";
+
+function focusEditDialogSurface(event: Event) {
+  event.preventDefault();
+  if (event.currentTarget instanceof HTMLElement) {
+    event.currentTarget.focus({ preventScroll: true });
+  }
+}
 
 export function EditSourceDialog({
   source,
@@ -199,11 +207,12 @@ export function EditSourceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden border border-border bg-popover text-popover-foreground shadow-[0_24px_80px_rgba(0,0,0,0.72)] sm:max-w-2xl",
+          "w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-2xl border border-border/70 bg-popover pb-[calc(1rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-18px_64px_rgba(18,10,10,0.58)] sm:max-w-2xl md:rounded-xl md:pb-4 md:shadow-[0_20px_64px_rgba(18,10,10,0.62)]",
           isReddit
             ? "grid h-[min(92dvh,46rem)] grid-rows-[auto_minmax(0,1fr)]"
             : "max-h-[92dvh]",
         )}
+        onOpenAutoFocus={focusEditDialogSurface}
       >
         <DialogHeader>
           <DialogTitle>Edit source</DialogTitle>
@@ -217,44 +226,25 @@ export function EditSourceDialog({
             isReddit && "min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]",
           )}
         >
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+          <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border/70 bg-background/55 px-3 py-2 text-sm">
             <Pencil className="size-4 text-primary" />
-            <span className="truncate font-medium">{source.title}</span>
+            <span
+              className="text-wrap-anywhere line-clamp-2 font-medium"
+              title={source.title}
+            >
+              {source.title}
+            </span>
           </div>
 
           {isReddit ? (
             <>
-              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                Reddit media count
-                <Input
-                  type="number"
-                  min={1}
-                  max={MAX_REDDIT_MEDIA_LIMIT}
-                  value={redditLimit || ""}
-                  onChange={(event) => {
-                    if (event.target.value === "") {
-                      setRedditLimit(0);
-                      return;
-                    }
-
-                    setRedditLimit(
-                      clamp(
-                        Number(event.target.value),
-                        1,
-                        MAX_REDDIT_MEDIA_LIMIT,
-                      ),
-                    );
-                  }}
-                  className="h-9"
-                />
-              </Label>
               <div className="grid gap-2">
                 {redditUrls.map((url, index) => {
                   const subreddit = subredditFromRedditUrl(url);
 
                   return (
                     <div
-                      key={`${url}-${index}`}
+                      key={`reddit-source-url-${index}`}
                       className="grid grid-cols-[minmax(0,1fr)_auto] gap-2"
                     >
                       <Input
@@ -269,7 +259,7 @@ export function EditSourceDialog({
                         type="button"
                         size="icon"
                         variant="ghost"
-                        className="border-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                        className="size-10 min-h-10 min-w-10 rounded-lg border-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive md:size-8 md:min-h-0 md:min-w-0"
                         aria-label={`Remove ${subreddit ? `r/${subreddit}` : `Reddit ${index + 1}`} link`}
                         onClick={() => removeRedditUrl(index)}
                       >
@@ -278,6 +268,36 @@ export function EditSourceDialog({
                     </div>
                   );
                 })}
+              </div>
+              <div className="w-full">
+                <Label className="grid w-full gap-1 text-xs font-medium text-muted-foreground">
+                  Reddit media count
+                  <Input
+                    aria-label="Reddit media count"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={1}
+                    max={MAX_REDDIT_MEDIA_LIMIT}
+                    value={redditLimit || ""}
+                    onFocus={(event) =>
+                      placeCaretAfterInputValue(event.currentTarget)
+                    }
+                    onChange={(event) => {
+                      const nextDraft = event.target.value;
+                      if (!nextDraft.trim()) {
+                        setRedditLimit(0);
+                        return;
+                      }
+
+                      const next = Number(nextDraft);
+                      if (!Number.isInteger(next)) return;
+
+                      setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
+                    }}
+                    className="h-9 text-center text-foreground"
+                  />
+                </Label>
               </div>
               <div className="grid min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-border bg-background/45 p-3">
                 <div className="grid w-full grid-cols-[minmax(0,1fr)_5rem] items-center gap-2">
@@ -295,7 +315,7 @@ export function EditSourceDialog({
                   </span>
                 </div>
                 {runtimeRedditItems.length ? (
-                  <div className="grid min-h-0 gap-2 overflow-y-auto pr-1">
+                  <div className="grid min-h-0 content-start gap-1.5 overflow-y-auto pr-1">
                     {runtimeRedditItems.map((item) => {
                       const subreddit = item.subreddit ?? source.title;
                       const itemId = redditItemHashInput(item.id);
@@ -310,15 +330,19 @@ export function EditSourceDialog({
                       return (
                         <div
                           key={itemId}
-                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2"
+                          className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2"
                         >
-                          <span className="truncate text-xs font-medium">
+                          <span
+                            className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
+                            title={label}
+                          >
                             {label}
                           </span>
                           <Button
                             type="button"
                             size="icon-sm"
                             variant={isHidden ? "default" : "outline"}
+                            className="size-11 min-h-11 min-w-11 md:size-7 md:min-h-0 md:min-w-0"
                             aria-label={`${isHidden ? "Unhide" : "Hide"} ${label} from r/${subreddit}`}
                             onClick={() => {
                               if (savedMatches.length) {
@@ -353,7 +377,7 @@ export function EditSourceDialog({
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                  <div className="text-wrap-anywhere rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
                     No runtime items in this source.
                   </div>
                 )}
@@ -382,7 +406,7 @@ export function EditSourceDialog({
           ) : (
             <div className="grid gap-2">
               {localEntries.length ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
                   {localEntries.map(({ file, previewUrl }, index) => (
                     <div
                       key={`${file.name}-${file.size}-${index}`}
@@ -397,15 +421,15 @@ export function EditSourceDialog({
                             className="size-full object-cover"
                           />
                         ) : file.type.startsWith("video/") ? (
-                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
                             Video
                           </span>
                         ) : file.type.startsWith("audio/") ? (
-                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
                             Audio
                           </span>
                         ) : (
-                          <span className="grid size-full place-items-center text-xs font-medium text-muted-foreground">
+                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
                             File
                           </span>
                         )}
@@ -428,7 +452,7 @@ export function EditSourceDialog({
                         </Button>
                       </div>
                       <span
-                        className="truncate text-xs font-medium"
+                        className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
                         title={file.name}
                       >
                         {file.name}
@@ -437,7 +461,7 @@ export function EditSourceDialog({
                   ))}
                 </div>
               ) : (
-                <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                <div className="text-wrap-anywhere rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
                   Reload files before editing this source.
                 </div>
               )}

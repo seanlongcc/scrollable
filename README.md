@@ -1,4 +1,8 @@
-# Scrollable
+<p align="center">
+  <a href="https://scrollable.app/" target="_blank" rel="noopener noreferrer">
+    <img src="docs/assets/scrollable_app_small.png" alt="Scrollable app preview" width="100%">
+  </a>
+</p>
 
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -10,74 +14,48 @@
 [![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
 
-# About
+## About
 
-Scrollable is a mobile-first reels-style feed viewer for user-provided URLs and local uploads. It turns pasted sources into runtime image, video, audio, gallery, Reddit, and provider-embed feeds, then lets you arrange them in fixed or free-form layouts.
+Scrollable is a mobile-first reels-style feed viewer for user-provided URLs and local uploads. Paste sources, add local media, and arrange everything into swipeable fixed-grid or free-form layouts.
 
-The app is built around one hard privacy rule: third-party media stays runtime-only. Scrollable can save user-created configuration, workspace layout metadata, and local browser file-cache references, but it does not persist, rehost, or proxy-cache third-party media payloads, thumbnails, extracted URLs, Reddit JSON, provider responses, or raw runtime item IDs.
+Third-party media stays runtime-only. Scrollable saves your layout and source settings, not copied third-party media.
 
-# Features
+## Features
 
-- mobile-first multi-feed viewing
-- fixed-grid and free-layout workspace modes
-- stacked layout layers
-- global and per-view timers
-- keyboard, wheel, and touch-friendly feed navigation
-- local image, video, and audio uploads
-- browser IndexedDB cache for user-selected local files
-- runtime Reddit post and subreddit listing sources
-- runtime URL resolver for direct media, galleries, provider embeds, and optional `yt-dlp`
-- reusable empty free-layout templates
-- saved local layouts without login
-- optional Supabase auth and account-synced layout metadata
-- strict metadata-only persistence boundaries for third-party media
+### Viewing
 
-# Repository
+- Swipe through images, videos, audio, galleries, Reddit posts, and embedded media
+- View multiple feeds at once
+- Use touch, mouse, wheel, or keyboard controls
+- Auto-advance feeds with timers
+- Create multiple layers that continue auto-playing in the background
 
-The frontend lives in [`frontend/`](./frontend). Root npm scripts delegate into that workspace so common commands still run from the repository root.
+### Sources
 
-- [`frontend/src`](./frontend/src) - Next.js app, components, source adapters, runtime normalization, workspace logic, and tests
-- [`frontend/tests/e2e`](./frontend/tests/e2e) - Playwright desktop and mobile browser flows
-- [`supabase`](./supabase) - local Supabase config, migrations, and database tests
-- [`docs`](./docs) - product notes, testing policy, tool guidance, specs, and plans
-- [`.beads`](./.beads) - bead issue tracking state
-- [`.serena`](./.serena) - Serena project configuration
+- Paste Reddit post and subreddit links
+- Paste direct media, gallery, and provider links
+- Add local images, videos, audio files, or folders
+- Mix local files and web sources in one layout
 
-# Development
+### Workspaces
 
-Use Node 24 and npm:
+- Build fixed-grid or free-form layouts
+- Save layouts on your device
+- Reuse layout templates
+- Import and export layout files
+- Open saved local layouts on the same device
 
-```bash
-nvm use 24
-npm install
-npm run dev
-```
+### Cloud And Sharing
 
-Useful checks:
+- Sign in with email or Google
+- Sync feed settings, layouts, and templates across devices
+- Save layouts to the cloud
+- Share saved feed settings, layouts, and templates
 
-```bash
-npm run format:check
-npm run lint
-npm run typecheck
-npm test
-npm run build
-npm run e2e
-```
+## Data Privacy
 
-Supabase local verification needs Docker Desktop with WSL integration:
+Scrollable does not store or rehost third-party media. Reddit responses, extracted media URLs, thumbnails, provider data, and raw runtime item IDs are used only while you view a feed.
 
-```bash
-npm run supabase:start
-npm run supabase:reset
-npm run supabase:test
-```
+Cloud saves store your settings: source links, layout boxes, layers, timers, templates, and share-link metadata. Local file bytes are not uploaded to Scrollable cloud storage.
 
-# Runtime configuration
-
-Copy [`frontend/.env.example`](./frontend/.env.example) to `frontend/.env.local` for local app secrets.
-
-Vercel should use `frontend/` as the project root directory.
-
-# Data privacy
-
-Third-party media stays runtime-only. Scrollable stores user-created configuration and metadata-only layouts, not fetched media payloads, thumbnails, extracted URLs, provider JSON, raw Reddit item IDs, or local object URLs. More detail: [`docs/media-persistence.md`](./docs/media-persistence.md).
+Saved local layouts may keep user-selected file bytes in that browser's IndexedDB so they can reopen on the same device. Shared links expose saved settings to people with access to the link.

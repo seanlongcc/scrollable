@@ -45,6 +45,9 @@ const authMocks = vi.hoisted(() => {
 
       return { error: null };
     }),
+    signInWithOAuth: vi.fn(async () => ({ error: null })),
+    signInWithPassword: vi.fn(async () => ({ error: null })),
+    signUp: vi.fn(async () => ({ error: null })),
   };
 });
 
@@ -57,7 +60,7 @@ const toastMocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("sonner", () => ({
+vi.mock("@/lib/toast", () => ({
   toast: toastMocks.toast,
 }));
 
@@ -71,6 +74,9 @@ vi.mock("@/lib/supabase/browser", () => ({
       getUser: authMocks.getUser,
       onAuthStateChange: authMocks.onAuthStateChange,
       signOut: authMocks.signOut,
+      signInWithOAuth: authMocks.signInWithOAuth,
+      signInWithPassword: authMocks.signInWithPassword,
+      signUp: authMocks.signUp,
     },
     from: () => ({
       upsert: vi.fn(async () => ({ error: null })),
@@ -99,6 +105,9 @@ describe("FeedWorkbench account state", () => {
     authMocks.getUser.mockClear();
     authMocks.onAuthStateChange.mockClear();
     authMocks.signOut.mockClear();
+    authMocks.signInWithOAuth.mockClear();
+    authMocks.signInWithPassword.mockClear();
+    authMocks.signUp.mockClear();
     toastMocks.toast.error.mockClear();
     toastMocks.toast.message.mockClear();
     toastMocks.toast.success.mockClear();
@@ -120,10 +129,14 @@ describe("FeedWorkbench account state", () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    await user.click(await screen.findByRole("button", { name: "Account" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Account" });
-    expect(within(dialog).getByText("reader@example.com")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
+    await waitFor(() =>
+      expect(
+        within(dialog).getByText("reader@example.com"),
+      ).toBeInTheDocument(),
+    );
 
     await user.click(within(dialog).getByRole("button", { name: "Log out" }));
 
@@ -146,6 +159,92 @@ describe("FeedWorkbench account state", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("opens a signup auth surface from the signed-out account panel", async () => {
+    authMocks.state.env = {
+      url: "https://supabase.test",
+      anonKey: "anon-key",
+    };
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+
+    const accountDialog = await screen.findByRole("dialog", {
+      name: "Account",
+    });
+    await waitFor(() =>
+      expect(
+        within(accountDialog).getByRole("button", { name: "Sign up" }),
+      ).toBeInTheDocument(),
+    );
+    await user.click(
+      within(accountDialog).getByRole("button", { name: "Sign up" }),
+    );
+
+    const authDialog = await screen.findByRole("dialog", {
+      name: "Sign up",
+    });
+    expect(within(authDialog).getByLabelText("Email")).toBeInTheDocument();
+    expect(within(authDialog).getByLabelText("Password")).toBeInTheDocument();
+    expect(
+      within(authDialog).getByLabelText("Confirm password"),
+    ).toBeInTheDocument();
+  });
+
+  it("opens a signin auth surface without password confirmation", async () => {
+    authMocks.state.env = {
+      url: "https://supabase.test",
+      anonKey: "anon-key",
+    };
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+
+    const accountDialog = await screen.findByRole("dialog", {
+      name: "Account",
+    });
+    await waitFor(() =>
+      expect(
+        within(accountDialog).getByRole("button", { name: "Sign in" }),
+      ).toBeInTheDocument(),
+    );
+    await user.click(
+      within(accountDialog).getByRole("button", { name: "Sign in" }),
+    );
+
+    const authDialog = await screen.findByRole("dialog", { name: "Sign in" });
+    expect(within(authDialog).getByLabelText("Email")).toBeInTheDocument();
+    expect(within(authDialog).getByLabelText("Password")).toBeInTheDocument();
+    expect(
+      within(authDialog).queryByLabelText("Confirm password"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not focus the email field when the signin auth surface opens", async () => {
+    authMocks.state.env = {
+      url: "https://supabase.test",
+      anonKey: "anon-key",
+    };
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+
+    const accountDialog = await screen.findByRole("dialog", {
+      name: "Account",
+    });
+    await user.click(
+      await within(accountDialog).findByRole("button", { name: "Sign in" }),
+    );
+
+    const authDialog = await screen.findByRole("dialog", { name: "Sign in" });
+    expect(within(authDialog).getByLabelText("Email")).not.toHaveFocus();
+  });
+
   it("does not describe Cloud load failures as signed out when the account is signed in", async () => {
     authMocks.state.env = {
       url: "https://supabase.test",
@@ -162,7 +261,7 @@ describe("FeedWorkbench account state", () => {
 
     await user.click(await screen.findByRole("button", { name: "Account" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Account" });
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
     await waitFor(() =>
       expect(
         within(dialog).getByText(
@@ -193,7 +292,7 @@ describe("FeedWorkbench account state", () => {
 
     await user.click(await screen.findByRole("button", { name: "Account" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Account" });
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
     await waitFor(() =>
       expect(
         within(dialog).getByText(

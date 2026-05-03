@@ -4,10 +4,10 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
-import { toast } from "sonner";
 
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createLazySupabaseBrowserClient } from "@/lib/supabase/browser-lazy";
 import { getSupabaseEnv } from "@/lib/supabase/env";
+import { toast } from "@/lib/toast";
 import {
   createFixedGrid,
   FREE_LAYOUT_SIZE,
@@ -122,16 +122,17 @@ export function useLayoutHandlers({
   setAccount,
 }: LayoutHandlersInput) {
   function updateFixedGrid(next: Partial<FixedGrid>) {
-    try {
-      setFixedGrid((current) =>
-        createFixedGrid(
+    setFixedGrid((current) => {
+      try {
+        return createFixedGrid(
           next.columns ?? current.columns,
           next.rows ?? current.rows,
-        ),
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Invalid grid");
-    }
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Invalid grid");
+        return current;
+      }
+    });
   }
 
   function changeLayoutMode(nextMode: LayoutMode) {
@@ -412,7 +413,10 @@ export function useLayoutHandlers({
   async function signOut() {
     const result = await signOutAccountAction({
       isConfigured: Boolean(getSupabaseEnv()),
-      signOut: async () => createSupabaseBrowserClient().auth.signOut(),
+      signOut: async () => {
+        const supabase = await createLazySupabaseBrowserClient();
+        return supabase.auth.signOut();
+      },
     });
 
     if (result.status === "error") {

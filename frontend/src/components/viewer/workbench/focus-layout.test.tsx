@@ -49,6 +49,9 @@ describe("FocusLayout", () => {
     expect(
       screen.getByTestId("satellite-pane-satellite-video").tagName,
     ).not.toBe("BUTTON");
+    expect(
+      screen.getByRole("button", { name: "Exit satellite" }).closest("aside"),
+    ).toHaveClass("md:gap-2", "md:p-2");
 
     fireEvent.click(
       screen.getByRole("button", { name: "Focus Satellite video" }),

@@ -18,6 +18,30 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/auth/callback"]
 enable_signup = true
 
+[auth.email.template.confirmation]
+subject = "Confirm your Scrollable email"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.invite]
+subject = "You were invited to Scrollable"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "Your Scrollable sign-in link"
+content_path = "./supabase/templates/magic-link.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new Scrollable email"
+content_path = "./supabase/templates/email-change.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Scrollable password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.reauthentication]
+subject = "Your Scrollable verification code"
+content_path = "./supabase/templates/reauthentication.html"
+
 [auth.external.google]
 enabled = true
 client_id = "994784137574-rs0vfc1qg4dlpc7g8ddjrui7ok0at2g3.apps.googleusercontent.com"

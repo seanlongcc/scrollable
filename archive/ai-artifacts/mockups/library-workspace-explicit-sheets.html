@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scrollable explicit Library and Workspace sheets</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(14.5% 0.012 338);
+        --stage: oklch(11.5% 0.012 338);
+        --surface: oklch(18.5% 0.018 340);
+        --raised: oklch(24.5% 0.024 342);
+        --text: oklch(92.5% 0.018 55);
+        --muted: oklch(70.5% 0.025 35);
+        --border: oklch(33.5% 0.022 342);
+        --border-soft: oklch(33.5% 0.022 342 / 0.58);
+        --primary: oklch(62% 0.145 18);
+        --primary-strong: oklch(69% 0.15 20);
+        --signal: oklch(76% 0.08 68);
+        --shadow: 0 24px 80px oklch(8% 0.01 338 / 0.72);
+        font-family:
+          Sora,
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(
+            ellipse at 16% 0%,
+            oklch(30% 0.06 18 / 0.22),
+            transparent 30rem
+          ),
+          var(--bg);
+        color: var(--text);
+      }
+
+      button {
+        border: 0;
+        font: inherit;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      main {
+        display: grid;
+        gap: 24px;
+        min-height: 100vh;
+        padding: 28px;
+      }
+
+      .intro {
+        display: grid;
+        max-width: 880px;
+        gap: 8px;
+      }
+
+      .eyebrow,
+      .meta,
+      .count {
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+
+      .eyebrow {
+        color: var(--signal);
+        font-size: 11px;
+        font-weight: 760;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      .intro p,
+      .mockup > p {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .mockups {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(320px, 390px));
+        gap: 22px;
+        align-items: start;
+      }
+
+      .mockup {
+        display: grid;
+        gap: 10px;
+      }
+
+      .mockup h2 {
+        font-size: 14px;
+      }
+
+      .mockup > p {
+        font-size: 12px;
+      }
+
+      .phone {
+        width: min(390px, calc(100vw - 56px));
+        height: 844px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: var(--stage);
+        box-shadow: var(--shadow);
+      }
+
+      .screen {
+        position: relative;
+        height: 100%;
+        overflow: hidden;
+        background:
+          radial-gradient(
+            circle at 68% 18%,
+            oklch(76% 0.08 68 / 0.18),
+            transparent 34%
+          ),
+          linear-gradient(
+            180deg,
+            oklch(16.5% 0.018 340),
+            oklch(10.5% 0.012 338)
+          );
+      }
+
+      .stage-preview {
+        position: absolute;
+        inset: 12px 12px 114px;
+        display: grid;
+        grid-template-rows: 1.1fr 0.9fr;
+        gap: 10px;
+        opacity: 0.4;
+      }
+
+      .pane {
+        border: 1px solid oklch(33.5% 0.022 342 / 0.5);
+        border-radius: 8px;
+        background:
+          radial-gradient(
+            ellipse at 28% 20%,
+            oklch(62% 0.145 18 / 0.28),
+            transparent 35%
+          ),
+          linear-gradient(145deg, oklch(22% 0.03 342), var(--stage));
+      }
+
+      .sheet {
+        position: absolute;
+        inset: auto 0 0;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        height: 88%;
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+        border-radius: 22px 22px 0 0;
+        background: var(--bg);
+      }
+
+      .sheet-header {
+        display: grid;
+        gap: 10px;
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid var(--border-soft);
+        background: oklch(14.5% 0.012 338 / 0.98);
+      }
+
+      .grip {
+        justify-self: center;
+        width: 74px;
+        height: 4px;
+        border-radius: 999px;
+        background: oklch(92.5% 0.018 55 / 0.16);
+      }
+
+      .title-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .title-row h3 {
+        font-size: 19px;
+        line-height: 1.1;
+      }
+
+      .close-sheet {
+        display: grid;
+        width: 44px;
+        min-height: 44px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 18px;
+      }
+
+      .button-row {
+        display: grid;
+        gap: 8px;
+      }
+
+      .two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .segmented {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--stage);
+        padding: 4px;
+      }
+
+      .three {
+        grid-template-columns: 1fr 1fr auto;
+      }
+
+      .one {
+        grid-template-columns: 1fr;
+      }
+
+      .cmd {
+        display: grid;
+        min-height: 42px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .cmd.active,
+      .cmd.primary {
+        border-color: oklch(62% 0.145 18 / 0.58);
+        background: oklch(34% 0.08 18);
+      }
+
+      .cmd.danger {
+        border-color: transparent;
+        background: oklch(30% 0.075 18);
+        color: var(--primary-strong);
+      }
+
+      .segmented .cmd {
+        border-color: transparent;
+        background: transparent;
+      }
+
+      .segmented .cmd.active {
+        border-color: oklch(62% 0.145 18 / 0.38);
+        background: oklch(34% 0.08 18);
+        box-shadow: inset 0 0 0 1px oklch(92.5% 0.018 55 / 0.06);
+      }
+
+      .body {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 12px 14px 18px;
+      }
+
+      .search {
+        min-width: 0;
+        min-height: 42px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 0 12px;
+        font: inherit;
+      }
+
+      .search::placeholder {
+        color: var(--muted);
+      }
+
+      .list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .layout-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 70px;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: oklch(12.8% 0.012 338);
+        padding: 10px;
+      }
+
+      .layout-row.current,
+      .layout-row.selected {
+        border-color: oklch(76% 0.08 68 / 0.42);
+        background: oklch(17.5% 0.02 55);
+      }
+
+      .open-layout {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+      }
+
+      .check {
+        width: 20px;
+        height: 20px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--raised);
+      }
+
+      .check.on {
+        display: grid;
+        place-items: center;
+        border-color: var(--primary);
+        background: var(--primary);
+      }
+
+      .check.on::after {
+        width: 9px;
+        height: 5px;
+        border-bottom: 2px solid var(--stage);
+        border-left: 2px solid var(--stage);
+        content: "";
+        transform: rotate(-45deg) translateY(-1px);
+      }
+
+      .row-main {
+        display: grid;
+        min-width: 0;
+        gap: 3px;
+      }
+
+      .row-main strong,
+      .row-main span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .row-main strong {
+        font-size: 16px;
+        line-height: 1.1;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .more,
+      .tile-close {
+        display: grid;
+        width: 34px;
+        min-height: 34px;
+        place-items: center;
+        border-radius: 8px;
+      }
+
+      .more {
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .tile-close {
+        border: 1px solid oklch(64% 0.18 24 / 0.28);
+        background: oklch(25% 0.05 18);
+        color: var(--primary-strong);
+        font-size: 14px;
+      }
+
+      .desktop {
+        display: grid;
+        gap: 10px;
+        max-width: 900px;
+      }
+
+      .desktop h2 {
+        font-size: 14px;
+      }
+
+      .desktop-panels {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(320px, 420px));
+        gap: 16px;
+      }
+
+      .context-panel {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        height: 620px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg);
+      }
+
+      .context-panel .sheet-header {
+        border-radius: 12px 12px 0 0;
+      }
+
+      @media (max-width: 900px) {
+        .mockups,
+        .desktop-panels {
+          grid-template-columns: minmax(320px, 390px);
+        }
+      }
+
+      @media (max-width: 520px) {
+        main {
+          padding: 16px;
+        }
+
+        .phone {
+          width: calc(100vw - 32px);
+          height: 780px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">Scrollable / explicit sheet structure</p>
+        <h1 id="page-title">
+          Library handles saved layouts. Workspace handles open layouts.
+        </h1>
+        <p>
+          Buttons follow the requested order. Saved layout rows keep metadata
+          and more menus. Open layout rows keep metadata and an explicit close
+          button beside each tile.
+        </p>
+      </section>
+
+      <section class="mockups" aria-label="Mobile sheets">
+        <article class="mockup">
+          <h2>Library Sheet</h2>
+          <p>
+            Saved-only list, with local/cloud, layouts/templates, open/delete.
+          </p>
+          <div class="phone">
+            <div class="screen">
+              <div class="stage-preview" aria-hidden="true">
+                <div class="pane"></div>
+                <div class="pane"></div>
+              </div>
+              <section class="sheet" aria-label="Library Sheet">
+                <header class="sheet-header">
+                  <div class="grip"></div>
+                  <div class="title-row">
+                    <div>
+                      <h3>Library</h3>
+                    </div>
+                    <button class="close-sheet" aria-label="Close sheet">
+                      x
+                    </button>
+                  </div>
+                  <div class="button-row one">
+                    <button class="cmd">Import JSON</button>
+                  </div>
+                  <div class="button-row segmented">
+                    <button class="cmd active">Local</button>
+                    <button class="cmd">Cloud</button>
+                  </div>
+                  <div class="button-row segmented">
+                    <button class="cmd active">Layouts</button>
+                    <button class="cmd">Templates</button>
+                  </div>
+                  <div class="button-row one">
+                    <input class="search" placeholder="Search" />
+                  </div>
+                  <div class="button-row three">
+                    <button class="cmd">Select all</button>
+                    <button class="cmd primary">Open</button>
+                    <button class="cmd danger">Del</button>
+                  </div>
+                </header>
+                <div class="body">
+                  <div class="list">
+                    <div class="layout-row selected">
+                      <span class="check on" aria-hidden="true"></span>
+                      <div class="row-main">
+                        <strong>Saved Layout 1</strong>
+                        <span class="meta"
+                          >fixed / 0 src / 0 files / 359 B</span
+                        >
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                    <div class="layout-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Saved Layout 2</strong>
+                        <span class="meta"
+                          >free / 3 src / 3 files / 1.8 KB</span
+                        >
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                    <div class="layout-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Saved Layout 3</strong>
+                        <span class="meta"
+                          >free / 3 src / 3 files / 1.5 KB</span
+                        >
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                    <div class="layout-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Saved Layout 4</strong>
+                        <span class="meta"
+                          >fixed / 9 src / 0 files / 3.1 KB</span
+                        >
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </article>
+
+        <article class="mockup">
+          <h2>Workspace Sheet</h2>
+          <p>
+            Open-only list, with save layout, select all, close, x per tile.
+          </p>
+          <div class="phone">
+            <div class="screen">
+              <div class="stage-preview" aria-hidden="true">
+                <div class="pane"></div>
+                <div class="pane"></div>
+              </div>
+              <section class="sheet" aria-label="Workspace Sheet">
+                <header class="sheet-header">
+                  <div class="grip"></div>
+                  <div class="title-row">
+                    <div>
+                      <h3>Workspace</h3>
+                    </div>
+                    <button class="close-sheet" aria-label="Close sheet">
+                      x
+                    </button>
+                  </div>
+                  <div class="button-row two">
+                    <button class="cmd primary">Save Layout</button>
+                    <button class="cmd">New Blank</button>
+                  </div>
+                  <div class="button-row two">
+                    <button class="cmd">Select all</button>
+                    <button class="cmd danger">Close</button>
+                  </div>
+                </header>
+                <div class="body">
+                  <div class="list">
+                    <div class="layout-row open-layout">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Open Layout 1</strong>
+                        <span class="meta">0 src / 0 files</span>
+                      </div>
+                      <button
+                        class="tile-close"
+                        aria-label="Close Open Layout 1"
+                      >
+                        x
+                      </button>
+                    </div>
+                    <div class="layout-row open-layout">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Open Layout 2</strong>
+                        <span class="meta">0 src / 0 files</span>
+                      </div>
+                      <button
+                        class="tile-close"
+                        aria-label="Close Open Layout 2"
+                      >
+                        x
+                      </button>
+                    </div>
+                    <div class="layout-row open-layout current">
+                      <span class="check on" aria-hidden="true"></span>
+                      <div class="row-main">
+                        <strong>Open Layout 3</strong>
+                        <span class="meta">current / 3 src / 2 files</span>
+                      </div>
+                      <button
+                        class="tile-close"
+                        aria-label="Close Open Layout 3"
+                      >
+                        x
+                      </button>
+                    </div>
+                    <div class="layout-row open-layout">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Open Layout 4</strong>
+                        <span class="meta">free / 1 src / 0 files</span>
+                      </div>
+                      <button
+                        class="tile-close"
+                        aria-label="Close Open Layout 4"
+                      >
+                        x
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="desktop" aria-labelledby="desktop-title">
+        <h2 id="desktop-title">Desktop context-panel versions</h2>
+        <div class="desktop-panels">
+          <section class="context-panel" aria-label="Desktop Library Sheet">
+            <header class="sheet-header">
+              <div class="title-row">
+                <div>
+                  <h3>Library</h3>
+                </div>
+                <button class="close-sheet" aria-label="Close sheet">x</button>
+              </div>
+              <div class="button-row one">
+                <button class="cmd">Import JSON</button>
+              </div>
+              <div class="button-row segmented">
+                <button class="cmd active">Local</button>
+                <button class="cmd">Cloud</button>
+              </div>
+              <div class="button-row segmented">
+                <button class="cmd active">Layouts</button>
+                <button class="cmd">Templates</button>
+              </div>
+              <div class="button-row one">
+                <input class="search" placeholder="Search" />
+              </div>
+              <div class="button-row three">
+                <button class="cmd">Select all</button>
+                <button class="cmd primary">Open</button>
+                <button class="cmd danger">Del</button>
+              </div>
+            </header>
+            <div class="body">
+              <div class="list">
+                <div class="layout-row selected">
+                  <span class="check on" aria-hidden="true"></span>
+                  <div class="row-main">
+                    <strong>Saved Layout 1</strong>
+                    <span class="meta">fixed / 0 src / 0 files / 359 B</span>
+                  </div>
+                  <span class="more">...</span>
+                </div>
+                <div class="layout-row">
+                  <span class="check"></span>
+                  <div class="row-main">
+                    <strong>Saved Layout 2</strong>
+                    <span class="meta">free / 3 src / 3 files / 1.8 KB</span>
+                  </div>
+                  <span class="more">...</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="context-panel" aria-label="Desktop Workspace Sheet">
+            <header class="sheet-header">
+              <div class="title-row">
+                <div>
+                  <h3>Workspace</h3>
+                </div>
+                <button class="close-sheet" aria-label="Close sheet">x</button>
+              </div>
+              <div class="button-row two">
+                <button class="cmd primary">Save Layout</button>
+                <button class="cmd">New Blank</button>
+              </div>
+              <div class="button-row two">
+                <button class="cmd">Select all</button>
+                <button class="cmd danger">Close</button>
+              </div>
+            </header>
+            <div class="body">
+              <div class="list">
+                <div class="layout-row open-layout">
+                  <span class="check"></span>
+                  <div class="row-main">
+                    <strong>Open Layout 1</strong>
+                    <span class="meta">0 src / 0 files</span>
+                  </div>
+                  <button class="tile-close" aria-label="Close Open Layout 1">
+                    x
+                  </button>
+                </div>
+                <div class="layout-row open-layout current">
+                  <span class="check on" aria-hidden="true"></span>
+                  <div class="row-main">
+                    <strong>Open Layout 3</strong>
+                    <span class="meta">current / 3 src / 2 files</span>
+                  </div>
+                  <button class="tile-close" aria-label="Close Open Layout 3">
+                    x
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

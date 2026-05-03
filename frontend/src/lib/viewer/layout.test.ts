@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_FIXED_GRID,
+  DESKTOP_FIXED_GRID_MAX,
   FREE_LAYOUT_SIZE,
+  MOBILE_FIXED_GRID_MAX,
   createFixedGrid,
   createFreeRect,
+  fixedGridRangeToastMessage,
+  mobileFixedGridDisplay,
   findAvailableFreeRectsBySize,
   findBestAvailableFreeRects,
   findAvailableFreeRect,
@@ -26,9 +30,73 @@ describe("viewer layout", () => {
     expect(createFixedGrid(16, 1)).toEqual({ columns: 16, rows: 1 });
   });
 
+  it("accepts mobile fixed dimensions from 1 through 3", () => {
+    expect(createFixedGrid(3, 3, { max: MOBILE_FIXED_GRID_MAX })).toEqual({
+      columns: 3,
+      rows: 3,
+    });
+    expect(() => createFixedGrid(4, 3, { max: MOBILE_FIXED_GRID_MAX })).toThrow(
+      "Grid columns must be 1-3",
+    );
+    expect(() => createFixedGrid(3, 4, { max: MOBILE_FIXED_GRID_MAX })).toThrow(
+      "Grid rows must be 1-3",
+    );
+  });
+
   it("rejects fixed dimensions outside 1 through 16", () => {
     expect(() => createFixedGrid(0, 2)).toThrow("Grid columns must be 1-16");
     expect(() => createFixedGrid(2, 17)).toThrow("Grid rows must be 1-16");
+  });
+
+  it("describes fixed grid range toasts by viewport range", () => {
+    expect(fixedGridRangeToastMessage(MOBILE_FIXED_GRID_MAX)).toBe(
+      "Grid range is 1-3 on mobile",
+    );
+    expect(fixedGridRangeToastMessage(DESKTOP_FIXED_GRID_MAX)).toBe(
+      "Grid range is 1-16 on desktop",
+    );
+  });
+
+  it("caps fixed grid display to 3x3 on mobile", () => {
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: DEFAULT_FIXED_GRID,
+        visibleCells: DEFAULT_FIXED_GRID.columns * DEFAULT_FIXED_GRID.rows,
+      }),
+    ).toEqual({ columns: 1, rows: 2, visibleCells: 2 });
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: { columns: 16, rows: 16 },
+        visibleCells: 256,
+      }),
+    ).toEqual({ columns: 3, rows: 3, visibleCells: 9 });
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: { columns: 2, rows: 8 },
+        visibleCells: 16,
+      }),
+    ).toEqual({ columns: 3, rows: 3, visibleCells: 9 });
+  });
+
+  it("packs small fixed grids into portrait-first mobile surfaces", () => {
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: { columns: 3, rows: 1 },
+        visibleCells: 3,
+      }),
+    ).toEqual({ columns: 1, rows: 3, visibleCells: 3 });
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: { columns: 2, rows: 2 },
+        visibleCells: 4,
+      }),
+    ).toEqual({ columns: 2, rows: 2, visibleCells: 4 });
+    expect(
+      mobileFixedGridDisplay({
+        fixedGrid: { columns: 3, rows: 2 },
+        visibleCells: 6,
+      }),
+    ).toEqual({ columns: 2, rows: 3, visibleCells: 6 });
   });
 
   it("rejects free rectangles outside the 16x16 canvas", () => {

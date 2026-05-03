@@ -1,9 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SignInPanel } from "@/components/auth/sign-in-panel";
 import { SiteLogo } from "@/components/site-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  ...createPageMetadata({
+    title: "Sign in",
+    description:
+      "Sign in to save Scrollable layouts, templates, collections, and feed configurations.",
+    path: "/login",
+    noIndex: true,
+  }),
+};
 
 export default async function LoginPage({
   searchParams,

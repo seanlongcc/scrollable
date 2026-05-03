@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const MIN_TOUCH_TARGET_PX = 44;
+const MIN_COMPACT_TOUCH_TARGET_PX = 40;
 
 type TargetViolation = {
   label: string;
@@ -53,7 +54,7 @@ test("mobile omits header and starts the source frame near the top", async ({
   expect(await sourceFrameTop(page)).toBeLessThanOrEqual(12);
 });
 
-test("mobile source info sits on the right of selected sources", async ({
+test("mobile source info sits at the bottom of selected sources", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only layout audit.");
@@ -71,77 +72,107 @@ test("mobile source info sits on the right of selected sources", async ({
   const workbenchDialog = page.getByRole("dialog", { name: "Workbench" });
   await expect(workbenchDialog).toBeVisible();
   const sourceInfoButton = workbenchDialog.getByRole("button", {
-    name: "Source info",
+    name: "Show info",
   });
   await expect(sourceInfoButton).toHaveAttribute("data-variant", "outline");
   await sourceInfoButton.click();
-  await expect(sourceInfoButton).toHaveAttribute("data-variant", "default");
+  await expect(
+    workbenchDialog.getByRole("button", { name: "Hide info" }),
+  ).toHaveAttribute("data-variant", "default");
   await page.getByRole("button", { name: "Close sheet" }).click();
   await expect(workbenchDialog).toBeHidden();
-  await expect(page.getByText("Local upload", { exact: true })).toBeVisible();
+  await expect(page.getByText("test.webp", { exact: true })).toBeVisible();
 
   const metrics = await sourceInfoAlignment(page);
-  expect(metrics.infoRightGap).toBeLessThanOrEqual(16);
-  expect(metrics.infoLeftGap).toBeGreaterThanOrEqual(44);
+  expect(metrics.infoBottomGap).toBeLessThanOrEqual(16);
+  expect(metrics.infoLeftGap).toBeLessThanOrEqual(2);
+  expect(metrics.infoRightGap).toBeLessThanOrEqual(2);
 });
 
 async function collectTouchTargetViolations(
   page: Page,
 ): Promise<TargetViolation[]> {
-  return page.evaluate((minTouchTargetPx) => {
-    const selector = [
-      "a[href]",
-      "button",
-      "input",
-      "textarea",
-      "select",
-      '[role="button"]',
-      '[role="tab"]',
-      '[tabindex]:not([tabindex="-1"])',
-    ].join(",");
+  return page.evaluate(
+    ({ minTouchTargetPx, minCompactTouchTargetPx }) => {
+      const selector = [
+        "a[href]",
+        "button",
+        "input",
+        "textarea",
+        "select",
+        '[role="button"]',
+        '[role="tab"]',
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(",");
 
-    function isVisibleTarget(element: Element, rect: DOMRect) {
-      const style = window.getComputedStyle(element);
-      if (style.display === "none" || style.visibility === "hidden") {
-        return false;
+      function isVisibleTarget(element: Element, rect: DOMRect) {
+        if (element.classList.contains("sr-only")) return false;
+
+        const style = window.getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden") {
+          return false;
+        }
+        if (rect.width <= 1 || rect.height <= 1) return false;
+        if (rect.bottom <= 0 || rect.right <= 0) return false;
+        if (rect.top >= window.innerHeight || rect.left >= window.innerWidth) {
+          return false;
+        }
+        return true;
       }
-      if (rect.width <= 1 || rect.height <= 1) return false;
-      if (rect.bottom <= 0 || rect.right <= 0) return false;
-      if (rect.top >= window.innerHeight || rect.left >= window.innerWidth) {
-        return false;
+
+      function labelFor(element: Element) {
+        return (
+          element.getAttribute("aria-label") ||
+          element.getAttribute("title") ||
+          element.textContent?.trim().replace(/\s+/g, " ") ||
+          element.getAttribute("placeholder") ||
+          element.tagName.toLowerCase()
+        );
       }
-      return true;
-    }
 
-    function labelFor(element: Element) {
-      return (
-        element.getAttribute("aria-label") ||
-        element.getAttribute("title") ||
-        element.textContent?.trim().replace(/\s+/g, " ") ||
-        element.getAttribute("placeholder") ||
-        element.tagName.toLowerCase()
-      );
-    }
+      function minTargetSize(element: Element) {
+        return element.closest(".mobile-compact-controls")
+          ? minCompactTouchTargetPx
+          : minTouchTargetPx;
+      }
 
-    return Array.from(document.querySelectorAll(selector))
-      .flatMap((element) => {
-        const rect = element.getBoundingClientRect();
-        if (!isVisibleTarget(element, rect)) return [];
-        const width = Math.round(rect.width);
-        const height = Math.round(rect.height);
-        if (width >= minTouchTargetPx && height >= minTouchTargetPx) return [];
+      return Array.from(document.querySelectorAll(selector))
+        .flatMap((element) => {
+          const rect = element.getBoundingClientRect();
+          if (!isVisibleTarget(element, rect)) return [];
+          const width = Math.round(rect.width);
+          const height = Math.round(rect.height);
+          const minTargetPx = minTargetSize(element);
+          // Compact dialog controls are intentionally 40px. Some mobile
+          // emulation reports 39px after subpixel layout, so allow 1px drift.
+          const roundingTolerancePx = element.closest(
+            ".mobile-compact-controls",
+          )
+            ? 1
+            : 0;
+          if (
+            width + roundingTolerancePx >= minTargetPx &&
+            height + roundingTolerancePx >= minTargetPx
+          ) {
+            return [];
+          }
 
-        return [
-          {
-            label: labelFor(element),
-            tag: element.tagName.toLowerCase(),
-            width,
-            height,
-          },
-        ];
-      })
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, MIN_TOUCH_TARGET_PX);
+          return [
+            {
+              label: labelFor(element),
+              tag: element.tagName.toLowerCase(),
+              width,
+              height,
+            },
+          ];
+        })
+        .sort((a, b) => a.label.localeCompare(b.label));
+    },
+    {
+      minTouchTargetPx: MIN_TOUCH_TARGET_PX,
+      minCompactTouchTargetPx: MIN_COMPACT_TOUCH_TARGET_PX,
+    },
+  );
 }
 
 async function sourceFrameTop(page: Page): Promise<number> {
@@ -163,13 +194,15 @@ async function closeSheetRadius(page: Page): Promise<number> {
 }
 
 async function sourceInfoAlignment(page: Page): Promise<{
+  infoBottomGap: number;
   infoLeftGap: number;
   infoRightGap: number;
 }> {
   return page.evaluate(() => {
-    const frame = document.querySelector("main > section > div");
-    const infoTitle = document.querySelector('[title="Local upload"]');
-    const infoBox = infoTitle?.parentElement;
+    const infoBox = document.querySelector(
+      '[data-testid="feed-item-info"][data-placement="bottom"] > div',
+    );
+    const frame = infoBox?.closest("article");
 
     if (!frame || !infoBox) {
       throw new Error("Missing source frame or info box");
@@ -179,6 +212,7 @@ async function sourceInfoAlignment(page: Page): Promise<{
     const infoRect = infoBox.getBoundingClientRect();
 
     return {
+      infoBottomGap: Math.round(frameRect.bottom - infoRect.bottom),
       infoLeftGap: Math.round(infoRect.left - frameRect.left),
       infoRightGap: Math.round(frameRect.right - infoRect.right),
     };

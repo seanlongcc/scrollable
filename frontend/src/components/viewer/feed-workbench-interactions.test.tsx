@@ -107,17 +107,17 @@ describe("FeedWorkbench interactions", () => {
     await addDefaultSubredditSource(user);
 
     await screen.findByRole("button", { name: "Remove r/pics" });
-    expect(screen.getByLabelText("Free column")).toHaveValue(1);
-    expect(screen.getByLabelText("Free row")).toHaveValue(1);
-    expect(screen.getByLabelText("Column span")).toHaveValue(4);
-    expect(screen.getByLabelText("Row span")).toHaveValue(4);
+    expect(screen.getByLabelText("Free column")).toHaveValue("1");
+    expect(screen.getByLabelText("Free row")).toHaveValue("1");
+    expect(screen.getByLabelText("Column span")).toHaveValue("4");
+    expect(screen.getByLabelText("Row span")).toHaveValue("4");
   });
 
   it("defaults global timer to 10 seconds and omits per-source timer controls", async () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(10);
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("10");
     expect(screen.getByLabelText("Global timer seconds")).toHaveAttribute(
       "min",
       "1",
@@ -134,30 +134,22 @@ describe("FeedWorkbench interactions", () => {
   });
 
   it("maximizes a runtime feed into focus plus satellite mode", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          items: [
-            {
-              id: "runtime-1",
-              source: "reddit",
-              title: "Runtime image",
-              subreddit: "pics",
-              isNsfw: false,
-              createdAt: "2026-04-24T00:00:00.000Z",
-              media: [
-                {
-                  type: "image",
-                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                },
-              ],
-            },
-          ],
-        }),
-      })),
-    );
+    stubRuntimeFetch([
+      {
+        id: "runtime-1",
+        source: "reddit",
+        title: "Runtime image",
+        subreddit: "pics",
+        isNsfw: false,
+        createdAt: "2026-04-24T00:00:00.000Z",
+        media: [
+          {
+            type: "image",
+            url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          },
+        ],
+      },
+    ]);
     vi.stubGlobal("crypto", { randomUUID: () => "session-1" });
 
     const user = userEvent.setup();
@@ -190,7 +182,7 @@ describe("FeedWorkbench interactions", () => {
     expect(
       await screen.findByRole("button", { name: "Local timer" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Local timer seconds")).toHaveValue(10);
+    expect(screen.getByLabelText("Local timer seconds")).toHaveValue("10");
 
     await user.click(screen.getByRole("button", { name: "Local timer" }));
 

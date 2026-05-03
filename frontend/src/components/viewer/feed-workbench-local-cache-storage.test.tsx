@@ -43,7 +43,7 @@ describe("FeedWorkbench local cache storage", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "cached.png", { type: "image/png" }),
@@ -81,7 +81,7 @@ describe("FeedWorkbench local cache storage", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await selectSourceGrouping(user, "Separate sources");
     await user.upload(screen.getByLabelText("Image/video files"), [
       first,
@@ -141,7 +141,7 @@ describe("FeedWorkbench local cache storage", () => {
     Object.defineProperty(file, "size", { value: 1288490189 });
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), file);
 
     expect(
@@ -197,7 +197,7 @@ describe("FeedWorkbench local cache storage", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(screen.getByLabelText("Image/video files"), file);
 
     expect(
@@ -244,7 +244,7 @@ describe("FeedWorkbench local cache storage", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["a"], "full.png", { type: "image/png" }),
@@ -264,7 +264,7 @@ describe("FeedWorkbench local cache storage", () => {
     expect(clearLocalFileCache).toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Local" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
     await user.upload(
       screen.getByLabelText("Image/video files"),
       new File(["b"], "after-clear.png", { type: "image/png" }),

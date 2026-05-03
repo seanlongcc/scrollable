@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scrollable mobile top-progress mockups</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(14.5% 0.012 338);
+        --surface: oklch(18.5% 0.018 340);
+        --raised: oklch(24.5% 0.024 342);
+        --text: oklch(92.5% 0.018 55);
+        --muted: oklch(70.5% 0.025 35);
+        --border: oklch(33.5% 0.022 342);
+        --primary: oklch(62% 0.145 18);
+        --primary-hi: oklch(69% 0.15 20);
+        --signal: oklch(76% 0.08 68);
+        --danger: oklch(64% 0.18 24);
+        font-family:
+          Sora,
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      main {
+        display: grid;
+        gap: 28px;
+        padding: 28px;
+      }
+
+      header {
+        display: grid;
+        max-width: 900px;
+        gap: 8px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      header p,
+      .mockup > p {
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      header p {
+        max-width: 70ch;
+        font-size: 14px;
+      }
+
+      .mockups {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(320px, 390px));
+        gap: 20px;
+        align-items: start;
+      }
+
+      .mockup {
+        display: grid;
+        gap: 10px;
+      }
+
+      .mockup h2 {
+        font-size: 13px;
+        line-height: 1.25;
+      }
+
+      .mockup > p {
+        font-size: 12px;
+      }
+
+      .phone {
+        position: relative;
+        width: min(390px, calc(100vw - 56px));
+        height: 844px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: var(--bg);
+        box-shadow: 0 24px 80px rgba(18, 10, 10, 0.58);
+      }
+
+      .topbar {
+        position: absolute;
+        inset: 0 0 auto;
+        z-index: 4;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 14px 12px 10px;
+        border-bottom: 1px solid
+          color-mix(in oklch, var(--border) 72%, transparent);
+        background: color-mix(in oklch, var(--bg) 92%, transparent);
+      }
+
+      .eyebrow {
+        color: var(--signal);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+
+      .screen-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .pill {
+        display: inline-grid;
+        min-height: 26px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0 9px;
+        background: color-mix(in oklch, var(--raised) 78%, transparent);
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+      }
+
+      .stage {
+        position: absolute;
+        inset: 64px 0 60px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+        gap: 1px;
+        background: color-mix(in oklch, var(--border) 40%, transparent);
+      }
+
+      .cell {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        min-height: 0;
+        align-content: end;
+        gap: 4px;
+        overflow: hidden;
+        padding: 9px 7px 7px;
+        background: var(--surface);
+      }
+
+      .cell:nth-child(4n + 1) {
+        background: oklch(20.5% 0.03 350);
+      }
+
+      .cell:nth-child(4n + 2) {
+        background: oklch(19.5% 0.028 28);
+      }
+
+      .cell:nth-child(4n + 3) {
+        background: oklch(18.5% 0.025 220);
+      }
+
+      .cell:nth-child(4n + 4) {
+        background: oklch(21.5% 0.028 68);
+      }
+
+      .cell.selected {
+        outline: 2px solid var(--primary);
+        outline-offset: -2px;
+      }
+
+      .source-mark {
+        position: absolute;
+        inset: 13px auto auto 7px;
+        width: 22px;
+        height: 22px;
+        display: grid;
+        place-items: center;
+        border-radius: 7px;
+        background: color-mix(in oklch, var(--bg) 75%, transparent);
+        color: var(--text);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .cell-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .cell-meta {
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 9px;
+      }
+
+      .progress {
+        position: absolute;
+        right: 7px;
+        left: 7px;
+        overflow: hidden;
+      }
+
+      .progress span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--signal);
+      }
+
+      .progress-line {
+        top: 6px;
+        height: 3px;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--bg) 78%, transparent);
+      }
+
+      .progress-hairline {
+        inset: 0 0 auto;
+        height: 2px;
+        border-radius: 0;
+        background: transparent;
+      }
+
+      .progress-hairline span {
+        background: var(--primary-hi);
+      }
+
+      .progress-track {
+        top: 7px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px;
+        align-items: center;
+        overflow: visible;
+      }
+
+      .progress-track .bar {
+        height: 4px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--bg) 78%, transparent);
+      }
+
+      .progress-track .bar span {
+        display: block;
+        height: 100%;
+        background: var(--signal);
+      }
+
+      .progress-track strong {
+        color: var(--signal);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 9px;
+      }
+
+      .top-status {
+        position: absolute;
+        inset: 7px 7px auto;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 5px;
+        align-items: center;
+      }
+
+      .top-status .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--signal);
+      }
+
+      .top-status .bar {
+        height: 3px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--bg) 78%, transparent);
+      }
+
+      .top-status .bar span {
+        display: block;
+        height: 100%;
+        background: var(--signal);
+      }
+
+      .toast {
+        position: absolute;
+        right: 12px;
+        bottom: 126px;
+        left: 12px;
+        z-index: 10;
+        display: grid;
+        gap: 3px;
+        border: 1px solid color-mix(in oklch, var(--danger) 55%, var(--border));
+        border-radius: 12px;
+        background: color-mix(in oklch, var(--bg) 88%, var(--danger));
+        padding: 10px 12px;
+        box-shadow: 0 18px 48px rgba(18, 10, 10, 0.5);
+      }
+
+      .toast strong {
+        font-size: 12px;
+      }
+
+      .toast span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .right-rail {
+        position: absolute;
+        right: 10px;
+        bottom: 140px;
+        z-index: 5;
+        display: grid;
+        gap: 9px;
+      }
+
+      .rail-button {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--raised) 86%, transparent);
+        color: var(--text);
+        box-shadow: 0 12px 34px rgba(18, 10, 10, 0.48);
+        font-size: 17px;
+      }
+
+      .rail-button.primary {
+        border-color: transparent;
+        background: var(--primary);
+        color: var(--bg);
+      }
+
+      .bottom-nav {
+        position: absolute;
+        inset: auto 0 0;
+        z-index: 6;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        height: 60px;
+        border-top: 1px solid var(--border);
+        background: color-mix(in oklch, var(--bg) 96%, transparent);
+        box-shadow: 0 -18px 50px rgba(18, 10, 10, 0.58);
+      }
+
+      .bottom-nav div {
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .bottom-nav .active {
+        color: var(--primary-hi);
+      }
+
+      @media (max-width: 1120px) {
+        .mockups {
+          grid-template-columns: repeat(2, minmax(320px, 390px));
+        }
+      }
+
+      @media (max-width: 740px) {
+        main {
+          padding: 18px;
+        }
+
+        .mockups {
+          grid-template-columns: 1fr;
+        }
+
+        .phone {
+          width: min(390px, calc(100vw - 36px));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Top progress, bottom info</h1>
+        <p>
+          Hard 3x3 mobile grid. Progress moves to top edge so bottom metadata
+          stays stable and readable in every cell.
+        </p>
+      </header>
+
+      <section class="mockups" aria-label="Top progress variants">
+        <article class="mockup">
+          <h2>1. Inset top track</h2>
+          <p>
+            Most balanced. Progress is visible, but it does not fight the
+            selected outline.
+          </p>
+          <div class="phone" role="img" aria-label="Inset top progress track">
+            <div class="topbar">
+              <div>
+                <div class="eyebrow">Fixed grid</div>
+                <div class="screen-title">Layer A · 9 visible</div>
+              </div>
+              <div class="pill">3x3 max</div>
+            </div>
+            <div class="stage">
+              <div class="cell selected">
+                <div class="progress progress-line">
+                  <span style="width: 42%"></span>
+                </div>
+                <span class="source-mark">01</span>
+                <div class="cell-name">r/analog</div>
+                <div class="cell-meta">2/18 · 10s</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-line">
+                  <span style="width: 70%"></span>
+                </div>
+                <span class="source-mark">02</span>
+                <div class="cell-name">local set</div>
+                <div class="cell-meta">8 files</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-line">
+                  <span style="width: 20%"></span>
+                </div>
+                <span class="source-mark">03</span>
+                <div class="cell-name">gallery</div>
+                <div class="cell-meta">6/22</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-line">
+                  <span style="width: 55%"></span>
+                </div>
+                <span class="source-mark">04</span>
+                <div class="cell-name">video</div>
+                <div class="cell-meta">0:42</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-line">
+                  <span style="width: 16%"></span>
+                </div>
+                <span class="source-mark">05</span>
+                <div class="cell-name">reddit</div>
+                <div class="cell-meta">hot · 32</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-line">
+                  <span style="width: 61%"></span>
+                </div>
+                <span class="source-mark">06</span>
+                <div class="cell-name">url</div>
+                <div class="cell-meta">embed</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-line">
+                  <span style="width: 34%"></span>
+                </div>
+                <span class="source-mark">07</span>
+                <div class="cell-name">cache</div>
+                <div class="cell-meta">local</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-line">
+                  <span style="width: 80%"></span>
+                </div>
+                <span class="source-mark">08</span>
+                <div class="cell-name">gallery</div>
+                <div class="cell-meta">12/40</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-line">
+                  <span style="width: 8%"></span>
+                </div>
+                <span class="source-mark">09</span>
+                <div class="cell-name">url</div>
+                <div class="cell-meta">provider</div>
+              </div>
+            </div>
+            <div class="right-rail">
+              <div class="rail-button primary">+</div>
+              <div class="rail-button">◌</div>
+            </div>
+            <div class="toast">
+              <strong>Grid range is 1-3 on mobile</strong>
+              <span>Desktop range remains 1-16.</span>
+            </div>
+            <div class="bottom-nav">
+              <div class="active">≡</div>
+              <div>▣</div>
+              <div>○</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="mockup">
+          <h2>2. Edge hairline</h2>
+          <p>
+            Quietest chrome. Good for dense feeds, but progress can be easy to
+            miss.
+          </p>
+          <div class="phone" role="img" aria-label="Hairline edge progress">
+            <div class="topbar">
+              <div>
+                <div class="eyebrow">Fixed grid</div>
+                <div class="screen-title">Layer A · 9 visible</div>
+              </div>
+              <div class="pill">3x3 max</div>
+            </div>
+            <div class="stage">
+              <div class="cell selected">
+                <div class="progress progress-hairline">
+                  <span style="width: 42%"></span>
+                </div>
+                <span class="source-mark">01</span>
+                <div class="cell-name">r/analog</div>
+                <div class="cell-meta">2/18 · 10s</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-hairline">
+                  <span style="width: 70%"></span>
+                </div>
+                <span class="source-mark">02</span>
+                <div class="cell-name">local set</div>
+                <div class="cell-meta">8 files</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-hairline">
+                  <span style="width: 20%"></span>
+                </div>
+                <span class="source-mark">03</span>
+                <div class="cell-name">gallery</div>
+                <div class="cell-meta">6/22</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-hairline">
+                  <span style="width: 55%"></span>
+                </div>
+                <span class="source-mark">04</span>
+                <div class="cell-name">video</div>
+                <div class="cell-meta">0:42</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-hairline">
+                  <span style="width: 16%"></span>
+                </div>
+                <span class="source-mark">05</span>
+                <div class="cell-name">reddit</div>
+                <div class="cell-meta">hot · 32</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-hairline">
+                  <span style="width: 61%"></span>
+                </div>
+                <span class="source-mark">06</span>
+                <div class="cell-name">url</div>
+                <div class="cell-meta">embed</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-hairline">
+                  <span style="width: 34%"></span>
+                </div>
+                <span class="source-mark">07</span>
+                <div class="cell-name">cache</div>
+                <div class="cell-meta">local</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-hairline">
+                  <span style="width: 80%"></span>
+                </div>
+                <span class="source-mark">08</span>
+                <div class="cell-name">gallery</div>
+                <div class="cell-meta">12/40</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-hairline">
+                  <span style="width: 8%"></span>
+                </div>
+                <span class="source-mark">09</span>
+                <div class="cell-name">url</div>
+                <div class="cell-meta">provider</div>
+              </div>
+            </div>
+            <div class="right-rail">
+              <div class="rail-button primary">+</div>
+              <div class="rail-button">◌</div>
+            </div>
+            <div class="bottom-nav">
+              <div class="active">≡</div>
+              <div>▣</div>
+              <div>○</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="mockup">
+          <h2>3. Top track plus time hint</h2>
+          <p>
+            Most informative. Better when timers matter, slightly busier in 3x3
+            cells.
+          </p>
+          <div
+            class="phone"
+            role="img"
+            aria-label="Top progress track with time hint"
+          >
+            <div class="topbar">
+              <div>
+                <div class="eyebrow">Fixed grid</div>
+                <div class="screen-title">Layer A · 9 visible</div>
+              </div>
+              <div class="pill">3x3 max</div>
+            </div>
+            <div class="stage">
+              <div class="cell selected">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 42%"></span></div>
+                  <strong>06</strong>
+                </div>
+                <span class="source-mark">01</span>
+                <div class="cell-name">r/analog</div>
+                <div class="cell-meta">2/18 · 10s</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 70%"></span></div>
+                  <strong>03</strong>
+                </div>
+                <span class="source-mark">02</span>
+                <div class="cell-name">local set</div>
+                <div class="cell-meta">8 files</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 20%"></span></div>
+                  <strong>08</strong>
+                </div>
+                <span class="source-mark">03</span>
+                <div class="cell-name">gallery</div>
+                <div class="cell-meta">6/22</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 55%"></span></div>
+                  <strong>04</strong>
+                </div>
+                <span class="source-mark">04</span>
+                <div class="cell-name">video</div>
+                <div class="cell-meta">0:42</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 16%"></span></div>
+                  <strong>09</strong>
+                </div>
+                <span class="source-mark">05</span>
+                <div class="cell-name">reddit</div>
+                <div class="cell-meta">hot · 32</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 61%"></span></div>
+                  <strong>04</strong>
+                </div>
+                <span class="source-mark">06</span>
+                <div class="cell-name">url</div>
+                <div class="cell-meta">embed</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 34%"></span></div>
+                  <strong>07</strong>
+                </div>
+                <span class="source-mark">07</span>
+                <div class="cell-name">cache</div>
+                <div class="cell-meta">local</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 80%"></span></div>
+                  <strong>02</strong>
+                </div>
+                <span class="source-mark">08</span>
+                <div class="cell-name">gallery</div>
+                <div class="cell-meta">12/40</div>
+              </div>
+              <div class="cell">
+                <div class="progress progress-track">
+                  <div class="bar"><span style="width: 8%"></span></div>
+                  <strong>09</strong>
+                </div>
+                <span class="source-mark">09</span>
+                <div class="cell-name">url</div>
+                <div class="cell-meta">provider</div>
+              </div>
+            </div>
+            <div class="right-rail">
+              <div class="rail-button primary">+</div>
+              <div class="rail-button">◌</div>
+            </div>
+            <div class="bottom-nav">
+              <div class="active">≡</div>
+              <div>▣</div>
+              <div>○</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="mockup">
+          <h2>4. Status dot plus rail</h2>
+          <p>
+            Strong selected-state language. Dot can encode paused/loading/error
+            later.
+          </p>
+          <div
+            class="phone"
+            role="img"
+            aria-label="Top progress with status dot"
+          >
+            <div class="topbar">
+              <div>
+                <div class="eyebrow">Fixed grid</div>
+                <div class="screen-title">Layer A · 9 visible</div>
+              </div>
+              <div class="pill">3x3 max</div>
+            </div>
+            <div class="stage">
+              <div class="cell selected">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 42%"></span></div>
+                </div>
+                <span class="source-mark">01</span>
+                <div class="cell-name">r/analog</div>
+                <div class="cell-meta">2/18 · 10s</div>
+              </div>
+              <div class="cell">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 70%"></span></div>
+                </div>
+                <span class="source-mark">02</span>
+                <div class="cell-name">local set</div>
+                <div class="cell-meta">8 files</div>
+              </div>
+              <div class="cell">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 20%"></span></div>
+                </div>
+                <span class="source-mark">03</span>
+                <div class="cell-name">gallery</div>
+                <div class="cell-meta">6/22</div>
+              </div>
+              <div class="cell">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 55%"></span></div>
+                </div>
+                <span class="source-mark">04</span>
+                <div class="cell-name">video</div>
+                <div class="cell-meta">0:42</div>
+              </div>
+              <div class="cell">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 16%"></span></div>
+                </div>
+                <span class="source-mark">05</span>
+                <div class="cell-name">reddit</div>
+                <div class="cell-meta">hot · 32</div>
+              </div>
+              <div class="cell">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 61%"></span></div>
+                </div>
+                <span class="source-mark">06</span>
+                <div class="cell-name">url</div>
+                <div class="cell-meta">embed</div>
+              </div>
+              <div class="cell">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 34%"></span></div>
+                </div>
+                <span class="source-mark">07</span>
+                <div class="cell-name">cache</div>
+                <div class="cell-meta">local</div>
+              </div>
+              <div class="cell">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 80%"></span></div>
+                </div>
+                <span class="source-mark">08</span>
+                <div class="cell-name">gallery</div>
+                <div class="cell-meta">12/40</div>
+              </div>
+              <div class="cell">
+                <div class="top-status">
+                  <span class="dot"></span>
+                  <div class="bar"><span style="width: 8%"></span></div>
+                </div>
+                <span class="source-mark">09</span>
+                <div class="cell-name">url</div>
+                <div class="cell-meta">provider</div>
+              </div>
+            </div>
+            <div class="right-rail">
+              <div class="rail-button primary">+</div>
+              <div class="rail-button">◌</div>
+            </div>
+            <div class="bottom-nav">
+              <div class="active">≡</div>
+              <div>▣</div>
+              <div>○</div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

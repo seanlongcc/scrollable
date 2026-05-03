@@ -44,8 +44,10 @@ describe("FeedWorkbench Reddit source persistence", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
-    const sourceDialog = screen.getByRole("dialog", { name: "Add source" });
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
+    const sourceDialog = await screen.findByRole("dialog", {
+      name: "Add source",
+    });
     await user.clear(within(sourceDialog).getByLabelText("Subreddit name"));
     await user.type(
       within(sourceDialog).getByLabelText("Subreddit name"),
@@ -55,7 +57,9 @@ describe("FeedWorkbench Reddit source persistence", () => {
     await screen.findByAltText("Hidden listing item");
 
     await user.click(screen.getByRole("button", { name: "Edit r/kpop" }));
-    const editDialog = screen.getByRole("dialog", { name: "Edit source" });
+    const editDialog = await screen.findByRole("dialog", {
+      name: "Edit source",
+    });
     await user.click(
       within(editDialog).getByRole("button", {
         name: "Hide Hidden listing item from r/kpop",
@@ -218,7 +222,9 @@ describe("FeedWorkbench Reddit source persistence", () => {
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Edit r/kpop" }));
-    const editDialog = screen.getByRole("dialog", { name: "Edit source" });
+    const editDialog = await screen.findByRole("dialog", {
+      name: "Edit source",
+    });
     expect(
       within(editDialog).queryByText("Hidden items"),
     ).not.toBeInTheDocument();
@@ -269,8 +275,10 @@ describe("FeedWorkbench Reddit source persistence", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
-    const sourceDialog = screen.getByRole("dialog", { name: "Add source" });
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
+    const sourceDialog = await screen.findByRole("dialog", {
+      name: "Add source",
+    });
     await user.clear(within(sourceDialog).getByLabelText("Subreddit name"));
     await user.type(
       within(sourceDialog).getByLabelText("Subreddit name"),
@@ -280,7 +288,9 @@ describe("FeedWorkbench Reddit source persistence", () => {
     await screen.findByAltText("Hidden listing item");
 
     await user.click(screen.getByRole("button", { name: "Edit r/kpop" }));
-    let editDialog = screen.getByRole("dialog", { name: "Edit source" });
+    let editDialog = await screen.findByRole("dialog", {
+      name: "Edit source",
+    });
     await user.click(
       within(editDialog).getByRole("button", {
         name: "Hide Hidden listing item from r/kpop",
@@ -293,7 +303,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     await user.click(screen.getByRole("button", { name: "Edit r/kpop" }));
-    editDialog = screen.getByRole("dialog", { name: "Edit source" });
+    editDialog = await screen.findByRole("dialog", { name: "Edit source" });
 
     expect(
       within(editDialog).getByText("Hidden listing item"),
@@ -333,8 +343,8 @@ describe("FeedWorkbench Reddit source persistence", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -343,11 +353,13 @@ describe("FeedWorkbench Reddit source persistence", () => {
       "https://www.reddit.com/r/pics/comments/gallery/gallery_post/",
     );
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
-    await user.click(screen.getByRole("button", { name: "Source info" }));
+    await user.click(screen.getByRole("button", { name: "Show info" }));
     await screen.findByText(/1\/2/);
 
     await user.click(screen.getByRole("button", { name: "Edit r/pics" }));
-    const editDialog = screen.getByRole("dialog", { name: "Edit source" });
+    const editDialog = await screen.findByRole("dialog", {
+      name: "Edit source",
+    });
     expect(
       within(editDialog).queryByText("Hidden items"),
     ).not.toBeInTheDocument();
@@ -401,8 +413,8 @@ describe("FeedWorkbench Reddit source persistence", () => {
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
-    await user.click(screen.getByRole("button", { name: "Reddit" }));
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
+    await user.click(await screen.findByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
       screen.getByLabelText(
@@ -413,7 +425,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByLabelText("r/pics timer progress");
-    await user.click(screen.getByRole("button", { name: "Source info" }));
+    await user.click(screen.getByRole("button", { name: "Show info" }));
     expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Next media for r/pics" }),
@@ -510,15 +522,9 @@ describe("FeedWorkbench Reddit source persistence", () => {
 
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
-    expect(
-      String(
-        (
-          fetchMock.mock.calls as unknown as Array<
-            [RequestInfo | URL, RequestInit?]
-          >
-        )[0]?.[0],
-      ),
-    ).toContain("limit=24");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
+    );
   });
 
   it("refetches saved Reddit galleries as scrollable feed items", async () => {
@@ -582,8 +588,8 @@ describe("FeedWorkbench Reddit source persistence", () => {
 
     await openSavedLayouts(user, ["Saved reddit"]);
 
-    expect(screen.getByLabelText("Global timer seconds")).toHaveValue(17);
-    await user.click(screen.getByRole("button", { name: "Source info" }));
+    expect(screen.getByLabelText("Global timer seconds")).toHaveValue("17");
+    await user.click(screen.getByRole("button", { name: "Show info" }));
     expect(await screen.findByText(/1\/2/)).toBeInTheDocument();
     await screen.findByLabelText("r/pics timer progress");
   });

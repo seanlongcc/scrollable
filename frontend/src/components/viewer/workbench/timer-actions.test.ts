@@ -89,7 +89,7 @@ describe("timer actions", () => {
     });
   });
 
-  it("applies global next, pause, and restart actions to existing timer state", () => {
+  it("applies global next, back, pause, and restart actions to existing timer state", () => {
     const sessions = [
       session({
         id: "first",
@@ -107,6 +107,9 @@ describe("timer actions", () => {
 
     const next = applyGlobalTimerActionState({ sessions, action: "next" });
     expect(next.map((item) => item.timer.activeIndex)).toEqual([1, 0]);
+
+    const back = applyGlobalTimerActionState({ sessions, action: "back" });
+    expect(back.map((item) => item.timer.activeIndex)).toEqual([2, 0]);
 
     const paused = applyGlobalTimerActionState({ sessions, action: "pause" });
     expect(paused.every((item) => item.timer.isPaused)).toBe(true);

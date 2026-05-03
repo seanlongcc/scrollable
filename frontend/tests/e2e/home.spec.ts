@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
 test("home renders multi-view wall without media previews", async ({
   page,
@@ -26,8 +26,14 @@ test("home renders multi-view wall without media previews", async ({
   }
   await openWorkbenchOnMobile(page, testInfo.project.name);
   const workbench = workbenchScope(page, testInfo.project.name);
-  await expect(workbench.getByLabel("Columns")).toHaveValue("2");
-  await expect(workbench.getByLabel("Rows")).toHaveValue("1");
+  await openWorkbenchSection(page, testInfo.project.name, "Layout");
+  await expect(workbench.getByLabel("Columns")).toHaveValue(
+    testInfo.project.name === "mobile" ? "1" : "2",
+  );
+  await expect(workbench.getByLabel("Rows")).toHaveValue(
+    testInfo.project.name === "mobile" ? "2" : "1",
+  );
+  await openWorkbenchSection(page, testInfo.project.name, "Timer");
   await expect(workbench.getByLabel("Global timer seconds")).toHaveValue("10");
   await expect(
     workbench.getByRole("button", { name: "Global next" }),
@@ -62,6 +68,7 @@ test("keeps multi-layer workbench within the viewport", async ({
 }, testInfo) => {
   await page.goto("/");
   await openWorkbenchOnMobile(page, testInfo.project.name);
+  await openWorkbenchSection(page, testInfo.project.name, "Layout");
 
   await expect(
     workbenchScope(page, testInfo.project.name).getByRole("button", {
@@ -142,17 +149,44 @@ test("keeps workspace tabs from overlapping the logo at tablet widths", async ({
   await page.setViewportSize({ width: 768, height: 720 });
   await page.goto("/");
 
-  const logoBox = await page
-    .getByRole("link", { name: "scrollable.app" })
-    .boundingBox();
-  const tabBox = await page
-    .locator("[data-workspace-tab-id]")
-    .first()
-    .boundingBox();
+  const logo = page.getByRole("link", { name: "scrollable.app" });
+  const tab = page.locator("[data-workspace-tab-id]").first();
 
-  if (!logoBox || !tabBox) throw new Error("Missing header logo or tab");
+  await expect(logo).toBeVisible();
+  await expect(tab).toBeVisible();
 
-  expect(tabBox.x).toBeGreaterThanOrEqual(logoBox.x + logoBox.width + 8);
+  const metricsHandle = await page.waitForFunction(() => {
+    const findVisibleRect = (selector: string) => {
+      for (const element of document.querySelectorAll(selector)) {
+        if (!(element instanceof HTMLElement)) continue;
+
+        const rect = element.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          return {
+            x: rect.x,
+            width: rect.width,
+          };
+        }
+      }
+
+      return null;
+    };
+
+    const logoRect = findVisibleRect('a[aria-label="scrollable.app"]');
+    const tabRect = findVisibleRect("[data-workspace-tab-id]");
+
+    return logoRect && tabRect
+      ? {
+          logoRight: logoRect.x + logoRect.width,
+          tabX: tabRect.x,
+        }
+      : null;
+  });
+  const metrics = await metricsHandle.jsonValue();
+
+  if (!metrics) throw new Error("Missing header logo or tab");
+
+  expect(metrics.tabX).toBeGreaterThanOrEqual(metrics.logoRight + 8);
 });
 
 test("local upload layouts restore cached files after refresh", async ({
@@ -262,45 +296,52 @@ test("warns before displaying provider page embeds", async ({ page }) => {
 test("keyboard and wheel move through runtime feed items", async ({
   page,
 }, testInfo) => {
-  await page.route("**/api/reddit/listing?**", async (route) => {
+  const redditListingRequests: string[] = [];
+  const fulfillRedditListing = async (route: Route) => {
+    redditListingRequests.push(route.request().url());
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        items: [
-          {
-            id: "runtime-1",
-            source: "reddit",
-            title: "Runtime image 1",
-            subreddit: "pics",
-            isNsfw: false,
-            createdAt: "2026-04-24T00:00:00.000Z",
-            media: [
+      headers: {
+        "access-control-allow-origin": "*",
+      },
+      body: JSON.stringify([
+        {
+          kind: "Listing",
+          data: {
+            children: [
               {
-                type: "image",
-                url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                data: {
+                  id: "runtime-1",
+                  title: "Runtime image 1",
+                  subreddit: "pics",
+                  post_hint: "image",
+                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                },
+              },
+              {
+                data: {
+                  id: "runtime-2",
+                  title: "Runtime image 2",
+                  subreddit: "pics",
+                  post_hint: "image",
+                  url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                },
               },
             ],
           },
-          {
-            id: "runtime-2",
-            source: "reddit",
-            title: "Runtime image 2",
-            subreddit: "pics",
-            isNsfw: false,
-            createdAt: "2026-04-24T00:00:00.000Z",
-            media: [
-              {
-                type: "image",
-                url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-              },
-            ],
-          },
-        ],
-      }),
+        },
+      ]),
     });
-  });
-
+  };
+  await page.route(
+    "**www.reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
+    fulfillRedditListing,
+  );
+  await page.route(
+    "**api.reddit.com/r/pics/comments/abc123/runtime_image/.json?**",
+    fulfillRedditListing,
+  );
   await page.goto("/");
   await page.getByRole("button", { name: "Add source", exact: true }).click();
   await page.getByRole("button", { name: "Reddit" }).click();
@@ -309,10 +350,14 @@ test("keyboard and wheel move through runtime feed items", async ({
     .getByLabel("Paste Reddit post or subreddit links, one per line")
     .fill("https://www.reddit.com/r/pics/comments/abc123/runtime_image/");
   await page.getByRole("button", { name: "Open Reddit links" }).click();
+  await expect.poll(() => redditListingRequests.length).toBe(1);
+  expect(redditListingRequests[0]).toContain(
+    "https://www.reddit.com/r/pics/comments/abc123/runtime_image/.json?raw_json=1",
+  );
 
   await openWorkbenchOnMobile(page, testInfo.project.name);
   await workbenchScope(page, testInfo.project.name)
-    .getByRole("button", { name: "Source info" })
+    .getByRole("button", { name: "Show info" })
     .click();
   await closeWorkbenchOnMobile(page, testInfo.project.name);
 
@@ -347,6 +392,17 @@ async function closeWorkbenchOnMobile(page: Page, projectName: string) {
   if (projectName !== "mobile") return;
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Workbench" })).toHaveCount(0);
+}
+
+async function openWorkbenchSection(
+  page: Page,
+  projectName: string,
+  sectionName: string,
+) {
+  if (projectName !== "mobile") return;
+  await workbenchScope(page, projectName)
+    .getByRole("button", { name: sectionName, exact: true })
+    .click();
 }
 
 function workbenchScope(page: Page, projectName: string) {

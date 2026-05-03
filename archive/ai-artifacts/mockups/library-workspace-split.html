@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scrollable Library and Workspace split mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(14.5% 0.012 338);
+        --stage: oklch(11.5% 0.012 338);
+        --surface: oklch(18.5% 0.018 340);
+        --raised: oklch(24.5% 0.024 342);
+        --text: oklch(92.5% 0.018 55);
+        --muted: oklch(70.5% 0.025 35);
+        --quiet: oklch(52% 0.02 35);
+        --border: oklch(33.5% 0.022 342);
+        --border-soft: oklch(33.5% 0.022 342 / 0.58);
+        --primary: oklch(62% 0.145 18);
+        --primary-strong: oklch(69% 0.15 20);
+        --signal: oklch(76% 0.08 68);
+        --shadow: 0 24px 80px oklch(8% 0.01 338 / 0.72);
+        font-family:
+          Sora,
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(
+            ellipse at 20% 0%,
+            oklch(30% 0.06 18 / 0.22),
+            transparent 30rem
+          ),
+          var(--bg);
+        color: var(--text);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      main {
+        display: grid;
+        gap: 24px;
+        min-height: 100vh;
+        padding: 28px;
+      }
+
+      .intro {
+        display: grid;
+        max-width: 900px;
+        gap: 8px;
+      }
+
+      .eyebrow,
+      .meta,
+      .row-detail,
+      .pill,
+      .count {
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+
+      .eyebrow {
+        color: var(--signal);
+        font-size: 11px;
+        font-weight: 760;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      .intro p {
+        max-width: 70ch;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .mockups {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(320px, 390px));
+        gap: 22px;
+        align-items: start;
+      }
+
+      .mockup {
+        display: grid;
+        gap: 10px;
+      }
+
+      .mockup h2 {
+        font-size: 13px;
+        line-height: 1.25;
+      }
+
+      .mockup > p {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .phone {
+        width: min(390px, calc(100vw - 56px));
+        height: 844px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: var(--stage);
+        box-shadow: var(--shadow);
+      }
+
+      .screen {
+        position: relative;
+        height: 100%;
+        overflow: hidden;
+        background:
+          radial-gradient(
+            circle at 28% 20%,
+            oklch(62% 0.145 18 / 0.18),
+            transparent 34%
+          ),
+          linear-gradient(
+            180deg,
+            oklch(16.5% 0.018 340),
+            oklch(10.5% 0.012 338)
+          );
+      }
+
+      .stage-grid {
+        position: absolute;
+        inset: 12px 12px 118px;
+        display: grid;
+        grid-template-rows: 1.1fr 0.9fr;
+        gap: 10px;
+        opacity: 0.45;
+      }
+
+      .media-pane {
+        border: 1px solid oklch(33.5% 0.022 342 / 0.5);
+        border-radius: 8px;
+        background:
+          radial-gradient(
+            ellipse at 75% 12%,
+            oklch(76% 0.08 68 / 0.22),
+            transparent 34%
+          ),
+          linear-gradient(145deg, oklch(21% 0.03 342), var(--stage));
+      }
+
+      .switcher {
+        position: absolute;
+        right: 14px;
+        bottom: 86px;
+        left: 14px;
+        z-index: 3;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .switcher button {
+        min-height: 46px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: oklch(14.5% 0.012 338 / 0.92);
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .switcher button.active {
+        border-color: var(--primary);
+        background: oklch(34% 0.08 18);
+      }
+
+      .tool-toggle {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--stage);
+        padding: 4px;
+      }
+
+      .tool-toggle button {
+        min-height: 38px;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .tool-toggle button.active {
+        background: oklch(34% 0.08 18);
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px oklch(62% 0.145 18 / 0.45);
+      }
+
+      .sheet {
+        position: absolute;
+        inset: auto 0 0;
+        z-index: 4;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        height: 88%;
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+        border-radius: 22px 22px 0 0;
+        background: var(--bg);
+      }
+
+      .sheet-header {
+        display: grid;
+        gap: 10px;
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid var(--border-soft);
+        background: oklch(14.5% 0.012 338 / 0.98);
+      }
+
+      .grip {
+        justify-self: center;
+        width: 74px;
+        height: 4px;
+        border-radius: 999px;
+        background: oklch(92.5% 0.018 55 / 0.16);
+      }
+
+      .title-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .title-row h3 {
+        font-size: 19px;
+        line-height: 1.1;
+      }
+
+      .icon-btn,
+      .chip-btn,
+      .command-btn,
+      .mini-btn {
+        display: inline-grid;
+        min-height: 44px;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      .icon-btn {
+        width: 44px;
+        place-items: center;
+        font-size: 18px;
+      }
+
+      .chip-btn,
+      .command-btn,
+      .mini-btn {
+        justify-content: center;
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .command-btn.primary,
+      .mini-btn.primary {
+        border-color: transparent;
+        background: var(--primary);
+        color: var(--stage);
+      }
+
+      .command-btn.danger,
+      .mini-btn.danger {
+        border-color: transparent;
+        background: oklch(30% 0.075 18);
+        color: var(--primary-strong);
+      }
+
+      .body {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 12px 14px 92px;
+      }
+
+      .search-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+
+      .search {
+        min-width: 0;
+        min-height: 44px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 0 12px;
+      }
+
+      .search::placeholder {
+        color: var(--quiet);
+      }
+
+      .saved-list,
+      .open-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .saved-row,
+      .open-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 70px;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: oklch(12.8% 0.012 338);
+        padding: 10px;
+      }
+
+      .saved-row.active,
+      .open-row.active {
+        border-color: oklch(76% 0.08 68 / 0.42);
+        background: oklch(17.5% 0.02 55);
+      }
+
+      .check {
+        width: 20px;
+        height: 20px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--raised);
+      }
+
+      .check.on {
+        display: grid;
+        place-items: center;
+        border-color: var(--primary);
+        background: var(--primary);
+      }
+
+      .check.on::after {
+        width: 9px;
+        height: 5px;
+        border-bottom: 2px solid var(--stage);
+        border-left: 2px solid var(--stage);
+        content: "";
+        transform: rotate(-45deg) translateY(-1px);
+      }
+
+      .row-main {
+        display: grid;
+        min-width: 0;
+        gap: 3px;
+      }
+
+      .row-main strong,
+      .row-main span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .row-main strong {
+        font-size: 16px;
+        line-height: 1.1;
+      }
+
+      .row-detail {
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .more {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .action-bar {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: grid;
+        gap: 8px;
+        padding: 10px 14px 14px;
+        border-top: 1px solid var(--border-soft);
+        background: oklch(14.5% 0.012 338 / 0.98);
+      }
+
+      .library-actions {
+        grid-template-columns: 1fr 1fr auto;
+      }
+
+      .workspace-actions {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .create-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .create-card {
+        display: grid;
+        min-height: 64px;
+        align-content: center;
+        gap: 3px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 10px;
+        color: var(--text);
+        text-align: left;
+      }
+
+      .create-card.primary {
+        border-color: oklch(62% 0.145 18 / 0.62);
+        background: oklch(33% 0.08 18);
+      }
+
+      .create-card strong {
+        font-size: 12px;
+      }
+
+      .create-card span {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .section-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        margin: 2px 0 8px;
+      }
+
+      .section-head strong {
+        font-size: 13px;
+      }
+
+      .count {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .open-row {
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        min-height: 58px;
+      }
+
+      .open-row.current {
+        border-color: var(--primary);
+        background: oklch(34% 0.08 18);
+      }
+
+      .pill {
+        display: inline-grid;
+        min-height: 28px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0 8px;
+        color: var(--signal);
+        font-size: 10px;
+      }
+
+      .close-btn {
+        display: grid;
+        width: 32px;
+        min-height: 32px;
+        place-items: center;
+        border: 1px solid oklch(64% 0.18 24 / 0.28);
+        border-radius: 8px;
+        background: oklch(25% 0.05 18);
+        color: var(--primary-strong);
+      }
+
+      .desktop {
+        display: grid;
+        gap: 10px;
+        max-width: 900px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: oklch(16% 0.014 338);
+        padding: 14px;
+      }
+
+      .desktop h2 {
+        font-size: 14px;
+      }
+
+      .desktop-panels {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(320px, 420px));
+        gap: 16px;
+      }
+
+      .context-panel {
+        position: relative;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        height: 620px;
+        overflow: hidden;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: var(--bg);
+      }
+
+      .context-panel .sheet-header {
+        border-radius: 8px 8px 0 0;
+      }
+
+      @media (max-width: 900px) {
+        .mockups,
+        .desktop-panels {
+          grid-template-columns: minmax(320px, 390px);
+        }
+      }
+
+      @media (max-width: 520px) {
+        main {
+          padding: 16px;
+        }
+
+        .phone {
+          width: calc(100vw - 32px);
+          height: 780px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">Scrollable / split controls</p>
+        <h1 id="page-title">New button name: Workspace.</h1>
+        <p>
+          Library becomes saved layouts only. Workspace owns open layouts,
+          switching, bulk closing, and creating/importing new layout tabs.
+        </p>
+      </section>
+
+      <section class="mockups" aria-label="Mobile split mockups">
+        <article class="mockup">
+          <h2>Library button: saved layouts only</h2>
+          <p>No open-layout stack, no create buttons, one saved-list scroll.</p>
+          <div class="phone">
+            <div class="screen">
+              <div class="stage-grid" aria-hidden="true">
+                <div class="media-pane"></div>
+                <div class="media-pane"></div>
+              </div>
+              <div class="switcher" aria-label="Main layout tools">
+                <button class="active">Library</button>
+                <button>Workspace</button>
+              </div>
+              <section class="sheet" aria-label="Library">
+                <header class="sheet-header">
+                  <div class="grip"></div>
+                  <div class="title-row">
+                    <div>
+                      <p class="eyebrow">Library</p>
+                      <h3>Saved layouts</h3>
+                    </div>
+                    <button class="icon-btn" aria-label="Close">x</button>
+                  </div>
+                  <div class="tool-toggle" aria-label="Layout tools">
+                    <button class="active">Library</button>
+                    <button>Workspace</button>
+                  </div>
+                  <div class="search-row">
+                    <input class="search" placeholder="Filter saved layouts" />
+                    <button class="chip-btn">Sort</button>
+                  </div>
+                </header>
+                <div class="body">
+                  <div class="saved-list">
+                    <div class="saved-row active">
+                      <span class="check on" aria-hidden="true"></span>
+                      <div class="row-main">
+                        <strong>Layout 5</strong>
+                        <span class="row-detail">
+                          fixed / 0 src / 0 files / 359 B
+                        </span>
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                    <div class="saved-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>mango</strong>
+                        <span class="row-detail">
+                          free / 3 src / 3 files / 1.8 KB
+                        </span>
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                    <div class="saved-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>evanshi3</strong>
+                        <span class="row-detail">
+                          free / 3 src / 3 files / 1.5 KB
+                        </span>
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                    <div class="saved-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>mango backup</strong>
+                        <span class="row-detail">
+                          free / 3 src / 3 files / 1.8 KB
+                        </span>
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                    <div class="saved-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>dense wall</strong>
+                        <span class="row-detail">
+                          fixed / 9 src / 0 files / 3.1 KB
+                        </span>
+                      </div>
+                      <span class="more">...</span>
+                    </div>
+                  </div>
+                </div>
+                <footer class="action-bar library-actions">
+                  <button class="command-btn">Select all</button>
+                  <button class="command-btn primary">Open</button>
+                  <button class="command-btn danger">Del</button>
+                </footer>
+              </section>
+            </div>
+          </div>
+        </article>
+
+        <article class="mockup">
+          <h2>Workspace button: open layouts and creation</h2>
+          <p>
+            Open-layout cleanup becomes first-class, with 8 open layouts
+            visible.
+          </p>
+          <div class="phone">
+            <div class="screen">
+              <div class="stage-grid" aria-hidden="true">
+                <div class="media-pane"></div>
+                <div class="media-pane"></div>
+              </div>
+              <div class="switcher" aria-label="Main layout tools">
+                <button>Library</button>
+                <button class="active">Workspace</button>
+              </div>
+              <section class="sheet" aria-label="Workspace">
+                <header class="sheet-header">
+                  <div class="grip"></div>
+                  <div class="title-row">
+                    <div>
+                      <p class="eyebrow">Workspace</p>
+                      <h3>Open layouts</h3>
+                    </div>
+                    <button class="icon-btn" aria-label="Close">x</button>
+                  </div>
+                  <div class="tool-toggle" aria-label="Layout tools">
+                    <button>Library</button>
+                    <button class="active">Workspace</button>
+                  </div>
+                </header>
+                <div class="body">
+                  <div class="create-grid" aria-label="Create layouts">
+                    <button class="create-card primary">
+                      <strong>Save layout</strong>
+                      <span>save current tab</span>
+                    </button>
+                    <button class="create-card">
+                      <strong>New blank</strong>
+                      <span>empty layout</span>
+                    </button>
+                    <button class="create-card">
+                      <strong>Import JSON</strong>
+                      <span>paste or upload</span>
+                    </button>
+                    <button class="create-card">
+                      <strong>Local</strong>
+                      <span>local files</span>
+                    </button>
+                    <button class="create-card">
+                      <strong>Cloud</strong>
+                      <span>saved cloud layout</span>
+                    </button>
+                  </div>
+                  <div class="section-head">
+                    <strong>Currently open</strong>
+                    <span class="count">8 open</span>
+                  </div>
+                  <div class="open-list">
+                    <div class="open-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Layout 1</strong>
+                        <span class="row-detail">0 src / 0 files</span>
+                      </div>
+                      <button class="mini-btn">Switch</button>
+                      <button class="close-btn" aria-label="Close Layout 1">
+                        x
+                      </button>
+                    </div>
+                    <div class="open-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Layout 2</strong>
+                        <span class="row-detail">0 src / 0 files</span>
+                      </div>
+                      <button class="mini-btn">Switch</button>
+                      <button class="close-btn" aria-label="Close Layout 2">
+                        x
+                      </button>
+                    </div>
+                    <div class="open-row current">
+                      <span class="check on" aria-hidden="true"></span>
+                      <div class="row-main">
+                        <strong>Layout 6</strong>
+                        <span class="row-detail">current</span>
+                      </div>
+                      <span class="pill">Current</span>
+                      <button class="close-btn" aria-label="Close Layout 6">
+                        x
+                      </button>
+                    </div>
+                    <div class="open-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Layout 7</strong>
+                        <span class="row-detail">1 src / 0 files</span>
+                      </div>
+                      <button class="mini-btn">Switch</button>
+                      <button class="close-btn" aria-label="Close Layout 7">
+                        x
+                      </button>
+                    </div>
+                    <div class="open-row">
+                      <span class="check"></span>
+                      <div class="row-main">
+                        <strong>Layout 8</strong>
+                        <span class="row-detail">3 src / 2 files</span>
+                      </div>
+                      <button class="mini-btn">Switch</button>
+                      <button class="close-btn" aria-label="Close Layout 8">
+                        x
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <footer class="action-bar workspace-actions">
+                  <button class="command-btn">Select all</button>
+                  <button class="command-btn danger">Close all</button>
+                </footer>
+              </section>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="desktop" aria-labelledby="desktop-title">
+        <h2 id="desktop-title">
+          Desktop: same two buttons, same context-panel width
+        </h2>
+        <div class="desktop-panels">
+          <section class="context-panel" aria-label="Desktop Library">
+            <header class="sheet-header">
+              <div class="title-row">
+                <div>
+                  <p class="eyebrow">Library</p>
+                  <h3>Saved layouts</h3>
+                </div>
+              </div>
+              <div class="tool-toggle" aria-label="Layout tools">
+                <button class="active">Library</button>
+                <button>Workspace</button>
+              </div>
+              <div class="search-row">
+                <input class="search" placeholder="Filter saved layouts" />
+                <button class="chip-btn">Sort</button>
+              </div>
+            </header>
+            <div class="body">
+              <div class="saved-list">
+                <div class="saved-row active">
+                  <span class="check on" aria-hidden="true"></span>
+                  <div class="row-main">
+                    <strong>Layout 5</strong>
+                    <span class="row-detail"
+                      >fixed / 0 src / 0 files / 359 B</span
+                    >
+                  </div>
+                  <span class="more">...</span>
+                </div>
+                <div class="saved-row">
+                  <span class="check"></span>
+                  <div class="row-main">
+                    <strong>mango</strong>
+                    <span class="row-detail"
+                      >free / 3 src / 3 files / 1.8 KB</span
+                    >
+                  </div>
+                  <span class="more">...</span>
+                </div>
+              </div>
+            </div>
+            <footer class="action-bar library-actions">
+              <button class="command-btn">Select all</button>
+              <button class="command-btn primary">Open</button>
+              <button class="command-btn danger">Del</button>
+            </footer>
+          </section>
+
+          <section class="context-panel" aria-label="Desktop Workspace">
+            <header class="sheet-header">
+              <div class="title-row">
+                <div>
+                  <p class="eyebrow">Workspace</p>
+                  <h3>Open layouts</h3>
+                </div>
+              </div>
+              <div class="tool-toggle" aria-label="Layout tools">
+                <button>Library</button>
+                <button class="active">Workspace</button>
+              </div>
+            </header>
+            <div class="body">
+              <div class="create-grid" aria-label="Create layouts">
+                <button class="create-card primary">
+                  <strong>Save layout</strong>
+                  <span>save current tab</span>
+                </button>
+                <button class="create-card">
+                  <strong>New blank</strong>
+                  <span>empty layout</span>
+                </button>
+                <button class="create-card">
+                  <strong>Import JSON</strong>
+                  <span>paste or upload</span>
+                </button>
+                <button class="create-card">
+                  <strong>Local</strong>
+                  <span>local files</span>
+                </button>
+                <button class="create-card">
+                  <strong>Cloud</strong>
+                  <span>saved cloud layout</span>
+                </button>
+              </div>
+              <div class="section-head">
+                <strong>Currently open</strong>
+                <span class="count">8 open</span>
+              </div>
+              <div class="open-list">
+                <div class="open-row">
+                  <span class="check"></span>
+                  <div class="row-main">
+                    <strong>Layout 1</strong>
+                    <span class="row-detail">0 src / 0 files</span>
+                  </div>
+                  <button class="mini-btn">Switch</button>
+                  <button class="close-btn" aria-label="Close Layout 1">
+                    x
+                  </button>
+                </div>
+                <div class="open-row current">
+                  <span class="check on" aria-hidden="true"></span>
+                  <div class="row-main">
+                    <strong>Layout 6</strong>
+                    <span class="row-detail">current</span>
+                  </div>
+                  <span class="pill">Current</span>
+                  <button class="close-btn" aria-label="Close Layout 6">
+                    x
+                  </button>
+                </div>
+              </div>
+            </div>
+            <footer class="action-bar workspace-actions">
+              <button class="command-btn">Select all</button>
+              <button class="command-btn danger">Close all</button>
+            </footer>
+          </section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

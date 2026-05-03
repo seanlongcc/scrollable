@@ -139,6 +139,58 @@ describe("UrlSourcePane", () => {
     expect(onIframePlaybackTimeChange).toHaveBeenLastCalledWith(55);
   });
 
+  it("pauses and resumes YouTube playback when playback activity changes", async () => {
+    const player = youtubePlayer({ currentTime: 55 });
+    const playerConstructor = vi.fn(function (_element, options) {
+      queueMicrotask(() => options.events?.onReady?.({ target: player }));
+      return player;
+    });
+    vi.stubGlobal("YT", { Player: playerConstructor });
+    const onIframePlaybackTimeChange = vi.fn();
+    const resolution = youtubeResolution();
+    const { rerender } = render(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        isPlaybackActive
+        iframePlaybackSeconds={12}
+        onIframePlaybackTimeChange={onIframePlaybackTimeChange}
+      />,
+    );
+
+    await waitFor(() => expect(playerConstructor).toHaveBeenCalled());
+    await waitFor(() => expect(player.playVideo).toHaveBeenCalled());
+    player.playVideo.mockClear();
+
+    rerender(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        isPlaybackActive={false}
+        iframePlaybackSeconds={12}
+        onIframePlaybackTimeChange={onIframePlaybackTimeChange}
+      />,
+    );
+
+    expect(player.pauseVideo).toHaveBeenCalledOnce();
+    expect(onIframePlaybackTimeChange).toHaveBeenLastCalledWith(55);
+
+    rerender(
+      <UrlSourcePane
+        title="YouTube video"
+        resolution={resolution}
+        canMountIframe
+        isPlaybackActive
+        iframePlaybackSeconds={12}
+        onIframePlaybackTimeChange={onIframePlaybackTimeChange}
+      />,
+    );
+
+    expect(player.playVideo).toHaveBeenCalledOnce();
+  });
+
   it("reports approximate YouTube playback time before unmount", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
@@ -199,6 +251,62 @@ describe("UrlSourcePane", () => {
     expect(onToggleSelect).toHaveBeenCalledOnce();
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("keeps action chrome visible when selected", () => {
+    render(
+      <UrlSourcePane
+        title="Long URL source"
+        resolution={{
+          status: "unsupported",
+          title: "Long URL source",
+          externalUrl: "https://example.test/source",
+          reason: "url_source_unsupported",
+        }}
+        isFocused
+        canMountIframe
+        onSelect={vi.fn()}
+        onMaximize={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    const selectButton = screen.getByRole("button", {
+      name: "Select Long URL source",
+    });
+
+    expect(selectButton.parentElement).not.toHaveClass("opacity-0");
+  });
+
+  it("places selected URL source actions in the mobile rail opposite the workbench rail", () => {
+    render(
+      <UrlSourcePane
+        title="Long URL source"
+        resolution={{
+          status: "unsupported",
+          title: "Long URL source",
+          externalUrl: "https://example.test/source",
+          reason: "url_source_unsupported",
+        }}
+        isFocused
+        canMountIframe
+        onSelect={vi.fn()}
+        onMaximize={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    const actionRail = screen
+      .getByRole("button", { name: "Select Long URL source" })
+      .closest("[data-source-action-rail]");
+
+    expect(actionRail).not.toBeNull();
+    expect(actionRail).toHaveAttribute("data-focused", "true");
+    expect(actionRail).toHaveClass(
+      "max-md:fixed",
+      "max-md:left-3",
+      "max-md:bottom-[8.5rem]",
+    );
+  });
 });
 
 function youtubePlayer({ currentTime = 0 } = {}) {
@@ -206,6 +314,7 @@ function youtubePlayer({ currentTime = 0 } = {}) {
     destroy: vi.fn(),
     getCurrentTime: vi.fn(() => currentTime),
     mute: vi.fn(),
+    pauseVideo: vi.fn(),
     playVideo: vi.fn(),
     seekTo: vi.fn(),
   };

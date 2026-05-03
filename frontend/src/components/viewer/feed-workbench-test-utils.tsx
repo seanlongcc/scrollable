@@ -1,5 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, vi } from "vitest";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -30,10 +31,40 @@ vi.mock("@/lib/local-uploads/file-cache", () => ({
   saveLocalFiles: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/components/release-version-link", () => ({
+  ReleaseVersionLink: ({ className }: { className?: string }) => (
+    <a
+      className={className}
+      href="https://github.com/seanlongcc/scrollable/releases/tag/v0.2.0"
+    >
+      v0.2.0
+    </a>
+  ),
+}));
+
 const fileCache = await import("@/lib/local-uploads/file-cache");
 const feedWorkbench = await import("./feed-workbench");
+const workbenchPanel = await import("./workbench/workbench-panel");
 
-export const { FeedWorkbench } = feedWorkbench;
+const RealFeedWorkbench = feedWorkbench.FeedWorkbench;
+const testWorkbenchPanelComponents = {
+  Content: workbenchPanel.WorkbenchPanelContent,
+  Sheet: workbenchPanel.WorkbenchPanelSheet,
+};
+type FeedWorkbenchProps = NonNullable<ComponentProps<typeof RealFeedWorkbench>>;
+
+export function FeedWorkbench({
+  workbenchPanelComponents = testWorkbenchPanelComponents,
+  ...props
+}: FeedWorkbenchProps = {}) {
+  return (
+    <RealFeedWorkbench
+      {...props}
+      workbenchPanelComponents={workbenchPanelComponents}
+    />
+  );
+}
+
 export const {
   clearLocalFileCache,
   estimateLocalFileCacheStorage,
@@ -51,6 +82,7 @@ export const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 
 export function installFeedWorkbenchTestHooks() {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/");
     if (!HTMLElement.prototype.hasPointerCapture) {
       HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
     }
@@ -89,7 +121,7 @@ export async function addDefaultSubredditSource(
   user: ReturnType<typeof userEvent.setup>,
 ) {
   await user.click(screen.getByRole("button", { name: "Add source" }));
-  const dialog = screen.getByRole("dialog", { name: "Add source" });
+  const dialog = await screen.findByRole("dialog", { name: "Add source" });
   await user.click(within(dialog).getByRole("button", { name: "Reddit" }));
   await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
   await user.click(
@@ -115,13 +147,121 @@ export function stubRuntimeFetch(
     },
   ],
 ) {
-  const fetchMock = vi.fn(async () => ({
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => ({
     ok: true,
-    json: async () => ({ items }),
+    json: async () => redditListingFromRuntimeItems(items, String(input)),
   }));
   vi.stubGlobal("fetch", fetchMock);
 
   return fetchMock;
+}
+
+export function redditListingFromRuntimeItems(
+  items: RuntimeFeedItem[],
+  requestUrl?: string,
+) {
+  const requestSubreddit = requestUrl
+    ? subredditFromRedditRequestUrl(requestUrl)
+    : null;
+  const matchingItems = requestSubreddit
+    ? items.filter((item) => item.subreddit?.toLowerCase() === requestSubreddit)
+    : items;
+
+  return {
+    kind: "Listing",
+    data: {
+      children: (matchingItems.length ? matchingItems : items).map((item) => ({
+        data: runtimeItemToRedditPost(item, requestSubreddit),
+      })),
+    },
+  };
+}
+
+function runtimeItemToRedditPost(
+  item: RuntimeFeedItem,
+  requestSubreddit: string | null,
+) {
+  const media = item.media[0];
+  const id = item.id
+    .replace(/^reddit:/, "")
+    .replace(/:media:\d+$/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "-");
+  const created = Date.parse(item.createdAt);
+  const subreddit = requestSubreddit ?? item.subreddit;
+  const basePost = {
+    id,
+    title: item.title,
+    subreddit,
+    author: item.author,
+    permalink: item.permalink
+      ? new URL(item.permalink).pathname
+      : `/r/${subreddit ?? "pics"}/comments/${id}/runtime/`,
+    over_18: item.isNsfw,
+    created_utc: Number.isNaN(created) ? undefined : Math.floor(created / 1000),
+  };
+
+  if (item.media.length > 1) {
+    return {
+      ...basePost,
+      is_gallery: true,
+      gallery_data: {
+        items: item.media.map((_media, index) => ({
+          media_id: `media-${index}`,
+        })),
+      },
+      media_metadata: Object.fromEntries(
+        item.media.map((entry, index) => [
+          `media-${index}`,
+          {
+            status: "valid",
+            m: entry.type === "video" ? "video/mp4" : "image/jpeg",
+            s: {
+              u: entry.type === "image" ? entry.url : undefined,
+              mp4: entry.type === "video" ? entry.url : undefined,
+              x: entry.width,
+              y: entry.height,
+            },
+          },
+        ]),
+      ),
+    };
+  }
+
+  if (media?.type === "video") {
+    return {
+      ...basePost,
+      is_video: true,
+      secure_media: {
+        reddit_video: {
+          hls_url: media.isHls ? media.url : undefined,
+          fallback_url: media.isHls ? undefined : media.url,
+          width: media.width,
+          height: media.height,
+        },
+      },
+    };
+  }
+
+  return {
+    ...basePost,
+    post_hint: "image",
+    url: media?.url,
+  };
+}
+
+function subredditFromRedditRequestUrl(value: string) {
+  try {
+    const url = new URL(value, "https://www.reddit.com");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const subredditIndex = segments.indexOf("r");
+    if (subredditIndex !== -1 && segments[subredditIndex + 1]) {
+      return segments[subredditIndex + 1].toLowerCase();
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 export function stubUrlResolveFetch(
@@ -150,12 +290,13 @@ export function deferredFetch(items: Parameters<typeof stubRuntimeFetch>[0]) {
 
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => {
+    vi.fn(async (input: RequestInfo | URL) => {
       await wait;
 
       return {
         ok: true,
-        json: async () => ({ items }),
+        json: async () =>
+          redditListingFromRuntimeItems(items ?? [], String(input)),
       };
     }),
   );
@@ -187,11 +328,22 @@ export async function hashTestRedditItemId(itemId: string) {
 
 export function stubObjectUrls() {
   let index = 0;
-  vi.stubGlobal("URL", {
-    ...globalThis.URL,
-    createObjectURL: vi.fn(() => `blob:upload-${++index}`),
-    revokeObjectURL: vi.fn(),
+  const OriginalURL = globalThis.URL;
+
+  class MockURL extends OriginalURL {}
+
+  Object.defineProperties(MockURL, {
+    createObjectURL: {
+      configurable: true,
+      value: vi.fn(() => `blob:upload-${++index}`),
+    },
+    revokeObjectURL: {
+      configurable: true,
+      value: vi.fn(),
+    },
   });
+
+  vi.stubGlobal("URL", MockURL);
 }
 
 export function stubGridBounds() {
@@ -221,7 +373,7 @@ export async function openSavedLayouts(
   names: string[],
 ) {
   await user.click(screen.getByRole("button", { name: "Library" }));
-  const dialog = screen.getByRole("dialog", { name: "Library" });
+  const dialog = await screen.findByRole("dialog", { name: "Library" });
 
   for (const name of names) {
     await user.click(
@@ -239,7 +391,7 @@ export async function openSavedTemplates(
   names: string[],
 ) {
   await user.click(screen.getByRole("button", { name: "Library" }));
-  const dialog = screen.getByRole("dialog", { name: "Library" });
+  const dialog = await screen.findByRole("dialog", { name: "Library" });
   await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
 
   for (const name of names) {

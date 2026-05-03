@@ -24,11 +24,12 @@ export async function GET(request: Request) {
     const resolverHint: UrlResolverHint | undefined =
       rawHint && isUrlResolverHint(rawHint) ? rawHint : undefined;
 
-    const result = await resolveUrlSource({
-      kind: "url",
+    const source = {
+      kind: "url" as const,
       url,
       ...(resolverHint ? { resolverHint } : {}),
-    });
+    };
+    const result = await resolveUrlSource(source);
 
     return NextResponse.json(result, {
       headers: { "Cache-Control": "no-store" },

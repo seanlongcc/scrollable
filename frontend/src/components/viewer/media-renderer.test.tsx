@@ -2,10 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hlsState = vi.hoisted(() => ({
+  moduleLoads: 0,
   configs: [] as unknown[],
 }));
 
 vi.mock("hls.js", () => {
+  hlsState.moduleLoads += 1;
+
   class MockHls {
     static isSupported = vi.fn(() => true);
 
@@ -27,11 +30,27 @@ describe("MediaRenderer", () => {
   beforeEach(() => {
     hlsState.configs = [];
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("does not import hls.js for native video playback", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+      />,
+    );
+
+    expect(container.querySelector("video")).toHaveAttribute(
+      "src",
+      "https://cdn.test/video.mp4",
+    );
+    expect(hlsState.moduleLoads).toBe(0);
   });
 
   it("autoplays videos muted and inline", () => {
@@ -46,8 +65,30 @@ describe("MediaRenderer", () => {
 
     expect(video?.autoplay).toBe(true);
     expect(video?.muted).toBe(true);
+    expect(video?.defaultMuted).toBe(true);
     expect(video).toHaveAttribute("playsinline");
+    expect(video).toHaveAttribute("webkit-playsinline");
     expect(video).toHaveAttribute("preload", "auto");
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+  });
+
+  it("retries video playback when mobile browsers finish loading media", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).toBeInTheDocument();
+
+    vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+    fireEvent.loadedMetadata(video!);
+    fireEvent.loadedData(video!);
+    fireEvent.canPlay(video!);
+
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(3);
   });
 
   it("restores and reports video playback position", () => {
@@ -154,7 +195,7 @@ describe("MediaRenderer", () => {
     expect(onVideoTimeChange).toHaveBeenLastCalledWith(42);
   });
 
-  it("adds signed HLS params to segment requests", () => {
+  it("adds signed HLS params to segment requests", async () => {
     render(
       <MediaRenderer
         media={{
@@ -166,6 +207,8 @@ describe("MediaRenderer", () => {
         title="Signed HLS"
       />,
     );
+
+    await vi.waitFor(() => expect(hlsState.configs).toHaveLength(1));
 
     const config = hlsState.configs.at(-1) as {
       xhrSetup?: (xhr: XMLHttpRequest, url: string) => void;
@@ -233,6 +276,38 @@ describe("MediaRenderer", () => {
     expect(video).toHaveAttribute("src", "https://cdn.test/video.mp4");
   });
 
+  it("pauses and resumes started video when playback activity changes", () => {
+    const { container, rerender } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Layer video"
+      />,
+    );
+    const video = container.querySelector("video");
+    fireEvent.loadedMetadata(video!);
+    vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+    vi.mocked(HTMLMediaElement.prototype.pause).mockClear();
+
+    rerender(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Layer video"
+        shouldPlay={false}
+      />,
+    );
+
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledOnce();
+
+    rerender(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Layer video"
+      />,
+    );
+
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+  });
+
   it("keeps started audio loaded when playback becomes inactive", () => {
     const { container, rerender } = render(
       <MediaRenderer
@@ -254,6 +329,38 @@ describe("MediaRenderer", () => {
     );
 
     expect(audio).toHaveAttribute("src", "https://cdn.test/sound.mp3");
+  });
+
+  it("pauses and resumes started audio when playback activity changes", () => {
+    const { container, rerender } = render(
+      <MediaRenderer
+        media={{ type: "audio", url: "https://cdn.test/sound.mp3" }}
+        title="Layer audio"
+      />,
+    );
+    const audio = container.querySelector("audio");
+    fireEvent.loadedMetadata(audio!);
+    vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+    vi.mocked(HTMLMediaElement.prototype.pause).mockClear();
+
+    rerender(
+      <MediaRenderer
+        media={{ type: "audio", url: "https://cdn.test/sound.mp3" }}
+        title="Layer audio"
+        shouldPlay={false}
+      />,
+    );
+
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledOnce();
+
+    rerender(
+      <MediaRenderer
+        media={{ type: "audio", url: "https://cdn.test/sound.mp3" }}
+        title="Layer audio"
+      />,
+    );
+
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
   });
 
   it("shows a load error screen when direct media is blocked", () => {

@@ -20,7 +20,7 @@ export function SelectedFreeLayoutControls({
     <div
       role="group"
       aria-label="Selected free layout controls"
-      className="flex flex-wrap justify-center gap-2 justify-self-center md:col-start-2"
+      className="grid w-full grid-cols-2 gap-2"
     >
       <NumberField
         label="Free column"
@@ -28,6 +28,8 @@ export function SelectedFreeLayoutControls({
         value={selected.freeRect.column}
         min={1}
         max={16}
+        className="min-w-0"
+        inputClassName="w-full min-w-0 flex-1"
         onChange={(value) => onFreeRectChange(selected.id, { column: value })}
       />
       <NumberField
@@ -36,6 +38,8 @@ export function SelectedFreeLayoutControls({
         value={selected.freeRect.row}
         min={1}
         max={16}
+        className="min-w-0"
+        inputClassName="w-full min-w-0 flex-1"
         onChange={(value) => onFreeRectChange(selected.id, { row: value })}
       />
       <NumberField
@@ -44,6 +48,8 @@ export function SelectedFreeLayoutControls({
         value={selected.freeRect.columnSpan}
         min={1}
         max={16}
+        className="min-w-0"
+        inputClassName="w-full min-w-0 flex-1"
         onChange={(value) =>
           onFreeRectChange(selected.id, { columnSpan: value })
         }
@@ -54,6 +60,8 @@ export function SelectedFreeLayoutControls({
         value={selected.freeRect.rowSpan}
         min={1}
         max={16}
+        className="min-w-0"
+        inputClassName="w-full min-w-0 flex-1"
         onChange={(value) => onFreeRectChange(selected.id, { rowSpan: value })}
       />
     </div>

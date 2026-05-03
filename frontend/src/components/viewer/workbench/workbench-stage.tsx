@@ -13,6 +13,7 @@ import {
   togglePaused,
   type TimerMode,
 } from "@/lib/viewer/timer";
+import { InactiveIframeMounts } from "./inactive-iframe-mounts";
 import { FixedGridView, FocusLayout, FreeGridView } from "./views";
 import type {
   FeedSession,
@@ -147,7 +148,7 @@ export function WorkbenchStage({
         isUiHidden
           ? "p-0"
           : cn(
-              "px-0 pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pt-16 md:pr-4 md:pb-4 motion-safe:transition-[padding] motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none",
+              "px-0 pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pt-16 md:pr-4 md:pb-4",
               isDesktopWorkbenchCollapsed ? "md:pl-[5rem]" : "md:pl-[20.5rem]",
             ),
       )}
@@ -273,6 +274,10 @@ function FixedLayerStage({
   requestLocalCacheAccess: (id: string) => void;
   openEditSource: (id: string) => void;
 }) {
+  const activeLayer = layers.find((layer) => layer.id === activeLayerId);
+
+  if (!activeLayer) return null;
+
   return (
     <div
       className={cn(
@@ -282,53 +287,40 @@ function FixedLayerStage({
           : "h-full min-h-0 min-w-0 md:min-h-[360px] min-[1080px]:min-w-[720px]",
       )}
     >
-      {layers.map((layer) => {
-        const isActiveLayer = layer.id === activeLayerId;
-
-        return (
-          <div
-            key={layer.id}
-            aria-hidden={!isActiveLayer}
-            style={{
-              visibility: isActiveLayer ? "visible" : "hidden",
-            }}
-            className={cn(
-              isActiveLayer
-                ? "relative z-10 size-full"
-                : "pointer-events-none absolute inset-0 opacity-0",
-            )}
-          >
-            <FixedGridView
-              sessions={sessions.filter(
-                (session) => session.layerId === layer.id,
-              )}
-              visibleCells={visibleFixedCells}
-              fixedGrid={fixedGrid}
-              galleryIndexes={galleryIndexes}
-              videoPositions={videoPositions}
-              selectedId={isActiveLayer ? selectedId : null}
-              hideUi={isUiHidden}
-              isPlaybackActive={isActiveLayer}
-              showInfo={isActiveLayer && showAllInfo}
-              cellTestIdPrefix={
-                isActiveLayer ? "fixed-cell" : `${layer.id}-fixed-cell`
-              }
-              openSourcePanel={openSourcePanel}
-              setSelectedId={setSelectedId}
-              setMaximizedId={setMaximizedId}
-              updateSession={updateSession}
-              removeSession={removeSession}
-              changeGallery={changeGallery}
-              onVideoPositionChange={rememberVideoPosition}
-              setViewTimerMode={setViewTimerMode}
-              setViewTimerSeconds={setViewTimerSeconds}
-              onLocalFilesSelected={replaceLocalSessionFiles}
-              onLocalCacheAccessRequested={requestLocalCacheAccess}
-              onEditSource={openEditSource}
-            />
-          </div>
-        );
-      })}
+      <InactiveIframeMounts
+        sessions={sessions}
+        activeLayerId={activeLayer.id}
+        galleryIndexes={galleryIndexes}
+        videoPositions={videoPositions}
+        onVideoPositionChange={rememberVideoPosition}
+      />
+      <div className="relative z-10 size-full">
+        <FixedGridView
+          sessions={sessions.filter(
+            (session) => session.layerId === activeLayer.id,
+          )}
+          visibleCells={visibleFixedCells}
+          fixedGrid={fixedGrid}
+          galleryIndexes={galleryIndexes}
+          videoPositions={videoPositions}
+          selectedId={selectedId}
+          hideUi={isUiHidden}
+          isPlaybackActive
+          showInfo={showAllInfo}
+          openSourcePanel={openSourcePanel}
+          setSelectedId={setSelectedId}
+          setMaximizedId={setMaximizedId}
+          updateSession={updateSession}
+          removeSession={removeSession}
+          changeGallery={changeGallery}
+          onVideoPositionChange={rememberVideoPosition}
+          setViewTimerMode={setViewTimerMode}
+          setViewTimerSeconds={setViewTimerSeconds}
+          onLocalFilesSelected={replaceLocalSessionFiles}
+          onLocalCacheAccessRequested={requestLocalCacheAccess}
+          onEditSource={openEditSource}
+        />
+      </div>
     </div>
   );
 }
@@ -400,6 +392,10 @@ function FreeLayerStage({
   requestLocalCacheAccess: (id: string) => void;
   openEditSource: (id: string) => void;
 }) {
+  const activeLayer = layers.find((layer) => layer.id === activeLayerId);
+
+  if (!activeLayer) return null;
+
   return (
     <div
       ref={freeGridRef}
@@ -410,54 +406,44 @@ function FreeLayerStage({
           : "h-full min-h-0 min-w-0 md:min-h-[360px] min-[1080px]:min-w-[720px]",
       )}
     >
-      {layers.map((layer) => {
-        const isActiveLayer = layer.id === activeLayerId;
-
-        return (
-          <div
-            key={layer.id}
-            aria-hidden={!isActiveLayer}
-            style={{
-              visibility: isActiveLayer ? "visible" : "hidden",
-            }}
-            className={cn(
-              isActiveLayer
-                ? "relative z-10 size-full"
-                : "pointer-events-none absolute inset-0 opacity-0",
-            )}
-          >
-            <FreeGridView
-              sessions={sessions.filter(
-                (session) => session.layerId === layer.id,
-              )}
-              templateSlots={templateSlots.filter(
-                (slot) => (slot.layerId ?? activeLayerId) === layer.id,
-              )}
-              galleryIndexes={galleryIndexes}
-              videoPositions={videoPositions}
-              selectedId={isActiveLayer ? selectedId : null}
-              hideUi={isUiHidden}
-              isPlaybackActive={isActiveLayer}
-              showInfo={isActiveLayer && showAllInfo}
-              freeDrag={isActiveLayer ? freeDrag : null}
-              setSelectedId={setSelectedId}
-              setMaximizedId={setMaximizedId}
-              updateSession={updateSession}
-              removeSession={removeSession}
-              removeTemplateSlot={removeTemplateSlot}
-              openSourcePanel={openSourcePanel}
-              changeGallery={changeGallery}
-              onVideoPositionChange={rememberVideoPosition}
-              setViewTimerMode={setViewTimerMode}
-              setViewTimerSeconds={setViewTimerSeconds}
-              beginFreeDrag={beginFreeDrag}
-              onLocalFilesSelected={replaceLocalSessionFiles}
-              onLocalCacheAccessRequested={requestLocalCacheAccess}
-              onEditSource={openEditSource}
-            />
-          </div>
-        );
-      })}
+      <InactiveIframeMounts
+        sessions={sessions}
+        activeLayerId={activeLayer.id}
+        galleryIndexes={galleryIndexes}
+        videoPositions={videoPositions}
+        onVideoPositionChange={rememberVideoPosition}
+      />
+      <div className="relative z-10 size-full">
+        <FreeGridView
+          sessions={sessions.filter(
+            (session) => session.layerId === activeLayer.id,
+          )}
+          templateSlots={templateSlots.filter(
+            (slot) => (slot.layerId ?? activeLayer.id) === activeLayer.id,
+          )}
+          galleryIndexes={galleryIndexes}
+          videoPositions={videoPositions}
+          selectedId={selectedId}
+          hideUi={isUiHidden}
+          isPlaybackActive
+          showInfo={showAllInfo}
+          freeDrag={freeDrag}
+          setSelectedId={setSelectedId}
+          setMaximizedId={setMaximizedId}
+          updateSession={updateSession}
+          removeSession={removeSession}
+          removeTemplateSlot={removeTemplateSlot}
+          openSourcePanel={openSourcePanel}
+          changeGallery={changeGallery}
+          onVideoPositionChange={rememberVideoPosition}
+          setViewTimerMode={setViewTimerMode}
+          setViewTimerSeconds={setViewTimerSeconds}
+          beginFreeDrag={beginFreeDrag}
+          onLocalFilesSelected={replaceLocalSessionFiles}
+          onLocalCacheAccessRequested={requestLocalCacheAccess}
+          onEditSource={openEditSource}
+        />
+      </div>
     </div>
   );
 }

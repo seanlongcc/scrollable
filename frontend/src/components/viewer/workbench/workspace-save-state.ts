@@ -3,6 +3,7 @@ import {
   hasDuplicateLayoutName,
   hasDuplicateTemplateName,
   limitLayoutName,
+  normalizeLayoutName,
 } from "./helpers";
 import { serializedMetadataBytes } from "./cloud-save-state";
 import type {
@@ -57,12 +58,12 @@ export function validateLayoutSaveName({
   }
 
   if (
-    hasDuplicateLayoutName(
-      nextName,
+    hasDuplicateLayoutSaveName({
+      name: nextName,
       activeWorkspaceId,
       workspaceTabs,
       savedWorkspaces,
-    )
+    })
   ) {
     return { ok: false, error: "Layout names must be unique" };
   }
@@ -72,12 +73,10 @@ export function validateLayoutSaveName({
 
 export function validateTemplateSaveName({
   name,
-  activeWorkspaceId,
   layoutMode,
   savedTemplates,
 }: {
   name: string;
-  activeWorkspaceId: string;
   layoutMode: LayoutMode;
   savedTemplates: Record<string, SerializedWorkspaceTemplate>;
 }): SaveValidationResult {
@@ -101,7 +100,67 @@ export function validateTemplateSaveName({
     };
   }
 
-  if (hasDuplicateTemplateName(nextName, activeWorkspaceId, savedTemplates)) {
+  if (hasSavedTemplateName(nextName, savedTemplates)) {
+    return { ok: false, error: "Template names must be unique" };
+  }
+
+  return { ok: true, name: nextName };
+}
+
+export function validateLayoutRenameName({
+  name,
+  id,
+  workspaceTabs,
+  savedWorkspaces,
+}: {
+  name: string;
+  id: string;
+  workspaceTabs: WorkspaceTab[];
+  savedWorkspaces: Record<string, SerializedWorkspace>;
+}): SaveValidationResult {
+  const nextName = name.trim();
+
+  if (!nextName) {
+    return { ok: false, error: "Layout name is required" };
+  }
+
+  if (nextName.length > MAX_LAYOUT_NAME_LENGTH) {
+    return {
+      ok: false,
+      error: `Layout name must be ${MAX_LAYOUT_NAME_LENGTH} characters or fewer`,
+    };
+  }
+
+  if (hasDuplicateLayoutName(nextName, id, workspaceTabs, savedWorkspaces)) {
+    return { ok: false, error: "Layout names must be unique" };
+  }
+
+  return { ok: true, name: nextName };
+}
+
+export function validateTemplateRenameName({
+  name,
+  id,
+  savedTemplates,
+}: {
+  name: string;
+  id: string;
+  savedTemplates: Record<string, SerializedWorkspaceTemplate>;
+}): SaveValidationResult {
+  const nextName = name.trim();
+
+  if (!nextName) {
+    return { ok: false, error: "Template name is required" };
+  }
+
+  if (nextName.length > MAX_LAYOUT_NAME_LENGTH) {
+    return {
+      ok: false,
+      error: `Template name must be ${MAX_LAYOUT_NAME_LENGTH} characters or fewer`,
+    };
+  }
+
+  if (hasDuplicateTemplateName(nextName, id, savedTemplates)) {
     return { ok: false, error: "Template names must be unique" };
   }
 
@@ -119,6 +178,50 @@ export function renameActiveWorkspaceTab({
 }) {
   return workspaceTabs.map((tab) =>
     tab.id === activeWorkspaceId ? { ...tab, name } : tab,
+  );
+}
+
+function hasDuplicateLayoutSaveName({
+  name,
+  activeWorkspaceId,
+  workspaceTabs,
+  savedWorkspaces,
+}: {
+  name: string;
+  activeWorkspaceId: string;
+  workspaceTabs: WorkspaceTab[];
+  savedWorkspaces: Record<string, SerializedWorkspace>;
+}) {
+  const normalized = normalizeLayoutName(name);
+
+  return (
+    workspaceTabs.some(
+      (tab) =>
+        tab.id !== activeWorkspaceId &&
+        normalizeLayoutName(tab.name) === normalized,
+    ) || hasSavedLayoutName(name, savedWorkspaces)
+  );
+}
+
+function hasSavedLayoutName(
+  name: string,
+  savedWorkspaces: Record<string, SerializedWorkspace>,
+) {
+  const normalized = normalizeLayoutName(name);
+
+  return Object.values(savedWorkspaces).some(
+    (workspace) => normalizeLayoutName(workspace.name) === normalized,
+  );
+}
+
+function hasSavedTemplateName(
+  name: string,
+  savedTemplates: Record<string, SerializedWorkspaceTemplate>,
+) {
+  const normalized = normalizeLayoutName(name);
+
+  return Object.values(savedTemplates).some(
+    (template) => normalizeLayoutName(template.name) === normalized,
   );
 }
 

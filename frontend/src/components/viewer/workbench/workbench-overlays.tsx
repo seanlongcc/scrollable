@@ -1,9 +1,4 @@
-import type {
-  ChangeEvent,
-  Dispatch,
-  DragEvent as ReactDragEvent,
-  SetStateAction,
-} from "react";
+import type { Dispatch, SetStateAction } from "react";
 import type {
   LocalFileByteCacheConfirmation,
   LocalFileCacheStorageStatus,
@@ -18,7 +13,7 @@ import {
   SaveLayoutDialog,
   ShareLinkDialog,
 } from "./dialogs";
-import { EditSourceDialog, SourceDialog } from "./source-dialogs";
+import { EditSourceDialog } from "./source-dialogs";
 import type {
   CloudShareTarget,
   CloudUsageState,
@@ -28,45 +23,13 @@ import type {
   AccountState,
   FeedSession,
   LayoutMode,
-  RedditInputMode,
-  RedditListingSort,
-  RedditTimeRange,
   SaveKind,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
-  SourceGroupingMode,
   WorkspaceTab,
 } from "./types";
 
 export function WorkbenchOverlays({
-  isSourceOpen,
-  onSourceOpenChange,
-  urlValue,
-  urlTitle,
-  redditUrls,
-  redditInputMode,
-  subredditName,
-  redditSort,
-  redditTimeRange,
-  redditLimit,
-  isLoading,
-  sourceGroupingMode,
-  setUrlValue,
-  setUrlTitle,
-  setRedditUrls,
-  setRedditInputMode,
-  setSubredditName,
-  setRedditSort,
-  setRedditTimeRange,
-  setRedditLimit,
-  setSourceGroupingMode,
-  openUrlSource,
-  fetchRedditFeed,
-  addLocalFiles,
-  selectLocalFilesWithHandles,
-  selectLocalFolderWithHandles,
-  addDroppedLocalFiles,
-  allowLocalFileDrop,
   largeLocalByteCachePrompt,
   onLargeLocalByteCacheOpenChange,
   onConfirmLargeLocalByteCache,
@@ -75,6 +38,7 @@ export function WorkbenchOverlays({
   onClearLocalCache,
   isLayoutsOpen,
   setIsLayoutsOpen,
+  layoutDialogView,
   savedWorkspaces,
   cloudWorkspaces,
   savedTemplates,
@@ -85,12 +49,15 @@ export function WorkbenchOverlays({
   openSavedTemplates,
   deleteSavedWorkspace,
   deleteSavedTemplate,
+  renameSavedWorkspace,
+  renameSavedTemplate,
   uploadWorkspaceToCloud,
   uploadTemplateToCloud,
   shareCloudItem,
   regenerateCloudShareLink,
   disableCloudShareLink,
   exportSavedJson,
+  importCurrentWorkspaceJson,
   importSavedJson,
   workspaceTabs,
   openWorkspaceStats,
@@ -98,6 +65,7 @@ export function WorkbenchOverlays({
   selectWorkspace,
   createWorkspaceTab,
   closeWorkspaceTab,
+  closeWorkspaceTabs,
   openSaveDialog,
   isSaveOpen,
   setIsSaveOpen,
@@ -132,34 +100,6 @@ export function WorkbenchOverlays({
   signOut,
   onRefreshLocalCacheStatus,
 }: {
-  isSourceOpen: boolean;
-  onSourceOpenChange: (open: boolean) => void;
-  urlValue: string;
-  urlTitle: string;
-  redditUrls: string;
-  redditInputMode: RedditInputMode;
-  subredditName: string;
-  redditSort: RedditListingSort;
-  redditTimeRange: RedditTimeRange;
-  redditLimit: number;
-  isLoading: boolean;
-  sourceGroupingMode: SourceGroupingMode;
-  setUrlValue: Dispatch<SetStateAction<string>>;
-  setUrlTitle: Dispatch<SetStateAction<string>>;
-  setRedditUrls: Dispatch<SetStateAction<string>>;
-  setRedditInputMode: Dispatch<SetStateAction<RedditInputMode>>;
-  setSubredditName: Dispatch<SetStateAction<string>>;
-  setRedditSort: Dispatch<SetStateAction<RedditListingSort>>;
-  setRedditTimeRange: Dispatch<SetStateAction<RedditTimeRange>>;
-  setRedditLimit: Dispatch<SetStateAction<number>>;
-  setSourceGroupingMode: Dispatch<SetStateAction<SourceGroupingMode>>;
-  openUrlSource: () => void;
-  fetchRedditFeed: () => void;
-  addLocalFiles: (event: ChangeEvent<HTMLInputElement>) => void;
-  selectLocalFilesWithHandles: () => Promise<boolean>;
-  selectLocalFolderWithHandles: () => Promise<boolean>;
-  addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
-  allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
   largeLocalByteCachePrompt: LocalFileByteCacheConfirmation | null;
   onLargeLocalByteCacheOpenChange: (open: boolean) => void;
   onConfirmLargeLocalByteCache: () => void;
@@ -168,6 +108,7 @@ export function WorkbenchOverlays({
   onClearLocalCache: () => void | Promise<void>;
   isLayoutsOpen: boolean;
   setIsLayoutsOpen: Dispatch<SetStateAction<boolean>>;
+  layoutDialogView: "library" | "workspace";
   savedWorkspaces: Record<string, SerializedWorkspace>;
   cloudWorkspaces: Record<string, SerializedWorkspace>;
   savedTemplates: Record<string, SerializedWorkspaceTemplate>;
@@ -178,6 +119,16 @@ export function WorkbenchOverlays({
   openSavedTemplates: (ids: string[]) => void;
   deleteSavedWorkspace: (id: string, target?: SaveTarget) => void;
   deleteSavedTemplate: (id: string, target?: SaveTarget) => void;
+  renameSavedWorkspace: (input: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) => Promise<string | null>;
+  renameSavedTemplate: (input: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) => Promise<string | null>;
   uploadWorkspaceToCloud: (id: string) => void;
   uploadTemplateToCloud: (id: string) => void;
   shareCloudItem: (target: CloudShareTarget) => void;
@@ -188,6 +139,7 @@ export function WorkbenchOverlays({
     id: string,
     target: SaveTarget,
   ) => void;
+  importCurrentWorkspaceJson: () => void;
   importSavedJson: (target: SaveTarget) => void;
   workspaceTabs: WorkspaceTab[];
   openWorkspaceStats: Record<
@@ -198,6 +150,7 @@ export function WorkbenchOverlays({
   selectWorkspace: (id: string) => void;
   createWorkspaceTab: () => void;
   closeWorkspaceTab: (id: string) => void;
+  closeWorkspaceTabs: (ids: string[]) => void;
   openSaveDialog: () => void;
   isSaveOpen: boolean;
   setIsSaveOpen: Dispatch<SetStateAction<boolean>>;
@@ -240,36 +193,6 @@ export function WorkbenchOverlays({
 }) {
   return (
     <>
-      <SourceDialog
-        open={isSourceOpen}
-        onOpenChange={onSourceOpenChange}
-        urlValue={urlValue}
-        urlTitle={urlTitle}
-        redditUrls={redditUrls}
-        redditInputMode={redditInputMode}
-        subredditName={subredditName}
-        redditSort={redditSort}
-        redditTimeRange={redditTimeRange}
-        redditLimit={redditLimit}
-        isLoading={isLoading}
-        sourceGroupingMode={sourceGroupingMode}
-        setUrlValue={setUrlValue}
-        setUrlTitle={setUrlTitle}
-        setRedditUrls={setRedditUrls}
-        setRedditInputMode={setRedditInputMode}
-        setSubredditName={setSubredditName}
-        setRedditSort={setRedditSort}
-        setRedditTimeRange={setRedditTimeRange}
-        setRedditLimit={setRedditLimit}
-        setSourceGroupingMode={setSourceGroupingMode}
-        openUrlSource={openUrlSource}
-        fetchRedditFeed={fetchRedditFeed}
-        addLocalFiles={addLocalFiles}
-        selectLocalFilesWithHandles={selectLocalFilesWithHandles}
-        selectLocalFolderWithHandles={selectLocalFolderWithHandles}
-        addDroppedLocalFiles={addDroppedLocalFiles}
-        allowLocalFileDrop={allowLocalFileDrop}
-      />
       <LargeLocalCacheDialog
         open={Boolean(largeLocalByteCachePrompt)}
         totalBytes={largeLocalByteCachePrompt?.totalBytes ?? 0}
@@ -288,16 +211,24 @@ export function WorkbenchOverlays({
         <LayoutDialog
           open={isLayoutsOpen}
           onOpenChange={setIsLayoutsOpen}
+          view={layoutDialogView}
           localWorkspaces={Object.values(savedWorkspaces)}
           cloudWorkspaces={Object.values(cloudWorkspaces)}
           localTemplates={Object.values(savedTemplates)}
           cloudTemplates={Object.values(cloudTemplates)}
+          account={account}
           storageTarget={libraryStorageTarget}
           onStorageTargetChange={setLibraryStorageTarget}
           onOpenWorkspaces={openSavedWorkspaces}
           onOpenTemplates={openSavedTemplates}
           onDeleteWorkspace={deleteSavedWorkspace}
           onDeleteTemplate={deleteSavedTemplate}
+          onRenameWorkspace={(id, name, target) =>
+            renameSavedWorkspace({ id, name, target })
+          }
+          onRenameTemplate={(id, name, target) =>
+            renameSavedTemplate({ id, name, target })
+          }
           onUploadWorkspaceToCloud={uploadWorkspaceToCloud}
           onUploadTemplateToCloud={uploadTemplateToCloud}
           onShareCloudItem={(kind, id) => {
@@ -307,6 +238,7 @@ export function WorkbenchOverlays({
             shareCloudItem({ kind, id, name: item.name });
           }}
           onExportJson={exportSavedJson}
+          onImportCurrentWorkspaceJson={importCurrentWorkspaceJson}
           onImportJson={importSavedJson}
           workspaceTabs={workspaceTabs}
           openWorkspaceStats={openWorkspaceStats}
@@ -314,6 +246,7 @@ export function WorkbenchOverlays({
           onSelectWorkspace={selectWorkspace}
           onCreateWorkspaceTab={createWorkspaceTab}
           onCloseWorkspaceTab={closeWorkspaceTab}
+          onCloseWorkspaceTabs={closeWorkspaceTabs}
           onSaveCurrentLayout={openSaveDialog}
         />
       ) : null}

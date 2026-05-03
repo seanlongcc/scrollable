@@ -1,5 +1,5 @@
 import { FolderOpen, Globe, Grid2X2, Loader2, Upload } from "lucide-react";
-import { ChangeEvent, DragEvent as ReactDragEvent, useState } from "react";
+import { ChangeEvent, DragEvent as ReactDragEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { DirectoryInput } from "./fields";
+import { DirectoryInput, placeCaretAfterInputValue } from "./fields";
 import { LabeledSelect } from "./source-dialog-fields";
 import {
   MAX_REDDIT_MEDIA_LIMIT,
@@ -28,40 +28,17 @@ import type {
 } from "./types";
 import { clamp } from "./helpers";
 
-type SourceKind = "url" | "local" | "reddit";
+export type SourceKind = "url" | "local" | "reddit";
 
-export function SourceDialog({
-  open,
-  onOpenChange,
-  urlValue,
-  urlTitle,
-  redditUrls,
-  redditInputMode,
-  subredditName,
-  redditSort,
-  redditTimeRange,
-  redditLimit,
-  isLoading,
-  sourceGroupingMode,
-  setUrlValue,
-  setUrlTitle,
-  setRedditUrls,
-  setRedditInputMode,
-  setSubredditName,
-  setRedditSort,
-  setRedditTimeRange,
-  setRedditLimit,
-  setSourceGroupingMode,
-  openUrlSource,
-  fetchRedditFeed,
-  addLocalFiles,
-  selectLocalFilesWithHandles,
-  selectLocalFolderWithHandles,
-  addDroppedLocalFiles,
-  allowLocalFileDrop,
-}: {
+const sourceSectionClass =
+  "grid gap-3 rounded-xl border border-border/70 bg-background/55 p-3";
+const sourceDropZoneClass =
+  "grid min-h-24 cursor-pointer place-items-center rounded-xl border border-dashed border-border/70 bg-surface/55 p-3 text-center transition-[background-color,border-color,box-shadow] hover:border-primary/70 hover:bg-muted/55 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none";
+
+export type SourceDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  sourceKind: SourceKind;
   urlValue: string;
   urlTitle: string;
   redditUrls: string;
@@ -72,6 +49,7 @@ export function SourceDialog({
   redditLimit: number;
   isLoading: boolean;
   sourceGroupingMode: SourceGroupingMode;
+  setSourceKind: (value: SourceKind) => void;
   setUrlValue: (value: string) => void;
   setUrlTitle: (value: string) => void;
   setRedditUrls: (value: string) => void;
@@ -88,9 +66,40 @@ export function SourceDialog({
   selectLocalFolderWithHandles: () => Promise<boolean>;
   addDroppedLocalFiles: (event: ReactDragEvent<HTMLElement>) => void;
   allowLocalFileDrop: (event: ReactDragEvent<HTMLElement>) => void;
-}) {
-  const [sourceKind, setSourceKind] = useState<SourceKind>("local");
+};
 
+export function SourceDialog({
+  open,
+  onOpenChange,
+  sourceKind,
+  urlValue,
+  urlTitle,
+  redditUrls,
+  redditInputMode,
+  subredditName,
+  redditSort,
+  redditTimeRange,
+  redditLimit,
+  isLoading,
+  sourceGroupingMode,
+  setSourceKind,
+  setUrlValue,
+  setUrlTitle,
+  setRedditUrls,
+  setRedditInputMode,
+  setSubredditName,
+  setRedditSort,
+  setRedditTimeRange,
+  setRedditLimit,
+  setSourceGroupingMode,
+  openUrlSource,
+  fetchRedditFeed,
+  addLocalFiles,
+  selectLocalFilesWithHandles,
+  selectLocalFolderWithHandles,
+  addDroppedLocalFiles,
+  allowLocalFileDrop,
+}: SourceDialogProps) {
   return (
     <Dialog
       open={open}
@@ -101,21 +110,21 @@ export function SourceDialog({
     >
       <DialogContent
         aria-busy={isLoading}
-        className="top-auto bottom-0 left-0 max-h-[86dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-x-hidden overflow-y-auto rounded-t-2xl border border-border bg-popover p-3 text-popover-foreground shadow-[0_-18px_70px_rgba(0,0,0,0.55)] sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[82dvh] md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:shadow-[0_24px_80px_rgba(0,0,0,0.72)]"
+        className="mobile-compact-controls top-auto bottom-0 left-0 max-h-[86dvh] w-full max-w-none translate-x-0 translate-y-0 content-start gap-3 overflow-x-hidden overflow-y-auto overscroll-contain rounded-t-2xl border border-border/70 bg-popover p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-18px_64px_rgba(18,10,10,0.58)] data-open:animate-none data-closed:animate-none sm:max-w-none md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[82dvh] md:w-[min(92vw,26rem)] md:max-w-[26rem] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:pb-3 md:shadow-[0_20px_64px_rgba(18,10,10,0.62)]"
       >
         {isLoading ? (
           <div className="absolute inset-0 z-30 grid place-items-center bg-popover/82 px-6 backdrop-blur-sm">
             <div
               role="status"
               aria-live="polite"
-              className="grid justify-items-center gap-2 rounded-lg border border-border bg-background px-5 py-4 text-center shadow-[0_16px_48px_rgba(0,0,0,0.55)]"
+              className="grid max-w-full justify-items-center gap-2 rounded-lg border border-border bg-background px-5 py-4 text-center shadow-[0_16px_48px_rgba(18,10,10,0.55)]"
             >
               <Loader2 className="size-6 animate-spin text-primary" />
               <span className="text-sm font-medium">Preparing source</span>
             </div>
           </div>
         ) : null}
-        <DialogHeader className="pr-8">
+        <DialogHeader className="pr-12 md:pr-10">
           <DialogTitle>Add source</DialogTitle>
           <DialogDescription className="sr-only">
             Add URL, local, or Reddit source.
@@ -137,19 +146,27 @@ export function SourceDialog({
             ]}
             ariaLabel="Source type"
             disabled={isLoading}
-            onChange={(value) => setSourceKind(value as SourceKind)}
+            onChange={(value) => {
+              const nextSourceKind = value as SourceKind;
+              setSourceKind(nextSourceKind);
+              if (nextSourceKind === "url") {
+                setSourceGroupingMode("separate");
+              }
+            }}
           />
 
           {sourceKind === "url" ? (
-            <section className="grid gap-3 rounded-lg border border-border bg-surface p-3">
+            <section className={sourceSectionClass}>
               <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
                 URL
-                <Input
+                <Textarea
                   value={urlValue}
                   disabled={isLoading}
                   onChange={(event) => setUrlValue(event.target.value)}
-                  placeholder="https://example.com/media-or-page"
-                  className="h-9 font-mono text-xs"
+                  placeholder={`Paste one or many links, one per line.
+
+https://example.com/media-or-page`}
+                  className="min-h-40 resize-none font-mono text-xs leading-5 md:min-h-56"
                 />
               </Label>
               <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
@@ -178,7 +195,7 @@ export function SourceDialog({
             <section
               role="group"
               aria-label="Local upload picker"
-              className="grid gap-3 rounded-lg border border-border bg-surface p-3"
+              className={sourceSectionClass}
             >
               <div className="grid grid-cols-2 gap-2">
                 <Label
@@ -194,11 +211,11 @@ export function SourceDialog({
                     event.preventDefault();
                     void selectLocalFilesWithHandles();
                   }}
-                  className="grid min-h-24 cursor-pointer place-items-center rounded-lg border border-dashed border-border/70 bg-background/55 p-3 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+                  className={sourceDropZoneClass}
                 >
                   <span className="grid justify-items-center gap-2">
                     <Upload className="size-5 text-primary" />
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="min-w-0 truncate text-sm font-medium text-foreground">
                       Files
                     </span>
                   </span>
@@ -225,11 +242,11 @@ export function SourceDialog({
                     event.preventDefault();
                     void selectLocalFolderWithHandles();
                   }}
-                  className="grid min-h-24 cursor-pointer place-items-center rounded-lg border border-dashed border-border/70 bg-background/55 p-3 text-center transition hover:border-primary/70 hover:bg-muted/55 focus-visible:border-primary/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+                  className={sourceDropZoneClass}
                 >
                   <span className="grid justify-items-center gap-2">
                     <FolderOpen className="size-5 text-primary" />
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="min-w-0 truncate text-sm font-medium text-foreground">
                       Folder
                     </span>
                   </span>
@@ -250,7 +267,7 @@ export function SourceDialog({
           ) : null}
 
           {sourceKind === "reddit" ? (
-            <section className="grid gap-3 rounded-lg border border-border bg-surface p-3">
+            <section className={sourceSectionClass}>
               <SegmentedControl
                 value={redditInputMode}
                 options={[
@@ -308,40 +325,42 @@ export function SourceDialog({
                     value={redditUrls}
                     disabled={isLoading}
                     onChange={(event) => setRedditUrls(event.target.value)}
-                    placeholder={`Specific post link
-https://www.reddit.com/r/pics/comments/abc123/title/
+                    placeholder={`Paste one or many Reddit links, one per line.
 
-Sorted subreddit link
+https://www.reddit.com/r/pics/comments/abc123/title/
 https://www.reddit.com/r/pics/top/?t=week`}
                     className="min-h-40 resize-none font-mono text-xs leading-5 md:min-h-56"
                   />
                 </Label>
               )}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2">
                 <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
-                  Limit
+                  Reddit media count
                   <Input
                     aria-label="Reddit media count"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     min={1}
                     max={MAX_REDDIT_MEDIA_LIMIT}
                     value={redditLimit || ""}
                     disabled={isLoading}
+                    onFocus={(event) =>
+                      placeCaretAfterInputValue(event.currentTarget)
+                    }
                     onChange={(event) => {
-                      if (event.target.value === "") {
+                      const nextDraft = event.target.value;
+                      if (!nextDraft.trim()) {
                         setRedditLimit(0);
                         return;
                       }
 
-                      setRedditLimit(
-                        clamp(
-                          Number(event.target.value),
-                          1,
-                          MAX_REDDIT_MEDIA_LIMIT,
-                        ),
-                      );
+                      const next = Number(nextDraft);
+                      if (!Number.isInteger(next)) return;
+
+                      setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
                     }}
-                    className="h-9"
+                    className="h-9 text-center"
                   />
                 </Label>
                 <div className="grid content-end">
@@ -363,16 +382,13 @@ https://www.reddit.com/r/pics/top/?t=week`}
             </section>
           ) : null}
 
-          <section className="grid gap-2 rounded-lg border border-border bg-surface p-3">
+          <section className="grid gap-2 rounded-xl border border-border/70 bg-background/55 p-3">
             <h2 className="text-xs font-semibold text-muted-foreground">
               Grouping
             </h2>
             <SegmentedControl
-              value={sourceGroupingMode}
-              options={[
-                ["stacked", "Stacked", "Add sources as one stacked source"],
-                ["separate", "Separate", "Add sources as separate sources"],
-              ]}
+              value={sourceKind === "url" ? "separate" : sourceGroupingMode}
+              options={sourceGroupingOptions(sourceKind)}
               ariaLabel="Source mode"
               disabled={isLoading}
               onChange={(value) =>
@@ -384,6 +400,19 @@ https://www.reddit.com/r/pics/top/?t=week`}
       </DialogContent>
     </Dialog>
   );
+}
+
+function sourceGroupingOptions(
+  sourceKind: SourceKind,
+): Array<[SourceGroupingMode, string, string]> {
+  if (sourceKind === "url") {
+    return [["separate", "Separate", "Add sources as separate sources"]];
+  }
+
+  return [
+    ["stacked", "Stacked", "Add sources as one stacked source"],
+    ["separate", "Separate", "Add sources as separate sources"],
+  ];
 }
 
 function SegmentedControl({
@@ -403,7 +432,7 @@ function SegmentedControl({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="grid gap-1 rounded-lg border border-border bg-background/60 p-1"
+      className="grid gap-1 rounded-xl border border-border/70 bg-background/70 p-1"
       style={{
         gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
       }}
@@ -418,8 +447,9 @@ function SegmentedControl({
           aria-pressed={value === optionValue}
           disabled={disabled}
           onClick={() => onChange(optionValue)}
+          className="!h-10 !min-h-10 min-w-0 overflow-hidden rounded-lg md:!h-7 md:!min-h-0"
         >
-          {label}
+          <span className="min-w-0 truncate">{label}</span>
         </Button>
       ))}
     </div>

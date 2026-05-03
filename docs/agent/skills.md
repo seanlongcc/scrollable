@@ -2,6 +2,11 @@
 
 When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task.
 
+Repo-local copies of the skills referenced here live in `skills/`. Prefer those
+copies for inspection and developer onboarding when a global Codex skill or
+plugin cache is unavailable. See `skills/README.md` for layout and namespace
+mapping.
+
 ## Core Project/Process Skills
 
 | Skill                                        | Use                                                                                                           |

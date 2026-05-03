@@ -5,12 +5,16 @@ Guidance for AI coding agents working in this repository.
 This file is the hard-rules and orientation index. Longer reference material lives in:
 
 - `README.md` - project overview.
+- `docs/product.md` - product strategy, users, brand, and design principles.
+- `docs/design.md` / `docs/design.json` - visual design system and machine-readable sidecar.
 - `docs/media-persistence.md` - media persistence policy details.
 - `docs/agent/product.md` - product intent plus Reddit/NSFW notes.
 - `docs/agent/testing.md` - detailed testing decision policy and test priorities.
 - `docs/agent/tools.md` - MCP/tool-server usage map.
 - `docs/agent/skills.md` - skill usage map.
-- Supabase migrations and committed specs/plans - source of truth for schema and approved work.
+- `skills/` - repo-local copies of skills referenced by `docs/agent/skills.md`.
+- Supabase migrations and current committed specs/plans - source of truth for schema and approved work.
+- `archive/ai-artifacts/README.md` - historical AI-generated specs, plans, prompts, and mockups; reference-only, not production source of truth.
 
 ## Project State
 
@@ -22,10 +26,12 @@ Current installed stack:
 - `@supabase/ssr` 0.10.x and `@supabase/supabase-js` 2.104.x
 - Supabase CLI 2.95.x
 - Vitest 4.x, Playwright 1.59.x, ESLint 9.x
-- Optional `yt-dlp` executable for runtime arbitrary-site URL extraction. Keep it on `PATH` or set `YTDLP_PATH`.
+- Runtime arbitrary-site URL extraction uses the bundled `youtube-dl-exec` `yt-dlp` binary in production. Local overrides can use `YTDLP_PATH`, a `yt-dlp` executable on `PATH`, or `python3 -m yt_dlp`.
+- Root `postinstall` downloads the standalone platform `yt-dlp` binary into `node_modules/youtube-dl-exec/bin` so Vercel Functions do not depend on system Python.
 - Optional server-only `NHENTAI_API_KEY` for runtime nHentai gallery API requests. Store it in local/deployment secrets only, never as `NEXT_PUBLIC_*`.
+- Optional server-only `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` for Reddit app-only OAuth API requests in production. Store them in local/deployment secrets only, never as `NEXT_PUBLIC_*`. Without them the app falls back to public Reddit JSON, which may be blocked by some hosting IP ranges.
 - Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
-- Vercel for deployment
+- Vercel for deployment through GitHub Actions and the pinned Vercel CLI
 - Mobile-first user experience
 
 Current package/runtime defaults:
@@ -43,6 +49,10 @@ Current package/runtime defaults:
 - Vercel deployment should use `frontend/` as the project root directory.
 - Browser tests require Linux browser dependencies in WSL; if Chromium cannot launch, report the missing shared library and do not claim browser verification passed.
 - Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
+- GitHub Actions workflow `.github/workflows/ci-cd.yml` runs format check, ESLint, typecheck, Vitest, Next build, local Supabase DB tests, and Playwright desktop/mobile e2e on pull requests and `main`.
+- GitHub Actions deploys Vercel previews for same-repository pull requests and production for pushes to `main`. Required repository secrets are `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
+- GitHub Actions workflow `.github/workflows/release.yml` manually creates GitHub Releases from `main`. It requires a human-selected `vX.Y.Z` version, reruns core gates, refuses duplicate tags/releases, and prepends production URL plus commit metadata to generated release notes.
+- CI Supabase tests must stay local-only. Do not add `--linked`, `db push`, `SUPABASE_ACCESS_TOKEN`, or remote database URLs to the test workflow unless the production/staging database deployment strategy is explicitly changed.
 - Saved free-layout templates use `viewer_templates` in Supabase and `scrollable.workspace-templates.v1` in localStorage.
 
 ## Product Intent
@@ -63,7 +73,6 @@ These rules are core product constraints. Keep them visible here because violati
 - Store only user-created configuration data and operational records needed for the app.
 - Fetch third-party media metadata at runtime through approved APIs where possible.
 - Do not display images or videos when browsing saved or shared collections. Collections should show configuration metadata only until a runtime feed is opened.
-- Treat NSFW metadata carefully. Shared NSFW feed configs and collections are visible only to authenticated users.
 
 Acceptable stored data:
 
@@ -107,6 +116,7 @@ Build mobile first. Treat the iPhone 15 Playwright project and narrow browser vi
 - Prefer single-column, thumb-reachable controls and compact progressive disclosure before adding desktop grids or wide toolbars.
 - Use responsive constraints that prevent overflow, clipped dialogs, hidden controls, and text collisions on mobile.
 - Keep desktop behavior as an enhancement of the mobile workflow, not a separate implementation.
+- `mobile-compact-controls` intentionally allows compact 40px controls. Do not increase those compact buttons to 44px to satisfy touch-target checks; preserve the 40px design and adjust tests for browser subpixel rounding when needed.
 - When UI, layout, interaction, dialogs, overlays, drag/drop, or fullscreen behavior changes, verify mobile and desktop before completion.
 - If mobile verification cannot run, report the exact blocker and do not claim mobile behavior passed.
 
@@ -181,16 +191,26 @@ Test ownership rules:
 
 1. Use Conventional Commits for commit messages, for example `feat: add feed timer` or `fix: prevent media persistence`.
 2. Do not create branches with the `codex/` prefix. Use descriptive feature branches without that prefix.
-3. Before completion, run lint, typecheck, tests, build, and browser verification when applicable.
+3. Before completion, run lint, typecheck, tests, build, and browser verification when applicable. The GitHub Actions CI/CD workflow mirrors these checks and also runs local Supabase DB tests.
 4. Ensure the lint pass includes ESLint and run the configured Prettier check.
 5. For overlay-style UI changes, include a viewport-bounds check in browser verification.
-6. Verify auth and RLS paths for signed-out, signed-in, owner, shared recipient, and NSFW cases when those areas changed.
+6. Verify auth and RLS paths for signed-out, signed-in, owner, and shared recipient cases when those areas changed.
 7. Check `git status --short --branch`.
 8. Summarize changed files and any checks that could not be run.
 
 ## Issue Tracking
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` for current workflow context, or install hooks with `bd hooks install` when hook-based workflow injection is wanted.
+
+Bead creation expectations:
+
+- Default to creating or claiming a bead before changing code, docs, configuration, tests, schema, workflows, or deployment setup unless the user explicitly asks not to track the task.
+- Create beads for bug fixes, feature work, refactors, investigation tasks, verification tasks, and docs/process changes that future agents should remember.
+- If a request is more than a tiny one-shot answer or command, make a bead. When unsure, create the bead; extra tracked context is better than lost chat context.
+- For large or multi-part work, create a parent `epic` or `feature` bead plus child task/bug beads with dependencies instead of one oversized issue.
+- When substantial follow-up work is discovered but not handled immediately, create a new bead. If it belongs to the current work, add a note or dependency instead of leaving it only in the chat.
+- Do not create duplicate beads. Search existing open, in-progress, and recently closed issues first when the task sounds similar.
+- At completion, close completed beads with a reason and leave any remaining follow-up as open beads.
 
 Quick reference:
 
@@ -226,5 +246,5 @@ Use the AGENTS.md maintenance subagent after substantial setup or workflow chang
 
 - Use MCP/tool servers according to the task. Prefer official or local project sources for current facts. See `docs/agent/tools.md`.
 - Use `impeccable` for frontend interface design, redesign, critique, audit, polish, and UI quality work.
-- When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task. See `docs/agent/skills.md`.
+- When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task. Prefer the repo-local copies in `skills/` for inspection and onboarding. See `docs/agent/skills.md`.
 - Supabase MCP is configured for project `ppxkvapcmblfkhregiwb`. Use it for schema inspection, migrations, RLS checks, and auth configuration when the current agent session exposes it; otherwise use Supabase CLI, local migrations, and official Supabase documentation.

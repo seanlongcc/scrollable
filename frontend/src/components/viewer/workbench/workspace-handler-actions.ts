@@ -1,8 +1,5 @@
-import type { Dispatch, SetStateAction } from "react";
-import { toast } from "sonner";
-
 import { pruneLocalFileCacheSets } from "@/lib/local-uploads/file-cache";
-import type { FixedGrid } from "@/lib/viewer/layout";
+import { toast } from "@/lib/toast";
 import {
   serializeWorkspace,
   serializeWorkspaceTemplate,
@@ -11,36 +8,33 @@ import { hasDuplicateLayoutName, limitLayoutName } from "./helpers";
 import {
   cloudLibraryUsage,
   layoutWithLocalSourcesAsEmptyBoxes,
+  serializedMetadataBytes,
   workspaceHasLocalSources,
-  type CloudUsageState,
   type SaveTarget,
 } from "./cloud-save-state";
+import type { WorkspaceHandlersInput } from "./workspace-handler-types";
 import {
   downloadScrollableJson,
   localFilesOmittedDescription,
 } from "./json-export-actions";
 import type {
-  AccountState,
-  FeedSession,
-  LayoutMode,
   RuntimeWorkspace,
-  SaveKind,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
-  WorkspaceLayer,
   WorkspaceTab,
-  WorkspaceTemplateSlot,
 } from "./types";
 import {
   deleteSavedTemplateRecord,
   deleteSavedWorkspaceRecord,
   prepareCloseWorkspaceTab,
+  prepareCloseWorkspaceTabs,
   prepareCreateWorkspaceTab,
   prepareOpenSavedTemplates,
   prepareOpenSavedWorkspaces,
   prepareSelectWorkspaceTab,
   prepareWorkspaceRename,
   prepareWorkspaceSnapshotApply,
+  MAX_OPEN_WORKSPACE_TABS,
 } from "./workspace-actions";
 import {
   createCurrentWorkspaceState,
@@ -52,78 +46,25 @@ import {
 } from "./workspace-state";
 import {
   openSaveDialogState,
-  renameActiveWorkspaceTab,
   validateLayoutSaveName,
   validateTemplateSaveName,
 } from "./workspace-save-state";
 import {
+  localCacheSetIdsFromWorkspacesAndSessions,
+  workspaceStatesForSavedWorkspace,
+  workspaceTabsForSavedWorkspace,
+} from "./workspace-save-as-actions";
+import {
+  prepareSavedTemplateRename,
+  prepareSavedWorkspaceRename,
+} from "./workspace-rename-actions";
+import { importCurrentWorkspaceJsonFile } from "./workspace-import-actions";
+import {
   deleteViewerCloudItem,
+  renameViewerCloudItem,
   upsertViewerSessionToAccount,
   upsertViewerTemplateToAccount,
 } from "./workspace-sync-actions";
-
-type WorkspaceHandlersInput = {
-  workspaceName: string;
-  saveName: string;
-  activeWorkspaceId: string;
-  workspaceTabs: WorkspaceTab[];
-  workspaceStates: Record<string, RuntimeWorkspace>;
-  savedWorkspaces: Record<string, SerializedWorkspace>;
-  savedTemplates: Record<string, SerializedWorkspaceTemplate>;
-  cloudWorkspaces: Record<string, SerializedWorkspace>;
-  cloudTemplates: Record<string, SerializedWorkspaceTemplate>;
-  saveTarget: SaveTarget;
-  libraryStorageTarget: SaveTarget;
-  account: AccountState;
-  editingWorkspaceId: string | null;
-  editingWorkspaceName: string;
-  layers: WorkspaceLayer[];
-  activeLayerId: string;
-  layoutMode: LayoutMode;
-  fixedGrid: FixedGrid;
-  globalSeconds: number;
-  sessions: FeedSession[];
-  templateSlots: WorkspaceTemplateSlot[];
-  createId: () => string;
-  hydrateRuntimeItems: (nextSessions: FeedSession[]) => void;
-  getLocalCacheStatusMessage: () => Promise<string | null>;
-  setSaveName: Dispatch<SetStateAction<string>>;
-  setSaveKind: Dispatch<SetStateAction<SaveKind>>;
-  setSaveError: Dispatch<SetStateAction<string | null>>;
-  setIsSaveOpen: Dispatch<SetStateAction<boolean>>;
-  setIsLayoutsOpen: Dispatch<SetStateAction<boolean>>;
-  setWorkspaceTabs: Dispatch<SetStateAction<WorkspaceTab[]>>;
-  setWorkspaceStates: Dispatch<
-    SetStateAction<Record<string, RuntimeWorkspace>>
-  >;
-  setSavedWorkspaces: Dispatch<
-    SetStateAction<Record<string, SerializedWorkspace>>
-  >;
-  setSavedTemplates: Dispatch<
-    SetStateAction<Record<string, SerializedWorkspaceTemplate>>
-  >;
-  setCloudWorkspaces: Dispatch<
-    SetStateAction<Record<string, SerializedWorkspace>>
-  >;
-  setCloudTemplates: Dispatch<
-    SetStateAction<Record<string, SerializedWorkspaceTemplate>>
-  >;
-  setCloudUsage: Dispatch<SetStateAction<CloudUsageState>>;
-  setActiveWorkspaceId: Dispatch<SetStateAction<string>>;
-  setEditingWorkspaceId: Dispatch<SetStateAction<string | null>>;
-  setEditingWorkspaceName: Dispatch<SetStateAction<string>>;
-  setLayers: Dispatch<SetStateAction<WorkspaceLayer[]>>;
-  setActiveLayerId: Dispatch<SetStateAction<string>>;
-  setLayoutMode: Dispatch<SetStateAction<LayoutMode>>;
-  setFixedGrid: Dispatch<SetStateAction<FixedGrid>>;
-  setGlobalSeconds: Dispatch<SetStateAction<number>>;
-  setTemplateSlots: Dispatch<SetStateAction<WorkspaceTemplateSlot[]>>;
-  setSessions: Dispatch<SetStateAction<FeedSession[]>>;
-  setGalleryIndexes: Dispatch<SetStateAction<Record<string, number>>>;
-  setSelectedId: Dispatch<SetStateAction<string | null>>;
-  setMaximizedId: Dispatch<SetStateAction<string | null>>;
-  setPendingTemplateSlotId: Dispatch<SetStateAction<string | null>>;
-};
 
 export function useWorkspaceHandlers({
   workspaceName,
@@ -205,7 +146,10 @@ export function useWorkspaceHandlers({
         return;
       }
 
-      const current = currentWorkspaceState(validation.name);
+      const snapshotId = targetWorkspaces[activeWorkspaceId]
+        ? createId()
+        : activeWorkspaceId;
+      const current = currentWorkspaceState(validation.name, snapshotId);
       const serialized = serializeWorkspace(current);
       const hasLocalSources = workspaceHasLocalSources(serialized);
       const snapshot = layoutWithLocalSourcesAsEmptyBoxes(serialized);
@@ -227,6 +171,10 @@ export function useWorkspaceHandlers({
         ...cloudWorkspaces,
         [snapshot.id]: snapshot,
       };
+      const nextTabs = activeWorkspaceTabsForSave(snapshot.id, snapshot.name);
+      setWorkspaceTabs(nextTabs);
+      setWorkspaceStates(activeWorkspaceStatesForSave(current));
+      setActiveWorkspaceId(snapshot.id);
       setCloudWorkspaces(nextCloudWorkspaces);
       updateCloudUsage(nextCloudWorkspaces, cloudTemplates);
       if (hasLocalSources) {
@@ -240,17 +188,21 @@ export function useWorkspaceHandlers({
       return;
     }
 
-    const nextTabs = renameActiveWorkspaceTab({
-      workspaceTabs,
-      activeWorkspaceId,
-      name: validation.name,
-    });
-    const { nextSaved } = persistCurrentWorkspace(validation.name, nextTabs);
+    const snapshotId = targetWorkspaces[activeWorkspaceId]
+      ? createId()
+      : activeWorkspaceId;
+    const nextTabs = activeWorkspaceTabsForSave(snapshotId, validation.name);
+    const { nextSaved } = persistCurrentWorkspace(
+      validation.name,
+      nextTabs,
+      snapshotId,
+    );
 
     const cacheStatus = await getLocalCacheStatusMessage();
     toast.success(
       ["Layout saved locally", cacheStatus].filter(Boolean).join(" · "),
     );
+    setActiveWorkspaceId(snapshotId);
     void pruneLocalFileCacheSets(
       localCacheSetIdsFromWorkspacesAndSessions(nextSaved, sessions),
     );
@@ -262,7 +214,6 @@ export function useWorkspaceHandlers({
       saveTarget === "cloud" ? cloudTemplates : savedTemplates;
     const validation = validateTemplateSaveName({
       name: saveName,
-      activeWorkspaceId,
       layoutMode,
       savedTemplates: targetTemplates,
     });
@@ -277,9 +228,14 @@ export function useWorkspaceHandlers({
         return;
       }
 
-      const current = currentWorkspaceState(validation.name);
+      const snapshotId = targetTemplates[activeWorkspaceId]
+        ? createId()
+        : activeWorkspaceId;
+      const current = currentWorkspaceState(workspaceName);
       const snapshot = serializeWorkspaceTemplate({
         ...current,
+        id: snapshotId,
+        name: validation.name,
         templateSlots,
       });
       const result = await upsertViewerTemplateToAccount({
@@ -306,7 +262,10 @@ export function useWorkspaceHandlers({
       return;
     }
 
-    persistCurrentTemplate(validation.name);
+    const snapshotId = targetTemplates[activeWorkspaceId]
+      ? createId()
+      : activeWorkspaceId;
+    persistCurrentTemplate(validation.name, snapshotId);
     toast.success("Template saved locally");
     setIsSaveOpen(false);
   }
@@ -331,16 +290,32 @@ export function useWorkspaceHandlers({
     toast.success("Exported layout JSON");
   }
 
+  function importCurrentWorkspaceJson() {
+    importCurrentWorkspaceJsonFile({
+      activeWorkspaceId,
+      workspaceName,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+      setWorkspaceTabs,
+      setWorkspaceStates,
+      setEditingWorkspaceId,
+      setEditingWorkspaceName,
+      applyWorkspaceSnapshot,
+    });
+  }
+
   function persistCurrentWorkspace(
     nameOverride = workspaceName,
     tabsOverride = workspaceTabs,
+    idOverride = activeWorkspaceId,
   ) {
-    const current = currentWorkspaceState(nameOverride);
+    const current = currentWorkspaceState(nameOverride, idOverride);
     const { snapshot, nextSaved, store } = persistWorkspaceSnapshot(
       current,
       savedWorkspaces,
     );
-    const nextStates = { ...workspaceStates, [current.id]: current };
+    const nextStates = activeWorkspaceStatesForSave(current);
     setWorkspaceTabs(tabsOverride);
     setWorkspaceStates(nextStates);
     setSavedWorkspaces(nextSaved);
@@ -348,10 +323,14 @@ export function useWorkspaceHandlers({
     return { snapshot, nextSaved, store };
   }
 
-  function persistCurrentTemplate(nameOverride = workspaceName) {
-    const current = currentWorkspaceState(nameOverride);
+  function persistCurrentTemplate(
+    nameOverride = workspaceName,
+    idOverride = activeWorkspaceId,
+  ) {
+    const current = currentWorkspaceState(workspaceName);
+    const templateSource = { ...current, id: idOverride, name: nameOverride };
     const { snapshot, nextTemplates, store } = persistTemplateSnapshot(
-      current,
+      templateSource,
       savedTemplates,
       templateSlots,
     );
@@ -363,9 +342,10 @@ export function useWorkspaceHandlers({
 
   function currentWorkspaceState(
     nameOverride = workspaceName,
+    idOverride = activeWorkspaceId,
   ): RuntimeWorkspace {
     return createCurrentWorkspaceState({
-      activeWorkspaceId,
+      activeWorkspaceId: idOverride,
       name: nameOverride,
       layers,
       activeLayerId,
@@ -374,6 +354,23 @@ export function useWorkspaceHandlers({
       globalSeconds,
       sessions,
       templateSlots,
+    });
+  }
+
+  function activeWorkspaceTabsForSave(id: string, name: string) {
+    return workspaceTabsForSavedWorkspace({
+      workspaceTabs,
+      activeWorkspaceId,
+      id,
+      name,
+    });
+  }
+
+  function activeWorkspaceStatesForSave(current: RuntimeWorkspace) {
+    return workspaceStatesForSavedWorkspace({
+      workspaceStates,
+      activeWorkspaceId,
+      current,
     });
   }
 
@@ -400,6 +397,10 @@ export function useWorkspaceHandlers({
       savedWorkspaces,
       createId,
     });
+    if (!nextState) {
+      toast.error(`Maximum ${MAX_OPEN_WORKSPACE_TABS} open layouts`);
+      return;
+    }
 
     setWorkspaceTabs(nextState.nextTabs);
     setWorkspaceStates(nextState.nextStates);
@@ -505,6 +506,29 @@ export function useWorkspaceHandlers({
     );
   }
 
+  function closeWorkspaceTabs(ids: string[]) {
+    const current = currentWorkspaceState();
+    const nextState = prepareCloseWorkspaceTabs({
+      ids,
+      current,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces,
+      createId,
+    });
+
+    setWorkspaceTabs(nextState.nextTabs);
+    setWorkspaceStates(nextState.nextStates);
+    setActiveWorkspaceId(nextState.activeWorkspaceId);
+    applyWorkspaceSnapshot(nextState.activeSnapshot);
+    writeWorkspaceStore(savedWorkspaces, nextState.activeWorkspaceId);
+    writeWorkspaceSessionStore(
+      nextState.nextTabs,
+      nextState.activeWorkspaceId,
+      savedWorkspaces,
+    );
+  }
+
   function openSavedWorkspaces(ids: string[]) {
     const current = currentWorkspaceState();
     const sourceWorkspaces =
@@ -517,7 +541,10 @@ export function useWorkspaceHandlers({
       savedWorkspaces: sourceWorkspaces,
     });
 
-    if (!nextState) return;
+    if (!nextState) {
+      toast.error(`Maximum ${MAX_OPEN_WORKSPACE_TABS} open layouts`);
+      return;
+    }
 
     setWorkspaceTabs(nextState.nextTabs);
     setWorkspaceStates(nextState.nextStates);
@@ -546,7 +573,10 @@ export function useWorkspaceHandlers({
       createId,
     });
 
-    if (!nextState) return;
+    if (!nextState) {
+      toast.error(`Maximum ${MAX_OPEN_WORKSPACE_TABS} open layouts`);
+      return;
+    }
 
     setWorkspaceTabs(nextState.nextTabs);
     setWorkspaceStates(nextState.nextStates);
@@ -622,6 +652,105 @@ export function useWorkspaceHandlers({
     if (deleted) toast.success(`Deleted ${deleted.name}`);
   }
 
+  async function renameSavedWorkspace({
+    id,
+    name,
+    target = "local",
+  }: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) {
+    const sourceWorkspaces =
+      target === "cloud" ? cloudWorkspaces : savedWorkspaces;
+    const prepared = prepareSavedWorkspaceRename({
+      id,
+      name,
+      workspaceTabs,
+      workspaceStates,
+      savedWorkspaces: sourceWorkspaces,
+    });
+    if (!prepared.ok) return prepared.error;
+
+    const { renamed, nextTabs, nextStates } = prepared.value;
+
+    if (target === "cloud") {
+      const result = await renameViewerCloudItem({
+        kind: "layout",
+        id,
+        name: renamed.name,
+        metadataBytes: serializedMetadataBytes(renamed),
+      });
+      if (result.status === "error") {
+        toast.error(result.error);
+        return result.error;
+      }
+
+      const nextCloudWorkspaces = { ...cloudWorkspaces, [id]: renamed };
+      setCloudWorkspaces(nextCloudWorkspaces);
+      updateCloudUsage(nextCloudWorkspaces, cloudTemplates);
+      setWorkspaceTabs(nextTabs);
+      setWorkspaceStates(nextStates);
+      toast.success("Layout renamed");
+      return null;
+    }
+
+    const nextSaved = { ...savedWorkspaces, [id]: renamed };
+    writeWorkspaceStore(nextSaved, activeWorkspaceId);
+    writeWorkspaceSessionStore(nextTabs, activeWorkspaceId, nextSaved);
+    setSavedWorkspaces(nextSaved);
+    setWorkspaceTabs(nextTabs);
+    setWorkspaceStates(nextStates);
+    toast.success("Layout renamed");
+    return null;
+  }
+
+  async function renameSavedTemplate({
+    id,
+    name,
+    target = "local",
+  }: {
+    id: string;
+    name: string;
+    target?: SaveTarget;
+  }) {
+    const sourceTemplates =
+      target === "cloud" ? cloudTemplates : savedTemplates;
+    const prepared = prepareSavedTemplateRename({
+      id,
+      name,
+      savedTemplates: sourceTemplates,
+    });
+    if (!prepared.ok) return prepared.error;
+
+    const { renamed } = prepared.value;
+
+    if (target === "cloud") {
+      const result = await renameViewerCloudItem({
+        kind: "template",
+        id,
+        name: renamed.name,
+        metadataBytes: serializedMetadataBytes(renamed),
+      });
+      if (result.status === "error") {
+        toast.error(result.error);
+        return result.error;
+      }
+
+      const nextCloudTemplates = { ...cloudTemplates, [id]: renamed };
+      setCloudTemplates(nextCloudTemplates);
+      updateCloudUsage(cloudWorkspaces, nextCloudTemplates);
+      toast.success("Template renamed");
+      return null;
+    }
+
+    const nextTemplates = { ...savedTemplates, [id]: renamed };
+    writeWorkspaceTemplateStore(nextTemplates);
+    setSavedTemplates(nextTemplates);
+    toast.success("Template renamed");
+    return null;
+  }
+
   function applyWorkspaceSnapshot(
     snapshot: SerializedWorkspace | RuntimeWorkspace,
   ) {
@@ -650,36 +779,15 @@ export function useWorkspaceHandlers({
     beginWorkspaceRename,
     commitWorkspaceRename,
     closeWorkspaceTab,
+    closeWorkspaceTabs,
     openSavedWorkspaces,
     openSavedTemplates,
     deleteSavedWorkspace,
     deleteSavedTemplate,
+    renameSavedWorkspace,
+    renameSavedTemplate,
     exportCurrentWorkspaceJson,
+    importCurrentWorkspaceJson,
     applyWorkspaceSnapshot,
   };
-}
-
-function localCacheSetIdsFromWorkspacesAndSessions(
-  savedWorkspaces: Record<string, SerializedWorkspace>,
-  sessions: FeedSession[],
-) {
-  const ids = new Set<string>();
-
-  for (const workspace of Object.values(savedWorkspaces)) {
-    for (const session of workspace.sessions) {
-      const sourceConfig = session.sourceConfig;
-      if (sourceConfig.kind === "local" && sourceConfig.cacheSetId) {
-        ids.add(sourceConfig.cacheSetId);
-      }
-    }
-  }
-
-  for (const session of sessions) {
-    const sourceConfig = session.sourceConfig;
-    if (sourceConfig.kind === "local" && sourceConfig.cacheSetId) {
-      ids.add(sourceConfig.cacheSetId);
-    }
-  }
-
-  return ids;
 }
