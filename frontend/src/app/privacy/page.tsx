@@ -48,7 +48,6 @@ export default function PrivacyPage() {
                 "account information, such as email address, username, authentication identifiers, and password credentials handled by our authentication providers;",
                 "optional profile information, such as display name;",
                 "feed configuration names and user-pasted source URLs, including Reddit post permalinks and subreddit listing URLs;",
-                "collection names, descriptions, tags, NSFW flags, share settings, ownership, and timestamps;",
                 "viewer workspace/session metadata, including tab names, layout mode, grid dimensions, timer settings, slots, layers, and source configuration metadata;",
                 "free-layout template metadata, including empty box rectangles, layers, active layer, and timer settings;",
                 `support, privacy, or abuse-report messages sent to ${contactEmail}.`,
@@ -60,7 +59,7 @@ export default function PrivacyPage() {
             {
               title: "Sensitive Information",
               paragraphs: [
-                "We do not ask you to provide sensitive personal information. Some saved metadata, such as tags, NSFW flags, source names, or user-pasted URLs, may reveal preferences or interests if you choose to provide them. Do not save or share metadata you do not want others to see.",
+                "We do not ask you to provide sensitive personal information. Some saved metadata, such as source names or user-pasted URLs, may reveal preferences or interests if you choose to provide them. Do not save or share metadata you do not want others to see.",
               ],
             },
             {
@@ -120,7 +119,7 @@ export default function PrivacyPage() {
           title: "4. How Do We Process Your Information?",
           paragraphs: ["We process information to:"],
           bullets: [
-            "provide the viewer, multi-view layouts, saved configurations, collections, templates, and shared links;",
+            "provide the viewer, multi-view layouts, saved configurations, templates, and shared links;",
             "create, authenticate, and manage accounts;",
             "fetch user-directed runtime sources;",
             "remember user preferences and local layouts;",
@@ -223,7 +222,7 @@ export default function PrivacyPage() {
             "identifiers, such as email address, username, account identifiers, online identifiers, and IP address;",
             "internet or similar network activity, such as pages or features used, request logs, diagnostics, and interactions with Scrollable;",
             "imprecise geolocation data inferred from IP address or provider logs;",
-            "user-provided content and configuration metadata, such as saved source names, tags, NSFW flags, and user-pasted URLs.",
+            "user-provided content and configuration metadata, such as saved source names and user-pasted URLs.",
           ],
           footerParagraphs: [
             "Scrollable has not sold personal information or shared personal information for targeted advertising in the past 12 months. Scrollable does not knowingly sell or share personal information of minors.",

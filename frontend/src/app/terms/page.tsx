@@ -33,7 +33,7 @@ export default function TermsPage() {
         {
           title: "1. Our Services",
           paragraphs: [
-            "Scrollable is a mobile-first media viewer that lets users build personal viewing sessions from user-directed sources, including Reddit post or listing URLs, other supported media URLs, and local files. Scrollable supports single-feed viewing, multi-view layouts, grids, free-form layouts, layers, timers, saved configurations, collections, templates, and shared metadata links.",
+            "Scrollable is a mobile-first media viewer that lets users build personal viewing sessions from user-directed sources, including Reddit post or listing URLs, other supported media URLs, and local files. Scrollable supports single-feed viewing, multi-view layouts, grids, free-form layouts, layers, timers, saved configurations, templates, and shared metadata links.",
             "Scrollable does not post, comment, vote, message users, moderate communities, or operate automated Reddit accounts. Reddit is a runtime content source only.",
             "The information provided through the Services is not intended for use by any person or entity in any jurisdiction where that use would be contrary to law or regulation. If you access the Services from outside the United States, you do so on your own initiative and are responsible for compliance with local laws.",
             "The Services are not tailored to comply with industry-specific regulations such as HIPAA, FISMA, or GLBA. You may not use the Services if your use would subject Scrollable to those laws.",
@@ -71,7 +71,7 @@ export default function TermsPage() {
         {
           title: "4. User Registration",
           paragraphs: [
-            "Some features require an account, including cloud-saved configurations, collections, layouts, templates, and shared links. Authentication may be provided through Supabase, email and password, or Google sign-in.",
+            "Some features require an account, including cloud-saved configurations, layouts, templates, and shared links. Authentication may be provided through Supabase, email and password, or Google sign-in.",
             "You agree to keep your account credentials confidential. You are responsible for all activity under your account. We may remove, reclaim, or change a username if we determine it is inappropriate, obscene, misleading, infringing, or otherwise objectionable.",
           ],
         },
@@ -106,7 +106,7 @@ export default function TermsPage() {
         {
           title: "6. User Generated Contributions",
           paragraphs: [
-            'The Services do not provide a general public posting platform. The Services may let you create, save, share, or transmit account information, configuration metadata, collection metadata, layout metadata, templates, source URLs, tags, NSFW flags, support messages, feedback, and similar material ("Contributions").',
+            'The Services do not provide a general public posting platform. The Services may let you create, save, share, or transmit account information, configuration metadata, layout metadata, templates, source URLs, support messages, feedback, and similar material ("Contributions").',
             "You are responsible for your Contributions. You represent and warrant that your Contributions:",
           ],
           bullets: [
@@ -123,7 +123,7 @@ export default function TermsPage() {
         {
           title: "7. Contribution License",
           paragraphs: [
-            "When you save configurations, collections, viewer sessions, templates, source URLs, metadata, or shared links, you grant Scrollable a limited license to store, process, display, transmit, and share that data only as needed to operate Scrollable and the features you use.",
+            "When you save configurations, viewer sessions, templates, source URLs, metadata, or shared links, you grant Scrollable a limited license to store, process, display, transmit, and share that data only as needed to operate Scrollable and the features you use.",
             "We do not claim ownership of Reddit posts, Reddit media, third-party media, local files you select, or your saved configuration metadata. Third-party content remains owned by its original owners or rightsholders.",
             "By sending us suggestions, ideas, feedback, or other submissions about the Services, you agree that we may use and share that feedback for any lawful purpose without compensation to you.",
           ],

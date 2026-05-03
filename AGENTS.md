@@ -72,7 +72,7 @@ These rules are core product constraints. Keep them visible here because violati
 - Never persist absolute local filesystem paths.
 - Store only user-created configuration data and operational records needed for the app.
 - Fetch third-party media metadata at runtime through approved APIs where possible.
-- Do not display images or videos when browsing saved or shared collections. Collections should show configuration metadata only until a runtime feed is opened.
+- Do not display images or videos when browsing saved or shared configurations/workspaces. Saved and shared surfaces should show configuration metadata only until a runtime feed is opened.
 
 Acceptable stored data:
 
@@ -80,8 +80,7 @@ Acceptable stored data:
 - User profile/preferences needed for the app.
 - Feed configurations, including user-pasted Reddit post permalinks and subreddit listing URLs.
 - Viewer workspace/session layout metadata in `viewer_sessions`, including tab names, layout mode, grid dimensions, source configuration metadata, timer settings, slots, and free-layout rectangles.
-- Collections of feed configurations.
-- Tags, NSFW flags, sharing settings, ownership, timestamps, and audit/security metadata.
+- Sharing settings, ownership, timestamps, and audit/security metadata for saved configurations/workspaces.
 - Runtime logs or rate-limit records that do not contain third-party media payloads.
 - User-selected local image/video/audio file byte copies in browser IndexedDB for saved local layouts, plus metadata-only local `cacheSetId` references in saved layouts.
 - `display_options` may store display/config preferences only, not third-party media metadata.
@@ -101,7 +100,6 @@ Prefer these boundaries when implementation starts:
 - `frontend/src/viewer/templates`: reusable free-layout empty box templates. Keep templates source-empty and metadata-only.
 - `frontend/src/local-uploads`: object URL lifecycle and browser IndexedDB Blob cache for user-selected local files. Do not store local paths.
 - `frontend/src/configurations`: saved feed configs and validation.
-- `frontend/src/collections`: grouping, sharing, tags, NSFW flags, and browse views.
 - `frontend/src/auth`: Supabase auth integration and provider setup.
 - `frontend/src/data-access`: Supabase queries/mutations and RLS-aware access patterns.
 - `frontend/src/ui`: shadcn/ui components, layout primitives, and mobile-first interaction controls.
@@ -197,6 +195,7 @@ Test ownership rules:
 6. Verify auth and RLS paths for signed-out, signed-in, owner, and shared recipient cases when those areas changed.
 7. Check `git status --short --branch`.
 8. Summarize changed files and any checks that could not be run.
+9. If durable project facts changed, update the relevant Serena memories before finishing. Prefer assigning this to a background Serena memory refresh subagent while implementation or verification continues, then review the memory changes before completion.
 
 ## Issue Tracking
 
@@ -230,8 +229,11 @@ Recommended subagent usage:
 - Code review subagent: inspect changed files for bugs, regressions, data persistence violations, auth/RLS gaps, mobile UI regressions, and missing tests.
 - Testing subagent: run or design focused verification for unit tests, integration tests, browser flows, and mobile layouts.
 - Continuous refactoring subagent: while substantial feature work is underway, keep a parallel pass focused on small, behavior-preserving cleanup such as removing duplication, tightening types, improving names, simplifying component boundaries, and aligning code with existing project patterns.
+- Serena memory refresh subagent: while another substantial task is running, keep a background pass focused on refreshing relevant Serena memories so durable project context stays current.
 - AGENTS.md maintenance subagent: review and update this file when project rules, architecture, commands, MCP servers, skills, deployment setup, auth/data constraints, or testing workflow change.
 - Keep subagent tasks bounded and non-overlapping.
+- Keep Serena memory refresh work read-focused and non-overlapping with implementation work. Do not ask it to edit files already owned by another subagent or active task.
+- Serena memories must stay high-level and durable. Do not store secrets, local paths, third-party media URLs, raw provider payloads, raw Reddit IDs, transient runtime state, or other privacy-sensitive data.
 - Do not ask subagents to modify the same files in parallel unless ownership boundaries are explicit.
 
 Use the AGENTS.md maintenance subagent after substantial setup or workflow changes, including:
@@ -245,6 +247,9 @@ Use the AGENTS.md maintenance subagent after substantial setup or workflow chang
 ## Tools And Skills
 
 - Use MCP/tool servers according to the task. Prefer official or local project sources for current facts. See `docs/agent/tools.md`.
+- Use Serena MCP for repository-aware code work when available. At task start, activate `/home/seanlongcc/repos/scrollable`, check onboarding status, and read only relevant memories before broad code navigation.
+- Prefer Serena semantic tools for symbol discovery, references, and symbol-aware edits when changing TypeScript/React code. Use local shell tools like `rg`, `sed`, and package scripts for fast text search, docs, and verification.
+- Refresh Serena memories after substantial changes to stack, commands, architecture, testing workflow, Supabase schema/RLS, deployment, or project rules. Prefer using a background Serena memory refresh subagent during substantial work when the runtime supports non-overlapping subagents.
 - Use `impeccable` for frontend interface design, redesign, critique, audit, polish, and UI quality work.
 - When a skill is available and its trigger matches the task, read its `SKILL.md` and follow it. Use the minimal set of skills that covers the task. Prefer the repo-local copies in `skills/` for inspection and onboarding. See `docs/agent/skills.md`.
 - Supabase MCP is configured for project `ppxkvapcmblfkhregiwb`. Use it for schema inspection, migrations, RLS checks, and auth configuration when the current agent session exposes it; otherwise use Supabase CLI, local migrations, and official Supabase documentation.
