@@ -12,11 +12,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { placeCaretAfterInputValue } from "./fields";
-import { DEFAULT_REDDIT_MEDIA_LIMIT, MAX_REDDIT_MEDIA_LIMIT } from "./types";
-import type { FeedSession } from "./types";
+import { RedditSourceEditControls } from "./reddit-source-edit-controls";
+import { DEFAULT_REDDIT_MEDIA_LIMIT } from "./types";
+import type { FeedSession, RedditListingSort, RedditTimeRange } from "./types";
 import {
-  clamp,
+  buildRedditUrlsFromListingControls,
+  redditListingControlsFromUrls,
   redditHashesForItemId,
   redditHiddenItemHashes,
   redditItemHashInput,
@@ -54,6 +55,18 @@ export function EditSourceDialog({
   type LocalEditEntry = { file: File; previewUrl?: string };
   const [redditUrls, setRedditUrls] = useState<string[]>(
     source.sourceConfig.kind === "reddit" ? source.sourceConfig.urls : [],
+  );
+  const initialRedditListingControls = redditListingControlsFromUrls(
+    source.sourceConfig.kind === "reddit" ? source.sourceConfig.urls : [],
+  );
+  const [subredditName, setSubredditName] = useState(
+    initialRedditListingControls.subredditName,
+  );
+  const [redditSort, setRedditSort] = useState<RedditListingSort>(
+    initialRedditListingControls.redditSort,
+  );
+  const [redditTimeRange, setRedditTimeRange] = useState<RedditTimeRange>(
+    initialRedditListingControls.redditTimeRange,
   );
   const [redditLimit, setRedditLimit] = useState(
     source.sourceConfig.kind === "reddit"
@@ -169,6 +182,33 @@ export function EditSourceDialog({
     );
   }
 
+  function updateRedditListingControls(next: {
+    subredditName?: string;
+    redditSort?: RedditListingSort;
+    redditTimeRange?: RedditTimeRange;
+  }) {
+    const nextSubredditName = next.subredditName ?? subredditName;
+    const nextRedditSort = next.redditSort ?? redditSort;
+    const nextRedditTimeRange = next.redditTimeRange ?? redditTimeRange;
+
+    setSubredditName(nextSubredditName);
+    setRedditSort(nextRedditSort);
+    setRedditTimeRange(nextRedditTimeRange);
+
+    try {
+      setRedditUrls(
+        buildRedditUrlsFromListingControls({
+          subredditName: nextSubredditName,
+          redditSort: nextRedditSort,
+          redditTimeRange: nextRedditTimeRange,
+          fallbackUrls: redditUrls,
+        }),
+      );
+    } catch {
+      return;
+    }
+  }
+
   function save() {
     if (isReddit) {
       onSaveReddit(
@@ -244,36 +284,14 @@ export function EditSourceDialog({
                   />
                 ))}
               </div>
-              <div className="w-full">
-                <Label className="grid w-full gap-1 text-xs font-medium text-muted-foreground">
-                  Reddit media count
-                  <Input
-                    aria-label="Reddit media count"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    min={1}
-                    max={MAX_REDDIT_MEDIA_LIMIT}
-                    value={redditLimit || ""}
-                    onFocus={(event) =>
-                      placeCaretAfterInputValue(event.currentTarget)
-                    }
-                    onChange={(event) => {
-                      const nextDraft = event.target.value;
-                      if (!nextDraft.trim()) {
-                        setRedditLimit(0);
-                        return;
-                      }
-
-                      const next = Number(nextDraft);
-                      if (!Number.isInteger(next)) return;
-
-                      setRedditLimit(clamp(next, 1, MAX_REDDIT_MEDIA_LIMIT));
-                    }}
-                    className="h-9 text-center text-foreground"
-                  />
-                </Label>
-              </div>
+              <RedditSourceEditControls
+                subredditName={subredditName}
+                redditSort={redditSort}
+                redditTimeRange={redditTimeRange}
+                redditLimit={redditLimit}
+                onListingChange={updateRedditListingControls}
+                onLimitChange={setRedditLimit}
+              />
               <div className="grid min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-border bg-background/45 p-3">
                 <div className="grid w-full grid-cols-[minmax(0,1fr)_5rem] items-center gap-2">
                   <h3 className="text-xs font-medium text-muted-foreground">

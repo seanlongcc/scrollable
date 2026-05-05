@@ -11,7 +11,7 @@ vi.mock("@/lib/reddit/client", () => ({
 }));
 
 describe("GET /api/reddit/listing", () => {
-  it("passes custom Reddit media limits to the runtime client", async () => {
+  it("passes custom Reddit post limits to the runtime client", async () => {
     await GET(
       new Request(
         "https://scrollable.test/api/reddit/listing?urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fkpop%2Ftop%2F%3Ft%3Dweek&allowNsfw=true&limit=24",

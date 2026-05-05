@@ -46,7 +46,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     });
   });
 
-  it("sends subreddit listing URLs with a custom media count", async () => {
+  it("sends subreddit listing URLs with a custom post count", async () => {
     const fetchMock = stubRuntimeFetch([
       {
         id: "runtime-kpop",
@@ -69,8 +69,8 @@ describe("FeedWorkbench Reddit source inputs", () => {
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.click(await screen.findByRole("button", { name: "Reddit" }));
-    await user.clear(screen.getByLabelText("Reddit media count"));
-    await user.type(screen.getByLabelText("Reddit media count"), "24");
+    await user.clear(screen.getByLabelText("Reddit post count"));
+    await user.type(screen.getByLabelText("Reddit post count"), "24");
     await user.click(await screen.findByRole("button", { name: "Reddit" }));
     await user.click(screen.getByRole("button", { name: "Use Reddit links" }));
     await user.type(
@@ -83,11 +83,11 @@ describe("FeedWorkbench Reddit source inputs", () => {
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
     expectRedditJsonRequest(fetchMock, {
-      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=24",
     });
   });
 
-  it("allows subreddit media counts up to 200", async () => {
+  it("allows subreddit post counts up to 100", async () => {
     const fetchMock = stubRuntimeFetch([
       {
         id: "runtime-kpop",
@@ -110,18 +110,18 @@ describe("FeedWorkbench Reddit source inputs", () => {
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.click(await screen.findByRole("button", { name: "Reddit" }));
-    await user.clear(screen.getByLabelText("Reddit media count"));
-    await user.type(screen.getByLabelText("Reddit media count"), "200");
+    await user.clear(screen.getByLabelText("Reddit post count"));
+    await user.type(screen.getByLabelText("Reddit post count"), "100");
     await user.type(screen.getByLabelText("Subreddit name"), "kpop");
     await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
     expectRedditJsonRequest(fetchMock, {
-      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=100",
     });
   });
 
-  it("does not focus the media count field when editing a Reddit source", async () => {
+  it("does not focus the post count field when editing a Reddit source", async () => {
     stubRuntimeFetch();
 
     const user = userEvent.setup();
@@ -136,7 +136,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
       name: "Edit source",
     });
     expect(
-      within(editDialog).getByLabelText("Reddit media count"),
+      within(editDialog).getByLabelText("Reddit post count"),
     ).not.toHaveFocus();
   });
 
@@ -183,7 +183,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
     expectRedditJsonRequest(fetchMock, {
-      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=10",
     });
   });
 
@@ -216,7 +216,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
     expectRedditJsonRequest(fetchMock, {
-      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=10",
     });
   });
 
@@ -276,11 +276,11 @@ describe("FeedWorkbench Reddit source inputs", () => {
     expect(screen.getByAltText("Runtime aww")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expectRedditJsonRequest(fetchMock, {
-      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      url: "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=10",
     });
     expectRedditJsonRequest(fetchMock, {
       index: 1,
-      url: "https://www.reddit.com/r/aww/top/.json?raw_json=1&t=week&limit=200",
+      url: "https://www.reddit.com/r/aww/top/.json?raw_json=1&t=week&limit=10",
     });
   });
 

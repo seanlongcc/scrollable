@@ -1,6 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { loadLocalFiles } from "@/lib/local-uploads/file-cache";
-import { fetchPublicRedditRuntimePostLinks } from "@/lib/reddit/public-client";
 import type {
   UrlResolverHint,
   UrlRuntimeResolution,
@@ -22,6 +21,11 @@ import {
   urlHostLabel,
 } from "./helpers";
 import { getUploadableFiles } from "./local-sources";
+import {
+  createRedditRuntimePostCache,
+  fetchRedditRuntimePostItems,
+  type RedditRuntimePostCache,
+} from "./reddit-runtime-cache";
 import {
   buildEditedUrlSourceConfig,
   resolveEditedRedditHiddenItemHashes,
@@ -106,15 +110,19 @@ export async function createRedditSessionSources({
   urls,
   limit,
   sourceGroupingMode,
+  redditCache = createRedditRuntimePostCache(),
 }: {
   urls: string[];
   limit: number;
   sourceGroupingMode: SourceGroupingMode;
+  redditCache?: RedditRuntimePostCache;
 }): Promise<RuntimeSessionSource[]> {
   if (sourceGroupingMode === "separate") {
     return Promise.all(
       urls.map(async (url) => {
-        const allItems = await fetchRedditRuntimeItems([url], limit);
+        const allItems = await fetchRedditRuntimeItems([url], limit, {
+          redditCache,
+        });
         const items = randomizeRuntimeItems(allItems);
 
         return {
@@ -133,7 +141,7 @@ export async function createRedditSessionSources({
     );
   }
 
-  const allItems = await fetchRedditRuntimeItems(urls, limit);
+  const allItems = await fetchRedditRuntimeItems(urls, limit, { redditCache });
   const items = randomizeRuntimeItems(allItems);
 
   return [
@@ -155,14 +163,22 @@ export async function createRedditSessionSources({
 export async function fetchRedditRuntimeItems(
   urls: string[],
   limit = DEFAULT_REDDIT_MEDIA_LIMIT,
+  {
+    allowNsfw = true,
+    redditCache,
+  }: {
+    allowNsfw?: boolean;
+    redditCache?: RedditRuntimePostCache;
+  } = {},
 ) {
-  const result = await fetchPublicRedditRuntimePostLinks({
+  const items = await fetchRedditRuntimePostItems({
     urls,
-    allowNsfw: true,
+    allowNsfw,
     limit,
+    cache: redditCache,
   });
 
-  return flattenRuntimeMediaItems(result.items);
+  return flattenRuntimeMediaItems(items);
 }
 
 export function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
@@ -217,7 +233,9 @@ export async function fetchEditedRedditSource({
     hiddenItemIds,
     unhiddenItemHashes,
   });
-  const allItems = await fetchRedditRuntimeItems(urls, limit);
+  const allItems = await fetchRedditRuntimeItems(urls, limit, {
+    redditCache: createRedditRuntimePostCache(),
+  });
   const items = await filterHiddenRedditItems(allItems, hiddenItemIdHashes);
 
   return {
@@ -250,18 +268,20 @@ export async function fetchEditedUrlSource({
 
 export async function fetchRuntimeItemsForSource(
   sourceConfig: PersistedSourceConfig,
+  redditCache?: RedditRuntimePostCache,
 ) {
   if (sourceConfig.kind !== "reddit") {
     return { items: [], allItems: undefined };
   }
 
-  const result = await fetchPublicRedditRuntimePostLinks({
-    urls: sourceConfig.urls,
-    allowNsfw: sourceConfig.allowNsfw,
-    limit: sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT,
-  });
-
-  const allItems = flattenRuntimeMediaItems(result.items);
+  const allItems = await fetchRedditRuntimeItems(
+    sourceConfig.urls,
+    sourceConfig.limit ?? DEFAULT_REDDIT_MEDIA_LIMIT,
+    {
+      allowNsfw: sourceConfig.allowNsfw,
+      redditCache,
+    },
+  );
   const items = await filterHiddenRedditItems(
     allItems,
     redditHiddenItemHashes(sourceConfig),
@@ -274,11 +294,23 @@ export async function fetchRuntimeItemsForSource(
   };
 }
 
+async function fetchRedditUrlRuntimeItems(
+  sourceConfig: UrlSourceConfig,
+  redditCache?: RedditRuntimePostCache,
+) {
+  return fetchRedditRuntimePostItems({
+    urls: [sourceConfig.url],
+    allowNsfw: true,
+    cache: redditCache,
+  });
+}
+
 export async function fetchUrlRuntimeItemsForSource(
   sourceConfig: UrlSourceConfig,
+  redditCache?: RedditRuntimePostCache,
 ) {
   if (isBrowserResolvedRedditUrl(sourceConfig.url)) {
-    return fetchRedditUrlRuntimeItemsForSource(sourceConfig);
+    return fetchRedditUrlRuntimeItemsForSource(sourceConfig, redditCache);
   }
 
   const params = new URLSearchParams({ url: sourceConfig.url });
@@ -324,12 +356,11 @@ export async function fetchUrlRuntimeItemsForSource(
 
 async function fetchRedditUrlRuntimeItemsForSource(
   sourceConfig: UrlSourceConfig,
+  redditCache?: RedditRuntimePostCache,
 ) {
-  const result = await fetchPublicRedditRuntimePostLinks({
-    urls: sourceConfig.url,
-    allowNsfw: true,
-  });
-  const items = flattenRuntimeMediaItems(result.items);
+  const items = flattenRuntimeMediaItems(
+    await fetchRedditUrlRuntimeItems(sourceConfig, redditCache),
+  );
   const title =
     sourceConfig.title ?? redditLinksTitle([sourceConfig.url], items);
   const urlResolution = {
@@ -410,19 +441,25 @@ export async function hydrateRuntimeSources({
   createLocalRuntimeItems: (files: File[]) => RuntimeFeedItem[];
   onError: (session: FeedSession, error: unknown) => void;
 }): Promise<RuntimeHydrationResult[]> {
+  const redditCache = createRedditRuntimePostCache();
+
   return Promise.all(
     sessions.map(async (session) => {
       try {
         const result =
           session.sourceConfig.kind === "reddit"
             ? {
-                ...(await fetchRuntimeItemsForSource(session.sourceConfig)),
+                ...(await fetchRuntimeItemsForSource(
+                  session.sourceConfig,
+                  redditCache,
+                )),
                 localFiles: undefined,
               }
             : session.sourceConfig.kind === "url"
               ? {
                   ...(await fetchUrlRuntimeItemsForSource(
                     session.sourceConfig,
+                    redditCache,
                   )),
                   localFiles: undefined,
                 }

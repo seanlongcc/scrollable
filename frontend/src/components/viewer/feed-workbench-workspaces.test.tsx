@@ -569,7 +569,7 @@ describe("FeedWorkbench workspaces", () => {
 
       if (
         requestUrl ===
-        "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200"
+        "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=24"
       ) {
         return {
           ok: true,
@@ -607,7 +607,7 @@ describe("FeedWorkbench workspaces", () => {
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/share/layout/reddit-wall");
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
+      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=24",
       { cache: "no-store" },
     );
     expect(

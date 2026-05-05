@@ -523,7 +523,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
     expect(await screen.findByAltText("Runtime image")).toBeInTheDocument();
     expect(screen.queryByText("No runtime media")).not.toBeInTheDocument();
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
-      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
+      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=24",
     );
   });
 

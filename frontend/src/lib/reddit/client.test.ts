@@ -47,7 +47,7 @@ describe("parseRedditPostLinksInput", () => {
     ).toThrow();
   });
 
-  it("parses subreddit listing URLs and a custom media count", () => {
+  it("parses subreddit listing URLs and a custom post count", () => {
     expect(
       parseRedditPostLinksInput({
         urls: [
@@ -65,14 +65,24 @@ describe("parseRedditPostLinksInput", () => {
     });
   });
 
-  it("accepts up to 200 Reddit source URLs", () => {
+  it("accepts up to 100 Reddit source URLs", () => {
     const urls = Array.from(
-      { length: 200 },
+      { length: 100 },
       (_entry, index) =>
         `https://www.reddit.com/r/pics/comments/post${index}/title/`,
     );
 
-    expect(parseRedditPostLinksInput({ urls }).urls).toHaveLength(200);
+    expect(parseRedditPostLinksInput({ urls }).urls).toHaveLength(100);
+  });
+
+  it("rejects more than 100 Reddit source URLs", () => {
+    const urls = Array.from(
+      { length: 101 },
+      (_entry, index) =>
+        `https://www.reddit.com/r/pics/comments/post${index}/title/`,
+    );
+
+    expect(() => parseRedditPostLinksInput({ urls })).toThrow();
   });
 });
 
@@ -180,7 +190,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://oauth.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      "https://oauth.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=1",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -245,12 +255,12 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=20",
       expect.any(Object),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=20",
       expect.any(Object),
     );
     expect(result.items.map((item) => item.id)).toEqual(["reddit:fallback"]);
@@ -319,7 +329,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=200",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=2",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -334,7 +344,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     expect(result.unsupportedIds).toEqual(["self"]);
   });
 
-  it("fetches the requested media count for each stacked subreddit listing", async () => {
+  it("fetches the requested post count for each stacked subreddit listing", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       const subreddit = url.includes("/r/aww/") ? "aww" : "kpop";

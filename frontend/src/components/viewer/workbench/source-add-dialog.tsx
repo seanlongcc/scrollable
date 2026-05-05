@@ -335,9 +335,9 @@ https://www.reddit.com/r/pics/top/?t=week`}
               )}
               <div className="grid gap-2">
                 <Label className="grid gap-1 text-xs leading-none font-medium text-muted-foreground">
-                  Reddit media count
+                  Reddit post count
                   <Input
-                    aria-label="Reddit media count"
+                    aria-label="Reddit post count"
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"

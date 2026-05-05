@@ -6,7 +6,7 @@ import {
 } from "@/lib/url-source/validation";
 
 export const DEFAULT_FEED_TIMER_SECONDS = 10;
-const MAX_REDDIT_SOURCE_URLS = 200;
+const MAX_REDDIT_SOURCE_URLS = 100;
 
 const REDDIT_LISTING_SORTS = new Set([
   "hot",

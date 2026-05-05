@@ -45,9 +45,9 @@ describe("parseFeedConfigInput", () => {
     ).toThrow(/postUrls/i);
   });
 
-  it("accepts up to 200 Reddit source URLs", () => {
+  it("accepts up to 100 Reddit source URLs", () => {
     const urls = Array.from(
-      { length: 200 },
+      { length: 100 },
       (_entry, index) =>
         `https://www.reddit.com/r/pics/comments/post${index}/title/`,
     );
@@ -58,8 +58,18 @@ describe("parseFeedConfigInput", () => {
 
     expect(result.source).toBe("reddit");
     if (result.source === "reddit") {
-      expect(result.postUrls).toHaveLength(200);
+      expect(result.postUrls).toHaveLength(100);
     }
+  });
+
+  it("rejects more than 100 Reddit source URLs", () => {
+    const urls = Array.from(
+      { length: 101 },
+      (_entry, index) =>
+        `https://www.reddit.com/r/pics/comments/post${index}/title/`,
+    );
+
+    expect(() => parseFeedConfigInput({ postUrls: urls })).toThrow(/postUrls/i);
   });
 
   it("accepts one-second timers and rejects zero-second timers", () => {
