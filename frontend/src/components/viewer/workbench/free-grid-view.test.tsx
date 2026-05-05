@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -41,6 +41,40 @@ describe("FreeGridView", () => {
       "ring-2",
     );
     expect(screen.getByTestId("source-selected-outline")).toBeInTheDocument();
+  });
+
+  it("deselects the selected source when its media is clicked again", () => {
+    const setSelectedId = vi.fn();
+    render(
+      <FreeGridView
+        {...freeGridProps({
+          sessions: [session()],
+          selectedId: "session-1",
+          setSelectedId,
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByAltText("Selected source"));
+
+    expect(setSelectedId).toHaveBeenCalledWith(null);
+  });
+
+  it("deselects the selected source when empty grid space is clicked", () => {
+    const setSelectedId = vi.fn();
+    const { container } = render(
+      <FreeGridView
+        {...freeGridProps({
+          sessions: [session()],
+          selectedId: "session-1",
+          setSelectedId,
+        })}
+      />,
+    );
+
+    fireEvent.click(container.firstElementChild as HTMLElement);
+
+    expect(setSelectedId).toHaveBeenCalledWith(null);
   });
 });
 

@@ -111,7 +111,7 @@ export function FixedGridView({
                 return;
               }
               if (session.id === selectedId) {
-                if (event.target === event.currentTarget) setSelectedId(null);
+                setSelectedId(null);
                 return;
               }
               setSelectedId(session.id);

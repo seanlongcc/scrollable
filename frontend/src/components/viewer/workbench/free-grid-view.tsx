@@ -98,6 +98,9 @@ export function FreeGridView({
         gridTemplateColumns: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,
       }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) setSelectedId(null);
+      }}
     >
       {templateSlots.map((slot, index) => {
         const dragRect =
@@ -205,7 +208,7 @@ export function FreeGridView({
                   return;
                 }
                 if (session.id === selectedId) {
-                  if (event.target === event.currentTarget) setSelectedId(null);
+                  setSelectedId(null);
                   return;
                 }
                 setSelectedId(session.id);

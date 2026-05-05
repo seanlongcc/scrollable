@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
@@ -106,6 +106,23 @@ describe("FixedGridView", () => {
 
     expect(video?.autoplay).toBe(false);
     expect(video).toHaveAttribute("preload", "metadata");
+  });
+
+  it("deselects the selected source when its media is clicked again", () => {
+    const setSelectedId = vi.fn();
+    render(
+      <FixedGridView
+        {...fixedGridProps({
+          sessions: [session()],
+          selectedId: "session-1",
+          setSelectedId,
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByAltText("Selected source"));
+
+    expect(setSelectedId).toHaveBeenCalledWith(null);
   });
 });
 
