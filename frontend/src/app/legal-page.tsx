@@ -7,6 +7,7 @@ type LegalSection = {
   paragraphs?: string[];
   bullets?: string[];
   footerParagraphs?: string[];
+  subsections?: LegalSection[];
 };
 
 type LegalPageProps = {
@@ -84,6 +85,38 @@ export function LegalPage({
                 >
                   {paragraph}
                 </p>
+              ))}
+              {section.subsections?.map((subsection) => (
+                <div className="grid gap-3" key={subsection.title}>
+                  <h3 className="text-base font-semibold tracking-normal">
+                    {subsection.title}
+                  </h3>
+                  {subsection.paragraphs?.map((paragraph) => (
+                    <p
+                      className="text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7"
+                      key={paragraph}
+                    >
+                      {paragraph}
+                    </p>
+                  ))}
+                  {subsection.bullets ? (
+                    <ul className="grid gap-2 pl-5 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+                      {subsection.bullets.map((bullet) => (
+                        <li className="list-disc" key={bullet}>
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {subsection.footerParagraphs?.map((paragraph) => (
+                    <p
+                      className="text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7"
+                      key={paragraph}
+                    >
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
               ))}
             </section>
           ))}

@@ -410,6 +410,7 @@ function chromeProps(
     onCloneSelectedSource: vi.fn(),
     onFillSelectedSourceSpace: vi.fn(),
     onRemoveSelectedSource: vi.fn(),
+    onRandomizeSelectedSource: vi.fn(),
     onSelectedTimerModeChange: vi.fn(),
     onSelectedTimerSecondsChange: vi.fn(),
     onSelectedMove: vi.fn(),

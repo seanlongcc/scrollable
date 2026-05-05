@@ -55,6 +55,23 @@ describe("EditSourceDialog", () => {
     expect(countInput).toHaveClass("text-foreground");
   });
 
+  it("does not expose per-link removal for Reddit sources", () => {
+    render(
+      <EditSourceDialog
+        source={redditSession()}
+        open
+        onOpenChange={vi.fn()}
+        onSaveReddit={vi.fn()}
+        onSaveUrl={vi.fn()}
+        onSaveLocal={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Remove r/pics link" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps Reddit hide item rows content-sized", () => {
     render(
       <EditSourceDialog
@@ -80,6 +97,30 @@ describe("EditSourceDialog", () => {
     expect(screen.getByText("Second listing item").closest("div")).toHaveClass(
       "min-h-16",
     );
+  });
+
+  it("shows Reddit items in source order instead of playback random order", () => {
+    render(
+      <EditSourceDialog
+        source={{
+          ...redditSession(),
+          items: [redditSession().items[1]!, redditSession().items[0]!],
+          allItems: redditSession().items,
+        }}
+        open
+        onOpenChange={vi.fn()}
+        onSaveReddit={vi.fn()}
+        onSaveUrl={vi.fn()}
+        onSaveLocal={vi.fn()}
+      />,
+    );
+
+    const first = screen.getByText("First listing item");
+    const second = screen.getByText("Second listing item");
+
+    expect(
+      first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
 

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   ...createPageMetadata({
     title: "Sign in",
     description:
-      "Sign in to save Scrollable layouts, templates, collections, and feed configurations.",
+      "Sign in to save Scrollable layouts, templates, and feed configurations.",
     path: "/login",
     noIndex: true,
   }),

@@ -12,6 +12,7 @@ export type SessionPlacementSourceInput = {
   title: string;
   items: RuntimeFeedItem[];
   allItems?: RuntimeFeedItem[];
+  isOrderRandomized?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
   sourceConfig: PersistedSourceConfig;
@@ -112,6 +113,7 @@ export function placeSessions({
       freeRect,
       items: source.items,
       allItems: source.allItems,
+      isOrderRandomized: source.isOrderRandomized,
       urlResolution: source.urlResolution,
       localFiles: source.localFiles,
       templateSlotId:

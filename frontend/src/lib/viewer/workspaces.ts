@@ -63,13 +63,14 @@ export type WorkspaceSessionInput = {
   sourceConfig: PersistedSourceConfig;
   runtimeItems?: RuntimeFeedItem[];
   allRuntimeItems?: RuntimeFeedItem[];
+  isOrderRandomized?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
 };
 
 export type SerializedWorkspaceSession = Omit<
   WorkspaceSessionInput,
-  "runtimeItems" | "allRuntimeItems" | "urlResolution"
+  "runtimeItems" | "allRuntimeItems" | "isOrderRandomized" | "urlResolution"
 >;
 
 export type SerializedWorkspace = {

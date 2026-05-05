@@ -106,11 +106,13 @@ export function installFeedWorkbenchTestHooks() {
     });
     vi.mocked(prepareLocalFileByteCacheWrite).mockResolvedValue(false);
     vi.mocked(saveLocalFiles).mockResolvedValue(undefined);
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.mocked(Math.random).mockRestore();
     vi.clearAllMocks();
     window.localStorage.clear();
     window.sessionStorage.clear();

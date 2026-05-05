@@ -1,23 +1,21 @@
 begin;
 
-select plan(20);
+select plan(22);
 
 select has_table('public', 'feed_configs', 'feed_configs exists');
-select has_table('public', 'collections', 'collections exists');
 select has_table('public', 'share_links', 'share_links exists');
 select has_table('public', 'viewer_sessions', 'viewer_sessions exists');
 select has_table('public', 'viewer_templates', 'viewer_templates exists');
+select hasnt_table('public', 'collections', 'collections removed');
+select hasnt_table('public', 'collection_items', 'collection items removed');
+select hasnt_table('public', 'tags', 'tags removed');
+select hasnt_table('public', 'collection_tags', 'collection tags removed');
+select hasnt_column('public', 'share_links', 'collection_id', 'share links no longer target collections');
 
 select policies_are(
   'public',
   'feed_configs',
   array['feed configs owner all', 'feed configs shared metadata read']
-);
-
-select policies_are(
-  'public',
-  'collections',
-  array['collections owner all', 'collections shared metadata read']
 );
 
 select policies_are(
@@ -44,18 +42,8 @@ select isnt_empty(
      join pg_class c on c.oid = p.polrelid
      where c.relname = 'share_links'
        and pg_get_expr(p.polqual, p.polrelid) ~* 'not[[:space:]]+fc[.]is_nsfw'
-       and pg_get_expr(p.polqual, p.polrelid) ~* 'auth[.]uid[(][)][[:space:]]+is[[:space:]]+not[[:space:]]+null' $$,
+       and pg_get_expr(p.polqual, p.polrelid) ~* 'auth[.]uid[(][)].*is[[:space:]]+not[[:space:]]+null' $$,
   'sensitive shared config metadata requires auth'
-);
-
-select isnt_empty(
-  $$ select 1
-     from pg_policy p
-     join pg_class c on c.oid = p.polrelid
-     where c.relname = 'share_links'
-       and pg_get_expr(p.polqual, p.polrelid) ~* 'not[[:space:]]+c[.]is_nsfw'
-       and pg_get_expr(p.polqual, p.polrelid) ~* 'auth[.]uid[(][)][[:space:]]+is[[:space:]]+not[[:space:]]+null' $$,
-  'sensitive shared collection metadata requires auth'
 );
 
 select is_empty(
@@ -71,11 +59,8 @@ select is_empty(
   $$ with expected_indexes(index_name) as (
        values
          ('feed_configs_owner_id_idx'),
-         ('collections_owner_id_idx'),
-         ('collection_items_feed_config_id_idx'),
          ('share_links_owner_id_idx'),
          ('share_links_feed_config_id_idx'),
-         ('share_links_collection_id_idx'),
          ('share_links_viewer_session_id_idx'),
          ('share_links_viewer_template_id_idx'),
          ('viewer_sessions_owner_id_idx'),

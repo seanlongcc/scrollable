@@ -16,9 +16,8 @@ Planned capabilities:
 - Support user-uploaded local image/video/audio files as a general scrollable feed.
 - Support multiple feeds displayed in a grid-like view.
 - Support up to three stacked layout layers so background or overlay sources can persist behind the active editing layer.
-- Support saved feed configurations and collections of configurations.
-- Support sharing configurations and collections.
-- Support collection tags and NSFW marking.
+- Support saved feed configurations and workspaces.
+- Support sharing configurations/workspaces as metadata-only links.
 
 ## Reddit And NSFW Notes
 

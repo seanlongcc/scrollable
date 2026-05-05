@@ -376,7 +376,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     });
   });
 
-  it("edits a Reddit source by removing a link and refetching remaining media", async () => {
+  it("edits a Reddit source without exposing per-link removal", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const requestUrl = String(input);
       const callIndex = fetchMock.mock.calls.length;
@@ -443,17 +443,21 @@ describe("FeedWorkbench Reddit source inputs", () => {
     const editDialog = await screen.findByRole("dialog", {
       name: "Edit source",
     });
-    await user.click(
-      within(editDialog).getByRole("button", { name: "Remove r/pics link" }),
-    );
+    expect(
+      within(editDialog).queryByRole("button", { name: "Remove r/pics link" }),
+    ).not.toBeInTheDocument();
     await user.click(
       within(editDialog).getByRole("button", { name: "Save source" }),
     );
 
-    await screen.findByRole("button", { name: "Edit r/aww" });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await screen.findByRole("button", { name: "Edit r/pics, r/aww" });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expectRedditJsonRequest(fetchMock, {
       index: 2,
+      url: "https://www.reddit.com/r/pics/comments/abc123/runtime_image/.json?raw_json=1",
+    });
+    expectRedditJsonRequest(fetchMock, {
+      index: 3,
       url: "https://www.reddit.com/r/aww/comments/def456/runtime_image/.json?raw_json=1",
     });
   });

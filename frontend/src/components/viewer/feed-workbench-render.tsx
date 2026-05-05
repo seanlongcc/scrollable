@@ -155,6 +155,7 @@ export type FeedWorkbenchRenderProps = {
   regenerateCloudShareLink: (target: CloudShareTarget) => void;
   rememberVideoPosition: (key: string, seconds: number) => void;
   removeSession: (id: string) => void;
+  randomizeSelectedSource: () => void;
   removeTemplateSlot: (id: string) => void;
   replaceLocalSessionFiles: (
     id: string,
@@ -351,6 +352,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     regenerateCloudShareLink,
     rememberVideoPosition,
     removeSession,
+    randomizeSelectedSource,
     removeTemplateSlot,
     replaceLocalSessionFiles,
     requestLocalCacheAccess,
@@ -665,6 +667,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onRemoveSelectedSource={() => {
             if (selected) removeSession(selected.id);
           }}
+          onRandomizeSelectedSource={randomizeSelectedSource}
           onSelectedTimerModeChange={setSelectedTimerMode}
           onSelectedTimerSecondsChange={setSelectedTimerSeconds}
           onSelectedMove={moveSelectedSource}

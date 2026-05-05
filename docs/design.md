@@ -204,7 +204,7 @@ The current system uses tonal layering plus heavy dark shadows on overlays, rail
 - **Do** keep media as the dominant surface and make chrome easy to hide.
 - **Do** use Oxblood Rose for primary actions and active state.
 - **Do** use Champagne Signal for progress, focus, and timer emphasis.
-- **Do** keep saved layout and collection surfaces metadata-only.
+- **Do** keep saved layout and shared configuration surfaces metadata-only.
 - **Do** make mobile controls thumb-reachable and touch targets at least 44px.
 - **Do** document runtime-only errors clearly without persisting third-party payload details.
 

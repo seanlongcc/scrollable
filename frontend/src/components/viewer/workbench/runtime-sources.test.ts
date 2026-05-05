@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createRedditSessionSources,
   fetchRedditRuntimeItems,
   fetchUrlRuntimeItemsForSource,
 } from "./runtime-sources";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -166,5 +168,47 @@ describe("fetchRedditRuntimeItems", () => {
         String(input).startsWith("/api/url/resolve"),
       ),
     ).toBe(false);
+  });
+});
+
+describe("createRedditSessionSources", () => {
+  it("randomizes grouped Reddit source item order", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        kind: "Listing",
+        data: {
+          children: ["first", "second", "third"].map((id) => ({
+            data: {
+              id,
+              title: id,
+              subreddit: "pics",
+              post_hint: "image",
+              url: `https://cdn.test/${id}.jpg`,
+            },
+          })),
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(Math, "random").mockReturnValueOnce(0.1).mockReturnValueOnce(0.1);
+
+    const [source] = await createRedditSessionSources({
+      urls: ["https://www.reddit.com/r/pics/top/?t=week"],
+      limit: 24,
+      sourceGroupingMode: "stacked",
+    });
+
+    expect(source?.items.map((item) => item.id)).toEqual([
+      "reddit:second",
+      "reddit:third",
+      "reddit:first",
+    ]);
+    expect(source?.allItems?.map((item) => item.id)).toEqual([
+      "reddit:first",
+      "reddit:second",
+      "reddit:third",
+    ]);
+    expect(source?.isOrderRandomized).toBe(true);
   });
 });

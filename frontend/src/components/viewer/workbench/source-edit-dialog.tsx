@@ -21,7 +21,6 @@ import {
   redditHiddenItemHashes,
   redditItemHashInput,
   redditRuntimeItemLabels,
-  subredditFromRedditUrl,
 } from "./helpers";
 
 function focusEditDialogSurface(event: Event) {
@@ -65,7 +64,7 @@ export function EditSourceDialog({
     source.sourceConfig.kind === "local"
       ? (source.localFiles ?? []).map((file, index) => ({
           file,
-          previewUrl: source.items[index]?.media[0]?.url,
+          previewUrl: (source.allItems ?? source.items)[index]?.media[0]?.url,
         }))
       : [],
   );
@@ -162,12 +161,6 @@ export function EditSourceDialog({
     savedHiddenHashSet,
   ]);
 
-  function removeRedditUrl(index: number) {
-    setRedditUrls((current) =>
-      current.filter((_url, currentIndex) => currentIndex !== index),
-    );
-  }
-
   function updateRedditUrl(index: number, value: string) {
     setRedditUrls((current) =>
       current.map((url, currentIndex) =>
@@ -239,35 +232,17 @@ export function EditSourceDialog({
           {isReddit ? (
             <>
               <div className="grid gap-2">
-                {redditUrls.map((url, index) => {
-                  const subreddit = subredditFromRedditUrl(url);
-
-                  return (
-                    <div
-                      key={`reddit-source-url-${index}`}
-                      className="grid grid-cols-[minmax(0,1fr)_auto] gap-2"
-                    >
-                      <Input
-                        value={url}
-                        onChange={(event) =>
-                          updateRedditUrl(index, event.target.value)
-                        }
-                        aria-label={`Reddit source ${index + 1}`}
-                        className="h-9 font-mono text-xs"
-                      />
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="size-10 min-h-10 min-w-10 rounded-lg border-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive md:size-8 md:min-h-0 md:min-w-0"
-                        aria-label={`Remove ${subreddit ? `r/${subreddit}` : `Reddit ${index + 1}`} link`}
-                        onClick={() => removeRedditUrl(index)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  );
-                })}
+                {redditUrls.map((url, index) => (
+                  <Input
+                    key={`reddit-source-url-${index}`}
+                    value={url}
+                    onChange={(event) =>
+                      updateRedditUrl(index, event.target.value)
+                    }
+                    aria-label={`Reddit source ${index + 1}`}
+                    className="h-9 font-mono text-xs"
+                  />
+                ))}
               </div>
               <div className="w-full">
                 <Label className="grid w-full gap-1 text-xs font-medium text-muted-foreground">

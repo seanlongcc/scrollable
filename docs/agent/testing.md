@@ -83,6 +83,6 @@ High-value test areas:
 - Timer pause/resume/advance behavior.
 - Local upload feed behavior.
 - Multiple-feed grid layout.
-- Collection sharing permissions.
+- Saved configuration/workspace sharing permissions.
 - Supabase RLS policies.
 - Mobile viewport layout and touch gestures.
