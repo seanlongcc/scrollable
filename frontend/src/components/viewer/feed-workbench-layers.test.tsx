@@ -74,7 +74,7 @@ describe("FeedWorkbench layers", () => {
     expect(screen.getAllByText("0 files")).toHaveLength(3);
   });
 
-  it("unmounts inactive layer media while preserving layer state", async () => {
+  it("keeps inactive layer media mounted while preserving layer state", async () => {
     stubObjectUrls();
     stubRandomUuids([
       "workspace-1",
@@ -97,7 +97,9 @@ describe("FeedWorkbench layers", () => {
     expect(await screen.findByAltText("foreground.png")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
-    expect(screen.queryByAltText("foreground.png")).not.toBeInTheDocument();
+    expect(screen.getByAltText("foreground.png")).toBeInTheDocument();
+    expect(screen.getByTestId("layer-layer-1")).toHaveClass("opacity-0");
+    expect(screen.getByTestId("layer-layer-2")).not.toHaveClass("opacity-0");
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.click(await screen.findByRole("button", { name: "Local" }));
@@ -106,12 +108,14 @@ describe("FeedWorkbench layers", () => {
       new File(["b"], "background.png", { type: "image/png" }),
     );
     expect(await screen.findByAltText("background.png")).toBeInTheDocument();
-    expect(screen.queryByAltText("foreground.png")).not.toBeInTheDocument();
+    expect(screen.getByAltText("foreground.png")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
 
     expect(await screen.findByAltText("foreground.png")).toBeInTheDocument();
-    expect(screen.queryByAltText("background.png")).not.toBeInTheDocument();
+    expect(screen.getByAltText("background.png")).toBeInTheDocument();
+    expect(screen.getByTestId("layer-layer-1")).not.toHaveClass("opacity-0");
+    expect(screen.getByTestId("layer-layer-2")).toHaveClass("opacity-0");
   });
 
   it("does not auto-select a source when switching layers", async () => {
@@ -137,8 +141,8 @@ describe("FeedWorkbench layers", () => {
     );
     expect(await screen.findByAltText("foreground.png")).toBeVisible();
     expect(
-      screen.getByRole("group", { name: "Selected free layout controls" }),
-    ).toBeVisible();
+      screen.queryByRole("group", { name: "Selected free layout controls" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.click(await screen.findByRole("button", { name: "Local" }));
@@ -148,8 +152,8 @@ describe("FeedWorkbench layers", () => {
     );
     expect(await screen.findByAltText("background.png")).toBeVisible();
     expect(
-      screen.getByRole("group", { name: "Selected free layout controls" }),
-    ).toBeVisible();
+      screen.queryByRole("group", { name: "Selected free layout controls" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
 

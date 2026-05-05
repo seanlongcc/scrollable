@@ -10,7 +10,7 @@ import {
   shouldSeekToPlaybackTime,
 } from "@/lib/viewer/video";
 
-type VideoRestoreTarget = {
+type PlaybackRestoreTarget = {
   key: string;
   targetSeconds: number;
 };
@@ -23,18 +23,24 @@ export function MediaRenderer({
   showControls = true,
   shouldPlay = true,
   initialVideoTime = 0,
+  audioEnabled = false,
+  finishVideoBeforeAdvance = false,
   onVideoTimeChange,
+  onVideoEnded,
 }: {
   media: RuntimeMedia;
   title: string;
   showControls?: boolean;
   shouldPlay?: boolean;
   initialVideoTime?: number;
+  audioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   onVideoTimeChange?: (seconds: number) => void;
+  onVideoEnded?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const videoRestoreTargetRef = useRef<VideoRestoreTarget | null>(null);
+  const playbackRestoreTargetRef = useRef<PlaybackRestoreTarget | null>(null);
   const restoredVideoKeyRef = useRef<string | null>(null);
   const lastReportedVideoSecondRef = useRef<number | null>(null);
   const [hasLoadedPlayback, setHasLoadedPlayback] = useState(false);
@@ -50,6 +56,12 @@ export function MediaRenderer({
   const videoPlaybackKey = isVideo
     ? `${videoUrl}:${videoIsHls ? "hls" : "native"}:${videoHlsSegmentQuery ?? ""}`
     : null;
+  const playbackPositionKey =
+    media.type === "video"
+      ? videoPlaybackKey
+      : media.type === "audio"
+        ? `${media.url}:audio`
+        : null;
 
   function markPlaybackLoaded() {
     if (!hasLoadedPlayback) {
@@ -58,15 +70,15 @@ export function MediaRenderer({
   }
 
   useEffect(() => {
-    if (!videoPlaybackKey) {
-      videoRestoreTargetRef.current = null;
+    if (!playbackPositionKey) {
+      playbackRestoreTargetRef.current = null;
       restoredVideoKeyRef.current = null;
       lastReportedVideoSecondRef.current = null;
       return;
     }
 
-    videoRestoreTargetRef.current = {
-      key: videoPlaybackKey,
+    playbackRestoreTargetRef.current = {
+      key: playbackPositionKey,
       targetSeconds: normalizedPlaybackSeconds(initialVideoTime),
     };
     restoredVideoKeyRef.current = null;
@@ -74,24 +86,25 @@ export function MediaRenderer({
     // Capture resume target only when source changes. Live parent time updates
     // must not reset this value, or playback micro-seeks on every report.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoPlaybackKey]);
+  }, [playbackPositionKey]);
 
   useEffect(() => {
-    const video = videoRef.current;
+    const element =
+      media.type === "video" ? videoRef.current : audioRef.current;
     if (
-      !video ||
-      media.type !== "video" ||
+      !element ||
+      (media.type !== "video" && media.type !== "audio") ||
       !onVideoTimeChange ||
       !shouldLoadPlayback ||
       hasLoadError
     ) {
       return;
     }
-    const videoElement = video;
+    const mediaElement = element;
     const handleTimeChange = onVideoTimeChange;
 
     function reportCurrentPosition(force = false) {
-      const seconds = normalizedPlaybackSeconds(videoElement.currentTime);
+      const seconds = normalizedPlaybackSeconds(mediaElement.currentTime);
       if (!force && lastReportedVideoSecondRef.current === seconds) return;
 
       lastReportedVideoSecondRef.current = seconds;
@@ -106,22 +119,22 @@ export function MediaRenderer({
       reportCurrentPosition(true);
     }
 
-    videoElement.addEventListener("timeupdate", reportPosition);
-    videoElement.addEventListener("pause", forceReportPosition);
-    videoElement.addEventListener("seeked", forceReportPosition);
+    mediaElement.addEventListener("timeupdate", reportPosition);
+    mediaElement.addEventListener("pause", forceReportPosition);
+    mediaElement.addEventListener("seeked", forceReportPosition);
 
     return () => {
       forceReportPosition();
-      videoElement.removeEventListener("timeupdate", reportPosition);
-      videoElement.removeEventListener("pause", forceReportPosition);
-      videoElement.removeEventListener("seeked", forceReportPosition);
+      mediaElement.removeEventListener("timeupdate", reportPosition);
+      mediaElement.removeEventListener("pause", forceReportPosition);
+      mediaElement.removeEventListener("seeked", forceReportPosition);
     };
   }, [
     hasLoadError,
     media.type,
     onVideoTimeChange,
+    playbackPositionKey,
     shouldLoadPlayback,
-    videoPlaybackKey,
   ]);
 
   useEffect(() => {
@@ -223,7 +236,14 @@ export function MediaRenderer({
     }
 
     requestMediaPlayback(element);
-  }, [hasLoadError, media.type, shouldLoadPlayback, shouldPlay, mediaKey]);
+  }, [
+    audioEnabled,
+    hasLoadError,
+    media.type,
+    shouldLoadPlayback,
+    shouldPlay,
+    mediaKey,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -238,8 +258,8 @@ export function MediaRenderer({
     const videoElement = video;
     let isCancelled = false;
 
-    videoElement.muted = true;
-    videoElement.defaultMuted = true;
+    videoElement.muted = !audioEnabled;
+    videoElement.defaultMuted = !audioEnabled;
     videoElement.playsInline = true;
     videoElement.autoplay = true;
     videoElement.setAttribute("playsinline", "");
@@ -266,23 +286,30 @@ export function MediaRenderer({
       videoElement.removeEventListener("canplay", requestPlayback);
       videoElement.removeEventListener("canplaythrough", requestPlayback);
     };
-  }, [hasLoadError, media.type, shouldLoadPlayback, videoPlaybackKey]);
+  }, [
+    audioEnabled,
+    hasLoadError,
+    media.type,
+    shouldLoadPlayback,
+    videoPlaybackKey,
+  ]);
 
   useEffect(() => {
-    const video = videoRef.current;
+    const element =
+      media.type === "video" ? videoRef.current : audioRef.current;
     if (
-      !video ||
-      media.type !== "video" ||
+      !element ||
+      (media.type !== "video" && media.type !== "audio") ||
       !shouldLoadPlayback ||
       hasLoadError
     ) {
       return;
     }
-    const videoElement = video;
-    const restoreTarget = videoPlaybackKey
-      ? videoRestoreTargetRef.current
+    const mediaElement = element;
+    const restoreTarget = playbackPositionKey
+      ? playbackRestoreTargetRef.current
       : null;
-    if (!restoreTarget || restoreTarget.key !== videoPlaybackKey) return;
+    if (!restoreTarget || restoreTarget.key !== playbackPositionKey) return;
     const restoreKey = restoreTarget.key;
     const targetSeconds = restoreTarget.targetSeconds;
 
@@ -295,7 +322,7 @@ export function MediaRenderer({
       }
       if (
         !shouldSeekToPlaybackTime({
-          currentSeconds: videoElement.currentTime,
+          currentSeconds: mediaElement.currentTime,
           targetSeconds,
         })
       ) {
@@ -305,23 +332,23 @@ export function MediaRenderer({
       }
 
       try {
-        videoElement.currentTime = targetSeconds;
+        mediaElement.currentTime = targetSeconds;
         restoredVideoKeyRef.current = restoreKey;
         lastReportedVideoSecondRef.current = targetSeconds;
       } catch {
-        // Some streamed videos reject seeking before enough metadata is ready.
+        // Some streamed media rejects seeking before enough metadata is ready.
       }
     }
 
     restorePosition();
-    videoElement.addEventListener("loadedmetadata", restorePosition);
-    videoElement.addEventListener("canplay", restorePosition, { once: true });
+    mediaElement.addEventListener("loadedmetadata", restorePosition);
+    mediaElement.addEventListener("canplay", restorePosition, { once: true });
 
     return () => {
-      videoElement.removeEventListener("loadedmetadata", restorePosition);
-      videoElement.removeEventListener("canplay", restorePosition);
+      mediaElement.removeEventListener("loadedmetadata", restorePosition);
+      mediaElement.removeEventListener("canplay", restorePosition);
     };
-  }, [hasLoadError, media.type, shouldLoadPlayback, videoPlaybackKey]);
+  }, [hasLoadError, media.type, playbackPositionKey, shouldLoadPlayback]);
 
   function handleMediaError() {
     setFailedMediaKey(mediaKey);
@@ -388,9 +415,10 @@ export function MediaRenderer({
       autoPlay={shouldLoadPlayback}
       controls={showControls}
       playsInline
-      muted
+      muted={!audioEnabled}
       preload={shouldLoadPlayback ? "auto" : "metadata"}
-      loop
+      loop={!finishVideoBeforeAdvance}
+      onEnded={onVideoEnded}
       onLoadedMetadata={markPlaybackLoaded}
       onCanPlay={markPlaybackLoaded}
       onPlay={markPlaybackLoaded}

@@ -18,12 +18,24 @@ export function hasActiveSessionTimers(sessions: FeedSession[]) {
 export function advanceSessionTimers(
   sessions: FeedSession[],
   elapsedMs = TIMER_TICK_MS,
+  options: {
+    finishVideoBeforeAdvance?: boolean;
+    finishedVideoKeys?: Record<string, boolean>;
+    galleryIndexes?: Record<string, number>;
+  } = {},
 ) {
   if (!sessions.length) return sessions;
 
   let changed = false;
   const nextSessions = sessions.map((session) => {
-    const timer = advanceTimerState(session.timer, elapsedMs);
+    const timer = shouldReleaseFinishedVideo(session, options)
+      ? moveTimerIndex(session.timer, 1)
+      : shouldHoldForUnfinishedVideo(session, elapsedMs, options)
+        ? {
+            ...session.timer,
+            elapsedMs: session.timer.durationSeconds * 1000,
+          }
+        : advanceTimerState(session.timer, elapsedMs);
     if (sameTimerState(session.timer, timer)) return session;
 
     changed = true;
@@ -31,6 +43,82 @@ export function advanceSessionTimers(
   });
 
   return changed ? nextSessions : sessions;
+}
+
+function shouldReleaseFinishedVideo(
+  session: FeedSession,
+  {
+    finishVideoBeforeAdvance,
+    finishedVideoKeys = {},
+    galleryIndexes = {},
+  }: {
+    finishVideoBeforeAdvance?: boolean;
+    finishedVideoKeys?: Record<string, boolean>;
+    galleryIndexes?: Record<string, number>;
+  },
+) {
+  if (!sessionFinishVideoBeforeAdvance(session, finishVideoBeforeAdvance)) {
+    return false;
+  }
+  if (session.timer.elapsedMs < session.timer.durationSeconds * 1000) {
+    return false;
+  }
+
+  const videoKey = activeVideoCompletionKey(session, galleryIndexes);
+  return Boolean(videoKey && finishedVideoKeys[videoKey]);
+}
+
+function shouldHoldForUnfinishedVideo(
+  session: FeedSession,
+  elapsedMs: number,
+  {
+    finishVideoBeforeAdvance,
+    finishedVideoKeys = {},
+    galleryIndexes = {},
+  }: {
+    finishVideoBeforeAdvance?: boolean;
+    finishedVideoKeys?: Record<string, boolean>;
+    galleryIndexes?: Record<string, number>;
+  },
+) {
+  if (!sessionFinishVideoBeforeAdvance(session, finishVideoBeforeAdvance)) {
+    return false;
+  }
+  if (session.timer.isPaused || session.timer.itemCount <= 0) return false;
+  if (session.timer.durationSeconds <= 0) return false;
+  if (
+    session.timer.elapsedMs + elapsedMs <
+    session.timer.durationSeconds * 1000
+  ) {
+    return false;
+  }
+
+  const videoKey = activeVideoCompletionKey(session, galleryIndexes);
+  return Boolean(videoKey && !finishedVideoKeys[videoKey]);
+}
+
+export function sessionFinishVideoBeforeAdvance(
+  session: FeedSession,
+  globalFinishVideoBeforeAdvance: boolean | undefined,
+) {
+  return (
+    session.finishVideoBeforeAdvance ?? Boolean(globalFinishVideoBeforeAdvance)
+  );
+}
+
+export function activeVideoCompletionKey(
+  session: FeedSession,
+  galleryIndexes: Record<string, number> = {},
+) {
+  const activeItem = session.items[session.timer.activeIndex];
+  const activeGalleryIndex = activeItem
+    ? (galleryIndexes[activeItem.id] ?? 0)
+    : 0;
+  const activeMedia = activeItem?.media[activeGalleryIndex];
+
+  return activeMedia?.type === "video"
+    ? `${session.id}:${activeItem.id}:${activeGalleryIndex}`
+    : null;
 }
 
 export function keyboardTimerMoveDirection(event: KeyboardEvent) {

@@ -96,21 +96,27 @@ describe("FeedWorkbench interactions", () => {
     ).toBeDisabled();
   });
 
-  it("uses 4x4 as the default free-layout source size", async () => {
+  it("uses 4x4 as the default free-layout source size without rect inputs", async () => {
     stubRuntimeFetch();
     stubRandomUuids(["workspace-1", "session-1"]);
 
     const user = userEvent.setup();
-    render(<FeedWorkbench />);
+    const { container } = render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Free layout mode" }));
     await addDefaultSubredditSource(user);
 
     await screen.findByRole("button", { name: "Remove r/pics" });
-    expect(screen.getByLabelText("Free column")).toHaveValue("1");
-    expect(screen.getByLabelText("Free row")).toHaveValue("1");
-    expect(screen.getByLabelText("Column span")).toHaveValue("4");
-    expect(screen.getByLabelText("Row span")).toHaveValue("4");
+    expect(screen.queryByLabelText("Free column")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Free row")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Column span")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Row span")).not.toBeInTheDocument();
+
+    const freeCell = container.querySelector('[data-testid^="free-cell-"]');
+    expect(freeCell).toHaveStyle({
+      gridColumn: "1 / span 4",
+      gridRow: "1 / span 4",
+    });
   });
 
   it("defaults global timer to 10 seconds and omits per-source timer controls", async () => {

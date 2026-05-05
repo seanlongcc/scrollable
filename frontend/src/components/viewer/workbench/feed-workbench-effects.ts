@@ -3,6 +3,8 @@ import {
   type RefObject,
   type SetStateAction,
   useEffect,
+  useLayoutEffect,
+  useRef,
 } from "react";
 
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
@@ -45,6 +47,7 @@ export function useFeedWorkbenchEffects({
   applyWorkspaceSnapshot,
   commitFreeDrag,
   freeDrag,
+  galleryIndexes,
   hydrateRuntimeItems,
   initialWorkspace,
   isUiHidden,
@@ -53,6 +56,8 @@ export function useFeedWorkbenchEffects({
   registryRef,
   saveTarget,
   sessions,
+  finishVideoBeforeAdvance,
+  finishedVideoKeys,
   setAccount,
   setActiveWorkspaceId,
   setCloudTemplates,
@@ -76,6 +81,7 @@ export function useFeedWorkbenchEffects({
   ) => void;
   commitFreeDrag: (drag: FreeDragState) => void;
   freeDrag: FreeDragState | null;
+  galleryIndexes: Record<string, number>;
   hydrateRuntimeItems: (sessions: FeedSession[]) => Promise<void>;
   initialWorkspace: WorkspaceTab;
   isUiHidden: boolean;
@@ -84,6 +90,8 @@ export function useFeedWorkbenchEffects({
   registryRef: RefObject<LocalObjectUrlRegistry | null>;
   saveTarget: SaveTarget;
   sessions: FeedSession[];
+  finishVideoBeforeAdvance: boolean;
+  finishedVideoKeys: Record<string, boolean>;
   setAccount: Dispatch<SetStateAction<AccountState>>;
   setActiveWorkspaceId: Dispatch<SetStateAction<string>>;
   setCloudTemplates: Dispatch<
@@ -129,7 +137,13 @@ export function useFeedWorkbenchEffects({
     setWorkspaceStates,
     setWorkspaceTabs,
   });
-  useSessionTimerAdvancement({ sessions, setSessions });
+  useSessionTimerAdvancement({
+    sessions,
+    galleryIndexes,
+    finishVideoBeforeAdvance,
+    finishedVideoKeys,
+    setSessions,
+  });
   useFreeDragPointerTracking({ commitFreeDrag, freeDrag, updateFreeDrag });
   useHiddenUiEscape({ isUiHidden, setIsUiHidden });
   useVisibleUrlHydration({
@@ -341,9 +355,15 @@ function useWorkspaceBootstrap({
 
 function useSessionTimerAdvancement({
   sessions,
+  galleryIndexes,
+  finishVideoBeforeAdvance,
+  finishedVideoKeys,
   setSessions,
 }: {
   sessions: FeedSession[];
+  galleryIndexes: Record<string, number>;
+  finishVideoBeforeAdvance: boolean;
+  finishedVideoKeys: Record<string, boolean>;
   setSessions: Dispatch<SetStateAction<FeedSession[]>>;
 }) {
   const hasAdvancingTimers = sessions.some(
@@ -357,11 +377,23 @@ function useSessionTimerAdvancement({
     if (!hasAdvancingTimers) return;
 
     const interval = window.setInterval(() => {
-      setSessions((current) => advanceSessionTimers(current));
+      setSessions((current) =>
+        advanceSessionTimers(current, undefined, {
+          finishVideoBeforeAdvance,
+          finishedVideoKeys,
+          galleryIndexes,
+        }),
+      );
     }, 250);
 
     return () => window.clearInterval(interval);
-  }, [hasAdvancingTimers, setSessions]);
+  }, [
+    finishVideoBeforeAdvance,
+    galleryIndexes,
+    finishedVideoKeys,
+    hasAdvancingTimers,
+    setSessions,
+  ]);
 }
 
 function useFreeDragPointerTracking({
@@ -373,6 +405,15 @@ function useFreeDragPointerTracking({
   freeDrag: FreeDragState | null;
   updateFreeDrag: (event: PointerEvent, drag: FreeDragState) => void;
 }) {
+  const latestFreeDragRef = useRef(freeDrag);
+  const activeDragKey = freeDrag
+    ? `${freeDrag.targetType}:${freeDrag.id}:${freeDrag.mode}`
+    : null;
+
+  useLayoutEffect(() => {
+    latestFreeDragRef.current = freeDrag;
+  }, [freeDrag]);
+
   useEffect(() => {
     if (!freeDrag) return;
     const drag = freeDrag;
@@ -381,20 +422,31 @@ function useFreeDragPointerTracking({
       updateFreeDrag(event, drag);
     }
 
-    function onPointerUp() {
-      commitFreeDrag(drag);
+    let isFinished = false;
+
+    function finishDrag() {
+      if (isFinished) return;
+      isFinished = true;
+      window.removeEventListener("pointermove", onPointerMove);
+      commitFreeDrag(latestFreeDragRef.current ?? drag);
     }
 
     window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp, { once: true });
+    window.addEventListener("pointerup", finishDrag);
+    window.addEventListener("pointercancel", finishDrag);
+    window.addEventListener("blur", finishDrag);
+    window.addEventListener("contextmenu", finishDrag);
 
     return () => {
       window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", finishDrag);
+      window.removeEventListener("pointercancel", finishDrag);
+      window.removeEventListener("blur", finishDrag);
+      window.removeEventListener("contextmenu", finishDrag);
     };
     // Free drag installs pointer listeners only while a drag is active.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [freeDrag]);
+  }, [activeDragKey]);
 }
 
 function useHiddenUiEscape({

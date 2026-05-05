@@ -154,7 +154,6 @@ function panelProps(
     onExportCurrentJson: vi.fn(),
     onOpenClearDialog: vi.fn(),
     onSelectLayer: vi.fn(),
-    onFreeRectChange: vi.fn(),
     ...overrides,
   };
 }

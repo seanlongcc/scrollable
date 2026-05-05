@@ -32,6 +32,8 @@ export type FeedSession = {
   items: RuntimeFeedItem[];
   allItems?: RuntimeFeedItem[];
   isOrderRandomized?: boolean;
+  isAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
   localRestoreStatus?: LocalRestoreStatus;

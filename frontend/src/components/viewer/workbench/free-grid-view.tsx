@@ -1,4 +1,4 @@
-import { GripHorizontal, Move, Plus, Trash2 } from "lucide-react";
+import { Move, Plus, Scaling, Trash2 } from "lucide-react";
 import { ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import { cn } from "@/lib/utils";
@@ -19,12 +19,15 @@ import {
   isVideoPointerTarget,
 } from "./helpers";
 import { SessionPane } from "./session-pane";
+import { sessionFinishVideoBeforeAdvance } from "./workbench-effect-state";
 
 export function FreeGridView({
   sessions,
   templateSlots,
   galleryIndexes,
   videoPositions,
+  globalAudioEnabled = true,
+  finishVideoBeforeAdvance = false,
   selectedId,
   hideUi,
   isPlaybackActive,
@@ -38,6 +41,7 @@ export function FreeGridView({
   openSourcePanel,
   changeGallery,
   onVideoPositionChange,
+  onVideoEnded,
   setViewTimerMode,
   setViewTimerSeconds,
   beginFreeDrag,
@@ -49,6 +53,8 @@ export function FreeGridView({
   templateSlots: WorkspaceTemplateSlot[];
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
+  globalAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   selectedId: string | null;
   hideUi: boolean;
   isPlaybackActive: boolean;
@@ -68,6 +74,7 @@ export function FreeGridView({
   ) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoEnded?: (key: string) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
   beginFreeDrag: (
@@ -97,6 +104,9 @@ export function FreeGridView({
       style={{
         gridTemplateColumns: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${FREE_LAYOUT_SIZE}, minmax(0, 1fr))`,
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) setSelectedId(null);
       }}
     >
       {templateSlots.map((slot, index) => {
@@ -148,7 +158,7 @@ export function FreeGridView({
                   }
                   className="grid size-8 cursor-se-resize place-items-center rounded-lg border border-primary/50 bg-background/80 text-primary backdrop-blur"
                 >
-                  <GripHorizontal className="size-4 rotate-45" />
+                  <Scaling className="size-4" />
                 </button>
                 <button
                   type="button"
@@ -205,7 +215,7 @@ export function FreeGridView({
                   return;
                 }
                 if (session.id === selectedId) {
-                  if (event.target === event.currentTarget) setSelectedId(null);
+                  setSelectedId(null);
                   return;
                 }
                 setSelectedId(session.id);
@@ -244,7 +254,7 @@ export function FreeGridView({
                     }
                     className="grid size-8 cursor-se-resize place-items-center rounded-lg border border-primary/50 bg-background/80 text-primary backdrop-blur"
                   >
-                    <GripHorizontal className="size-4 rotate-45" />
+                    <Scaling className="size-4" />
                   </button>
                 </div>
               ) : null}
@@ -257,6 +267,11 @@ export function FreeGridView({
                 })()}
                 galleryIndexes={galleryIndexes}
                 videoPositions={videoPositions}
+                audioEnabled={session.isAudioEnabled ?? globalAudioEnabled}
+                finishVideoBeforeAdvance={sessionFinishVideoBeforeAdvance(
+                  session,
+                  finishVideoBeforeAdvance,
+                )}
                 compact={
                   session.freeRect.columnSpan < 3 ||
                   session.freeRect.rowSpan < 3
@@ -268,6 +283,7 @@ export function FreeGridView({
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}
+                onVideoEnded={onVideoEnded}
                 onMove={(direction) =>
                   updateSession(session.id, (current) => ({
                     ...current,

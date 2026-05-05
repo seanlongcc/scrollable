@@ -15,6 +15,7 @@ import {
   isVideoPointerTarget,
 } from "./helpers";
 import { SessionPane } from "./session-pane";
+import { sessionFinishVideoBeforeAdvance } from "./workbench-effect-state";
 
 export function FixedGridView({
   sessions,
@@ -22,6 +23,8 @@ export function FixedGridView({
   fixedGrid,
   galleryIndexes,
   videoPositions,
+  globalAudioEnabled = true,
+  finishVideoBeforeAdvance = false,
   selectedId,
   hideUi,
   isPlaybackActive,
@@ -33,6 +36,7 @@ export function FixedGridView({
   removeSession,
   changeGallery,
   onVideoPositionChange,
+  onVideoEnded,
   setViewTimerMode,
   setViewTimerSeconds,
   onLocalFilesSelected,
@@ -45,6 +49,8 @@ export function FixedGridView({
   fixedGrid: FixedGrid;
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
+  globalAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   selectedId: string | null;
   hideUi: boolean;
   isPlaybackActive: boolean;
@@ -59,6 +65,7 @@ export function FixedGridView({
   removeSession: (id: string) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoEnded?: (key: string) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
   onLocalFilesSelected: (
@@ -111,7 +118,7 @@ export function FixedGridView({
                 return;
               }
               if (session.id === selectedId) {
-                if (event.target === event.currentTarget) setSelectedId(null);
+                setSelectedId(null);
                 return;
               }
               setSelectedId(session.id);
@@ -131,6 +138,11 @@ export function FixedGridView({
                 })()}
                 galleryIndexes={galleryIndexes}
                 videoPositions={videoPositions}
+                audioEnabled={session.isAudioEnabled ?? globalAudioEnabled}
+                finishVideoBeforeAdvance={sessionFinishVideoBeforeAdvance(
+                  session,
+                  finishVideoBeforeAdvance,
+                )}
                 compact={fixedGrid.columns * fixedGrid.rows > 4}
                 isFocused={session.id === selectedId}
                 forceInfoVisible={showInfo}
@@ -139,6 +151,7 @@ export function FixedGridView({
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}
+                onVideoEnded={onVideoEnded}
                 onMove={(direction) =>
                   updateSession(session.id, (current) => ({
                     ...current,

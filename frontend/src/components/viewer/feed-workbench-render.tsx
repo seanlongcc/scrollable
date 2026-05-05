@@ -108,7 +108,9 @@ export type FeedWorkbenchRenderProps = {
   freeDrag: FreeDragState | null;
   freeGridRef: RefObject<HTMLDivElement | null>;
   galleryIndexes: Record<string, number>;
+  globalAudioEnabled: boolean;
   globalSeconds: number;
+  finishVideoBeforeAdvance: boolean;
   importCurrentWorkspaceJson: () => void;
   importSavedJson: (target: SaveTarget) => void;
   isAccountOpen: boolean;
@@ -154,6 +156,7 @@ export type FeedWorkbenchRenderProps = {
   redditUrls: string;
   regenerateCloudShareLink: (target: CloudShareTarget) => void;
   rememberVideoPosition: (key: string, seconds: number) => void;
+  rememberVideoFinished: (key: string) => void;
   removeSession: (id: string) => void;
   randomizeSelectedSource: () => void;
   removeTemplateSlot: (id: string) => void;
@@ -217,6 +220,8 @@ export type FeedWorkbenchRenderProps = {
   setIsUiRevealVisible: Dispatch<SetStateAction<boolean>>;
   setLibraryStorageTarget: Dispatch<SetStateAction<SaveTarget>>;
   setGlobalTimerSeconds: (seconds: number) => void;
+  setGlobalAudioEnabled: (enabled: boolean) => void;
+  setFinishVideoBeforeAdvance: Dispatch<SetStateAction<boolean>>;
   setLocalCacheStorageFullStatus: Dispatch<
     SetStateAction<LocalFileCacheStorageStatus | null>
   >;
@@ -235,6 +240,8 @@ export type FeedWorkbenchRenderProps = {
   setSelectedId: Dispatch<SetStateAction<string | null>>;
   setSelectedTimerMode: (mode: FeedSession["timerMode"]) => void;
   setSelectedTimerSeconds: (seconds: number) => void;
+  setSelectedSourceAudioEnabled: (enabled: boolean) => void;
+  setSelectedSourceFinishVideoBeforeAdvance: (enabled: boolean) => void;
   setShowAllInfo: Dispatch<SetStateAction<boolean>>;
   setSourceGroupingMode: Dispatch<SetStateAction<SourceGroupingMode>>;
   setSubredditName: Dispatch<SetStateAction<string>>;
@@ -252,7 +259,6 @@ export type FeedWorkbenchRenderProps = {
   templateSlots: WorkspaceTemplateSlot[];
   toggleSelectedSourcePaused: () => void;
   updateFixedGrid: (patch: Partial<FixedGrid>) => void;
-  updateFreeRect: (id: string, patch: Partial<FreeRect>) => void;
   updateSession: (
     id: string,
     updater: (session: FeedSession) => FeedSession,
@@ -311,7 +317,9 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     freeDrag,
     freeGridRef,
     galleryIndexes,
+    globalAudioEnabled,
     globalSeconds,
+    finishVideoBeforeAdvance,
     importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
@@ -351,6 +359,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     redditUrls,
     regenerateCloudShareLink,
     rememberVideoPosition,
+    rememberVideoFinished,
     removeSession,
     randomizeSelectedSource,
     removeTemplateSlot,
@@ -395,6 +404,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     setIsUiRevealVisible,
     setLibraryStorageTarget,
     setGlobalTimerSeconds,
+    setGlobalAudioEnabled,
+    setFinishVideoBeforeAdvance,
     setLocalCacheStorageFullStatus,
     setMaximizedId,
     setPendingFixedSlot,
@@ -411,6 +422,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     setSelectedId,
     setSelectedTimerMode,
     setSelectedTimerSeconds,
+    setSelectedSourceAudioEnabled,
+    setSelectedSourceFinishVideoBeforeAdvance,
     setShowAllInfo,
     setSourceGroupingMode,
     setSubredditName,
@@ -428,7 +441,6 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     templateSlots,
     toggleSelectedSourcePaused,
     updateFixedGrid,
-    updateFreeRect,
     updateSession,
     uploadTemplateToCloud,
     uploadWorkspaceToCloud,
@@ -610,12 +622,15 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
         sessions={sessions}
         galleryIndexes={galleryIndexes}
         videoPositions={videoPositions}
+        globalAudioEnabled={globalAudioEnabled}
+        finishVideoBeforeAdvance={finishVideoBeforeAdvance}
         isUiHidden={isUiHidden}
         isDesktopWorkbenchCollapsed={isDesktopWorkbenchCollapsed}
         showAllInfo={showAllInfo}
         setMaximizedId={setMaximizedId}
         changeGallery={changeGallery}
         rememberVideoPosition={rememberVideoPosition}
+        rememberVideoFinished={rememberVideoFinished}
         updateSession={updateSession}
         setViewTimerMode={setViewTimerMode}
         setViewTimerSeconds={setViewTimerSeconds}
@@ -647,6 +662,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           hasRunningSessionTimer={sessions.some(
             (session) => !session.timer.isPaused,
           )}
+          globalAudioEnabled={globalAudioEnabled}
+          finishVideoBeforeAdvance={finishVideoBeforeAdvance}
           selected={selected}
           canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
           showAllInfo={showAllInfo}
@@ -662,12 +679,18 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onFixedGridChange={updateFixedGrid}
           onGlobalTimerSecondsChange={setGlobalTimerSeconds}
           onGlobalTimerAction={runGlobalAction}
+          onGlobalAudioEnabledChange={setGlobalAudioEnabled}
+          onFinishVideoBeforeAdvanceChange={setFinishVideoBeforeAdvance}
           onCloneSelectedSource={cloneSelectedSource}
           onFillSelectedSourceSpace={fillSelectedSourceSpace}
           onRemoveSelectedSource={() => {
             if (selected) removeSession(selected.id);
           }}
           onRandomizeSelectedSource={randomizeSelectedSource}
+          onSelectedAudioEnabledChange={setSelectedSourceAudioEnabled}
+          onSelectedFinishVideoBeforeAdvanceChange={
+            setSelectedSourceFinishVideoBeforeAdvance
+          }
           onSelectedTimerModeChange={setSelectedTimerMode}
           onSelectedTimerSecondsChange={setSelectedTimerSeconds}
           onSelectedMove={moveSelectedSource}
@@ -716,7 +739,6 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           workbenchPanelComponents={workbenchPanelComponents}
           onDesktopWorkbenchCollapsedChange={setIsDesktopWorkbenchCollapsed}
           onSelectLayer={selectLayer}
-          onFreeRectChange={updateFreeRect}
         />
       ) : null}
     </main>

@@ -19,6 +19,8 @@ export function SessionPane({
   canMountUrlIframe = true,
   galleryIndexes,
   videoPositions,
+  audioEnabled = false,
+  finishVideoBeforeAdvance = false,
   compact,
   isFocused,
   forceInfoVisible,
@@ -27,6 +29,7 @@ export function SessionPane({
   isRuntimeLoading,
   onGalleryChange,
   onVideoPositionChange,
+  onVideoEnded,
   onMove,
   onTogglePaused,
   onRestart,
@@ -44,6 +47,8 @@ export function SessionPane({
   canMountUrlIframe?: boolean;
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
+  audioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   compact?: boolean;
   isFocused?: boolean;
   forceInfoVisible?: boolean;
@@ -52,6 +57,7 @@ export function SessionPane({
   isRuntimeLoading?: boolean;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoEnded?: (key: string) => void;
   onMove: (direction: 1 | -1) => void;
   onTogglePaused: () => void;
   onRestart: () => void;
@@ -129,6 +135,8 @@ export function SessionPane({
       timerMode={session.timerMode}
       galleryIndexes={galleryIndexes}
       videoPositions={videoPositions}
+      audioEnabled={audioEnabled}
+      finishVideoBeforeAdvance={finishVideoBeforeAdvance}
       compact={compact}
       isFocused={isFocused}
       forceInfoVisible={forceInfoVisible}
@@ -182,6 +190,7 @@ export function SessionPane({
       }
       onGalleryChange={onGalleryChange}
       onVideoPositionChange={onVideoPositionChange}
+      onVideoEnded={onVideoEnded}
       onMove={onMove}
       onTogglePaused={onTogglePaused}
       onRestart={onRestart}

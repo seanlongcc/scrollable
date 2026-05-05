@@ -114,6 +114,9 @@ export function FeedWorkbench({
     useState<RedditTimeRange>("week");
   const [redditLimit, setRedditLimit] = useState(DEFAULT_REDDIT_MEDIA_LIMIT);
   const [globalSeconds, setGlobalSeconds] = useState(DEFAULT_TIMER_SECONDS);
+  const [globalAudioEnabled, setGlobalAudioEnabled] = useState(false);
+  const [finishVideoBeforeAdvance, setFinishVideoBeforeAdvance] =
+    useState(false);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
   const [layers, setLayers] = useState<WorkspaceLayer[]>(() =>
@@ -127,6 +130,9 @@ export function FeedWorkbench({
   const [videoPositions, setVideoPositions] = useState<Record<string, number>>(
     {},
   );
+  const [finishedVideoKeys, setFinishedVideoKeys] = useState<
+    Record<string, boolean>
+  >({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
   const [pendingFixedSlot, setPendingFixedSlot] = useState<number | null>(null);
@@ -284,6 +290,11 @@ export function FeedWorkbench({
       return { ...current, [key]: seconds };
     });
   }, []);
+  const rememberVideoFinished = useCallback((key: string) => {
+    setFinishedVideoKeys((current) =>
+      current[key] ? current : { ...current, [key]: true },
+    );
+  }, []);
   const refreshCloudLibrary = useCallback(async (isAccountSignedIn = false) => {
     if (!getSupabaseEnv()) {
       setCloudUsage({ status: "unconfigured" });
@@ -380,6 +391,36 @@ export function FeedWorkbench({
     if (!selected) return;
     updateSession(selected.id, toggleSessionOrderRandomized);
   }, [selected, updateSession]);
+  const setSelectedSourceAudioEnabled = useCallback(
+    (enabled: boolean) => {
+      if (!selected) return;
+      updateSession(selected.id, (session) => ({
+        ...session,
+        isAudioEnabled: enabled,
+      }));
+    },
+    [selected, updateSession],
+  );
+  const setSelectedSourceFinishVideoBeforeAdvance = useCallback(
+    (enabled: boolean) => {
+      if (!selected) return;
+      updateSession(selected.id, (session) => ({
+        ...session,
+        finishVideoBeforeAdvance: enabled,
+      }));
+    },
+    [selected, updateSession],
+  );
+  const setAllSourcesAudioEnabled = useCallback((enabled: boolean) => {
+    setGlobalAudioEnabled(enabled);
+    setSessions((current) =>
+      current.map((session) =>
+        session.isAudioEnabled === enabled
+          ? session
+          : { ...session, isAudioEnabled: enabled },
+      ),
+    );
+  }, []);
   const {
     setCloudShareTargetWithOverlay,
     openSourcePanelWithOverlay,
@@ -471,7 +512,6 @@ export function FeedWorkbench({
     updateFixedGrid,
     changeLayoutMode,
     removeSession,
-    updateFreeRect,
     removeTemplateSlot,
     beginFreeDrag,
     commitFreeDrag,
@@ -577,6 +617,7 @@ export function FeedWorkbench({
     applyWorkspaceSnapshot,
     commitFreeDrag,
     freeDrag,
+    galleryIndexes,
     hydrateRuntimeItems,
     initialWorkspace,
     isUiHidden,
@@ -585,6 +626,8 @@ export function FeedWorkbench({
     registryRef,
     saveTarget,
     sessions,
+    finishVideoBeforeAdvance,
+    finishedVideoKeys,
     setAccount,
     setActiveWorkspaceId,
     setCloudTemplates,
@@ -669,7 +712,9 @@ export function FeedWorkbench({
     freeDrag,
     freeGridRef,
     galleryIndexes,
+    globalAudioEnabled,
     globalSeconds,
+    finishVideoBeforeAdvance,
     importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
@@ -711,6 +756,7 @@ export function FeedWorkbench({
     refreshLocalCacheStatusForCurrentLayout,
     regenerateCloudShareLink,
     rememberVideoPosition,
+    rememberVideoFinished,
     removeSession,
     randomizeSelectedSource,
     removeTemplateSlot,
@@ -743,6 +789,8 @@ export function FeedWorkbench({
     setEditingWorkspaceId,
     setEditingWorkspaceName,
     setGlobalTimerSeconds,
+    setGlobalAudioEnabled: setAllSourcesAudioEnabled,
+    setFinishVideoBeforeAdvance,
     setIsAccountOpen,
     setIsClearOpen,
     setIsDesktopWorkbenchCollapsed,
@@ -769,6 +817,8 @@ export function FeedWorkbench({
     setSelectedId,
     setSelectedTimerMode,
     setSelectedTimerSeconds,
+    setSelectedSourceAudioEnabled,
+    setSelectedSourceFinishVideoBeforeAdvance,
     setShowAllInfo,
     setSourceGroupingMode,
     setSubredditName,
@@ -786,7 +836,6 @@ export function FeedWorkbench({
     templateSlots,
     toggleSelectedSourcePaused,
     updateFixedGrid,
-    updateFreeRect,
     updateSession,
     uploadTemplateToCloud,
     uploadWorkspaceToCloud,

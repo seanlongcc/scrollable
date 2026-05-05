@@ -6,18 +6,22 @@ import { cn } from "@/lib/utils";
 import { type TimerMode } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
 import { SessionPane } from "./session-pane";
+import { sessionFinishVideoBeforeAdvance } from "./workbench-effect-state";
 
 export function FocusLayout({
   focused,
   sessions,
   galleryIndexes,
   videoPositions,
+  globalAudioEnabled = true,
+  finishVideoBeforeAdvance = false,
   hideUi,
   showInfo,
   onRestore,
   onFocus,
   onGalleryChange,
   onVideoPositionChange,
+  onVideoEnded,
   onMove,
   onTogglePaused,
   onRestart,
@@ -31,12 +35,15 @@ export function FocusLayout({
   sessions: FeedSession[];
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
+  globalAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   hideUi: boolean;
   showInfo: boolean;
   onRestore: () => void;
   onFocus: (id: string) => void;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoEnded?: (key: string) => void;
   onMove: (id: string, direction: 1 | -1) => void;
   onTogglePaused: (id: string) => void;
   onRestart: (id: string) => void;
@@ -77,12 +84,18 @@ export function FocusLayout({
           session={focused}
           galleryIndexes={galleryIndexes}
           videoPositions={videoPositions}
+          audioEnabled={focused.isAudioEnabled ?? globalAudioEnabled}
+          finishVideoBeforeAdvance={sessionFinishVideoBeforeAdvance(
+            focused,
+            finishVideoBeforeAdvance,
+          )}
           forceInfoVisible={showInfo}
           hideUi={hideUi}
           isPlaybackActive={!focused.timer.isPaused}
           isRuntimeLoading={focused.isRuntimeLoading}
           onGalleryChange={onGalleryChange}
           onVideoPositionChange={onVideoPositionChange}
+          onVideoEnded={onVideoEnded}
           onMove={(direction) => onMove(focused.id, direction)}
           onTogglePaused={() => onTogglePaused(focused.id)}
           onRestart={() => onRestart(focused.id)}
@@ -126,6 +139,11 @@ export function FocusLayout({
                     session={session}
                     galleryIndexes={galleryIndexes}
                     videoPositions={videoPositions}
+                    audioEnabled={session.isAudioEnabled ?? globalAudioEnabled}
+                    finishVideoBeforeAdvance={sessionFinishVideoBeforeAdvance(
+                      session,
+                      finishVideoBeforeAdvance,
+                    )}
                     compact
                     forceInfoVisible={showInfo}
                     hideUi
@@ -133,6 +151,7 @@ export function FocusLayout({
                     isRuntimeLoading={session.isRuntimeLoading}
                     onGalleryChange={onGalleryChange}
                     onVideoPositionChange={onVideoPositionChange}
+                    onVideoEnded={onVideoEnded}
                     onMove={(direction) => onMove(session.id, direction)}
                     onTogglePaused={() => onTogglePaused(session.id)}
                     onRestart={() => onRestart(session.id)}
