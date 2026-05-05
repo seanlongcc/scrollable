@@ -1,9 +1,8 @@
 import { z } from "zod";
 
 const DEFAULT_REDDIT_SOURCE_LIMIT = 20;
-const MAX_REDDIT_SOURCE_LIMIT = 200;
-const MAX_REDDIT_SOURCE_URLS = 200;
-const REDDIT_LISTING_FETCH_LIMIT = 200;
+const MAX_REDDIT_SOURCE_LIMIT = 100;
+const MAX_REDDIT_SOURCE_URLS = 100;
 const REDDIT_LISTING_SORTS = new Set([
   "hot",
   "new",
@@ -207,12 +206,7 @@ function toRedditApiPath(source: ParsedRedditSourceUrl, limit: number) {
   if (source.timeRange) url.searchParams.set("t", source.timeRange);
   url.searchParams.set(
     "limit",
-    String(
-      Math.min(
-        Math.max(limit, REDDIT_LISTING_FETCH_LIMIT),
-        MAX_REDDIT_SOURCE_LIMIT,
-      ),
-    ),
+    String(Math.min(Math.max(limit, 1), MAX_REDDIT_SOURCE_LIMIT)),
   );
 
   return `${url.pathname}${url.search}`;

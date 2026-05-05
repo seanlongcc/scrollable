@@ -70,7 +70,7 @@ describe("fetchRedditRuntimeItems", () => {
       },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=200",
+      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=24",
       { cache: "no-store" },
     );
     expect(
@@ -172,6 +172,53 @@ describe("fetchRedditRuntimeItems", () => {
 });
 
 describe("createRedditSessionSources", () => {
+  it("reuses one Reddit fetch for duplicate separate post sources", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [
+        {
+          kind: "Listing",
+          data: {
+            children: [
+              {
+                data: {
+                  id: "duplicate",
+                  title: "Duplicate post",
+                  subreddit: "pics",
+                  post_hint: "image",
+                  url: "https://cdn.test/duplicate.jpg",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const sources = await createRedditSessionSources({
+      urls: [
+        "https://www.reddit.com/r/pics/comments/abc123/title/",
+        "https://www.reddit.com/r/pics/comments/abc123/title/",
+      ],
+      limit: 10,
+      sourceGroupingMode: "separate",
+    });
+
+    expect(sources).toHaveLength(2);
+    expect(sources[0]?.items).toMatchObject([
+      { id: "reddit:duplicate", title: "Duplicate post" },
+    ]);
+    expect(sources[1]?.items).toMatchObject([
+      { id: "reddit:duplicate", title: "Duplicate post" },
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://www.reddit.com/r/pics/comments/abc123/title/.json?raw_json=1",
+      { cache: "no-store" },
+    );
+  });
+
   it("randomizes grouped Reddit source item order", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,

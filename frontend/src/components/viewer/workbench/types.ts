@@ -76,7 +76,7 @@ export type RedditTimeRange = "day" | "week" | "month" | "year" | "all";
 
 export const DEFAULT_TIMER_SECONDS = DEFAULT_WORKSPACE_GLOBAL_TIMER_SECONDS;
 export const DEFAULT_REDDIT_MEDIA_LIMIT = 10;
-export const MAX_REDDIT_MEDIA_LIMIT = 200;
+export const MAX_REDDIT_MEDIA_LIMIT = 100;
 export const MAX_LAYOUT_NAME_LENGTH = 32;
 export const WORKSPACE_SESSION_STORAGE_KEY = "scrollable.workspace-session.v1";
 export const REDDIT_SORT_OPTIONS: Array<{

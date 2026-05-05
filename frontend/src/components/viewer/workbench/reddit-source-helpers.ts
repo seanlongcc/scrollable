@@ -1,4 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import { parseRedditSourceUrl } from "@/lib/reddit/source";
 import type {
   PersistedSourceConfig,
   RedditListingSort,
@@ -57,6 +58,46 @@ export function buildSubredditListingUrl(
   }
 
   return url.toString();
+}
+
+export function redditListingControlsFromUrls(urls: string[]) {
+  const parsedSources = urls.flatMap((url) => {
+    try {
+      return [parseRedditSourceUrl(url)];
+    } catch {
+      return [];
+    }
+  });
+  const listings = parsedSources.filter((source) => source.kind === "listing");
+  const subreddits = uniqueSubreddits([
+    ...parsedSources.map((source) => source.subreddit),
+    ...urls.map(subredditFromRedditUrl),
+  ]);
+  const firstListing = listings[0];
+
+  return {
+    subredditName: subreddits.join(", "),
+    redditSort: (firstListing?.sort ?? "top") as RedditListingSort,
+    redditTimeRange: (firstListing?.timeRange ?? "week") as RedditTimeRange,
+  };
+}
+
+export function buildRedditUrlsFromListingControls({
+  subredditName,
+  redditSort,
+  redditTimeRange,
+  fallbackUrls,
+}: {
+  subredditName: string;
+  redditSort: RedditListingSort;
+  redditTimeRange: RedditTimeRange;
+  fallbackUrls: string[];
+}) {
+  if (!subredditName.trim()) {
+    return fallbackUrls.map((url) => url.trim()).filter(Boolean);
+  }
+
+  return buildSubredditListingUrls(subredditName, redditSort, redditTimeRange);
 }
 
 export function normalizeSubredditName(value: string) {
