@@ -12,6 +12,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Shuffle,
   SkipBack,
   SkipForward,
   Trash2,
@@ -238,20 +239,24 @@ export function GlobalSettingsSection({
   hasRunningSessionTimer,
   globalAudioEnabled,
   finishVideoBeforeAdvance,
+  randomVideoStart,
   onGlobalTimerSecondsChange,
   onGlobalTimerAction,
   onGlobalAudioEnabledChange,
   onFinishVideoBeforeAdvanceChange,
+  onRandomVideoStartChange,
 }: {
   mode: "mobile" | "desktop";
   globalSeconds: number;
   hasRunningSessionTimer: boolean;
   globalAudioEnabled: boolean;
   finishVideoBeforeAdvance: boolean;
+  randomVideoStart: boolean;
   onGlobalTimerSecondsChange: (seconds: number) => void;
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
   onGlobalAudioEnabledChange: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange: (enabled: boolean) => void;
+  onRandomVideoStartChange: (enabled: boolean) => void;
 }) {
   const globalAudioLabel = globalAudioEnabled ? "Mute all" : "Unmute all";
 
@@ -287,6 +292,17 @@ export function GlobalSettingsSection({
           >
             <Film />
             <span className="min-w-0 truncate">Finish video</span>
+          </Button>
+          <Button
+            type="button"
+            variant={randomVideoStart ? "default" : "outline"}
+            aria-label="Random start"
+            aria-pressed={randomVideoStart}
+            onClick={() => onRandomVideoStartChange(!randomVideoStart)}
+            className={workbenchActionButtonClass}
+          >
+            <Shuffle />
+            <span className="min-w-0 truncate">Random start</span>
           </Button>
         </div>
         <div

@@ -15,7 +15,10 @@ import {
   isVideoPointerTarget,
 } from "./helpers";
 import { SessionPane } from "./session-pane";
-import { sessionFinishVideoBeforeAdvance } from "./workbench-effect-state";
+import {
+  sessionFinishVideoBeforeAdvance,
+  sessionRandomVideoStart,
+} from "./workbench-effect-state";
 
 export function FixedGridView({
   sessions,
@@ -25,6 +28,7 @@ export function FixedGridView({
   videoPositions,
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   selectedId,
   hideUi,
   isPlaybackActive,
@@ -51,6 +55,7 @@ export function FixedGridView({
   videoPositions: Record<string, number>;
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   selectedId: string | null;
   hideUi: boolean;
   isPlaybackActive: boolean;
@@ -142,6 +147,10 @@ export function FixedGridView({
                 finishVideoBeforeAdvance={sessionFinishVideoBeforeAdvance(
                   session,
                   finishVideoBeforeAdvance,
+                )}
+                randomVideoStart={sessionRandomVideoStart(
+                  session,
+                  randomVideoStart,
                 )}
                 compact={fixedGrid.columns * fixedGrid.rows > 4}
                 isFocused={session.id === selectedId}

@@ -12,14 +12,17 @@ describe("WorkbenchPanelContent", () => {
     const user = userEvent.setup();
     const onGlobalAudioEnabledChange = vi.fn();
     const onFinishVideoBeforeAdvanceChange = vi.fn();
+    const onRandomVideoStartChange = vi.fn();
 
     render(
       <WorkbenchPanelContent
         {...panelProps({
           globalAudioEnabled: false,
           finishVideoBeforeAdvance: false,
+          randomVideoStart: false,
           onGlobalAudioEnabledChange,
           onFinishVideoBeforeAdvanceChange,
+          onRandomVideoStartChange,
         })}
       />,
     );
@@ -29,17 +32,22 @@ describe("WorkbenchPanelContent", () => {
 
     const unmuteAll = screen.getByRole("button", { name: "Unmute all" });
     const finishVideo = screen.getByRole("button", { name: "Finish video" });
+    const randomStart = screen.getByRole("button", { name: "Random start" });
 
     expect(unmuteAll).toHaveAttribute("aria-pressed", "false");
     expect(unmuteAll).toHaveAttribute("data-variant", "outline");
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
+    expect(randomStart).toHaveAttribute("aria-pressed", "false");
+    expect(randomStart).toHaveAttribute("data-variant", "outline");
 
     await user.click(unmuteAll);
     await user.click(finishVideo);
+    await user.click(randomStart);
 
     expect(onGlobalAudioEnabledChange).toHaveBeenCalledWith(true);
     expect(onFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
+    expect(onRandomVideoStartChange).toHaveBeenCalledWith(true);
   });
 
   it("renames global audio action to mute-all when audio is enabled", async () => {
@@ -120,12 +128,14 @@ describe("WorkbenchPanelContent", () => {
   it("places selected unmute and finish-video side by side without randomize", async () => {
     const user = userEvent.setup();
     const onSelectedFinishVideoBeforeAdvanceChange = vi.fn();
+    const onSelectedRandomVideoStartChange = vi.fn();
 
     render(
       <WorkbenchPanelContent
         {...panelProps({
           selected: selectedSession("url"),
           onSelectedFinishVideoBeforeAdvanceChange,
+          onSelectedRandomVideoStartChange,
         })}
       />,
     );
@@ -136,13 +146,19 @@ describe("WorkbenchPanelContent", () => {
     const finishVideo = screen.getByRole("button", {
       name: "Finish selected source video",
     });
+    const randomStart = screen.getByRole("button", {
+      name: "Start selected source videos randomly",
+    });
     const remove = screen.getByRole("button", { name: "Remove" });
 
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
+    expect(randomStart).toHaveAttribute("aria-pressed", "false");
+    expect(randomStart).toHaveAttribute("data-variant", "outline");
     expect(unmute).not.toHaveClass("col-span-2");
     expect(finishVideo).not.toHaveClass("col-span-2");
-    expect(remove).toHaveClass("col-span-2");
+    expect(randomStart).not.toHaveClass("col-span-2");
+    expect(remove).not.toHaveClass("col-span-2");
     expect(
       unmute.compareDocumentPosition(finishVideo) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -153,8 +169,10 @@ describe("WorkbenchPanelContent", () => {
     ).toBeTruthy();
 
     await user.click(finishVideo);
+    await user.click(randomStart);
 
     expect(onSelectedFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
+    expect(onSelectedRandomVideoStartChange).toHaveBeenCalledWith(true);
   });
 
   it("places randomize and unmute side by side for randomizable sources", () => {
@@ -176,11 +194,15 @@ describe("WorkbenchPanelContent", () => {
     const finishVideo = screen.getByRole("button", {
       name: "Finish selected source video",
     });
+    const randomStart = screen.getByRole("button", {
+      name: "Start selected source videos randomly",
+    });
     const remove = screen.getByRole("button", { name: "Remove" });
 
     expect(randomize).not.toHaveClass("col-span-2");
     expect(unmute).not.toHaveClass("col-span-2");
     expect(finishVideo).not.toHaveClass("col-span-2");
+    expect(randomStart).not.toHaveClass("col-span-2");
     expect(remove).not.toHaveClass("col-span-2");
     expect(
       randomize.compareDocumentPosition(unmute) &
@@ -288,14 +310,17 @@ function panelProps(
     onGlobalTimerAction: vi.fn(),
     globalAudioEnabled: false,
     finishVideoBeforeAdvance: false,
+    randomVideoStart: false,
     onGlobalAudioEnabledChange: vi.fn(),
     onFinishVideoBeforeAdvanceChange: vi.fn(),
+    onRandomVideoStartChange: vi.fn(),
     onCloneSelectedSource: vi.fn(),
     onFillSelectedSourceSpace: vi.fn(),
     onRemoveSelectedSource: vi.fn(),
     onRandomizeSelectedSource: vi.fn(),
     onSelectedAudioEnabledChange: vi.fn(),
     onSelectedFinishVideoBeforeAdvanceChange: vi.fn(),
+    onSelectedRandomVideoStartChange: vi.fn(),
     onSelectedTimerModeChange: vi.fn(),
     onSelectedTimerSecondsChange: vi.fn(),
     onSelectedMove: vi.fn(),

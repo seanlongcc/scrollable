@@ -7,12 +7,14 @@ import {
   appendHlsSegmentQuery,
   chooseVideoPlayback,
   normalizedPlaybackSeconds,
+  randomVideoStartSeconds,
   shouldSeekToPlaybackTime,
 } from "@/lib/viewer/video";
 
 type PlaybackRestoreTarget = {
   key: string;
   targetSeconds: number;
+  randomVideoStart: boolean;
 };
 
 type HlsInstance = InstanceType<typeof import("hls.js").default>;
@@ -25,6 +27,7 @@ export function MediaRenderer({
   initialVideoTime = 0,
   audioEnabled = false,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   onVideoTimeChange,
   onVideoEnded,
 }: {
@@ -35,6 +38,7 @@ export function MediaRenderer({
   initialVideoTime?: number;
   audioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   onVideoTimeChange?: (seconds: number) => void;
   onVideoEnded?: () => void;
 }) {
@@ -80,13 +84,15 @@ export function MediaRenderer({
     playbackRestoreTargetRef.current = {
       key: playbackPositionKey,
       targetSeconds: normalizedPlaybackSeconds(initialVideoTime),
+      randomVideoStart: media.type === "video" && randomVideoStart,
     };
     restoredVideoKeyRef.current = null;
     lastReportedVideoSecondRef.current = null;
-    // Capture resume target only when source changes. Live parent time updates
-    // must not reset this value, or playback micro-seeks on every report.
+    // Capture resume target only when source or random-start mode changes.
+    // Live parent time updates must not reset this value, or playback
+    // micro-seeks on every report.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playbackPositionKey]);
+  }, [media.type, playbackPositionKey, randomVideoStart]);
 
   useEffect(() => {
     const element =
@@ -311,10 +317,16 @@ export function MediaRenderer({
       : null;
     if (!restoreTarget || restoreTarget.key !== playbackPositionKey) return;
     const restoreKey = restoreTarget.key;
-    const targetSeconds = restoreTarget.targetSeconds;
-
+    const shouldRandomVideoStart = restoreTarget.randomVideoStart;
+    const savedTargetSeconds = restoreTarget.targetSeconds;
     function restorePosition() {
       if (restoredVideoKeyRef.current === restoreKey) return;
+      if (shouldRandomVideoStart && Number.isNaN(mediaElement.duration)) {
+        return;
+      }
+      const targetSeconds = shouldRandomVideoStart
+        ? randomVideoStartSeconds(mediaElement.duration)
+        : savedTargetSeconds;
       if (targetSeconds <= 0) {
         restoredVideoKeyRef.current = restoreKey;
         lastReportedVideoSecondRef.current = 0;
@@ -348,7 +360,13 @@ export function MediaRenderer({
       mediaElement.removeEventListener("loadedmetadata", restorePosition);
       mediaElement.removeEventListener("canplay", restorePosition);
     };
-  }, [hasLoadError, media.type, playbackPositionKey, shouldLoadPlayback]);
+  }, [
+    hasLoadError,
+    media.type,
+    playbackPositionKey,
+    randomVideoStart,
+    shouldLoadPlayback,
+  ]);
 
   function handleMediaError() {
     setFailedMediaKey(mediaKey);

@@ -1,13 +1,14 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
 import type { SessionPlacementSourceInput } from "./session-placement";
+import { createRedditSessionSources } from "./runtime-sources";
 import {
   buildUrlAddSourceConfig,
   buildUrlAddSourceConfigs,
-  createRedditSessionSources,
+  buildStackedUrlAddSourceConfig,
   createUrlSessionSource,
   createUrlSessionSources,
-} from "./runtime-sources";
+} from "./url-runtime-sources";
 import {
   createLocalSessionSources,
   type LocalByteCacheBatchPreparation,
@@ -115,16 +116,18 @@ export async function addRedditSourceAction({
 export async function addUrlSourceAction({
   urlValue,
   urlTitle,
+  sourceGroupingMode,
   availableSeparateSourceSlots,
 }: {
   urlValue: string;
   urlTitle: string;
+  sourceGroupingMode: SourceGroupingMode;
   availableSeparateSourceSlots: number;
 }): Promise<UrlSourceAddActionResult> {
   try {
     const urls = splitUrlValues(urlValue);
     const slotError = separateSourceSlotError({
-      sourceGroupingMode: "separate",
+      sourceGroupingMode,
       requestedCount: urls.length,
       availableSeparateSourceSlots,
     });
@@ -136,15 +139,21 @@ export async function addUrlSourceAction({
     return {
       status: "ready",
       sources:
-        urls.length === 1
+        sourceGroupingMode === "stacked"
           ? [
               await createUrlSessionSource(
-                buildUrlAddSourceConfig({ urlValue: urls[0]!, urlTitle }),
+                buildStackedUrlAddSourceConfig({ urls, urlTitle }),
               ),
             ]
-          : await createUrlSessionSources(
-              buildUrlAddSourceConfigs({ urls, urlTitle }),
-            ),
+          : urls.length === 1
+            ? [
+                await createUrlSessionSource(
+                  buildUrlAddSourceConfig({ urlValue: urls[0]!, urlTitle }),
+                ),
+              ]
+            : await createUrlSessionSources(
+                buildUrlAddSourceConfigs({ urls, urlTitle }),
+              ),
     };
   } catch (error) {
     return {

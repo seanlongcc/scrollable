@@ -147,11 +147,7 @@ export function SourceDialog({
             ariaLabel="Source type"
             disabled={isLoading}
             onChange={(value) => {
-              const nextSourceKind = value as SourceKind;
-              setSourceKind(nextSourceKind);
-              if (nextSourceKind === "url") {
-                setSourceGroupingMode("separate");
-              }
+              setSourceKind(value as SourceKind);
             }}
           />
 
@@ -387,8 +383,8 @@ https://www.reddit.com/r/pics/top/?t=week`}
               Grouping
             </h2>
             <SegmentedControl
-              value={sourceKind === "url" ? "separate" : sourceGroupingMode}
-              options={sourceGroupingOptions(sourceKind)}
+              value={sourceGroupingMode}
+              options={sourceGroupingOptions()}
               ariaLabel="Source mode"
               disabled={isLoading}
               onChange={(value) =>
@@ -402,13 +398,7 @@ https://www.reddit.com/r/pics/top/?t=week`}
   );
 }
 
-function sourceGroupingOptions(
-  sourceKind: SourceKind,
-): Array<[SourceGroupingMode, string, string]> {
-  if (sourceKind === "url") {
-    return [["separate", "Separate", "Add sources as separate sources"]];
-  }
-
+function sourceGroupingOptions(): Array<[SourceGroupingMode, string, string]> {
   return [
     ["stacked", "Stacked", "Add sources as one stacked source"],
     ["separate", "Separate", "Add sources as separate sources"],

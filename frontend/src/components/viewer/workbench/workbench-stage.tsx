@@ -29,6 +29,7 @@ export function WorkbenchStage({
   videoPositions,
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   isUiHidden,
   isDesktopWorkbenchCollapsed,
   showAllInfo,
@@ -63,6 +64,7 @@ export function WorkbenchStage({
   videoPositions: Record<string, number>;
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   isUiHidden: boolean;
   isDesktopWorkbenchCollapsed: boolean;
   showAllInfo: boolean;
@@ -114,6 +116,7 @@ export function WorkbenchStage({
         videoPositions={videoPositions}
         globalAudioEnabled={globalAudioEnabled}
         finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+        randomVideoStart={randomVideoStart}
         hideUi={isUiHidden}
         showInfo={showAllInfo}
         onRestore={() => setMaximizedId(null)}
@@ -181,6 +184,7 @@ export function WorkbenchStage({
             videoPositions={videoPositions}
             globalAudioEnabled={globalAudioEnabled}
             finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+            randomVideoStart={randomVideoStart}
             selectedId={selectedId}
             isUiHidden={isUiHidden}
             showAllInfo={showAllInfo}
@@ -209,6 +213,7 @@ export function WorkbenchStage({
             videoPositions={videoPositions}
             globalAudioEnabled={globalAudioEnabled}
             finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+            randomVideoStart={randomVideoStart}
             selectedId={selectedId}
             isUiHidden={isUiHidden}
             showAllInfo={showAllInfo}
@@ -245,6 +250,7 @@ function FixedLayerStage({
   videoPositions,
   globalAudioEnabled,
   finishVideoBeforeAdvance,
+  randomVideoStart,
   selectedId,
   isUiHidden,
   showAllInfo,
@@ -271,6 +277,7 @@ function FixedLayerStage({
   videoPositions: Record<string, number>;
   globalAudioEnabled: boolean;
   finishVideoBeforeAdvance: boolean;
+  randomVideoStart: boolean;
   selectedId: string | null;
   isUiHidden: boolean;
   showAllInfo: boolean;
@@ -327,6 +334,7 @@ function FixedLayerStage({
               videoPositions={videoPositions}
               globalAudioEnabled={globalAudioEnabled}
               finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+              randomVideoStart={randomVideoStart}
               selectedId={selectedId}
               hideUi={isUiHidden}
               isPlaybackActive
@@ -365,6 +373,7 @@ function FreeLayerStage({
   videoPositions,
   globalAudioEnabled,
   finishVideoBeforeAdvance,
+  randomVideoStart,
   selectedId,
   isUiHidden,
   showAllInfo,
@@ -394,6 +403,7 @@ function FreeLayerStage({
   videoPositions: Record<string, number>;
   globalAudioEnabled: boolean;
   finishVideoBeforeAdvance: boolean;
+  randomVideoStart: boolean;
   selectedId: string | null;
   isUiHidden: boolean;
   showAllInfo: boolean;
@@ -463,6 +473,7 @@ function FreeLayerStage({
               videoPositions={videoPositions}
               globalAudioEnabled={globalAudioEnabled}
               finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+              randomVideoStart={randomVideoStart}
               selectedId={selectedId}
               hideUi={isUiHidden}
               isPlaybackActive

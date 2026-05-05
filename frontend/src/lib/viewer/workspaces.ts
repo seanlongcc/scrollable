@@ -66,6 +66,7 @@ export type WorkspaceSessionInput = {
   isOrderRandomized?: boolean;
   isAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
 };
@@ -77,6 +78,7 @@ export type SerializedWorkspaceSession = Omit<
   | "isOrderRandomized"
   | "isAudioEnabled"
   | "finishVideoBeforeAdvance"
+  | "randomVideoStart"
   | "urlResolution"
 >;
 

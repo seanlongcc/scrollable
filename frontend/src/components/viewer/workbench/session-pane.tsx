@@ -21,6 +21,7 @@ export function SessionPane({
   videoPositions,
   audioEnabled = false,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   compact,
   isFocused,
   forceInfoVisible,
@@ -49,6 +50,7 @@ export function SessionPane({
   videoPositions: Record<string, number>;
   audioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   compact?: boolean;
   isFocused?: boolean;
   forceInfoVisible?: boolean;
@@ -137,6 +139,7 @@ export function SessionPane({
       videoPositions={videoPositions}
       audioEnabled={audioEnabled}
       finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+      randomVideoStart={randomVideoStart}
       compact={compact}
       isFocused={isFocused}
       forceInfoVisible={forceInfoVisible}

@@ -63,6 +63,7 @@ export type WorkbenchChromeProps = {
   hasRunningSessionTimer: boolean;
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   selected: FeedSession | null;
   canCloneOrFillSelectedSource: boolean;
   showAllInfo: boolean;
@@ -80,12 +81,14 @@ export type WorkbenchChromeProps = {
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
   onGlobalAudioEnabledChange?: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
+  onRandomVideoStartChange?: (enabled: boolean) => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
   onRandomizeSelectedSource: () => void;
   onSelectedAudioEnabledChange?: (enabled: boolean) => void;
   onSelectedFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
+  onSelectedRandomVideoStartChange?: (enabled: boolean) => void;
   onSelectedTimerModeChange: (mode: TimerMode) => void;
   onSelectedTimerSecondsChange: (seconds: number) => void;
   onSelectedMove: (direction: 1 | -1) => void;
@@ -123,6 +126,7 @@ export function WorkbenchChrome({
   hasRunningSessionTimer,
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   selected,
   canCloneOrFillSelectedSource,
   showAllInfo,
@@ -140,12 +144,14 @@ export function WorkbenchChrome({
   onGlobalTimerAction,
   onGlobalAudioEnabledChange = () => undefined,
   onFinishVideoBeforeAdvanceChange = () => undefined,
+  onRandomVideoStartChange = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
   onRandomizeSelectedSource,
   onSelectedAudioEnabledChange = () => undefined,
   onSelectedFinishVideoBeforeAdvanceChange = () => undefined,
+  onSelectedRandomVideoStartChange = () => undefined,
   onSelectedTimerModeChange,
   onSelectedTimerSecondsChange,
   onSelectedMove,
@@ -183,6 +189,8 @@ export function WorkbenchChrome({
     selected?.isAudioEnabled ?? globalAudioEnabled;
   const isSelectedSourceFinishVideoBeforeAdvance =
     selected?.finishVideoBeforeAdvance ?? finishVideoBeforeAdvance;
+  const isSelectedSourceRandomVideoStart =
+    selected?.randomVideoStart ?? randomVideoStart;
   const selectedAudioLabel = isSelectedSourceAudioEnabled ? "Mute" : "Unmute";
   const desktopWorkbenchButtonLabel = isDesktopWorkbenchCollapsed
     ? "Open workbench"
@@ -200,6 +208,7 @@ export function WorkbenchChrome({
     hasRunningSessionTimer,
     globalAudioEnabled,
     finishVideoBeforeAdvance,
+    randomVideoStart,
     selected,
     canCloneOrFillSelectedSource,
     showAllInfo,
@@ -213,12 +222,14 @@ export function WorkbenchChrome({
     onGlobalTimerAction,
     onGlobalAudioEnabledChange,
     onFinishVideoBeforeAdvanceChange,
+    onRandomVideoStartChange,
     onCloneSelectedSource,
     onFillSelectedSourceSpace,
     onRemoveSelectedSource,
     onRandomizeSelectedSource,
     onSelectedAudioEnabledChange,
     onSelectedFinishVideoBeforeAdvanceChange,
+    onSelectedRandomVideoStartChange,
     onSelectedTimerModeChange,
     onSelectedTimerSecondsChange,
     onSelectedMove,
@@ -488,6 +499,23 @@ export function WorkbenchChrome({
                   >
                     <Film />
                     <span className="min-w-0 truncate">Finish video</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      isSelectedSourceRandomVideoStart ? "default" : "outline"
+                    }
+                    aria-pressed={isSelectedSourceRandomVideoStart}
+                    className="min-w-0 justify-start"
+                    onClick={() => {
+                      setIsMoreOpen(false);
+                      onSelectedRandomVideoStartChange(
+                        !isSelectedSourceRandomVideoStart,
+                      );
+                    }}
+                  >
+                    <Shuffle />
+                    <span className="min-w-0 truncate">Random start</span>
                   </Button>
                   <Button
                     type="button"

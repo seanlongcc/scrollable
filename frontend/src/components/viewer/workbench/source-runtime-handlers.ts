@@ -186,6 +186,7 @@ export function useSourceRuntimeHandlers({
       const result = await addUrlSourceAction({
         urlValue,
         urlTitle,
+        sourceGroupingMode,
         availableSeparateSourceSlots,
       });
 

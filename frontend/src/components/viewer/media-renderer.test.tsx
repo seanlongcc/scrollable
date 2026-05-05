@@ -162,6 +162,49 @@ describe("MediaRenderer", () => {
     expect(onVideoTimeChange).toHaveBeenLastCalledWith(11);
   });
 
+  it("starts videos from a random section instead of restoring saved position", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.42);
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+        initialVideoTime={7}
+        randomVideoStart
+      />,
+    );
+
+    const video = container.querySelector("video");
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 101,
+    });
+
+    fireEvent.loadedMetadata(video!);
+
+    expect(video?.currentTime).toBe(42);
+  });
+
+  it("uses saved video position when random start is disabled", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.42);
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+        initialVideoTime={7}
+        randomVideoStart={false}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 101,
+    });
+    fireEvent.loadedMetadata(video!);
+
+    expect(video?.currentTime).toBe(7);
+  });
+
   it("does not seek again when live playback time updates parent state", () => {
     const media = { type: "video" as const, url: "https://cdn.test/video.mp4" };
     const { container, rerender } = render(

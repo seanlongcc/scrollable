@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { appendHlsSegmentQuery, chooseVideoPlayback } from "./video";
+import {
+  appendHlsSegmentQuery,
+  chooseVideoPlayback,
+  randomVideoStartSeconds,
+} from "./video";
 
 describe("chooseVideoPlayback", () => {
   it("uses native playback for regular videos", () => {
@@ -57,5 +61,17 @@ describe("appendHlsSegmentQuery", () => {
     ).toBe(
       "https://stream.test/path/segment-000000.ts?range=1&__gda__=signed-token&hdnts=second-token",
     );
+  });
+});
+
+describe("randomVideoStartSeconds", () => {
+  it("chooses a random seek target before the final second", () => {
+    expect(randomVideoStartSeconds(101, () => 0.42)).toBe(42);
+  });
+
+  it("falls back to the beginning for invalid or tiny durations", () => {
+    expect(randomVideoStartSeconds(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(randomVideoStartSeconds(Number.NaN)).toBe(0);
+    expect(randomVideoStartSeconds(1)).toBe(0);
   });
 });

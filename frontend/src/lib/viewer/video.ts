@@ -41,6 +41,15 @@ export function shouldSeekToPlaybackTime({
   return Math.abs(currentSeconds - normalizedTargetSeconds) > driftSeconds;
 }
 
+export function randomVideoStartSeconds(
+  durationSeconds: number,
+  random: () => number = Math.random,
+) {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 1) return 0;
+
+  return Math.floor(random() * (durationSeconds - 1));
+}
+
 export function appendHlsSegmentQuery(url: string, query?: string) {
   if (!query) return url;
 

@@ -63,6 +63,7 @@ export type WorkbenchPanelContentProps = {
   hasRunningSessionTimer: boolean;
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   selected: FeedSession | null;
   canCloneOrFillSelectedSource: boolean;
   showAllInfo: boolean;
@@ -76,12 +77,14 @@ export type WorkbenchPanelContentProps = {
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
   onGlobalAudioEnabledChange?: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
+  onRandomVideoStartChange?: (enabled: boolean) => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
   onRandomizeSelectedSource: () => void;
   onSelectedAudioEnabledChange?: (enabled: boolean) => void;
   onSelectedFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
+  onSelectedRandomVideoStartChange?: (enabled: boolean) => void;
   onSelectedTimerModeChange: (mode: TimerMode) => void;
   onSelectedTimerSecondsChange: (seconds: number) => void;
   onSelectedMove: (direction: 1 | -1) => void;
@@ -142,6 +145,7 @@ export function WorkbenchPanelContent({
   hasRunningSessionTimer,
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   selected,
   canCloneOrFillSelectedSource,
   showAllInfo,
@@ -155,12 +159,14 @@ export function WorkbenchPanelContent({
   onGlobalTimerAction,
   onGlobalAudioEnabledChange = () => undefined,
   onFinishVideoBeforeAdvanceChange = () => undefined,
+  onRandomVideoStartChange = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
   onRandomizeSelectedSource,
   onSelectedAudioEnabledChange = () => undefined,
   onSelectedFinishVideoBeforeAdvanceChange = () => undefined,
+  onSelectedRandomVideoStartChange = () => undefined,
   onSelectedTimerModeChange,
   onSelectedTimerSecondsChange,
   onSelectedMove,
@@ -201,6 +207,8 @@ export function WorkbenchPanelContent({
     selected?.isAudioEnabled ?? globalAudioEnabled;
   const isSelectedSourceFinishVideoBeforeAdvance =
     selected?.finishVideoBeforeAdvance ?? finishVideoBeforeAdvance;
+  const isSelectedSourceRandomVideoStart =
+    selected?.randomVideoStart ?? randomVideoStart;
   const selectedAudioLabel = isSelectedSourceAudioEnabled ? "Mute" : "Unmute";
   const selectedSourceOrderButtons = (removeClassName?: string) => (
     <>
@@ -247,9 +255,20 @@ export function WorkbenchPanelContent({
         <Film />
         <span className="min-w-0 truncate">Finish video</span>
       </Button>
-      {removeSelectedSourceButton(
-        cn(!canRandomizeSelectedSource && "col-span-2", removeClassName),
-      )}
+      <Button
+        type="button"
+        variant={isSelectedSourceRandomVideoStart ? "default" : "outline"}
+        aria-pressed={isSelectedSourceRandomVideoStart}
+        aria-label="Start selected source videos randomly"
+        onClick={() =>
+          onSelectedRandomVideoStartChange(!isSelectedSourceRandomVideoStart)
+        }
+        className={selectedSourceButtonClass}
+      >
+        <Shuffle />
+        <span className="min-w-0 truncate">Random start</span>
+      </Button>
+      {removeSelectedSourceButton(removeClassName)}
     </>
   );
 
@@ -285,10 +304,12 @@ export function WorkbenchPanelContent({
             hasRunningSessionTimer={hasRunningSessionTimer}
             globalAudioEnabled={globalAudioEnabled}
             finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+            randomVideoStart={randomVideoStart}
             onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
             onGlobalTimerAction={onGlobalTimerAction}
             onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
             onFinishVideoBeforeAdvanceChange={onFinishVideoBeforeAdvanceChange}
+            onRandomVideoStartChange={onRandomVideoStartChange}
           />
           <ActionsSection
             showAllInfo={showAllInfo}
@@ -337,12 +358,14 @@ export function WorkbenchPanelContent({
               hasRunningSessionTimer={hasRunningSessionTimer}
               globalAudioEnabled={globalAudioEnabled}
               finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+              randomVideoStart={randomVideoStart}
               onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
               onGlobalTimerAction={onGlobalTimerAction}
               onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
               onFinishVideoBeforeAdvanceChange={
                 onFinishVideoBeforeAdvanceChange
               }
+              onRandomVideoStartChange={onRandomVideoStartChange}
             />
           </WorkbenchPanelDisclosure>
         </>

@@ -117,6 +117,7 @@ export function FeedWorkbench({
   const [globalAudioEnabled, setGlobalAudioEnabled] = useState(false);
   const [finishVideoBeforeAdvance, setFinishVideoBeforeAdvance] =
     useState(false);
+  const [randomVideoStart, setRandomVideoStart] = useState(false);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
   const [layers, setLayers] = useState<WorkspaceLayer[]>(() =>
@@ -407,6 +408,16 @@ export function FeedWorkbench({
       updateSession(selected.id, (session) => ({
         ...session,
         finishVideoBeforeAdvance: enabled,
+      }));
+    },
+    [selected, updateSession],
+  );
+  const setSelectedSourceRandomVideoStart = useCallback(
+    (enabled: boolean) => {
+      if (!selected) return;
+      updateSession(selected.id, (session) => ({
+        ...session,
+        randomVideoStart: enabled,
       }));
     },
     [selected, updateSession],
@@ -715,6 +726,7 @@ export function FeedWorkbench({
     globalAudioEnabled,
     globalSeconds,
     finishVideoBeforeAdvance,
+    randomVideoStart,
     importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
@@ -791,6 +803,7 @@ export function FeedWorkbench({
     setGlobalTimerSeconds,
     setGlobalAudioEnabled: setAllSourcesAudioEnabled,
     setFinishVideoBeforeAdvance,
+    setRandomVideoStart,
     setIsAccountOpen,
     setIsClearOpen,
     setIsDesktopWorkbenchCollapsed,
@@ -819,6 +832,7 @@ export function FeedWorkbench({
     setSelectedTimerSeconds,
     setSelectedSourceAudioEnabled,
     setSelectedSourceFinishVideoBeforeAdvance,
+    setSelectedSourceRandomVideoStart,
     setShowAllInfo,
     setSourceGroupingMode,
     setSubredditName,
