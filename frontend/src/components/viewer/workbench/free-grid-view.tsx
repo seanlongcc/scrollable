@@ -19,12 +19,15 @@ import {
   isVideoPointerTarget,
 } from "./helpers";
 import { SessionPane } from "./session-pane";
+import { sessionFinishVideoBeforeAdvance } from "./workbench-effect-state";
 
 export function FreeGridView({
   sessions,
   templateSlots,
   galleryIndexes,
   videoPositions,
+  globalAudioEnabled = true,
+  finishVideoBeforeAdvance = false,
   selectedId,
   hideUi,
   isPlaybackActive,
@@ -38,6 +41,7 @@ export function FreeGridView({
   openSourcePanel,
   changeGallery,
   onVideoPositionChange,
+  onVideoEnded,
   setViewTimerMode,
   setViewTimerSeconds,
   beginFreeDrag,
@@ -49,6 +53,8 @@ export function FreeGridView({
   templateSlots: WorkspaceTemplateSlot[];
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
+  globalAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   selectedId: string | null;
   hideUi: boolean;
   isPlaybackActive: boolean;
@@ -68,6 +74,7 @@ export function FreeGridView({
   ) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoEnded?: (key: string) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
   beginFreeDrag: (
@@ -260,6 +267,11 @@ export function FreeGridView({
                 })()}
                 galleryIndexes={galleryIndexes}
                 videoPositions={videoPositions}
+                audioEnabled={session.isAudioEnabled ?? globalAudioEnabled}
+                finishVideoBeforeAdvance={sessionFinishVideoBeforeAdvance(
+                  session,
+                  finishVideoBeforeAdvance,
+                )}
                 compact={
                   session.freeRect.columnSpan < 3 ||
                   session.freeRect.rowSpan < 3
@@ -271,6 +283,7 @@ export function FreeGridView({
                 isRuntimeLoading={session.isRuntimeLoading}
                 onGalleryChange={changeGallery}
                 onVideoPositionChange={onVideoPositionChange}
+                onVideoEnded={onVideoEnded}
                 onMove={(direction) =>
                   updateSession(session.id, (current) => ({
                     ...current,

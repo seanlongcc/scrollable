@@ -2,6 +2,7 @@ import {
   Clock3,
   Copy,
   EyeOff,
+  Film,
   FolderOpen,
   Grid2X2,
   Library,
@@ -13,6 +14,7 @@ import {
   SlidersHorizontal,
   Trash2,
   UserCircle,
+  Volume2,
 } from "lucide-react";
 import {
   Suspense,
@@ -59,6 +61,8 @@ export type WorkbenchChromeProps = {
   fixedGrid: FixedGrid;
   globalSeconds: number;
   hasRunningSessionTimer: boolean;
+  globalAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   selected: FeedSession | null;
   canCloneOrFillSelectedSource: boolean;
   showAllInfo: boolean;
@@ -74,10 +78,14 @@ export type WorkbenchChromeProps = {
   onFixedGridChange: (patch: Partial<FixedGrid>) => void;
   onGlobalTimerSecondsChange: (seconds: number) => void;
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
+  onGlobalAudioEnabledChange?: (enabled: boolean) => void;
+  onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
   onRandomizeSelectedSource: () => void;
+  onSelectedAudioEnabledChange?: (enabled: boolean) => void;
+  onSelectedFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
   onSelectedTimerModeChange: (mode: TimerMode) => void;
   onSelectedTimerSecondsChange: (seconds: number) => void;
   onSelectedMove: (direction: 1 | -1) => void;
@@ -113,6 +121,8 @@ export function WorkbenchChrome({
   fixedGrid,
   globalSeconds,
   hasRunningSessionTimer,
+  globalAudioEnabled = true,
+  finishVideoBeforeAdvance = false,
   selected,
   canCloneOrFillSelectedSource,
   showAllInfo,
@@ -128,10 +138,14 @@ export function WorkbenchChrome({
   onFixedGridChange,
   onGlobalTimerSecondsChange,
   onGlobalTimerAction,
+  onGlobalAudioEnabledChange = () => undefined,
+  onFinishVideoBeforeAdvanceChange = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
   onRandomizeSelectedSource,
+  onSelectedAudioEnabledChange = () => undefined,
+  onSelectedFinishVideoBeforeAdvanceChange = () => undefined,
   onSelectedTimerModeChange,
   onSelectedTimerSecondsChange,
   onSelectedMove,
@@ -165,6 +179,11 @@ export function WorkbenchChrome({
   const showPlaybackPill = Boolean(selected) && !controlsHidden;
   const canRandomizeSelectedSource = canRandomizeSessionSource(selected);
   const isRandomizeSelectedSourceEnabled = isSessionOrderRandomized(selected);
+  const isSelectedSourceAudioEnabled =
+    selected?.isAudioEnabled ?? globalAudioEnabled;
+  const isSelectedSourceFinishVideoBeforeAdvance =
+    selected?.finishVideoBeforeAdvance ?? finishVideoBeforeAdvance;
+  const selectedAudioLabel = isSelectedSourceAudioEnabled ? "Mute" : "Unmute";
   const desktopWorkbenchButtonLabel = isDesktopWorkbenchCollapsed
     ? "Open workbench"
     : "Collapse workbench";
@@ -179,6 +198,8 @@ export function WorkbenchChrome({
     fixedGrid,
     globalSeconds,
     hasRunningSessionTimer,
+    globalAudioEnabled,
+    finishVideoBeforeAdvance,
     selected,
     canCloneOrFillSelectedSource,
     showAllInfo,
@@ -190,10 +211,14 @@ export function WorkbenchChrome({
     onFixedGridChange,
     onGlobalTimerSecondsChange,
     onGlobalTimerAction,
+    onGlobalAudioEnabledChange,
+    onFinishVideoBeforeAdvanceChange,
     onCloneSelectedSource,
     onFillSelectedSourceSpace,
     onRemoveSelectedSource,
     onRandomizeSelectedSource,
+    onSelectedAudioEnabledChange,
+    onSelectedFinishVideoBeforeAdvanceChange,
     onSelectedTimerModeChange,
     onSelectedTimerSecondsChange,
     onSelectedMove,
@@ -426,6 +451,44 @@ export function WorkbenchChrome({
                       <span className="min-w-0 truncate">Randomize</span>
                     </Button>
                   ) : null}
+                  <Button
+                    type="button"
+                    variant={
+                      isSelectedSourceAudioEnabled ? "default" : "outline"
+                    }
+                    aria-pressed={isSelectedSourceAudioEnabled}
+                    className="min-w-0 justify-start"
+                    onClick={() => {
+                      setIsMoreOpen(false);
+                      onSelectedAudioEnabledChange(
+                        !isSelectedSourceAudioEnabled,
+                      );
+                    }}
+                  >
+                    <Volume2 />
+                    <span className="min-w-0 truncate">
+                      {selectedAudioLabel}
+                    </span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      isSelectedSourceFinishVideoBeforeAdvance
+                        ? "default"
+                        : "outline"
+                    }
+                    aria-pressed={isSelectedSourceFinishVideoBeforeAdvance}
+                    className="min-w-0 justify-start"
+                    onClick={() => {
+                      setIsMoreOpen(false);
+                      onSelectedFinishVideoBeforeAdvanceChange(
+                        !isSelectedSourceFinishVideoBeforeAdvance,
+                      );
+                    }}
+                  >
+                    <Film />
+                    <span className="min-w-0 truncate">Finish video</span>
+                  </Button>
                   <Button
                     type="button"
                     variant="destructive"

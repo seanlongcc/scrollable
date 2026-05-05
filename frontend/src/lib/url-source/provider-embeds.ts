@@ -13,6 +13,7 @@ import {
   isHitomiGalleryUrl,
   isRedditUrl,
   isTikTokUrl,
+  isWeverseUrl,
   isYoutubeUrl,
 } from "./resolver-routing";
 import { titleFromUrl } from "./resolver-title";
@@ -92,6 +93,18 @@ export async function resolveProvider(
 
   const ytDlp = await resolveYtDlpProvider(source, options);
   if (ytDlp) return ytDlp;
+
+  if (isWeverseUrl(source.url)) {
+    return {
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:weverse",
+      provider: "weverse",
+      title: source.title ?? "Weverse live",
+      externalUrl: source.url,
+      iframeUrl: source.url,
+    };
+  }
 
   return resolveSocialEmbed(source);
 }

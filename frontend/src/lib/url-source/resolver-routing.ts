@@ -78,6 +78,14 @@ export function isTikTokUrl(value: string) {
   return host === "tiktok.com" || host.endsWith(".tiktok.com");
 }
 
+export function isWeverseUrl(value: string) {
+  const host = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+  return (
+    (host === "weverse.io" || host.endsWith(".weverse.io")) &&
+    new URL(value).pathname.includes("/live/")
+  );
+}
+
 export function isYoutubeUrl(value: string) {
   const host = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
 

@@ -39,7 +39,7 @@ test("home renders multi-view wall without media previews", async ({
   await expect(workbench.getByLabel("Rows")).toHaveValue(
     testInfo.project.name === "mobile" ? "2" : "1",
   );
-  await openWorkbenchSection(page, testInfo.project.name, "Timer");
+  await openWorkbenchSection(page, testInfo.project.name, "Global settings");
   await expect(workbench.getByLabel("Global timer seconds")).toHaveValue("10");
   await expect(
     workbench.getByRole("button", { name: "Global next" }),
@@ -377,7 +377,8 @@ test("keyboard and wheel move through runtime feed items", async ({
       ? "Runtime image 2"
       : "Runtime image 1";
   await expect(runtimePane.getByText(initialRuntimeTitle)).toBeVisible();
-  await runtimePane.click();
+  await expectRuntimePaneSelected(page, testInfo.project.name);
+  await blurActiveControl(page);
 
   await page.keyboard.press("ArrowDown");
   await expect(runtimePane.getByText(nextRuntimeTitle)).toBeVisible();
@@ -433,4 +434,25 @@ function workbenchScope(page: Page, projectName: string) {
   return projectName === "mobile"
     ? page.getByRole("dialog", { name: "Workbench" })
     : page.getByLabel("Workbench contextual panel");
+}
+
+async function expectRuntimePaneSelected(page: Page, projectName: string) {
+  if (projectName === "mobile") {
+    await expect(
+      page.getByRole("button", { name: "More source actions" }),
+    ).toBeVisible();
+    return;
+  }
+
+  await expect(
+    page.getByRole("button", { name: "Select r/pics" }),
+  ).toHaveAttribute("aria-pressed", "true");
+}
+
+async function blurActiveControl(page: Page) {
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
 }

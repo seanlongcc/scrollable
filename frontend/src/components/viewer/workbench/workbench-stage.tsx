@@ -13,7 +13,6 @@ import {
   togglePaused,
   type TimerMode,
 } from "@/lib/viewer/timer";
-import { InactiveIframeMounts } from "./inactive-iframe-mounts";
 import { FixedGridView, FocusLayout, FreeGridView } from "./views";
 import type {
   FeedSession,
@@ -28,12 +27,15 @@ export function WorkbenchStage({
   sessions,
   galleryIndexes,
   videoPositions,
+  globalAudioEnabled = true,
+  finishVideoBeforeAdvance = false,
   isUiHidden,
   isDesktopWorkbenchCollapsed,
   showAllInfo,
   setMaximizedId,
   changeGallery,
   rememberVideoPosition,
+  rememberVideoFinished = () => undefined,
   updateSession,
   setViewTimerMode,
   setViewTimerSeconds,
@@ -59,12 +61,15 @@ export function WorkbenchStage({
   sessions: FeedSession[];
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
+  globalAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   isUiHidden: boolean;
   isDesktopWorkbenchCollapsed: boolean;
   showAllInfo: boolean;
   setMaximizedId: Dispatch<SetStateAction<string | null>>;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   rememberVideoPosition: (key: string, seconds: number) => void;
+  rememberVideoFinished?: (key: string) => void;
   updateSession: (
     id: string,
     updater: (session: FeedSession) => FeedSession,
@@ -107,12 +112,15 @@ export function WorkbenchStage({
         sessions={sessions}
         galleryIndexes={galleryIndexes}
         videoPositions={videoPositions}
+        globalAudioEnabled={globalAudioEnabled}
+        finishVideoBeforeAdvance={finishVideoBeforeAdvance}
         hideUi={isUiHidden}
         showInfo={showAllInfo}
         onRestore={() => setMaximizedId(null)}
         onFocus={setMaximizedId}
         onGalleryChange={changeGallery}
         onVideoPositionChange={rememberVideoPosition}
+        onVideoEnded={rememberVideoFinished}
         onMove={(id, direction) =>
           updateSession(id, (session) => ({
             ...session,
@@ -171,6 +179,8 @@ export function WorkbenchStage({
             fixedGrid={fixedGrid}
             galleryIndexes={galleryIndexes}
             videoPositions={videoPositions}
+            globalAudioEnabled={globalAudioEnabled}
+            finishVideoBeforeAdvance={finishVideoBeforeAdvance}
             selectedId={selectedId}
             isUiHidden={isUiHidden}
             showAllInfo={showAllInfo}
@@ -181,6 +191,7 @@ export function WorkbenchStage({
             removeSession={removeSession}
             changeGallery={changeGallery}
             rememberVideoPosition={rememberVideoPosition}
+            rememberVideoFinished={rememberVideoFinished}
             setViewTimerMode={setViewTimerMode}
             setViewTimerSeconds={setViewTimerSeconds}
             replaceLocalSessionFiles={replaceLocalSessionFiles}
@@ -196,6 +207,8 @@ export function WorkbenchStage({
             templateSlots={templateSlots}
             galleryIndexes={galleryIndexes}
             videoPositions={videoPositions}
+            globalAudioEnabled={globalAudioEnabled}
+            finishVideoBeforeAdvance={finishVideoBeforeAdvance}
             selectedId={selectedId}
             isUiHidden={isUiHidden}
             showAllInfo={showAllInfo}
@@ -208,6 +221,7 @@ export function WorkbenchStage({
             openSourcePanel={openSourcePanel}
             changeGallery={changeGallery}
             rememberVideoPosition={rememberVideoPosition}
+            rememberVideoFinished={rememberVideoFinished}
             setViewTimerMode={setViewTimerMode}
             setViewTimerSeconds={setViewTimerSeconds}
             beginFreeDrag={beginFreeDrag}
@@ -229,6 +243,8 @@ function FixedLayerStage({
   fixedGrid,
   galleryIndexes,
   videoPositions,
+  globalAudioEnabled,
+  finishVideoBeforeAdvance,
   selectedId,
   isUiHidden,
   showAllInfo,
@@ -239,6 +255,7 @@ function FixedLayerStage({
   removeSession,
   changeGallery,
   rememberVideoPosition,
+  rememberVideoFinished,
   setViewTimerMode,
   setViewTimerSeconds,
   replaceLocalSessionFiles,
@@ -252,6 +269,8 @@ function FixedLayerStage({
   fixedGrid: FixedGrid;
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
+  globalAudioEnabled: boolean;
+  finishVideoBeforeAdvance: boolean;
   selectedId: string | null;
   isUiHidden: boolean;
   showAllInfo: boolean;
@@ -265,6 +284,7 @@ function FixedLayerStage({
   removeSession: (id: string) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   rememberVideoPosition: (key: string, seconds: number) => void;
+  rememberVideoFinished: (key: string) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
   replaceLocalSessionFiles: (
@@ -287,40 +307,50 @@ function FixedLayerStage({
           : "h-full min-h-0 min-w-0 md:min-h-[360px] min-[1080px]:min-w-[720px]",
       )}
     >
-      <InactiveIframeMounts
-        sessions={sessions}
-        activeLayerId={activeLayer.id}
-        galleryIndexes={galleryIndexes}
-        videoPositions={videoPositions}
-        onVideoPositionChange={rememberVideoPosition}
-      />
-      <div className="relative z-10 size-full">
-        <FixedGridView
-          sessions={sessions.filter(
-            (session) => session.layerId === activeLayer.id,
-          )}
-          visibleCells={visibleFixedCells}
-          fixedGrid={fixedGrid}
-          galleryIndexes={galleryIndexes}
-          videoPositions={videoPositions}
-          selectedId={selectedId}
-          hideUi={isUiHidden}
-          isPlaybackActive
-          showInfo={showAllInfo}
-          openSourcePanel={openSourcePanel}
-          setSelectedId={setSelectedId}
-          setMaximizedId={setMaximizedId}
-          updateSession={updateSession}
-          removeSession={removeSession}
-          changeGallery={changeGallery}
-          onVideoPositionChange={rememberVideoPosition}
-          setViewTimerMode={setViewTimerMode}
-          setViewTimerSeconds={setViewTimerSeconds}
-          onLocalFilesSelected={replaceLocalSessionFiles}
-          onLocalCacheAccessRequested={requestLocalCacheAccess}
-          onEditSource={openEditSource}
-        />
-      </div>
+      {layers.map((layer) => {
+        const isActiveLayer = layer.id === activeLayer.id;
+
+        return (
+          <div
+            key={layer.id}
+            data-testid={`layer-${layer.id}`}
+            className={layerStageClass(isActiveLayer)}
+            aria-hidden={!isActiveLayer}
+          >
+            <FixedGridView
+              sessions={sessions.filter(
+                (session) => session.layerId === layer.id,
+              )}
+              visibleCells={visibleFixedCells}
+              fixedGrid={fixedGrid}
+              galleryIndexes={galleryIndexes}
+              videoPositions={videoPositions}
+              globalAudioEnabled={globalAudioEnabled}
+              finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+              selectedId={selectedId}
+              hideUi={isUiHidden}
+              isPlaybackActive
+              showInfo={showAllInfo}
+              openSourcePanel={openSourcePanel}
+              setSelectedId={setSelectedId}
+              setMaximizedId={setMaximizedId}
+              updateSession={updateSession}
+              removeSession={removeSession}
+              changeGallery={changeGallery}
+              onVideoPositionChange={rememberVideoPosition}
+              onVideoEnded={rememberVideoFinished}
+              setViewTimerMode={setViewTimerMode}
+              setViewTimerSeconds={setViewTimerSeconds}
+              onLocalFilesSelected={replaceLocalSessionFiles}
+              onLocalCacheAccessRequested={requestLocalCacheAccess}
+              onEditSource={openEditSource}
+              cellTestIdPrefix={
+                isActiveLayer ? "fixed-cell" : `${layer.id}-fixed-cell`
+              }
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -333,6 +363,8 @@ function FreeLayerStage({
   templateSlots,
   galleryIndexes,
   videoPositions,
+  globalAudioEnabled,
+  finishVideoBeforeAdvance,
   selectedId,
   isUiHidden,
   showAllInfo,
@@ -345,6 +377,7 @@ function FreeLayerStage({
   openSourcePanel,
   changeGallery,
   rememberVideoPosition,
+  rememberVideoFinished,
   setViewTimerMode,
   setViewTimerSeconds,
   beginFreeDrag,
@@ -359,6 +392,8 @@ function FreeLayerStage({
   templateSlots: WorkspaceTemplateSlot[];
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
+  globalAudioEnabled: boolean;
+  finishVideoBeforeAdvance: boolean;
   selectedId: string | null;
   isUiHidden: boolean;
   showAllInfo: boolean;
@@ -377,6 +412,7 @@ function FreeLayerStage({
   ) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
   rememberVideoPosition: (key: string, seconds: number) => void;
+  rememberVideoFinished: (key: string) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
   beginFreeDrag: (
@@ -406,44 +442,60 @@ function FreeLayerStage({
           : "h-full min-h-0 min-w-0 md:min-h-[360px] min-[1080px]:min-w-[720px]",
       )}
     >
-      <InactiveIframeMounts
-        sessions={sessions}
-        activeLayerId={activeLayer.id}
-        galleryIndexes={galleryIndexes}
-        videoPositions={videoPositions}
-        onVideoPositionChange={rememberVideoPosition}
-      />
-      <div className="relative z-10 size-full">
-        <FreeGridView
-          sessions={sessions.filter(
-            (session) => session.layerId === activeLayer.id,
-          )}
-          templateSlots={templateSlots.filter(
-            (slot) => (slot.layerId ?? activeLayer.id) === activeLayer.id,
-          )}
-          galleryIndexes={galleryIndexes}
-          videoPositions={videoPositions}
-          selectedId={selectedId}
-          hideUi={isUiHidden}
-          isPlaybackActive
-          showInfo={showAllInfo}
-          freeDrag={freeDrag}
-          setSelectedId={setSelectedId}
-          setMaximizedId={setMaximizedId}
-          updateSession={updateSession}
-          removeSession={removeSession}
-          removeTemplateSlot={removeTemplateSlot}
-          openSourcePanel={openSourcePanel}
-          changeGallery={changeGallery}
-          onVideoPositionChange={rememberVideoPosition}
-          setViewTimerMode={setViewTimerMode}
-          setViewTimerSeconds={setViewTimerSeconds}
-          beginFreeDrag={beginFreeDrag}
-          onLocalFilesSelected={replaceLocalSessionFiles}
-          onLocalCacheAccessRequested={requestLocalCacheAccess}
-          onEditSource={openEditSource}
-        />
-      </div>
+      {layers.map((layer) => {
+        const isActiveLayer = layer.id === activeLayer.id;
+
+        return (
+          <div
+            key={layer.id}
+            data-testid={`layer-${layer.id}`}
+            className={layerStageClass(isActiveLayer)}
+            aria-hidden={!isActiveLayer}
+          >
+            <FreeGridView
+              sessions={sessions.filter(
+                (session) => session.layerId === layer.id,
+              )}
+              templateSlots={templateSlots.filter(
+                (slot) => (slot.layerId ?? activeLayer.id) === layer.id,
+              )}
+              galleryIndexes={galleryIndexes}
+              videoPositions={videoPositions}
+              globalAudioEnabled={globalAudioEnabled}
+              finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+              selectedId={selectedId}
+              hideUi={isUiHidden}
+              isPlaybackActive
+              showInfo={showAllInfo}
+              freeDrag={freeDrag}
+              setSelectedId={setSelectedId}
+              setMaximizedId={setMaximizedId}
+              updateSession={updateSession}
+              removeSession={removeSession}
+              removeTemplateSlot={removeTemplateSlot}
+              openSourcePanel={openSourcePanel}
+              changeGallery={changeGallery}
+              onVideoPositionChange={rememberVideoPosition}
+              onVideoEnded={rememberVideoFinished}
+              setViewTimerMode={setViewTimerMode}
+              setViewTimerSeconds={setViewTimerSeconds}
+              beginFreeDrag={beginFreeDrag}
+              onLocalFilesSelected={replaceLocalSessionFiles}
+              onLocalCacheAccessRequested={requestLocalCacheAccess}
+              onEditSource={openEditSource}
+            />
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+function layerStageClass(isActiveLayer: boolean) {
+  return cn(
+    "absolute inset-0 size-full transition-opacity duration-150",
+    isActiveLayer
+      ? "pointer-events-auto z-10 opacity-100"
+      : "pointer-events-none z-0 opacity-0",
   );
 }

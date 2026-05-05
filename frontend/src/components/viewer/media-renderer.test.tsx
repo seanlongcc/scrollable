@@ -53,7 +53,7 @@ describe("MediaRenderer", () => {
     expect(hlsState.moduleLoads).toBe(0);
   });
 
-  it("autoplays videos muted and inline", () => {
+  it("autoplays videos muted by default and inline", () => {
     const { container } = render(
       <MediaRenderer
         media={{ type: "video", url: "https://cdn.test/video.mp4" }}
@@ -70,6 +70,55 @@ describe("MediaRenderer", () => {
     expect(video).toHaveAttribute("webkit-playsinline");
     expect(video).toHaveAttribute("preload", "auto");
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+  });
+
+  it("unmutes video when audio is enabled", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+        audioEnabled
+      />,
+    );
+
+    const video = container.querySelector("video");
+
+    expect(video?.muted).toBe(false);
+    expect(video?.defaultMuted).toBe(false);
+  });
+
+  it("mutes video when audio is disabled", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+        audioEnabled={false}
+      />,
+    );
+
+    const video = container.querySelector("video");
+
+    expect(video?.muted).toBe(true);
+    expect(video?.defaultMuted).toBe(true);
+  });
+
+  it("disables video looping when finish-video advancement is enabled", () => {
+    const onVideoEnded = vi.fn();
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+        finishVideoBeforeAdvance
+        onVideoEnded={onVideoEnded}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video?.loop).toBe(false);
+
+    fireEvent.ended(video!);
+
+    expect(onVideoEnded).toHaveBeenCalledOnce();
   });
 
   it("retries video playback when mobile browsers finish loading media", () => {
@@ -193,6 +242,28 @@ describe("MediaRenderer", () => {
     unmount();
 
     expect(onVideoTimeChange).toHaveBeenLastCalledWith(42);
+  });
+
+  it("restores and reports audio playback position", () => {
+    const onVideoTimeChange = vi.fn();
+    const { container, unmount } = render(
+      <MediaRenderer
+        media={{ type: "audio", url: "https://cdn.test/sound.mp3" }}
+        title="Runtime audio"
+        initialVideoTime={7}
+        onVideoTimeChange={onVideoTimeChange}
+      />,
+    );
+
+    const audio = container.querySelector("audio");
+    expect(audio?.currentTime).toBe(7);
+
+    if (audio) {
+      audio.currentTime = 11;
+    }
+    unmount();
+
+    expect(onVideoTimeChange).toHaveBeenLastCalledWith(11);
   });
 
   it("adds signed HLS params to segment requests", async () => {

@@ -108,6 +108,46 @@ describe("FixedGridView", () => {
     expect(video).toHaveAttribute("preload", "metadata");
   });
 
+  it("lets selected source audio override global mute", () => {
+    const { container } = render(
+      <FixedGridView
+        {...fixedGridProps({
+          globalAudioEnabled: false,
+          sessions: [
+            session({
+              isAudioEnabled: true,
+              media: [{ type: "video", url: "https://cdn.test/video.mp4" }],
+            }),
+          ],
+        })}
+      />,
+    );
+
+    const video = container.querySelector("video");
+
+    expect(video?.muted).toBe(false);
+  });
+
+  it("lets selected source finish-video override global looping", () => {
+    const { container } = render(
+      <FixedGridView
+        {...fixedGridProps({
+          finishVideoBeforeAdvance: false,
+          sessions: [
+            session({
+              finishVideoBeforeAdvance: true,
+              media: [{ type: "video", url: "https://cdn.test/video.mp4" }],
+            }),
+          ],
+        })}
+      />,
+    );
+
+    const video = container.querySelector("video");
+
+    expect(video?.loop).toBe(false);
+  });
+
   it("deselects the selected source when its media is clicked again", () => {
     const setSelectedId = vi.fn();
     render(
@@ -157,9 +197,13 @@ function fixedGridProps(
 
 function session({
   timer = createTimerState({ durationSeconds: 10, itemCount: 1 }),
+  isAudioEnabled,
+  finishVideoBeforeAdvance,
   media,
 }: {
   timer?: FeedSession["timer"];
+  isAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   media?: RuntimeFeedItem["media"];
 } = {}): FeedSession {
   return {
@@ -171,6 +215,8 @@ function session({
     fixedSlot: 0,
     freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
     items: [runtimeItem(media)],
+    isAudioEnabled,
+    finishVideoBeforeAdvance,
     sourceConfig: { kind: "url", url: "https://example.test/source" },
   };
 }

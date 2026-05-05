@@ -3,11 +3,13 @@
 import {
   Clock3,
   Copy,
+  Film,
   Grid2X2,
   Maximize2,
   Pencil,
   Shuffle,
   Trash2,
+  Volume2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -38,7 +40,7 @@ import type { GlobalTimerAction } from "./workbench-toolbar";
 import { PlaybackControls } from "./workbench-playback-controls";
 import {
   ActionsSection,
-  GlobalTimerSection,
+  GlobalSettingsSection,
   GridSection,
   LayerSection,
   LayoutModeSection,
@@ -59,6 +61,8 @@ export type WorkbenchPanelContentProps = {
   fixedGrid: FixedGrid;
   globalSeconds: number;
   hasRunningSessionTimer: boolean;
+  globalAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   selected: FeedSession | null;
   canCloneOrFillSelectedSource: boolean;
   showAllInfo: boolean;
@@ -70,10 +74,14 @@ export type WorkbenchPanelContentProps = {
   onFixedGridChange: (patch: Partial<FixedGrid>) => void;
   onGlobalTimerSecondsChange: (seconds: number) => void;
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
+  onGlobalAudioEnabledChange?: (enabled: boolean) => void;
+  onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
   onRandomizeSelectedSource: () => void;
+  onSelectedAudioEnabledChange?: (enabled: boolean) => void;
+  onSelectedFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
   onSelectedTimerModeChange: (mode: TimerMode) => void;
   onSelectedTimerSecondsChange: (seconds: number) => void;
   onSelectedMove: (direction: 1 | -1) => void;
@@ -132,6 +140,8 @@ export function WorkbenchPanelContent({
   fixedGrid,
   globalSeconds,
   hasRunningSessionTimer,
+  globalAudioEnabled = true,
+  finishVideoBeforeAdvance = false,
   selected,
   canCloneOrFillSelectedSource,
   showAllInfo,
@@ -143,10 +153,14 @@ export function WorkbenchPanelContent({
   onFixedGridChange,
   onGlobalTimerSecondsChange,
   onGlobalTimerAction,
+  onGlobalAudioEnabledChange = () => undefined,
+  onFinishVideoBeforeAdvanceChange = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
   onRandomizeSelectedSource,
+  onSelectedAudioEnabledChange = () => undefined,
+  onSelectedFinishVideoBeforeAdvanceChange = () => undefined,
   onSelectedTimerModeChange,
   onSelectedTimerSecondsChange,
   onSelectedMove,
@@ -183,6 +197,11 @@ export function WorkbenchPanelContent({
   );
   const canRandomizeSelectedSource = canRandomizeSessionSource(selected);
   const isRandomizeSelectedSourceEnabled = isSessionOrderRandomized(selected);
+  const isSelectedSourceAudioEnabled =
+    selected?.isAudioEnabled ?? globalAudioEnabled;
+  const isSelectedSourceFinishVideoBeforeAdvance =
+    selected?.finishVideoBeforeAdvance ?? finishVideoBeforeAdvance;
+  const selectedAudioLabel = isSelectedSourceAudioEnabled ? "Mute" : "Unmute";
   const selectedSourceOrderButtons = (removeClassName?: string) => (
     <>
       {canRandomizeSelectedSource ? (
@@ -198,8 +217,38 @@ export function WorkbenchPanelContent({
           <span className="min-w-0 truncate">Randomize</span>
         </Button>
       ) : null}
+      <Button
+        type="button"
+        variant={isSelectedSourceAudioEnabled ? "default" : "outline"}
+        aria-pressed={isSelectedSourceAudioEnabled}
+        aria-label={`${selectedAudioLabel} selected source`}
+        onClick={() =>
+          onSelectedAudioEnabledChange(!isSelectedSourceAudioEnabled)
+        }
+        className={selectedSourceButtonClass}
+      >
+        <Volume2 />
+        <span className="min-w-0 truncate">{selectedAudioLabel}</span>
+      </Button>
+      <Button
+        type="button"
+        variant={
+          isSelectedSourceFinishVideoBeforeAdvance ? "default" : "outline"
+        }
+        aria-pressed={isSelectedSourceFinishVideoBeforeAdvance}
+        aria-label="Finish selected source video"
+        onClick={() =>
+          onSelectedFinishVideoBeforeAdvanceChange(
+            !isSelectedSourceFinishVideoBeforeAdvance,
+          )
+        }
+        className={selectedSourceButtonClass}
+      >
+        <Film />
+        <span className="min-w-0 truncate">Finish video</span>
+      </Button>
       {removeSelectedSourceButton(
-        canRandomizeSelectedSource ? removeClassName : "col-span-2",
+        cn(!canRandomizeSelectedSource && "col-span-2", removeClassName),
       )}
     </>
   );
@@ -230,12 +279,16 @@ export function WorkbenchPanelContent({
             maxGridSize={maxGridSize}
             onFixedGridChange={onFixedGridChange}
           />
-          <GlobalTimerSection
+          <GlobalSettingsSection
             mode={mode}
             globalSeconds={globalSeconds}
             hasRunningSessionTimer={hasRunningSessionTimer}
+            globalAudioEnabled={globalAudioEnabled}
+            finishVideoBeforeAdvance={finishVideoBeforeAdvance}
             onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
             onGlobalTimerAction={onGlobalTimerAction}
+            onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
+            onFinishVideoBeforeAdvanceChange={onFinishVideoBeforeAdvanceChange}
           />
           <ActionsSection
             showAllInfo={showAllInfo}
@@ -277,13 +330,19 @@ export function WorkbenchPanelContent({
               onFixedGridChange={onFixedGridChange}
             />
           </WorkbenchPanelDisclosure>
-          <WorkbenchPanelDisclosure label="Timer">
-            <GlobalTimerSection
+          <WorkbenchPanelDisclosure label="Global settings">
+            <GlobalSettingsSection
               mode={mode}
               globalSeconds={globalSeconds}
               hasRunningSessionTimer={hasRunningSessionTimer}
+              globalAudioEnabled={globalAudioEnabled}
+              finishVideoBeforeAdvance={finishVideoBeforeAdvance}
               onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
               onGlobalTimerAction={onGlobalTimerAction}
+              onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
+              onFinishVideoBeforeAdvanceChange={
+                onFinishVideoBeforeAdvanceChange
+              }
             />
           </WorkbenchPanelDisclosure>
         </>

@@ -8,7 +8,7 @@ import { WorkbenchStage } from "./workbench-stage";
 import type { FeedSession, WorkspaceLayer } from "./types";
 
 describe("WorkbenchStage", () => {
-  it("renders only the active fixed-layout layer", () => {
+  it("keeps inactive fixed-layout layers mounted but hidden", () => {
     render(
       <WorkbenchStage
         {...stageProps({
@@ -31,13 +31,13 @@ describe("WorkbenchStage", () => {
     );
 
     expect(screen.getByAltText("Active image")).toBeInTheDocument();
-    expect(screen.queryByAltText("Inactive image")).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId("layer-2-fixed-cell-0"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByAltText("Inactive image")).toBeInTheDocument();
+    expect(screen.getByTestId("layer-layer-1")).not.toHaveClass("opacity-0");
+    expect(screen.getByTestId("layer-layer-2")).toHaveClass("opacity-0");
+    expect(screen.getByTestId("layer-2-fixed-cell-0")).toBeInTheDocument();
   });
 
-  it("renders only the active free-layout layer", () => {
+  it("keeps inactive free-layout layers mounted but hidden", () => {
     render(
       <WorkbenchStage
         {...stageProps({
@@ -60,8 +60,10 @@ describe("WorkbenchStage", () => {
     );
 
     expect(screen.getByAltText("Active image")).toBeInTheDocument();
-    expect(screen.queryByAltText("Inactive image")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("free-cell-inactive")).not.toBeInTheDocument();
+    expect(screen.getByAltText("Inactive image")).toBeInTheDocument();
+    expect(screen.getByTestId("layer-layer-1")).toHaveClass("opacity-0");
+    expect(screen.getByTestId("layer-layer-2")).not.toHaveClass("opacity-0");
+    expect(screen.getByTestId("free-cell-inactive")).toBeInTheDocument();
   });
 });
 

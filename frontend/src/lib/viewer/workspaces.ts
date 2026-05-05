@@ -64,13 +64,20 @@ export type WorkspaceSessionInput = {
   runtimeItems?: RuntimeFeedItem[];
   allRuntimeItems?: RuntimeFeedItem[];
   isOrderRandomized?: boolean;
+  isAudioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
 };
 
 export type SerializedWorkspaceSession = Omit<
   WorkspaceSessionInput,
-  "runtimeItems" | "allRuntimeItems" | "isOrderRandomized" | "urlResolution"
+  | "runtimeItems"
+  | "allRuntimeItems"
+  | "isOrderRandomized"
+  | "isAudioEnabled"
+  | "finishVideoBeforeAdvance"
+  | "urlResolution"
 >;
 
 export type SerializedWorkspace = {

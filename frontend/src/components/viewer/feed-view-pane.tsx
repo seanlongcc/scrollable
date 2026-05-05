@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import {
   type ReactNode,
+  type MouseEvent,
   type WheelEvent,
   useCallback,
   useEffect,
@@ -42,8 +43,11 @@ type ActiveMediaFrame = {
   key: string;
   media: RuntimeMedia;
   title: string;
+  audioEnabled: boolean;
+  finishVideoBeforeAdvance: boolean;
   initialVideoTime: number;
   onVideoTimeChange?: (seconds: number) => void;
+  onVideoEnded?: () => void;
 };
 
 export function FeedViewPane({
@@ -54,6 +58,8 @@ export function FeedViewPane({
   timerMode = "global",
   galleryIndexes,
   videoPositions = {},
+  audioEnabled = false,
+  finishVideoBeforeAdvance = false,
   compact = false,
   isFocused = false,
   forceInfoVisible = false,
@@ -64,6 +70,7 @@ export function FeedViewPane({
   hideUi = false,
   onGalleryChange,
   onVideoPositionChange,
+  onVideoEnded,
   onMove,
   onSelect,
   onToggleSelect,
@@ -78,6 +85,8 @@ export function FeedViewPane({
   timerMode?: TimerMode;
   galleryIndexes: Record<string, number>;
   videoPositions?: Record<string, number>;
+  audioEnabled?: boolean;
+  finishVideoBeforeAdvance?: boolean;
   compact?: boolean;
   isFocused?: boolean;
   forceInfoVisible?: boolean;
@@ -88,6 +97,7 @@ export function FeedViewPane({
   hideUi?: boolean;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
   onVideoPositionChange?: (key: string, seconds: number) => void;
+  onVideoEnded?: (key: string) => void;
   onMove: (direction: 1 | -1) => void;
   onTogglePaused: () => void;
   onRestart: () => void;
@@ -107,7 +117,7 @@ export function FeedViewPane({
   const activeMedia = activeItem?.media[activeGalleryIndex];
   const activeMediaKey =
     activeItem && activeMedia
-      ? `${activeItem.id}:${activeGalleryIndex}:${activeMedia.type}:${activeMedia.url}`
+      ? `${activeItem.id}:${activeGalleryIndex}:${activeMedia.type}:${activeMedia.url}:${audioEnabled ? "audio" : "muted"}:${finishVideoBeforeAdvance ? "finish" : "loop"}`
       : null;
   const {
     transition: mediaTransition,
@@ -122,10 +132,12 @@ export function FeedViewPane({
     mediaKey: activeMediaKey,
   });
   const isVideo = activeMedia?.type === "video";
+  const tracksPlaybackPosition =
+    activeMedia?.type === "video" || activeMedia?.type === "audio";
   const modeLabel = timerMode === "global" ? "global" : "local";
   const TimerModeIcon = timerMode === "global" ? Globe : GlobeOff;
   const videoPositionKey =
-    activeItem && isVideo
+    activeItem && tracksPlaybackPosition
       ? `${viewId ?? title}:${activeItem.id}:${activeGalleryIndex}`
       : null;
   const handleVideoTimeChange = useCallback(
@@ -134,18 +146,25 @@ export function FeedViewPane({
     },
     [onVideoPositionChange, videoPositionKey],
   );
+  const handleVideoEnded = useCallback(() => {
+    if (videoPositionKey) onVideoEnded?.(videoPositionKey);
+  }, [onVideoEnded, videoPositionKey]);
   const currentMediaFrame =
     activeMediaKey && activeMedia && activeItem
       ? {
           key: activeMediaKey,
           media: activeMedia,
           title: activeItem.title,
+          audioEnabled,
+          finishVideoBeforeAdvance,
           initialVideoTime: videoPositionKey
             ? (videoPositions[videoPositionKey] ?? 0)
             : 0,
           onVideoTimeChange: videoPositionKey
             ? handleVideoTimeChange
             : undefined,
+          onVideoEnded:
+            isVideo && videoPositionKey ? handleVideoEnded : undefined,
         }
       : null;
   const [mediaFrameState, setMediaFrameState] = useState<{
@@ -238,6 +257,21 @@ export function FeedViewPane({
     },
     [activeItem, handleGalleryChange, handleMove],
   );
+  const handlePaneClick = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (
+        (event.target as HTMLElement).closest(
+          "button, a, input, textarea, select, [contenteditable=true]",
+        )
+      ) {
+        return;
+      }
+
+      event.stopPropagation();
+      (onToggleSelect ?? onSelect)?.();
+    },
+    [onSelect, onToggleSelect],
+  );
   const touchHandlers = useFeedSwipe({
     activeItem,
     onGalleryChange: handleGalleryChange,
@@ -251,6 +285,7 @@ export function FeedViewPane({
   return (
     <article
       className="group/source relative grid size-full min-h-0 touch-none overflow-hidden rounded-none border border-border/65 bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.014)] md:rounded-2xl"
+      onClick={handlePaneClick}
       onWheel={handleWheel}
       {...touchHandlers}
     >
@@ -292,6 +327,10 @@ export function FeedViewPane({
                   title={outgoingMediaFrame.title}
                   showControls={false}
                   shouldPlay={false}
+                  audioEnabled={outgoingMediaFrame.audioEnabled}
+                  finishVideoBeforeAdvance={
+                    outgoingMediaFrame.finishVideoBeforeAdvance
+                  }
                   initialVideoTime={outgoingMediaFrame.initialVideoTime}
                 />
               </div>
@@ -306,8 +345,13 @@ export function FeedViewPane({
                 title={currentMediaFrame.title}
                 showControls={!hideUi}
                 shouldPlay={isPlaybackActive}
+                audioEnabled={currentMediaFrame.audioEnabled}
+                finishVideoBeforeAdvance={
+                  currentMediaFrame.finishVideoBeforeAdvance
+                }
                 initialVideoTime={currentMediaFrame.initialVideoTime}
                 onVideoTimeChange={currentMediaFrame.onVideoTimeChange}
+                onVideoEnded={currentMediaFrame.onVideoEnded}
               />
             </div>
           </div>

@@ -8,15 +8,161 @@ import type { FeedSession } from "./types";
 import { WorkbenchPanelContent } from "./workbench-panel";
 
 describe("WorkbenchPanelContent", () => {
-  it("places selected source randomize before remove and shows enabled random order", async () => {
+  it("shows global settings with unmute-all and finish-video controls", async () => {
     const user = userEvent.setup();
-    const onRandomizeSelectedSource = vi.fn();
+    const onGlobalAudioEnabledChange = vi.fn();
+    const onFinishVideoBeforeAdvanceChange = vi.fn();
 
     render(
       <WorkbenchPanelContent
         {...panelProps({
-          selected: selectedSession("reddit"),
-          onRandomizeSelectedSource,
+          globalAudioEnabled: false,
+          finishVideoBeforeAdvance: false,
+          onGlobalAudioEnabledChange,
+          onFinishVideoBeforeAdvanceChange,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Global settings")).toBeInTheDocument();
+    expect(screen.queryByText("Global timer")).not.toBeInTheDocument();
+
+    const unmuteAll = screen.getByRole("button", { name: "Unmute all" });
+    const finishVideo = screen.getByRole("button", { name: "Finish video" });
+
+    expect(unmuteAll).toHaveAttribute("aria-pressed", "false");
+    expect(unmuteAll).toHaveAttribute("data-variant", "outline");
+    expect(finishVideo).toHaveAttribute("aria-pressed", "false");
+    expect(finishVideo).toHaveAttribute("data-variant", "outline");
+
+    await user.click(unmuteAll);
+    await user.click(finishVideo);
+
+    expect(onGlobalAudioEnabledChange).toHaveBeenCalledWith(true);
+    expect(onFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
+  });
+
+  it("renames global audio action to mute-all when audio is enabled", async () => {
+    const user = userEvent.setup();
+    const onGlobalAudioEnabledChange = vi.fn();
+
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          globalAudioEnabled: true,
+          onGlobalAudioEnabledChange,
+        })}
+      />,
+    );
+
+    const muteAll = screen.getByRole("button", { name: "Mute all" });
+
+    expect(muteAll).toHaveAttribute("aria-pressed", "true");
+    expect(muteAll).toHaveAttribute("data-variant", "default");
+
+    await user.click(muteAll);
+
+    expect(onGlobalAudioEnabledChange).toHaveBeenCalledWith(false);
+  });
+
+  it("shows selected source unmute control", async () => {
+    const user = userEvent.setup();
+    const onSelectedAudioEnabledChange = vi.fn();
+
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          globalAudioEnabled: false,
+          selected: selectedSession("url"),
+          onSelectedAudioEnabledChange,
+        })}
+      />,
+    );
+
+    const unmute = screen.getByRole("button", {
+      name: "Unmute selected source",
+    });
+
+    expect(unmute).toHaveAttribute("aria-pressed", "false");
+    expect(unmute).toHaveAttribute("data-variant", "outline");
+
+    await user.click(unmute);
+
+    expect(onSelectedAudioEnabledChange).toHaveBeenCalledWith(true);
+  });
+
+  it("renames selected audio action to mute when source audio is enabled", async () => {
+    const user = userEvent.setup();
+    const onSelectedAudioEnabledChange = vi.fn();
+
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          globalAudioEnabled: true,
+          selected: selectedSession("url"),
+          onSelectedAudioEnabledChange,
+        })}
+      />,
+    );
+
+    const mute = screen.getByRole("button", {
+      name: "Mute selected source",
+    });
+
+    expect(mute).toHaveAttribute("aria-pressed", "true");
+    expect(mute).toHaveAttribute("data-variant", "default");
+
+    await user.click(mute);
+
+    expect(onSelectedAudioEnabledChange).toHaveBeenCalledWith(false);
+  });
+
+  it("places selected unmute and finish-video side by side without randomize", async () => {
+    const user = userEvent.setup();
+    const onSelectedFinishVideoBeforeAdvanceChange = vi.fn();
+
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          selected: selectedSession("url"),
+          onSelectedFinishVideoBeforeAdvanceChange,
+        })}
+      />,
+    );
+
+    const unmute = screen.getByRole("button", {
+      name: "Unmute selected source",
+    });
+    const finishVideo = screen.getByRole("button", {
+      name: "Finish selected source video",
+    });
+    const remove = screen.getByRole("button", { name: "Remove" });
+
+    expect(finishVideo).toHaveAttribute("aria-pressed", "false");
+    expect(finishVideo).toHaveAttribute("data-variant", "outline");
+    expect(unmute).not.toHaveClass("col-span-2");
+    expect(finishVideo).not.toHaveClass("col-span-2");
+    expect(remove).toHaveClass("col-span-2");
+    expect(
+      unmute.compareDocumentPosition(finishVideo) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      finishVideo.compareDocumentPosition(remove) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await user.click(finishVideo);
+
+    expect(onSelectedFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
+  });
+
+  it("places randomize and unmute side by side for randomizable sources", () => {
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          globalAudioEnabled: false,
+          selected: { ...selectedSession("reddit"), isOrderRandomized: false },
         })}
       />,
     );
@@ -24,18 +170,22 @@ describe("WorkbenchPanelContent", () => {
     const randomize = screen.getByRole("button", {
       name: "Randomize selected source",
     });
+    const unmute = screen.getByRole("button", {
+      name: "Unmute selected source",
+    });
+    const finishVideo = screen.getByRole("button", {
+      name: "Finish selected source video",
+    });
     const remove = screen.getByRole("button", { name: "Remove" });
 
-    expect(randomize).toHaveAttribute("aria-pressed", "true");
-    expect(randomize).toHaveAttribute("data-variant", "default");
+    expect(randomize).not.toHaveClass("col-span-2");
+    expect(unmute).not.toHaveClass("col-span-2");
+    expect(finishVideo).not.toHaveClass("col-span-2");
+    expect(remove).not.toHaveClass("col-span-2");
     expect(
-      randomize.compareDocumentPosition(remove) &
+      randomize.compareDocumentPosition(unmute) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-
-    await user.click(randomize);
-
-    expect(onRandomizeSelectedSource).toHaveBeenCalledOnce();
   });
 
   it("shows normal randomize color when random order is disabled", () => {
@@ -53,6 +203,48 @@ describe("WorkbenchPanelContent", () => {
 
     expect(randomize).toHaveAttribute("aria-pressed", "false");
     expect(randomize).toHaveAttribute("data-variant", "outline");
+  });
+
+  it("shows normal selected unmute color when source audio is disabled", () => {
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          selected: { ...selectedSession("reddit"), isAudioEnabled: false },
+        })}
+      />,
+    );
+
+    const unmute = screen.getByRole("button", {
+      name: "Unmute selected source",
+    });
+
+    expect(unmute).toHaveAttribute("aria-pressed", "false");
+    expect(unmute).toHaveAttribute("data-variant", "outline");
+  });
+
+  it("lets selected unmute toggle audio on when global audio is muted", async () => {
+    const user = userEvent.setup();
+    const onSelectedAudioEnabledChange = vi.fn();
+
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          globalAudioEnabled: false,
+          selected: selectedSession("url"),
+          onSelectedAudioEnabledChange,
+        })}
+      />,
+    );
+
+    const unmute = screen.getByRole("button", {
+      name: "Unmute selected source",
+    });
+
+    expect(unmute).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(unmute);
+
+    expect(onSelectedAudioEnabledChange).toHaveBeenCalledWith(true);
   });
 
   it("hides selected source randomize for URL sources", () => {
@@ -94,10 +286,16 @@ function panelProps(
     onFixedGridChange: vi.fn(),
     onGlobalTimerSecondsChange: vi.fn(),
     onGlobalTimerAction: vi.fn(),
+    globalAudioEnabled: false,
+    finishVideoBeforeAdvance: false,
+    onGlobalAudioEnabledChange: vi.fn(),
+    onFinishVideoBeforeAdvanceChange: vi.fn(),
     onCloneSelectedSource: vi.fn(),
     onFillSelectedSourceSpace: vi.fn(),
     onRemoveSelectedSource: vi.fn(),
     onRandomizeSelectedSource: vi.fn(),
+    onSelectedAudioEnabledChange: vi.fn(),
+    onSelectedFinishVideoBeforeAdvanceChange: vi.fn(),
     onSelectedTimerModeChange: vi.fn(),
     onSelectedTimerSecondsChange: vi.fn(),
     onSelectedMove: vi.fn(),

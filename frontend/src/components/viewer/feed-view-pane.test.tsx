@@ -271,6 +271,62 @@ describe("FeedViewPane", () => {
     expect(onSelect).toHaveBeenCalledOnce();
   });
 
+  it("selects the source when media body is clicked", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+        onSelect={onSelect}
+      />,
+    );
+
+    const article = container.querySelector("article");
+    expect(article).toBeInTheDocument();
+
+    fireEvent.click(article as HTMLElement);
+
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it("uses the toggle-select handler when media body is clicked", () => {
+    const onSelect = vi.fn();
+    const onToggleSelect = vi.fn();
+    const { container } = render(
+      <FeedViewPane
+        title="r/pics"
+        items={[
+          feedItem("active", [
+            { type: "image", url: "https://cdn.test/active.jpg" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+        onSelect={onSelect}
+        onToggleSelect={onToggleSelect}
+      />,
+    );
+
+    fireEvent.click(container.querySelector("article") as HTMLElement);
+
+    expect(onToggleSelect).toHaveBeenCalledOnce();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("moves active feed forward and backward with vertical touch swipes", () => {
     const onMove = vi.fn();
     const { container } = render(
@@ -681,6 +737,42 @@ describe("FeedViewPane", () => {
     expect(
       screen.queryByRole("button", { name: "Next item for r/pics" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("restores and reports audio playback positions", () => {
+    const onVideoPositionChange = vi.fn();
+    const { container } = render(
+      <FeedViewPane
+        viewId="source-1"
+        title="Local source"
+        items={[
+          feedItem("audio-item", [
+            { type: "audio", url: "https://cdn.test/sound.mp3" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        videoPositions={{ "source-1:audio-item:0": 8 }}
+        onVideoPositionChange={onVideoPositionChange}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+      />,
+    );
+
+    const audio = container.querySelector("audio");
+    expect(audio?.currentTime).toBe(8);
+
+    if (audio) {
+      audio.currentTime = 12;
+      fireEvent.timeUpdate(audio);
+    }
+
+    expect(onVideoPositionChange).toHaveBeenCalledWith(
+      "source-1:audio-item:0",
+      12,
+    );
   });
 
   it("keeps timer progress inset at the top and item info at the bottom in compact grids", () => {

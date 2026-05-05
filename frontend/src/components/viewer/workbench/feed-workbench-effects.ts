@@ -47,6 +47,7 @@ export function useFeedWorkbenchEffects({
   applyWorkspaceSnapshot,
   commitFreeDrag,
   freeDrag,
+  galleryIndexes,
   hydrateRuntimeItems,
   initialWorkspace,
   isUiHidden,
@@ -55,6 +56,8 @@ export function useFeedWorkbenchEffects({
   registryRef,
   saveTarget,
   sessions,
+  finishVideoBeforeAdvance,
+  finishedVideoKeys,
   setAccount,
   setActiveWorkspaceId,
   setCloudTemplates,
@@ -78,6 +81,7 @@ export function useFeedWorkbenchEffects({
   ) => void;
   commitFreeDrag: (drag: FreeDragState) => void;
   freeDrag: FreeDragState | null;
+  galleryIndexes: Record<string, number>;
   hydrateRuntimeItems: (sessions: FeedSession[]) => Promise<void>;
   initialWorkspace: WorkspaceTab;
   isUiHidden: boolean;
@@ -86,6 +90,8 @@ export function useFeedWorkbenchEffects({
   registryRef: RefObject<LocalObjectUrlRegistry | null>;
   saveTarget: SaveTarget;
   sessions: FeedSession[];
+  finishVideoBeforeAdvance: boolean;
+  finishedVideoKeys: Record<string, boolean>;
   setAccount: Dispatch<SetStateAction<AccountState>>;
   setActiveWorkspaceId: Dispatch<SetStateAction<string>>;
   setCloudTemplates: Dispatch<
@@ -131,7 +137,13 @@ export function useFeedWorkbenchEffects({
     setWorkspaceStates,
     setWorkspaceTabs,
   });
-  useSessionTimerAdvancement({ sessions, setSessions });
+  useSessionTimerAdvancement({
+    sessions,
+    galleryIndexes,
+    finishVideoBeforeAdvance,
+    finishedVideoKeys,
+    setSessions,
+  });
   useFreeDragPointerTracking({ commitFreeDrag, freeDrag, updateFreeDrag });
   useHiddenUiEscape({ isUiHidden, setIsUiHidden });
   useVisibleUrlHydration({
@@ -343,9 +355,15 @@ function useWorkspaceBootstrap({
 
 function useSessionTimerAdvancement({
   sessions,
+  galleryIndexes,
+  finishVideoBeforeAdvance,
+  finishedVideoKeys,
   setSessions,
 }: {
   sessions: FeedSession[];
+  galleryIndexes: Record<string, number>;
+  finishVideoBeforeAdvance: boolean;
+  finishedVideoKeys: Record<string, boolean>;
   setSessions: Dispatch<SetStateAction<FeedSession[]>>;
 }) {
   const hasAdvancingTimers = sessions.some(
@@ -359,11 +377,23 @@ function useSessionTimerAdvancement({
     if (!hasAdvancingTimers) return;
 
     const interval = window.setInterval(() => {
-      setSessions((current) => advanceSessionTimers(current));
+      setSessions((current) =>
+        advanceSessionTimers(current, undefined, {
+          finishVideoBeforeAdvance,
+          finishedVideoKeys,
+          galleryIndexes,
+        }),
+      );
     }, 250);
 
     return () => window.clearInterval(interval);
-  }, [hasAdvancingTimers, setSessions]);
+  }, [
+    finishVideoBeforeAdvance,
+    galleryIndexes,
+    finishedVideoKeys,
+    hasAdvancingTimers,
+    setSessions,
+  ]);
 }
 
 function useFreeDragPointerTracking({

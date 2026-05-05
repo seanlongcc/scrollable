@@ -664,6 +664,34 @@ describe("resolveUrlSource", () => {
     });
   });
 
+  it("uses a Weverse iframe provider when yt-dlp cannot extract media", async () => {
+    const fetchMock = vi.fn(async () =>
+      htmlResponse("<title>Global Fandom Platform - Weverse</title>"),
+    );
+    const ytDlpResolver = vi.fn(async () => []);
+    const weverseUrl = "https://weverse.io/stayc/live/3-226763714";
+
+    const result = await resolveUrlSource(
+      { kind: "url", url: weverseUrl },
+      { fetch: fetchMock, ytDlpResolver },
+    );
+
+    expect(result.resolution).toMatchObject({
+      status: "resolved",
+      mode: "provider",
+      hint: "provider:weverse",
+      provider: "weverse",
+      title: "Weverse live",
+      externalUrl: weverseUrl,
+      iframeUrl: weverseUrl,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(weverseUrl, {
+      method: "HEAD",
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("tries a saved resolver hint first", async () => {
     const fetchMock = vi.fn(async () =>
       htmlResponse("<html><head><title>Hinted metadata</title></head></html>"),

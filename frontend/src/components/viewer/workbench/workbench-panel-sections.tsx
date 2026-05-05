@@ -7,6 +7,7 @@ import {
   Info,
   LayoutGrid,
   Pause,
+  Film,
   Play,
   Plus,
   RotateCcw,
@@ -17,6 +18,7 @@ import {
   UnfoldHorizontal,
   UnfoldVertical,
   Upload,
+  Volume2,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
@@ -230,23 +232,63 @@ export function GridSection({
   );
 }
 
-export function GlobalTimerSection({
+export function GlobalSettingsSection({
   mode,
   globalSeconds,
   hasRunningSessionTimer,
+  globalAudioEnabled,
+  finishVideoBeforeAdvance,
   onGlobalTimerSecondsChange,
   onGlobalTimerAction,
+  onGlobalAudioEnabledChange,
+  onFinishVideoBeforeAdvanceChange,
 }: {
   mode: "mobile" | "desktop";
   globalSeconds: number;
   hasRunningSessionTimer: boolean;
+  globalAudioEnabled: boolean;
+  finishVideoBeforeAdvance: boolean;
   onGlobalTimerSecondsChange: (seconds: number) => void;
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
+  onGlobalAudioEnabledChange: (enabled: boolean) => void;
+  onFinishVideoBeforeAdvanceChange: (enabled: boolean) => void;
 }) {
+  const globalAudioLabel = globalAudioEnabled ? "Mute all" : "Unmute all";
+
   return (
     <section className="grid gap-2">
-      <h2 className={sectionHeadingClass}>Global timer</h2>
+      <h2 className={sectionHeadingClass}>Global settings</h2>
       <div className="grid gap-2">
+        <div
+          role="group"
+          aria-label="Global media settings"
+          className="grid grid-cols-2 items-center gap-2"
+        >
+          <Button
+            type="button"
+            variant={globalAudioEnabled ? "default" : "outline"}
+            aria-label={globalAudioLabel}
+            aria-pressed={globalAudioEnabled}
+            onClick={() => onGlobalAudioEnabledChange(!globalAudioEnabled)}
+            className={workbenchActionButtonClass}
+          >
+            <Volume2 />
+            <span className="min-w-0 truncate">{globalAudioLabel}</span>
+          </Button>
+          <Button
+            type="button"
+            variant={finishVideoBeforeAdvance ? "default" : "outline"}
+            aria-label="Finish video"
+            aria-pressed={finishVideoBeforeAdvance}
+            onClick={() =>
+              onFinishVideoBeforeAdvanceChange(!finishVideoBeforeAdvance)
+            }
+            className={workbenchActionButtonClass}
+          >
+            <Film />
+            <span className="min-w-0 truncate">Finish video</span>
+          </Button>
+        </div>
         <div
           role="group"
           aria-label="Global timer duration"
