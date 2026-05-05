@@ -297,6 +297,47 @@ describe("FeedWorkbench workspace templates", () => {
     }
   });
 
+  it("stops moving template boxes when the drag pointer is canceled", async () => {
+    const restoreBounds = stubGridBounds();
+    stubRandomUuids(["blank-workspace", "opened-template"]);
+    window.localStorage.setItem(
+      WORKSPACE_TEMPLATE_STORAGE_KEY,
+      JSON.stringify({ templates: [savedWorkspaceTemplate()] }),
+    );
+
+    render(<FeedWorkbench />);
+
+    try {
+      await openSavedTemplates(userEvent.setup(), ["Poster wall"]);
+
+      const firstBox = screen.getByTestId(
+        "template-slot-blank-workspace:slot-1",
+      );
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "Move source box 1" }),
+        { clientX: 0, clientY: 0 },
+      );
+      fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
+
+      await waitFor(() =>
+        expect(firstBox).toHaveStyle({
+          gridColumn: "2 / span 4",
+          gridRow: "2 / span 4",
+        }),
+      );
+
+      fireEvent.pointerCancel(window);
+      fireEvent.pointerMove(window, { clientX: 300, clientY: 300 });
+
+      expect(firstBox).not.toHaveStyle({
+        gridColumn: "4 / span 4",
+        gridRow: "4 / span 4",
+      });
+    } finally {
+      restoreBounds();
+    }
+  });
+
   it("fills and restores template boxes when sources are added and removed", async () => {
     stubRuntimeFetch();
     stubRandomUuids(["blank-workspace", "opened-template", "session-1"]);

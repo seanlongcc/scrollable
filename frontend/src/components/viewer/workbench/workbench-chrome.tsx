@@ -24,7 +24,7 @@ import {
 } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { FixedGrid, FreeRect } from "@/lib/viewer/layout";
+import type { FixedGrid } from "@/lib/viewer/layout";
 import type { TimerMode } from "@/lib/viewer/timer";
 import { cn } from "@/lib/utils";
 import type { LayerStats } from "./selection-state";
@@ -99,7 +99,6 @@ export type WorkbenchChromeProps = {
   workbenchPanelComponents?: WorkbenchPanelComponents;
   onDesktopWorkbenchCollapsedChange: (collapsed: boolean) => void;
   onSelectLayer: (id: string) => void;
-  onFreeRectChange: (id: string, patch: Partial<FreeRect>) => void;
 };
 
 export type WorkbenchPanelComponents = {
@@ -154,7 +153,6 @@ export function WorkbenchChrome({
   workbenchPanelComponents,
   onDesktopWorkbenchCollapsedChange,
   onSelectLayer,
-  onFreeRectChange,
 }: WorkbenchChromeProps) {
   const [isWorkbenchSheetOpen, setIsWorkbenchSheetOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -212,7 +210,6 @@ export function WorkbenchChrome({
     onOpenClearDialog: openClearDialog,
     onPreloadOverlays,
     onSelectLayer,
-    onFreeRectChange,
   } satisfies Omit<WorkbenchPanelContentProps, "mode">;
 
   function openMobileWorkbench() {

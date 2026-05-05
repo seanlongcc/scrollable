@@ -252,7 +252,6 @@ export type FeedWorkbenchRenderProps = {
   templateSlots: WorkspaceTemplateSlot[];
   toggleSelectedSourcePaused: () => void;
   updateFixedGrid: (patch: Partial<FixedGrid>) => void;
-  updateFreeRect: (id: string, patch: Partial<FreeRect>) => void;
   updateSession: (
     id: string,
     updater: (session: FeedSession) => FeedSession,
@@ -428,7 +427,6 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     templateSlots,
     toggleSelectedSourcePaused,
     updateFixedGrid,
-    updateFreeRect,
     updateSession,
     uploadTemplateToCloud,
     uploadWorkspaceToCloud,
@@ -716,7 +714,6 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           workbenchPanelComponents={workbenchPanelComponents}
           onDesktopWorkbenchCollapsedChange={setIsDesktopWorkbenchCollapsed}
           onSelectLayer={selectLayer}
-          onFreeRectChange={updateFreeRect}
         />
       ) : null}
     </main>

@@ -137,8 +137,8 @@ describe("FeedWorkbench layers", () => {
     );
     expect(await screen.findByAltText("foreground.png")).toBeVisible();
     expect(
-      screen.getByRole("group", { name: "Selected free layout controls" }),
-    ).toBeVisible();
+      screen.queryByRole("group", { name: "Selected free layout controls" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.click(await screen.findByRole("button", { name: "Local" }));
@@ -148,8 +148,8 @@ describe("FeedWorkbench layers", () => {
     );
     expect(await screen.findByAltText("background.png")).toBeVisible();
     expect(
-      screen.getByRole("group", { name: "Selected free layout controls" }),
-    ).toBeVisible();
+      screen.queryByRole("group", { name: "Selected free layout controls" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select Layer 1" }));
 

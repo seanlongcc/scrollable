@@ -3,6 +3,8 @@ import {
   type RefObject,
   type SetStateAction,
   useEffect,
+  useLayoutEffect,
+  useRef,
 } from "react";
 
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
@@ -373,6 +375,15 @@ function useFreeDragPointerTracking({
   freeDrag: FreeDragState | null;
   updateFreeDrag: (event: PointerEvent, drag: FreeDragState) => void;
 }) {
+  const latestFreeDragRef = useRef(freeDrag);
+  const activeDragKey = freeDrag
+    ? `${freeDrag.targetType}:${freeDrag.id}:${freeDrag.mode}`
+    : null;
+
+  useLayoutEffect(() => {
+    latestFreeDragRef.current = freeDrag;
+  }, [freeDrag]);
+
   useEffect(() => {
     if (!freeDrag) return;
     const drag = freeDrag;
@@ -381,20 +392,31 @@ function useFreeDragPointerTracking({
       updateFreeDrag(event, drag);
     }
 
-    function onPointerUp() {
-      commitFreeDrag(drag);
+    let isFinished = false;
+
+    function finishDrag() {
+      if (isFinished) return;
+      isFinished = true;
+      window.removeEventListener("pointermove", onPointerMove);
+      commitFreeDrag(latestFreeDragRef.current ?? drag);
     }
 
     window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp, { once: true });
+    window.addEventListener("pointerup", finishDrag);
+    window.addEventListener("pointercancel", finishDrag);
+    window.addEventListener("blur", finishDrag);
+    window.addEventListener("contextmenu", finishDrag);
 
     return () => {
       window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointerup", finishDrag);
+      window.removeEventListener("pointercancel", finishDrag);
+      window.removeEventListener("blur", finishDrag);
+      window.removeEventListener("contextmenu", finishDrag);
     };
     // Free drag installs pointer listeners only while a drag is active.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [freeDrag]);
+  }, [activeDragKey]);
 }
 
 function useHiddenUiEscape({

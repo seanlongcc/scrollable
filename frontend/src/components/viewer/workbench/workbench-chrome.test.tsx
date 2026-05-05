@@ -430,7 +430,6 @@ function chromeProps(
     onOpenAccount: vi.fn(),
     onDesktopWorkbenchCollapsedChange: vi.fn(),
     onSelectLayer: vi.fn(),
-    onFreeRectChange: vi.fn(),
     ...overrides,
   };
 }

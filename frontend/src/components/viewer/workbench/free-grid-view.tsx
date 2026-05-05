@@ -1,4 +1,4 @@
-import { GripHorizontal, Move, Plus, Trash2 } from "lucide-react";
+import { Move, Plus, Scaling, Trash2 } from "lucide-react";
 import { ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import { cn } from "@/lib/utils";
@@ -148,7 +148,7 @@ export function FreeGridView({
                   }
                   className="grid size-8 cursor-se-resize place-items-center rounded-lg border border-primary/50 bg-background/80 text-primary backdrop-blur"
                 >
-                  <GripHorizontal className="size-4 rotate-45" />
+                  <Scaling className="size-4" />
                 </button>
                 <button
                   type="button"
@@ -244,7 +244,7 @@ export function FreeGridView({
                     }
                     className="grid size-8 cursor-se-resize place-items-center rounded-lg border border-primary/50 bg-background/80 text-primary backdrop-blur"
                   >
-                    <GripHorizontal className="size-4 rotate-45" />
+                    <Scaling className="size-4" />
                   </button>
                 </div>
               ) : null}

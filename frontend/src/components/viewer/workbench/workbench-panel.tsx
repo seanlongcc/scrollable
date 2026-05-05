@@ -24,12 +24,10 @@ import {
   DESKTOP_FIXED_GRID_MAX,
   MOBILE_FIXED_GRID_MAX,
   type FixedGrid,
-  type FreeRect,
 } from "@/lib/viewer/layout";
 import type { TimerMode } from "@/lib/viewer/timer";
 import { cn } from "@/lib/utils";
 import { NumberField } from "./fields";
-import { SelectedFreeLayoutControls } from "./selected-free-layout-controls";
 import type { LayerStats } from "./selection-state";
 import {
   canRandomizeSessionSource,
@@ -92,7 +90,6 @@ export type WorkbenchPanelContentProps = {
   onOpenClearDialog: () => void;
   onPreloadOverlays?: () => void;
   onSelectLayer: (id: string) => void;
-  onFreeRectChange: (id: string, patch: Partial<FreeRect>) => void;
 };
 
 export type WorkbenchPanelSheetProps = Omit<
@@ -166,7 +163,6 @@ export function WorkbenchPanelContent({
   onOpenClearDialog,
   onPreloadOverlays,
   onSelectLayer,
-  onFreeRectChange,
 }: WorkbenchPanelContentProps) {
   const maxGridSize =
     mode === "mobile" ? MOBILE_FIXED_GRID_MAX : DESKTOP_FIXED_GRID_MAX;
@@ -369,15 +365,9 @@ export function WorkbenchPanelContent({
               {layoutMode !== "free" ? selectedSourceOrderButtons() : null}
             </div>
             {layoutMode === "free" ? (
-              <>
-                <SelectedFreeLayoutControls
-                  selected={selected}
-                  onFreeRectChange={onFreeRectChange}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedSourceOrderButtons()}
-                </div>
-              </>
+              <div className="grid grid-cols-2 gap-2">
+                {selectedSourceOrderButtons()}
+              </div>
             ) : null}
           </section>
           <section className="grid gap-2">

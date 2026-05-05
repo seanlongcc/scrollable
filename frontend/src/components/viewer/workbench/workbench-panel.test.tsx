@@ -114,7 +114,6 @@ function panelProps(
     onOpenClearDialog: vi.fn(),
     onPreloadOverlays: vi.fn(),
     onSelectLayer: vi.fn(),
-    onFreeRectChange: vi.fn(),
     ...overrides,
   } as ComponentProps<typeof WorkbenchPanelContent>;
 }
