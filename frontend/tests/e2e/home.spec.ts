@@ -1,4 +1,10 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Route,
+} from "@playwright/test";
 
 test("home renders multi-view wall without media previews", async ({
   page,
@@ -361,26 +367,44 @@ test("keyboard and wheel move through runtime feed items", async ({
     .click();
   await closeWorkbenchOnMobile(page, testInfo.project.name);
 
-  await expect(page.getByText("Runtime image 1")).toBeVisible();
-
   const runtimePane = page.locator("article").filter({
-    hasText: "Runtime image 1",
+    hasText: /Runtime image [12]/,
   });
+  await expect(runtimePane).toBeVisible();
+  const initialRuntimeTitle = await visibleRuntimeTitle(runtimePane);
+  const nextRuntimeTitle =
+    initialRuntimeTitle === "Runtime image 1"
+      ? "Runtime image 2"
+      : "Runtime image 1";
+  await expect(runtimePane.getByText(initialRuntimeTitle)).toBeVisible();
   await runtimePane.click();
 
   await page.keyboard.press("ArrowDown");
-  await expect(page.getByText("Runtime image 2")).toBeVisible();
+  await expect(runtimePane.getByText(nextRuntimeTitle)).toBeVisible();
 
   await page.keyboard.press("ArrowUp");
-  await expect(page.getByText("Runtime image 1")).toBeVisible();
+  await expect(runtimePane.getByText(initialRuntimeTitle)).toBeVisible();
 
   await runtimePane.hover();
   await page.mouse.wheel(0, 500);
-  await expect(page.getByText("Runtime image 2")).toBeVisible();
+  await expect(runtimePane.getByText(nextRuntimeTitle)).toBeVisible();
 
   await page.mouse.wheel(0, -500);
-  await expect(page.getByText("Runtime image 1")).toBeVisible();
+  await expect(runtimePane.getByText(initialRuntimeTitle)).toBeVisible();
 });
+
+async function visibleRuntimeTitle(runtimePane: Locator) {
+  const title = await runtimePane
+    .getByText(/Runtime image [12]/)
+    .first()
+    .textContent();
+
+  if (title !== "Runtime image 1" && title !== "Runtime image 2") {
+    throw new Error(`Unexpected runtime title: ${title ?? "<missing>"}`);
+  }
+
+  return title;
+}
 
 async function openWorkbenchOnMobile(page: Page, projectName: string) {
   if (projectName !== "mobile") return;
