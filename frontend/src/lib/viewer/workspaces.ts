@@ -58,6 +58,7 @@ export type WorkspaceSessionInput = {
   timerMode: TimerMode;
   timerSeconds: number;
   timerActiveIndex?: number;
+  timerPaused?: boolean;
   fixedSlot: number;
   freeRect: FreeRect;
   sourceConfig: PersistedSourceConfig;
@@ -167,6 +168,7 @@ export function serializeWorkspace(workspace: {
         timerMode,
         timerSeconds,
         timerActiveIndex,
+        timerPaused,
         fixedSlot,
         freeRect,
         sourceConfig,
@@ -182,6 +184,7 @@ export function serializeWorkspace(workspace: {
         timerMode,
         timerSeconds,
         timerActiveIndex,
+        timerPaused,
         fixedSlot,
         freeRect,
         sourceConfig,
