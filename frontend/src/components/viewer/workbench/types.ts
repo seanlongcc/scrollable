@@ -68,6 +68,7 @@ export type AccountState =
 export type SourceGroupingMode = "stacked" | "separate";
 export type SaveKind = "layout" | "template";
 export type LibraryKind = "layouts" | "templates";
+export type LibraryOpenTarget = "new-tab" | "current-tab";
 export type RedditInputMode = "subreddit" | "links";
 export type RedditListingSort =
   | "hot"

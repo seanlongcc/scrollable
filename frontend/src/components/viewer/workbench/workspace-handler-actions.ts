@@ -18,6 +18,7 @@ import {
   localFilesOmittedDescription,
 } from "./json-export-actions";
 import type {
+  LibraryOpenTarget,
   RuntimeWorkspace,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
@@ -529,12 +530,16 @@ export function useWorkspaceHandlers({
     );
   }
 
-  function openSavedWorkspaces(ids: string[]) {
+  function openSavedWorkspaces(
+    ids: string[],
+    target: LibraryOpenTarget = "new-tab",
+  ) {
     const current = currentWorkspaceState();
     const sourceWorkspaces =
       libraryStorageTarget === "cloud" ? cloudWorkspaces : savedWorkspaces;
     const nextState = prepareOpenSavedWorkspaces({
       ids,
+      target,
       current,
       workspaceTabs,
       workspaceStates,
@@ -559,12 +564,16 @@ export function useWorkspaceHandlers({
     setIsLayoutsOpen(false);
   }
 
-  function openSavedTemplates(ids: string[]) {
+  function openSavedTemplates(
+    ids: string[],
+    target: LibraryOpenTarget = "new-tab",
+  ) {
     const current = currentWorkspaceState();
     const sourceTemplates =
       libraryStorageTarget === "cloud" ? cloudTemplates : savedTemplates;
     const nextState = prepareOpenSavedTemplates({
       ids,
+      target,
       current,
       workspaceTabs,
       workspaceStates,

@@ -37,6 +37,7 @@ import {
 import type {
   AccountState,
   LibraryKind,
+  LibraryOpenTarget,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
   WorkspaceTab,
@@ -110,8 +111,8 @@ export function LayoutDialog({
   account?: AccountState;
   storageTarget?: SaveTarget;
   onStorageTargetChange?: (target: SaveTarget) => void;
-  onOpenWorkspaces: (ids: string[]) => void;
-  onOpenTemplates: (ids: string[]) => void;
+  onOpenWorkspaces: (ids: string[], target: LibraryOpenTarget) => void;
+  onOpenTemplates: (ids: string[], target: LibraryOpenTarget) => void;
   onDeleteWorkspace: (id: string, target?: SaveTarget) => void;
   onDeleteTemplate: (id: string, target?: SaveTarget) => void;
   onRenameWorkspace?: (
@@ -146,6 +147,8 @@ export function LayoutDialog({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [libraryKind, setLibraryKind] = useState<LibraryKind>("layouts");
+  const [openTarget, setOpenTarget] =
+    useState<LibraryOpenTarget>("current-tab");
   const [searchQuery, setSearchQuery] = useState("");
   const [renameTarget, setRenameTarget] = useState<{
     kind: "layout" | "template";
@@ -209,6 +212,7 @@ export function LayoutDialog({
       setSelectedIds([]);
       setSelectedTemplateIds([]);
       setLibraryKind("layouts");
+      setOpenTarget("current-tab");
       setSearchQuery("");
       setRenameTarget(null);
       setRenameDraft("");
@@ -275,7 +279,7 @@ export function LayoutDialog({
       .filter((workspace) => visibleSelectedIds.includes(workspace.id))
       .map((workspace) => workspace.id);
 
-    onOpenWorkspaces(selected);
+    onOpenWorkspaces(selected, openTarget);
   }
 
   function selectAllLayouts() {
@@ -302,7 +306,7 @@ export function LayoutDialog({
       .filter((template) => visibleSelectedTemplateIds.includes(template.id))
       .map((template) => template.id);
 
-    onOpenTemplates(selected);
+    onOpenTemplates(selected, openTarget);
   }
 
   function selectAllTemplates() {
@@ -406,6 +410,10 @@ export function LayoutDialog({
                   placeholder="Search"
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
+                <OpenTargetControl
+                  target={openTarget}
+                  onTargetChange={setOpenTarget}
+                />
                 <TabsContent value="layouts" className="grid gap-3">
                   <SavedLibraryBulkActions
                     kind="layouts"
@@ -441,7 +449,7 @@ export function LayoutDialog({
                             )}
                             bytes={serializedMetadataBytes(workspace)}
                             onCheckedChange={toggleSelection}
-                            onOpen={(id) => onOpenWorkspaces([id])}
+                            onOpen={(id) => onOpenWorkspaces([id], openTarget)}
                             onUploadToCloud={onUploadWorkspaceToCloud}
                             onShare={onShareCloudItem}
                             onRename={(id) =>
@@ -495,7 +503,7 @@ export function LayoutDialog({
                             metadata={templateLibraryMetadata(boxCount)}
                             bytes={serializedMetadataBytes(template)}
                             onCheckedChange={toggleTemplateSelection}
-                            onOpen={(id) => onOpenTemplates([id])}
+                            onOpen={(id) => onOpenTemplates([id], openTarget)}
                             onUploadToCloud={onUploadTemplateToCloud}
                             onShare={onShareCloudItem}
                             onRename={(id) =>
@@ -542,6 +550,43 @@ export function LayoutDialog({
         }}
       />
     </>
+  );
+}
+
+function OpenTargetControl({
+  target,
+  onTargetChange,
+}: {
+  target: LibraryOpenTarget;
+  onTargetChange: (target: LibraryOpenTarget) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Open target"
+      className="grid grid-cols-2 gap-1 rounded-xl border border-border/70 bg-background/70 p-1"
+    >
+      <Button
+        type="button"
+        variant={target === "current-tab" ? "default" : "ghost"}
+        size="sm"
+        aria-pressed={target === "current-tab"}
+        onClick={() => onTargetChange("current-tab")}
+        className="min-w-0 rounded-lg px-2 font-normal md:font-normal"
+      >
+        Current tab
+      </Button>
+      <Button
+        type="button"
+        variant={target === "new-tab" ? "default" : "ghost"}
+        size="sm"
+        aria-pressed={target === "new-tab"}
+        onClick={() => onTargetChange("new-tab")}
+        className="min-w-0 rounded-lg px-2 font-normal md:font-normal"
+      >
+        New tab
+      </Button>
+    </div>
   );
 }
 
