@@ -1,11 +1,6 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { loadLocalFiles } from "@/lib/local-uploads/file-cache";
-import type {
-  UrlResolverHint,
-  UrlRuntimeResolution,
-  UrlSourceConfig,
-} from "@/lib/url-source/types";
-import { isRedditUrl } from "@/lib/url-source/resolver-routing";
+import type { UrlRuntimeResolution } from "@/lib/url-source/types";
 import type {
   FeedSession,
   LocalRestoreStatus,
@@ -18,9 +13,9 @@ import {
   redditHiddenItemHashes,
   redditHashesForItemId,
   redditLinksTitle,
-  urlHostLabel,
 } from "./helpers";
 import { getUploadableFiles } from "./local-sources";
+import { flattenRuntimeMediaItems } from "./runtime-media-items";
 import {
   createRedditRuntimePostCache,
   fetchRedditRuntimePostItems,
@@ -33,6 +28,9 @@ import {
   type EditedUrlSourceState,
 } from "./source-edit-state";
 import { randomizeRuntimeItems } from "./source-order-state";
+import { fetchUrlRuntimeItemsForSource } from "./url-runtime-sources";
+
+export { fetchUrlRuntimeItemsForSource } from "./url-runtime-sources";
 
 export type RuntimeSessionSource = {
   title: string;
@@ -55,56 +53,6 @@ export type RuntimeHydrationResult = {
   localRestoreStatus?: LocalRestoreStatus;
   sourceConfig?: PersistedSourceConfig;
 };
-
-export function buildUrlAddSourceConfig({
-  urlValue,
-  urlTitle,
-}: {
-  urlValue: string;
-  urlTitle: string;
-}): UrlSourceConfig {
-  return {
-    kind: "url",
-    url: urlValue.trim(),
-    ...(urlTitle.trim() ? { title: urlTitle.trim() } : {}),
-  };
-}
-
-export function buildUrlAddSourceConfigs({
-  urls,
-  urlTitle,
-}: {
-  urls: string[];
-  urlTitle: string;
-}): UrlSourceConfig[] {
-  const title = urlTitle.trim();
-
-  return urls.map((url) => ({
-    kind: "url",
-    url,
-    ...(title && urls.length === 1 ? { title } : {}),
-  }));
-}
-
-export async function createUrlSessionSource(
-  sourceConfig: UrlSourceConfig,
-): Promise<RuntimeSessionSource> {
-  const result = await fetchUrlRuntimeItemsForSource(sourceConfig);
-
-  return {
-    title: result.title,
-    sourceConfig: result.sourceConfig,
-    items: result.items,
-    allItems: result.allItems,
-    urlResolution: result.urlResolution,
-  };
-}
-
-export function createUrlSessionSources(
-  sourceConfigs: UrlSourceConfig[],
-): Promise<RuntimeSessionSource[]> {
-  return Promise.all(sourceConfigs.map(createUrlSessionSource));
-}
 
 export async function createRedditSessionSources({
   urls,
@@ -179,18 +127,6 @@ export async function fetchRedditRuntimeItems(
   });
 
   return flattenRuntimeMediaItems(items);
-}
-
-export function flattenRuntimeMediaItems(items: RuntimeFeedItem[]) {
-  return items.flatMap((item) => {
-    if (item.media.length <= 1) return [item];
-
-    return item.media.map((media, index) => ({
-      ...item,
-      id: `${item.id}:media:${index}`,
-      media: [media],
-    }));
-  });
 }
 
 export async function filterHiddenRedditItems(
@@ -294,105 +230,6 @@ export async function fetchRuntimeItemsForSource(
   };
 }
 
-async function fetchRedditUrlRuntimeItems(
-  sourceConfig: UrlSourceConfig,
-  redditCache?: RedditRuntimePostCache,
-) {
-  return fetchRedditRuntimePostItems({
-    urls: [sourceConfig.url],
-    allowNsfw: true,
-    cache: redditCache,
-  });
-}
-
-export async function fetchUrlRuntimeItemsForSource(
-  sourceConfig: UrlSourceConfig,
-  redditCache?: RedditRuntimePostCache,
-) {
-  if (isBrowserResolvedRedditUrl(sourceConfig.url)) {
-    return fetchRedditUrlRuntimeItemsForSource(sourceConfig, redditCache);
-  }
-
-  const params = new URLSearchParams({ url: sourceConfig.url });
-  if (sourceConfig.resolverHint) {
-    params.set("hint", sourceConfig.resolverHint);
-  }
-
-  const response = await fetch(`/api/url/resolve?${params}`, {
-    cache: "no-store",
-  });
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "url_source_error");
-  }
-
-  const resolution = payload.resolution as UrlRuntimeResolution;
-  const nextResolverHint = payload.nextResolverHint as
-    | UrlResolverHint
-    | undefined;
-  const items =
-    resolution.status === "resolved" && "items" in resolution
-      ? flattenRuntimeMediaItems(resolution.items as RuntimeFeedItem[])
-      : [];
-  const title =
-    sourceConfig.title ??
-    ("title" in resolution ? resolution.title : undefined) ??
-    urlHostLabel(sourceConfig.url);
-
-  return {
-    title,
-    items,
-    allItems: items,
-    urlResolution: resolution,
-    sourceConfig: {
-      ...sourceConfig,
-      url: sourceConfig.url,
-      title: sourceConfig.title,
-      ...(nextResolverHint ? { resolverHint: nextResolverHint } : {}),
-    } satisfies UrlSourceConfig,
-  };
-}
-
-async function fetchRedditUrlRuntimeItemsForSource(
-  sourceConfig: UrlSourceConfig,
-  redditCache?: RedditRuntimePostCache,
-) {
-  const items = flattenRuntimeMediaItems(
-    await fetchRedditUrlRuntimeItems(sourceConfig, redditCache),
-  );
-  const title =
-    sourceConfig.title ?? redditLinksTitle([sourceConfig.url], items);
-  const urlResolution = {
-    status: "resolved",
-    mode: "provider",
-    hint: "provider:reddit",
-    provider: "reddit",
-    title,
-    externalUrl: sourceConfig.url,
-    items,
-  } satisfies UrlRuntimeResolution;
-
-  return {
-    title,
-    items,
-    allItems: items,
-    urlResolution,
-    sourceConfig: {
-      ...sourceConfig,
-      resolverHint: "provider:reddit",
-    } satisfies UrlSourceConfig,
-  };
-}
-
-function isBrowserResolvedRedditUrl(value: string) {
-  try {
-    return isRedditUrl(value);
-  } catch {
-    return false;
-  }
-}
-
 export async function fetchLocalRuntimeItemsForSource({
   sourceConfig,
   createLocalRuntimeItems,
@@ -491,7 +328,8 @@ function runtimeResultForOrderMode(
 ): Omit<RuntimeHydrationResult, "id"> {
   if (
     session.sourceConfig.kind !== "reddit" &&
-    session.sourceConfig.kind !== "local"
+    session.sourceConfig.kind !== "local" &&
+    session.sourceConfig.kind !== "url"
   ) {
     return result;
   }
@@ -520,6 +358,10 @@ export function applyRuntimeHydrationResults(
   return sessions.map((session) => {
     const hydratedSession = hydratedBySession.get(session.id);
     if (!hydratedSession) return session;
+    const orderedHydratedSession = runtimeResultForOrderMode(
+      session,
+      hydratedSession,
+    );
     const {
       items,
       allItems,
@@ -527,8 +369,8 @@ export function applyRuntimeHydrationResults(
       localFiles,
       urlResolution,
       localRestoreStatus,
-    } = hydratedSession;
-    const { sourceConfig, title } = hydratedSession;
+    } = orderedHydratedSession;
+    const { sourceConfig, title } = orderedHydratedSession;
 
     return {
       ...session,

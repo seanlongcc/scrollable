@@ -111,15 +111,15 @@ describe("FeedWorkbench URL sources", () => {
     await user.click(within(dialog).getByRole("button", { name: "URL" }));
 
     expect(
-      within(dialog).queryByRole("button", {
+      within(dialog).getByRole("button", {
         name: "Add sources as one stacked source",
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute("aria-pressed", "true");
     expect(
       within(dialog).getByRole("button", {
         name: "Add sources as separate sources",
       }),
-    ).toHaveAttribute("aria-pressed", "true");
+    ).toBeInTheDocument();
   });
 
   it("adds a unified URL source and saves only URL metadata plus resolver hint", async () => {
@@ -245,6 +245,7 @@ describe("FeedWorkbench URL sources", () => {
     commitNumberField("Columns", "1");
     commitNumberField("Rows", "1");
     await openAddSourceUrlPanel(user);
+    await selectSourceGrouping(user, "Separate sources");
     setUrlValue(
       "https://cdn-one.test/photo.jpg\nhttps://cdn-two.test/photo.jpg",
     );

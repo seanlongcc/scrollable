@@ -111,6 +111,8 @@ export type FeedWorkbenchRenderProps = {
   globalAudioEnabled: boolean;
   globalSeconds: number;
   finishVideoBeforeAdvance: boolean;
+  randomVideoStart: boolean;
+  globalOrderRandomized: boolean;
   importCurrentWorkspaceJson: () => void;
   importSavedJson: (target: SaveTarget) => void;
   isAccountOpen: boolean;
@@ -159,6 +161,7 @@ export type FeedWorkbenchRenderProps = {
   rememberVideoFinished: (key: string) => void;
   removeSession: (id: string) => void;
   randomizeSelectedSource: () => void;
+  setGlobalSourceOrderRandomized: (enabled: boolean) => void;
   removeTemplateSlot: (id: string) => void;
   replaceLocalSessionFiles: (
     id: string,
@@ -222,6 +225,7 @@ export type FeedWorkbenchRenderProps = {
   setGlobalTimerSeconds: (seconds: number) => void;
   setGlobalAudioEnabled: (enabled: boolean) => void;
   setFinishVideoBeforeAdvance: Dispatch<SetStateAction<boolean>>;
+  setRandomVideoStart: Dispatch<SetStateAction<boolean>>;
   setLocalCacheStorageFullStatus: Dispatch<
     SetStateAction<LocalFileCacheStorageStatus | null>
   >;
@@ -242,6 +246,7 @@ export type FeedWorkbenchRenderProps = {
   setSelectedTimerSeconds: (seconds: number) => void;
   setSelectedSourceAudioEnabled: (enabled: boolean) => void;
   setSelectedSourceFinishVideoBeforeAdvance: (enabled: boolean) => void;
+  setSelectedSourceRandomVideoStart: (enabled: boolean) => void;
   setShowAllInfo: Dispatch<SetStateAction<boolean>>;
   setSourceGroupingMode: Dispatch<SetStateAction<SourceGroupingMode>>;
   setSubredditName: Dispatch<SetStateAction<string>>;
@@ -320,6 +325,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     globalAudioEnabled,
     globalSeconds,
     finishVideoBeforeAdvance,
+    randomVideoStart,
+    globalOrderRandomized,
     importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
@@ -362,6 +369,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     rememberVideoFinished,
     removeSession,
     randomizeSelectedSource,
+    setGlobalSourceOrderRandomized,
     removeTemplateSlot,
     replaceLocalSessionFiles,
     requestLocalCacheAccess,
@@ -406,6 +414,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     setGlobalTimerSeconds,
     setGlobalAudioEnabled,
     setFinishVideoBeforeAdvance,
+    setRandomVideoStart,
     setLocalCacheStorageFullStatus,
     setMaximizedId,
     setPendingFixedSlot,
@@ -424,6 +433,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     setSelectedTimerSeconds,
     setSelectedSourceAudioEnabled,
     setSelectedSourceFinishVideoBeforeAdvance,
+    setSelectedSourceRandomVideoStart,
     setShowAllInfo,
     setSourceGroupingMode,
     setSubredditName,
@@ -624,6 +634,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
         videoPositions={videoPositions}
         globalAudioEnabled={globalAudioEnabled}
         finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+        randomVideoStart={randomVideoStart}
         isUiHidden={isUiHidden}
         isDesktopWorkbenchCollapsed={isDesktopWorkbenchCollapsed}
         showAllInfo={showAllInfo}
@@ -664,6 +675,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           )}
           globalAudioEnabled={globalAudioEnabled}
           finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+          randomVideoStart={randomVideoStart}
+          globalOrderRandomized={globalOrderRandomized}
           selected={selected}
           canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
           showAllInfo={showAllInfo}
@@ -681,6 +694,8 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onGlobalTimerAction={runGlobalAction}
           onGlobalAudioEnabledChange={setGlobalAudioEnabled}
           onFinishVideoBeforeAdvanceChange={setFinishVideoBeforeAdvance}
+          onRandomVideoStartChange={setRandomVideoStart}
+          onGlobalOrderRandomizedChange={setGlobalSourceOrderRandomized}
           onCloneSelectedSource={cloneSelectedSource}
           onFillSelectedSourceSpace={fillSelectedSourceSpace}
           onRemoveSelectedSource={() => {
@@ -691,6 +706,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onSelectedFinishVideoBeforeAdvanceChange={
             setSelectedSourceFinishVideoBeforeAdvance
           }
+          onSelectedRandomVideoStartChange={setSelectedSourceRandomVideoStart}
           onSelectedTimerModeChange={setSelectedTimerMode}
           onSelectedTimerSecondsChange={setSelectedTimerSeconds}
           onSelectedMove={moveSelectedSource}

@@ -19,7 +19,10 @@ import {
   isVideoPointerTarget,
 } from "./helpers";
 import { SessionPane } from "./session-pane";
-import { sessionFinishVideoBeforeAdvance } from "./workbench-effect-state";
+import {
+  sessionFinishVideoBeforeAdvance,
+  sessionRandomVideoStart,
+} from "./workbench-effect-state";
 
 export function FreeGridView({
   sessions,
@@ -28,6 +31,7 @@ export function FreeGridView({
   videoPositions,
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   selectedId,
   hideUi,
   isPlaybackActive,
@@ -55,6 +59,7 @@ export function FreeGridView({
   videoPositions: Record<string, number>;
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   selectedId: string | null;
   hideUi: boolean;
   isPlaybackActive: boolean;
@@ -271,6 +276,10 @@ export function FreeGridView({
                 finishVideoBeforeAdvance={sessionFinishVideoBeforeAdvance(
                   session,
                   finishVideoBeforeAdvance,
+                )}
+                randomVideoStart={sessionRandomVideoStart(
+                  session,
+                  randomVideoStart,
                 )}
                 compact={
                   session.freeRect.columnSpan < 3 ||

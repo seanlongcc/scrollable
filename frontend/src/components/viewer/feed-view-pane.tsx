@@ -45,6 +45,7 @@ type ActiveMediaFrame = {
   title: string;
   audioEnabled: boolean;
   finishVideoBeforeAdvance: boolean;
+  randomVideoStart: boolean;
   initialVideoTime: number;
   onVideoTimeChange?: (seconds: number) => void;
   onVideoEnded?: () => void;
@@ -60,6 +61,7 @@ export function FeedViewPane({
   videoPositions = {},
   audioEnabled = false,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   compact = false,
   isFocused = false,
   forceInfoVisible = false,
@@ -87,6 +89,7 @@ export function FeedViewPane({
   videoPositions?: Record<string, number>;
   audioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   compact?: boolean;
   isFocused?: boolean;
   forceInfoVisible?: boolean;
@@ -117,7 +120,7 @@ export function FeedViewPane({
   const activeMedia = activeItem?.media[activeGalleryIndex];
   const activeMediaKey =
     activeItem && activeMedia
-      ? `${activeItem.id}:${activeGalleryIndex}:${activeMedia.type}:${activeMedia.url}:${audioEnabled ? "audio" : "muted"}:${finishVideoBeforeAdvance ? "finish" : "loop"}`
+      ? `${activeItem.id}:${activeGalleryIndex}:${activeMedia.type}:${activeMedia.url}:${audioEnabled ? "audio" : "muted"}:${finishVideoBeforeAdvance ? "finish" : "loop"}:${randomVideoStart ? "random-start" : "resume"}`
       : null;
   const {
     transition: mediaTransition,
@@ -157,6 +160,7 @@ export function FeedViewPane({
           title: activeItem.title,
           audioEnabled,
           finishVideoBeforeAdvance,
+          randomVideoStart,
           initialVideoTime: videoPositionKey
             ? (videoPositions[videoPositionKey] ?? 0)
             : 0,
@@ -331,6 +335,7 @@ export function FeedViewPane({
                   finishVideoBeforeAdvance={
                     outgoingMediaFrame.finishVideoBeforeAdvance
                   }
+                  randomVideoStart={outgoingMediaFrame.randomVideoStart}
                   initialVideoTime={outgoingMediaFrame.initialVideoTime}
                 />
               </div>
@@ -349,6 +354,7 @@ export function FeedViewPane({
                 finishVideoBeforeAdvance={
                   currentMediaFrame.finishVideoBeforeAdvance
                 }
+                randomVideoStart={currentMediaFrame.randomVideoStart}
                 initialVideoTime={currentMediaFrame.initialVideoTime}
                 onVideoTimeChange={currentMediaFrame.onVideoTimeChange}
                 onVideoEnded={currentMediaFrame.onVideoEnded}

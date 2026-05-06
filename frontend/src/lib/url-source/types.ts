@@ -9,6 +9,7 @@ export type UrlResolverHint =
 export type UrlSourceConfig = {
   kind: "url";
   url: string;
+  urls?: string[];
   title?: string;
   resolverHint?: UrlResolverHint;
 };

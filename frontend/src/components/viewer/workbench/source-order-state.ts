@@ -1,6 +1,11 @@
 import { createTimerState } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
 
+type OrderableSource = Pick<
+  FeedSession,
+  "items" | "allItems" | "isOrderRandomized" | "sourceConfig"
+>;
+
 export function randomizeRuntimeItems<T>(items: readonly T[]) {
   const next = [...items];
 
@@ -12,16 +17,17 @@ export function randomizeRuntimeItems<T>(items: readonly T[]) {
   return next;
 }
 
-export function canRandomizeSessionSource(session: FeedSession | null) {
+export function canRandomizeSessionSource(session: OrderableSource | null) {
   return Boolean(
     session &&
     session.items.length > 1 &&
     (session.sourceConfig.kind === "local" ||
-      session.sourceConfig.kind === "reddit"),
+      session.sourceConfig.kind === "reddit" ||
+      session.sourceConfig.kind === "url"),
   );
 }
 
-export function isSessionOrderRandomized(session: FeedSession | null) {
+export function isSessionOrderRandomized(session: OrderableSource | null) {
   return Boolean(
     canRandomizeSessionSource(session) && session?.isOrderRandomized !== false,
   );
@@ -41,42 +47,84 @@ export function setSessionOrderRandomized(
 ): FeedSession {
   if (!canRandomizeSessionSource(session)) return session;
 
-  const orderedItems = visibleSourceOrderItems(session);
+  const nextSource = setSourceOrderRandomized(session, isOrderRandomized);
+
+  return {
+    ...nextSource,
+    timer: timerForOrderedItems(session, nextSource.items.length),
+  };
+}
+
+export function randomizeSessionItems(session: FeedSession): FeedSession {
+  return setSessionOrderRandomized(session, true);
+}
+
+export function randomizeAllSessionSources(
+  sessions: FeedSession[],
+): FeedSession[] {
+  return setAllSessionSourcesOrderRandomized(sessions, true);
+}
+
+export function setAllSessionSourcesOrderRandomized(
+  sessions: FeedSession[],
+  isOrderRandomized: boolean,
+): FeedSession[] {
+  return mapOrderableSources(sessions, (session) =>
+    setSessionOrderRandomized(session, isOrderRandomized),
+  );
+}
+
+export function setSourceInputsOrderRandomized<T extends OrderableSource>(
+  sources: T[],
+  isOrderRandomized: boolean,
+): T[] {
+  return mapOrderableSources(sources, (source) =>
+    setSourceOrderRandomized(source, isOrderRandomized),
+  );
+}
+
+function setSourceOrderRandomized<T extends OrderableSource>(
+  source: T,
+  isOrderRandomized: boolean,
+): T {
+  if (!canRandomizeSessionSource(source)) return source;
+
+  const orderedItems = visibleSourceOrderItems(source);
   const nextItems = isOrderRandomized
     ? randomizeRuntimeItems(orderedItems)
     : orderedItems;
 
   return {
-    ...session,
+    ...source,
     items: nextItems,
     isOrderRandomized,
-    timer: timerForOrderedItems(session, nextItems.length),
   };
 }
 
-export function randomizeSessionItems(session: FeedSession): FeedSession {
-  if (!canRandomizeSessionSource(session)) return session;
+function mapOrderableSources<T extends OrderableSource>(
+  sources: T[],
+  mapSource: (source: T) => T,
+): T[] {
+  let changed = false;
+  const nextSources = sources.map((source) => {
+    const nextSource = mapSource(source);
+    if (nextSource !== source) changed = true;
+    return nextSource;
+  });
 
-  const nextItems = randomizeRuntimeItems(visibleSourceOrderItems(session));
-
-  return {
-    ...session,
-    items: nextItems,
-    isOrderRandomized: true,
-    timer: timerForOrderedItems(session, nextItems.length),
-  };
+  return changed ? nextSources : sources;
 }
 
-function visibleSourceOrderItems(session: FeedSession) {
-  const allItems = session.allItems;
-  if (!allItems) return session.items;
+function visibleSourceOrderItems(source: OrderableSource) {
+  const allItems = source.allItems;
+  if (!allItems) return source.items;
 
-  const visibleIds = new Set(session.items.map((item) => item.id));
+  const visibleIds = new Set(source.items.map((item) => item.id));
   const orderedVisibleItems = allItems.filter((item) =>
     visibleIds.has(item.id),
   );
 
-  return orderedVisibleItems.length ? orderedVisibleItems : session.items;
+  return orderedVisibleItems.length ? orderedVisibleItems : source.items;
 }
 
 function timerForOrderedItems(session: FeedSession, itemCount: number) {

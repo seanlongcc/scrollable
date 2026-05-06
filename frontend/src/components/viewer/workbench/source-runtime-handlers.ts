@@ -59,6 +59,7 @@ import {
   placeSessions,
   type SessionPlacementSourceInput,
 } from "./session-placement";
+import { setSourceInputsOrderRandomized } from "./source-order-state";
 import type {
   FeedSession,
   LayoutMode,
@@ -82,6 +83,7 @@ type SourceRuntimeHandlersInput = {
   urlTitle: string;
   activeLayerId: string;
   globalSeconds: number;
+  globalOrderRandomized: boolean;
   pendingFixedSlot: number | null;
   pendingTemplateSlotId: string | null;
   templateSlots: WorkspaceTemplateSlot[];
@@ -126,6 +128,7 @@ export function useSourceRuntimeHandlers({
   urlTitle,
   activeLayerId,
   globalSeconds,
+  globalOrderRandomized,
   pendingFixedSlot,
   pendingTemplateSlotId,
   templateSlots,
@@ -186,6 +189,7 @@ export function useSourceRuntimeHandlers({
       const result = await addUrlSourceAction({
         urlValue,
         urlTitle,
+        sourceGroupingMode,
         availableSeparateSourceSlots,
       });
 
@@ -370,9 +374,13 @@ export function useSourceRuntimeHandlers({
   }
 
   function addSessions(sources: SessionPlacementSourceInput[]) {
+    const orderedSources = setSourceInputsOrderRandomized(
+      sources,
+      globalOrderRandomized,
+    );
     const result = placeSessions({
       current: sessions,
-      sources,
+      sources: orderedSources,
       activeLayerId,
       globalSeconds,
       pendingFixedSlot,

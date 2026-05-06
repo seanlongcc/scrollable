@@ -8,18 +8,24 @@ import type { FeedSession } from "./types";
 import { WorkbenchPanelContent } from "./workbench-panel";
 
 describe("WorkbenchPanelContent", () => {
-  it("shows global settings with unmute-all and finish-video controls", async () => {
+  it("shows global settings with unmute-all and play-to-end controls", async () => {
     const user = userEvent.setup();
     const onGlobalAudioEnabledChange = vi.fn();
     const onFinishVideoBeforeAdvanceChange = vi.fn();
+    const onRandomVideoStartChange = vi.fn();
+    const onGlobalOrderRandomizedChange = vi.fn();
 
     render(
       <WorkbenchPanelContent
         {...panelProps({
           globalAudioEnabled: false,
           finishVideoBeforeAdvance: false,
+          randomVideoStart: false,
           onGlobalAudioEnabledChange,
           onFinishVideoBeforeAdvanceChange,
+          onRandomVideoStartChange,
+          globalOrderRandomized: true,
+          onGlobalOrderRandomizedChange,
         })}
       />,
     );
@@ -28,18 +34,60 @@ describe("WorkbenchPanelContent", () => {
     expect(screen.queryByText("Global timer")).not.toBeInTheDocument();
 
     const unmuteAll = screen.getByRole("button", { name: "Unmute all" });
-    const finishVideo = screen.getByRole("button", { name: "Finish video" });
+    const finishVideo = screen.getByRole("button", { name: "Play to end" });
+    const randomSeek = screen.getByRole("button", {
+      name: "Random seek",
+    });
+    const shuffle = screen.getByRole("button", { name: "Shuffle all sources" });
 
     expect(unmuteAll).toHaveAttribute("aria-pressed", "false");
     expect(unmuteAll).toHaveAttribute("data-variant", "outline");
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
+    expect(randomSeek).toHaveTextContent("Random seek");
+    expect(randomSeek.querySelector(".lucide-dices")).toBeInTheDocument();
+    expect(randomSeek).toHaveAttribute("aria-pressed", "false");
+    expect(randomSeek).toHaveAttribute("data-variant", "outline");
+    expect(shuffle).toHaveTextContent("Shuffle");
+    expect(shuffle).toHaveAttribute("aria-pressed", "true");
+    expect(shuffle).toHaveAttribute("data-variant", "default");
+    expect(
+      randomSeek.compareDocumentPosition(shuffle) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     await user.click(unmuteAll);
     await user.click(finishVideo);
+    await user.click(randomSeek);
+    await user.click(shuffle);
 
     expect(onGlobalAudioEnabledChange).toHaveBeenCalledWith(true);
     expect(onFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
+    expect(onRandomVideoStartChange).toHaveBeenCalledWith(true);
+    expect(onGlobalOrderRandomizedChange).toHaveBeenCalledWith(false);
+  });
+
+  it("shows disabled global shuffle state and toggles it back on", async () => {
+    const user = userEvent.setup();
+    const onGlobalOrderRandomizedChange = vi.fn();
+
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          globalOrderRandomized: false,
+          onGlobalOrderRandomizedChange,
+        })}
+      />,
+    );
+
+    const shuffle = screen.getByRole("button", { name: "Shuffle all sources" });
+
+    expect(shuffle).toHaveAttribute("aria-pressed", "false");
+    expect(shuffle).toHaveAttribute("data-variant", "outline");
+
+    await user.click(shuffle);
+
+    expect(onGlobalOrderRandomizedChange).toHaveBeenCalledWith(true);
   });
 
   it("renames global audio action to mute-all when audio is enabled", async () => {
@@ -117,44 +165,70 @@ describe("WorkbenchPanelContent", () => {
     expect(onSelectedAudioEnabledChange).toHaveBeenCalledWith(false);
   });
 
-  it("places selected unmute and finish-video side by side without randomize", async () => {
+  it("places selected source controls side by side for URL sources", async () => {
     const user = userEvent.setup();
+    const onRandomizeSelectedSource = vi.fn();
     const onSelectedFinishVideoBeforeAdvanceChange = vi.fn();
+    const onSelectedRandomVideoStartChange = vi.fn();
 
     render(
       <WorkbenchPanelContent
         {...panelProps({
           selected: selectedSession("url"),
+          onRandomizeSelectedSource,
           onSelectedFinishVideoBeforeAdvanceChange,
+          onSelectedRandomVideoStartChange,
         })}
       />,
     );
 
+    const shuffle = screen.getByRole("button", {
+      name: "Shuffle selected source",
+    });
     const unmute = screen.getByRole("button", {
       name: "Unmute selected source",
     });
     const finishVideo = screen.getByRole("button", {
-      name: "Finish selected source video",
+      name: "Play selected source to end",
+    });
+    const randomStart = screen.getByRole("button", {
+      name: "Use random seek for selected source videos",
     });
     const remove = screen.getByRole("button", { name: "Remove" });
 
+    expect(shuffle).toHaveTextContent("Shuffle");
+    expect(shuffle).not.toHaveClass("col-span-2");
+    expect(finishVideo).toHaveTextContent("Play to end");
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
+    expect(randomStart).toHaveTextContent("Random seek");
+    expect(randomStart.querySelector(".lucide-dices")).toBeInTheDocument();
+    expect(randomStart).toHaveAttribute("aria-pressed", "false");
+    expect(randomStart).toHaveAttribute("data-variant", "outline");
     expect(unmute).not.toHaveClass("col-span-2");
     expect(finishVideo).not.toHaveClass("col-span-2");
+    expect(randomStart).not.toHaveClass("col-span-2");
     expect(remove).toHaveClass("col-span-2");
+    expect(
+      shuffle.compareDocumentPosition(unmute) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(
       unmute.compareDocumentPosition(finishVideo) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      finishVideo.compareDocumentPosition(remove) &
+      randomStart.compareDocumentPosition(remove) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
+    await user.click(shuffle);
     await user.click(finishVideo);
+    await user.click(randomStart);
 
+    expect(onRandomizeSelectedSource).toHaveBeenCalledTimes(1);
     expect(onSelectedFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
+    expect(onSelectedRandomVideoStartChange).toHaveBeenCalledWith(true);
   });
 
   it("places randomize and unmute side by side for randomizable sources", () => {
@@ -167,28 +241,36 @@ describe("WorkbenchPanelContent", () => {
       />,
     );
 
-    const randomize = screen.getByRole("button", {
-      name: "Randomize selected source",
+    const shuffle = screen.getByRole("button", {
+      name: "Shuffle selected source",
     });
     const unmute = screen.getByRole("button", {
       name: "Unmute selected source",
     });
     const finishVideo = screen.getByRole("button", {
-      name: "Finish selected source video",
+      name: "Play selected source to end",
+    });
+    const randomStart = screen.getByRole("button", {
+      name: "Use random seek for selected source videos",
     });
     const remove = screen.getByRole("button", { name: "Remove" });
 
-    expect(randomize).not.toHaveClass("col-span-2");
+    expect(shuffle).toHaveTextContent("Shuffle");
+    expect(shuffle).not.toHaveClass("col-span-2");
     expect(unmute).not.toHaveClass("col-span-2");
+    expect(finishVideo).toHaveTextContent("Play to end");
     expect(finishVideo).not.toHaveClass("col-span-2");
-    expect(remove).not.toHaveClass("col-span-2");
+    expect(randomStart).toHaveTextContent("Random seek");
+    expect(randomStart.querySelector(".lucide-dices")).toBeInTheDocument();
+    expect(randomStart).not.toHaveClass("col-span-2");
+    expect(remove).toHaveClass("col-span-2");
     expect(
-      randomize.compareDocumentPosition(unmute) &
+      shuffle.compareDocumentPosition(unmute) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
-  it("shows normal randomize color when random order is disabled", () => {
+  it("shows normal shuffle color when random order is disabled", () => {
     render(
       <WorkbenchPanelContent
         {...panelProps({
@@ -197,12 +279,12 @@ describe("WorkbenchPanelContent", () => {
       />,
     );
 
-    const randomize = screen.getByRole("button", {
-      name: "Randomize selected source",
+    const shuffle = screen.getByRole("button", {
+      name: "Shuffle selected source",
     });
 
-    expect(randomize).toHaveAttribute("aria-pressed", "false");
-    expect(randomize).toHaveAttribute("data-variant", "outline");
+    expect(shuffle).toHaveAttribute("aria-pressed", "false");
+    expect(shuffle).toHaveAttribute("data-variant", "outline");
   });
 
   it("shows normal selected unmute color when source audio is disabled", () => {
@@ -247,7 +329,7 @@ describe("WorkbenchPanelContent", () => {
     expect(onSelectedAudioEnabledChange).toHaveBeenCalledWith(true);
   });
 
-  it("hides selected source randomize for URL sources", () => {
+  it("shows selected source shuffle for URL sources", () => {
     render(
       <WorkbenchPanelContent
         {...panelProps({
@@ -257,8 +339,8 @@ describe("WorkbenchPanelContent", () => {
     );
 
     expect(
-      screen.queryByRole("button", { name: "Randomize selected source" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Shuffle selected source" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -288,14 +370,19 @@ function panelProps(
     onGlobalTimerAction: vi.fn(),
     globalAudioEnabled: false,
     finishVideoBeforeAdvance: false,
+    randomVideoStart: false,
     onGlobalAudioEnabledChange: vi.fn(),
     onFinishVideoBeforeAdvanceChange: vi.fn(),
+    onRandomVideoStartChange: vi.fn(),
+    globalOrderRandomized: true,
+    onGlobalOrderRandomizedChange: vi.fn(),
     onCloneSelectedSource: vi.fn(),
     onFillSelectedSourceSpace: vi.fn(),
     onRemoveSelectedSource: vi.fn(),
     onRandomizeSelectedSource: vi.fn(),
     onSelectedAudioEnabledChange: vi.fn(),
     onSelectedFinishVideoBeforeAdvanceChange: vi.fn(),
+    onSelectedRandomVideoStartChange: vi.fn(),
     onSelectedTimerModeChange: vi.fn(),
     onSelectedTimerSecondsChange: vi.fn(),
     onSelectedMove: vi.fn(),

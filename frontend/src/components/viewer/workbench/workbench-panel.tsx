@@ -3,6 +3,7 @@
 import {
   Clock3,
   Copy,
+  Dices,
   Film,
   Grid2X2,
   Maximize2,
@@ -63,6 +64,8 @@ export type WorkbenchPanelContentProps = {
   hasRunningSessionTimer: boolean;
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
+  globalOrderRandomized?: boolean;
   selected: FeedSession | null;
   canCloneOrFillSelectedSource: boolean;
   showAllInfo: boolean;
@@ -76,12 +79,15 @@ export type WorkbenchPanelContentProps = {
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
   onGlobalAudioEnabledChange?: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
+  onRandomVideoStartChange?: (enabled: boolean) => void;
+  onGlobalOrderRandomizedChange?: (enabled: boolean) => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
   onRandomizeSelectedSource: () => void;
   onSelectedAudioEnabledChange?: (enabled: boolean) => void;
   onSelectedFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
+  onSelectedRandomVideoStartChange?: (enabled: boolean) => void;
   onSelectedTimerModeChange: (mode: TimerMode) => void;
   onSelectedTimerSecondsChange: (seconds: number) => void;
   onSelectedMove: (direction: 1 | -1) => void;
@@ -142,6 +148,8 @@ export function WorkbenchPanelContent({
   hasRunningSessionTimer,
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
+  globalOrderRandomized = true,
   selected,
   canCloneOrFillSelectedSource,
   showAllInfo,
@@ -155,12 +163,15 @@ export function WorkbenchPanelContent({
   onGlobalTimerAction,
   onGlobalAudioEnabledChange = () => undefined,
   onFinishVideoBeforeAdvanceChange = () => undefined,
+  onRandomVideoStartChange = () => undefined,
+  onGlobalOrderRandomizedChange = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
   onRandomizeSelectedSource,
   onSelectedAudioEnabledChange = () => undefined,
   onSelectedFinishVideoBeforeAdvanceChange = () => undefined,
+  onSelectedRandomVideoStartChange = () => undefined,
   onSelectedTimerModeChange,
   onSelectedTimerSecondsChange,
   onSelectedMove,
@@ -201,57 +212,77 @@ export function WorkbenchPanelContent({
     selected?.isAudioEnabled ?? globalAudioEnabled;
   const isSelectedSourceFinishVideoBeforeAdvance =
     selected?.finishVideoBeforeAdvance ?? finishVideoBeforeAdvance;
+  const isSelectedSourceRandomVideoStart =
+    selected?.randomVideoStart ?? randomVideoStart;
   const selectedAudioLabel = isSelectedSourceAudioEnabled ? "Mute" : "Unmute";
-  const selectedSourceOrderButtons = (removeClassName?: string) => (
-    <>
-      {canRandomizeSelectedSource ? (
+  const selectedSourceOrderButtons = (removeClassName?: string) => {
+    const selectedRemoveClassName = cn(
+      canRandomizeSelectedSource && "col-span-2",
+      removeClassName,
+    );
+
+    return (
+      <>
+        {canRandomizeSelectedSource ? (
+          <Button
+            type="button"
+            variant={isRandomizeSelectedSourceEnabled ? "default" : "outline"}
+            aria-pressed={isRandomizeSelectedSourceEnabled}
+            aria-label="Shuffle selected source"
+            onClick={onRandomizeSelectedSource}
+            className={selectedSourceButtonClass}
+          >
+            <Shuffle />
+            <span className="min-w-0 truncate">Shuffle</span>
+          </Button>
+        ) : null}
         <Button
           type="button"
-          variant={isRandomizeSelectedSourceEnabled ? "default" : "outline"}
-          aria-pressed={isRandomizeSelectedSourceEnabled}
-          aria-label="Randomize selected source"
-          onClick={onRandomizeSelectedSource}
+          variant={isSelectedSourceAudioEnabled ? "default" : "outline"}
+          aria-pressed={isSelectedSourceAudioEnabled}
+          aria-label={`${selectedAudioLabel} selected source`}
+          onClick={() =>
+            onSelectedAudioEnabledChange(!isSelectedSourceAudioEnabled)
+          }
           className={selectedSourceButtonClass}
         >
-          <Shuffle />
-          <span className="min-w-0 truncate">Randomize</span>
+          <Volume2 />
+          <span className="min-w-0 truncate">{selectedAudioLabel}</span>
         </Button>
-      ) : null}
-      <Button
-        type="button"
-        variant={isSelectedSourceAudioEnabled ? "default" : "outline"}
-        aria-pressed={isSelectedSourceAudioEnabled}
-        aria-label={`${selectedAudioLabel} selected source`}
-        onClick={() =>
-          onSelectedAudioEnabledChange(!isSelectedSourceAudioEnabled)
-        }
-        className={selectedSourceButtonClass}
-      >
-        <Volume2 />
-        <span className="min-w-0 truncate">{selectedAudioLabel}</span>
-      </Button>
-      <Button
-        type="button"
-        variant={
-          isSelectedSourceFinishVideoBeforeAdvance ? "default" : "outline"
-        }
-        aria-pressed={isSelectedSourceFinishVideoBeforeAdvance}
-        aria-label="Finish selected source video"
-        onClick={() =>
-          onSelectedFinishVideoBeforeAdvanceChange(
-            !isSelectedSourceFinishVideoBeforeAdvance,
-          )
-        }
-        className={selectedSourceButtonClass}
-      >
-        <Film />
-        <span className="min-w-0 truncate">Finish video</span>
-      </Button>
-      {removeSelectedSourceButton(
-        cn(!canRandomizeSelectedSource && "col-span-2", removeClassName),
-      )}
-    </>
-  );
+        <Button
+          type="button"
+          variant={
+            isSelectedSourceFinishVideoBeforeAdvance ? "default" : "outline"
+          }
+          aria-pressed={isSelectedSourceFinishVideoBeforeAdvance}
+          aria-label="Play selected source to end"
+          onClick={() =>
+            onSelectedFinishVideoBeforeAdvanceChange(
+              !isSelectedSourceFinishVideoBeforeAdvance,
+            )
+          }
+          className={selectedSourceButtonClass}
+        >
+          <Film />
+          <span className="min-w-0 truncate">Play to end</span>
+        </Button>
+        <Button
+          type="button"
+          variant={isSelectedSourceRandomVideoStart ? "default" : "outline"}
+          aria-pressed={isSelectedSourceRandomVideoStart}
+          aria-label="Use random seek for selected source videos"
+          onClick={() =>
+            onSelectedRandomVideoStartChange(!isSelectedSourceRandomVideoStart)
+          }
+          className={selectedSourceButtonClass}
+        >
+          <Dices />
+          <span className="min-w-0 truncate">Random seek</span>
+        </Button>
+        {removeSelectedSourceButton(selectedRemoveClassName)}
+      </>
+    );
+  };
 
   return (
     <div className="flex min-h-full flex-col gap-3">
@@ -285,10 +316,14 @@ export function WorkbenchPanelContent({
             hasRunningSessionTimer={hasRunningSessionTimer}
             globalAudioEnabled={globalAudioEnabled}
             finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+            randomVideoStart={randomVideoStart}
+            globalOrderRandomized={globalOrderRandomized}
             onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
             onGlobalTimerAction={onGlobalTimerAction}
             onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
             onFinishVideoBeforeAdvanceChange={onFinishVideoBeforeAdvanceChange}
+            onRandomVideoStartChange={onRandomVideoStartChange}
+            onGlobalOrderRandomizedChange={onGlobalOrderRandomizedChange}
           />
           <ActionsSection
             showAllInfo={showAllInfo}
@@ -337,12 +372,16 @@ export function WorkbenchPanelContent({
               hasRunningSessionTimer={hasRunningSessionTimer}
               globalAudioEnabled={globalAudioEnabled}
               finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+              randomVideoStart={randomVideoStart}
+              globalOrderRandomized={globalOrderRandomized}
               onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
               onGlobalTimerAction={onGlobalTimerAction}
               onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
               onFinishVideoBeforeAdvanceChange={
                 onFinishVideoBeforeAdvanceChange
               }
+              onRandomVideoStartChange={onRandomVideoStartChange}
+              onGlobalOrderRandomizedChange={onGlobalOrderRandomizedChange}
             />
           </WorkbenchPanelDisclosure>
         </>

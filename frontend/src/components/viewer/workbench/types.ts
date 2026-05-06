@@ -34,6 +34,7 @@ export type FeedSession = {
   isOrderRandomized?: boolean;
   isAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   urlResolution?: UrlRuntimeResolution;
   localFiles?: File[];
   localRestoreStatus?: LocalRestoreStatus;

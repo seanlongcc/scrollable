@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   Clock3,
+  Dices,
   Download,
   EyeOff,
   Grid2X2,
@@ -12,6 +13,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Shuffle,
   SkipBack,
   SkipForward,
   Trash2,
@@ -238,20 +240,28 @@ export function GlobalSettingsSection({
   hasRunningSessionTimer,
   globalAudioEnabled,
   finishVideoBeforeAdvance,
+  randomVideoStart,
+  globalOrderRandomized,
   onGlobalTimerSecondsChange,
   onGlobalTimerAction,
   onGlobalAudioEnabledChange,
   onFinishVideoBeforeAdvanceChange,
+  onRandomVideoStartChange,
+  onGlobalOrderRandomizedChange,
 }: {
   mode: "mobile" | "desktop";
   globalSeconds: number;
   hasRunningSessionTimer: boolean;
   globalAudioEnabled: boolean;
   finishVideoBeforeAdvance: boolean;
+  randomVideoStart: boolean;
+  globalOrderRandomized: boolean;
   onGlobalTimerSecondsChange: (seconds: number) => void;
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
   onGlobalAudioEnabledChange: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange: (enabled: boolean) => void;
+  onRandomVideoStartChange: (enabled: boolean) => void;
+  onGlobalOrderRandomizedChange: (enabled: boolean) => void;
 }) {
   const globalAudioLabel = globalAudioEnabled ? "Mute all" : "Unmute all";
 
@@ -278,7 +288,7 @@ export function GlobalSettingsSection({
           <Button
             type="button"
             variant={finishVideoBeforeAdvance ? "default" : "outline"}
-            aria-label="Finish video"
+            aria-label="Play to end"
             aria-pressed={finishVideoBeforeAdvance}
             onClick={() =>
               onFinishVideoBeforeAdvanceChange(!finishVideoBeforeAdvance)
@@ -286,7 +296,31 @@ export function GlobalSettingsSection({
             className={workbenchActionButtonClass}
           >
             <Film />
-            <span className="min-w-0 truncate">Finish video</span>
+            <span className="min-w-0 truncate">Play to end</span>
+          </Button>
+          <Button
+            type="button"
+            variant={randomVideoStart ? "default" : "outline"}
+            aria-label="Random seek"
+            aria-pressed={randomVideoStart}
+            onClick={() => onRandomVideoStartChange(!randomVideoStart)}
+            className={workbenchActionButtonClass}
+          >
+            <Dices />
+            <span className="min-w-0 truncate">Random seek</span>
+          </Button>
+          <Button
+            type="button"
+            variant={globalOrderRandomized ? "default" : "outline"}
+            aria-label="Shuffle all sources"
+            aria-pressed={globalOrderRandomized}
+            onClick={() =>
+              onGlobalOrderRandomizedChange(!globalOrderRandomized)
+            }
+            className={workbenchActionButtonClass}
+          >
+            <Shuffle />
+            <span className="min-w-0 truncate">Shuffle</span>
           </Button>
         </div>
         <div

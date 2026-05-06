@@ -62,7 +62,10 @@ import {
   useWorkbenchOverlayMounting,
 } from "./workbench/feed-workbench-overlay-actions";
 import { useSelectedSessionTimerControls } from "./workbench/feed-workbench-selection-actions";
-import { toggleSessionOrderRandomized } from "./workbench/source-order-state";
+import {
+  setAllSessionSourcesOrderRandomized,
+  toggleSessionOrderRandomized,
+} from "./workbench/source-order-state";
 import type { WorkbenchPanelComponents } from "./workbench/workbench-chrome";
 
 export function FeedWorkbench({
@@ -117,6 +120,8 @@ export function FeedWorkbench({
   const [globalAudioEnabled, setGlobalAudioEnabled] = useState(false);
   const [finishVideoBeforeAdvance, setFinishVideoBeforeAdvance] =
     useState(false);
+  const [randomVideoStart, setRandomVideoStart] = useState(false);
+  const [globalOrderRandomized, setGlobalOrderRandomized] = useState(true);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
   const [layers, setLayers] = useState<WorkspaceLayer[]>(() =>
@@ -359,6 +364,7 @@ export function FeedWorkbench({
     urlTitle,
     activeLayerId,
     globalSeconds,
+    globalOrderRandomized,
     pendingFixedSlot,
     pendingTemplateSlotId,
     templateSlots,
@@ -391,6 +397,12 @@ export function FeedWorkbench({
     if (!selected) return;
     updateSession(selected.id, toggleSessionOrderRandomized);
   }, [selected, updateSession]);
+  const setGlobalSourceOrderRandomized = useCallback((enabled: boolean) => {
+    setGlobalOrderRandomized(enabled);
+    setSessions((current) =>
+      setAllSessionSourcesOrderRandomized(current, enabled),
+    );
+  }, []);
   const setSelectedSourceAudioEnabled = useCallback(
     (enabled: boolean) => {
       if (!selected) return;
@@ -407,6 +419,16 @@ export function FeedWorkbench({
       updateSession(selected.id, (session) => ({
         ...session,
         finishVideoBeforeAdvance: enabled,
+      }));
+    },
+    [selected, updateSession],
+  );
+  const setSelectedSourceRandomVideoStart = useCallback(
+    (enabled: boolean) => {
+      if (!selected) return;
+      updateSession(selected.id, (session) => ({
+        ...session,
+        randomVideoStart: enabled,
       }));
     },
     [selected, updateSession],
@@ -715,6 +737,8 @@ export function FeedWorkbench({
     globalAudioEnabled,
     globalSeconds,
     finishVideoBeforeAdvance,
+    randomVideoStart,
+    globalOrderRandomized,
     importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
@@ -759,6 +783,7 @@ export function FeedWorkbench({
     rememberVideoFinished,
     removeSession,
     randomizeSelectedSource,
+    setGlobalSourceOrderRandomized,
     removeTemplateSlot,
     replaceLocalSessionFiles,
     requestLocalCacheAccess,
@@ -791,6 +816,7 @@ export function FeedWorkbench({
     setGlobalTimerSeconds,
     setGlobalAudioEnabled: setAllSourcesAudioEnabled,
     setFinishVideoBeforeAdvance,
+    setRandomVideoStart,
     setIsAccountOpen,
     setIsClearOpen,
     setIsDesktopWorkbenchCollapsed,
@@ -819,6 +845,7 @@ export function FeedWorkbench({
     setSelectedTimerSeconds,
     setSelectedSourceAudioEnabled,
     setSelectedSourceFinishVideoBeforeAdvance,
+    setSelectedSourceRandomVideoStart,
     setShowAllInfo,
     setSourceGroupingMode,
     setSubredditName,

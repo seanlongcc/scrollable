@@ -73,6 +73,61 @@ describe("viewer workspaces", () => {
     expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");
   });
 
+  it("serializes per-source playback settings without runtime media payloads", () => {
+    const workspace = createEmptyWorkspace("workspace-1", "Layout 1");
+
+    const snapshot = serializeWorkspace({
+      ...workspace,
+      sessions: [
+        {
+          id: "session-1",
+          title: "Local source",
+          timerMode: "local",
+          timerSeconds: 23,
+          timerActiveIndex: 2,
+          fixedSlot: 0,
+          freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+          sourceConfig: {
+            kind: "local",
+            fileCount: 3,
+            cacheSetId: "cache-set-1",
+          },
+          isOrderRandomized: false,
+          isAudioEnabled: false,
+          finishVideoBeforeAdvance: true,
+          randomVideoStart: true,
+          runtimeItems: [
+            {
+              id: "runtime-local-1",
+              source: "local",
+              title: "Runtime local video",
+              isNsfw: false,
+              createdAt: "2026-04-25T00:00:00.000Z",
+              media: [
+                { type: "video", url: "blob:http://localhost/runtime-video" },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(snapshot.sessions[0]).toMatchObject({
+      timerMode: "local",
+      timerSeconds: 23,
+      timerActiveIndex: 2,
+      isOrderRandomized: false,
+      isAudioEnabled: false,
+      finishVideoBeforeAdvance: true,
+      randomVideoStart: true,
+    });
+    expect(JSON.stringify(snapshot)).not.toContain("runtime-local-1");
+    expect(JSON.stringify(snapshot)).not.toContain(
+      "blob:http://localhost/runtime-video",
+    );
+    expect(snapshot.sessions[0]).not.toHaveProperty("runtimeItems");
+  });
+
   it("serializes free-layout empty boxes with layouts", () => {
     const workspace = {
       ...createEmptyWorkspace("workspace-1", "Layout 1"),

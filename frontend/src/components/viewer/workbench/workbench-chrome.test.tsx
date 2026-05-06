@@ -11,6 +11,8 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createTimerState } from "@/lib/viewer/timer";
+import type { FeedSession } from "./types";
 import { WorkbenchChrome } from "./workbench-chrome";
 import type {
   WorkbenchPanelContentProps,
@@ -238,6 +240,106 @@ describe("WorkbenchChrome", () => {
     } finally {
       window.matchMedia = originalMatchMedia;
     }
+  });
+
+  it("moves selected source shuffle to the mobile rail and opens local timer editing from more actions", async () => {
+    const user = userEvent.setup();
+    const onRandomizeSelectedSource = vi.fn();
+    const onSelectedTimerModeChange = vi.fn();
+    const onSelectedTimerSecondsChange = vi.fn();
+
+    render(
+      <WorkbenchChrome
+        {...chromeProps({
+          selected: selectedSession(),
+          onRandomizeSelectedSource,
+          onSelectedTimerModeChange,
+          onSelectedTimerSecondsChange,
+        })}
+      />,
+    );
+
+    const rail = screen.getByRole("toolbar", { hidden: true });
+    expect(rail).toHaveAttribute(
+      "aria-label",
+      "Mobile selected source actions",
+    );
+    expect(
+      within(rail)
+        .getAllByRole("button", { hidden: true })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Shuffle selected source",
+      "Edit source",
+      "Open in satellite",
+      "More source actions",
+    ]);
+
+    await user.click(
+      within(rail).getByRole("button", {
+        name: "Shuffle selected source",
+        hidden: true,
+      }),
+    );
+
+    expect(onRandomizeSelectedSource).toHaveBeenCalledOnce();
+
+    await user.click(
+      within(rail).getByRole("button", {
+        name: "More source actions",
+        hidden: true,
+      }),
+    );
+
+    const menu = screen.getByTestId("mobile-source-actions-menu");
+    expect(menu).toHaveClass("right-14");
+    expect(
+      within(menu).getByRole("button", {
+        name: "Edit local timer",
+        hidden: true,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu)
+        .getByRole("button", {
+          name: "Use random seek for selected source videos",
+          hidden: true,
+        })
+        .querySelector(".lucide-dices"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(menu).getByRole("button", {
+        name: "Edit local timer",
+        hidden: true,
+      }),
+    );
+
+    expect(
+      screen.queryByTestId("mobile-source-actions-menu"),
+    ).not.toBeInTheDocument();
+
+    const timerPopover = screen.getByRole("dialog", {
+      name: "Selected source local timer",
+      hidden: true,
+    });
+    const timerInput = within(timerPopover).getByLabelText(
+      "Local timer seconds",
+    );
+
+    expect(timerInput).toHaveValue("10");
+
+    await user.click(
+      within(timerPopover).getByRole("button", {
+        name: "Use local timer for selected source",
+        hidden: true,
+      }),
+    );
+    await user.clear(timerInput);
+    await user.type(timerInput, "17");
+
+    expect(onSelectedTimerModeChange).toHaveBeenCalledWith("local");
+    expect(onSelectedTimerSecondsChange).toHaveBeenLastCalledWith(17);
   });
 
   it("hydrates desktop viewport without replacing the server panel placeholder", async () => {
@@ -503,6 +605,39 @@ function createMatchMedia(matches: boolean) {
     removeEventListener: vi.fn(),
     removeListener: vi.fn(),
   }));
+}
+
+function selectedSession(): FeedSession {
+  const items: FeedSession["items"] = [
+    {
+      id: "url:first",
+      source: "url",
+      title: "First",
+      isNsfw: false,
+      createdAt: "2026-04-24T00:00:00.000Z",
+      media: [{ type: "image", url: "https://cdn.test/first.jpg" }],
+    },
+    {
+      id: "url:second",
+      source: "url",
+      title: "Second",
+      isNsfw: false,
+      createdAt: "2026-04-24T00:00:00.000Z",
+      media: [{ type: "image", url: "https://cdn.test/second.jpg" }],
+    },
+  ];
+
+  return {
+    id: "session-1",
+    title: "Selected",
+    layerId: "layer-1",
+    timerMode: "global",
+    timer: createTimerState({ durationSeconds: 10, itemCount: items.length }),
+    fixedSlot: 0,
+    freeRect: { column: 1, row: 1, columnSpan: 2, rowSpan: 2 },
+    items,
+    sourceConfig: { kind: "url", url: "https://example.com/source" },
+  };
 }
 
 function TestPanelContent({ mode }: WorkbenchPanelContentProps) {

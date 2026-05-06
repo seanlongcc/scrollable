@@ -211,6 +211,7 @@ export function createCurrentWorkspaceState({
       isOrderRandomized: session.isOrderRandomized,
       isAudioEnabled: session.isAudioEnabled,
       finishVideoBeforeAdvance: session.finishVideoBeforeAdvance,
+      randomVideoStart: session.randomVideoStart,
       urlResolution: session.urlResolution,
       localFiles: session.localFiles,
     })),
@@ -294,6 +295,8 @@ export function workspaceSnapshotToState(
       "finishVideoBeforeAdvance" in session
         ? session.finishVideoBeforeAdvance
         : undefined;
+    const randomVideoStart =
+      "randomVideoStart" in session ? session.randomVideoStart : undefined;
     const activeIndex =
       items.length > 0
         ? clamp(session.timerActiveIndex ?? 0, 0, items.length - 1)
@@ -316,6 +319,7 @@ export function workspaceSnapshotToState(
       isOrderRandomized,
       isAudioEnabled,
       finishVideoBeforeAdvance,
+      randomVideoStart,
       urlResolution,
       localFiles: "localFiles" in session ? session.localFiles : undefined,
       isRuntimeLoading:

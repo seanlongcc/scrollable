@@ -6,7 +6,10 @@ import { cn } from "@/lib/utils";
 import { type TimerMode } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
 import { SessionPane } from "./session-pane";
-import { sessionFinishVideoBeforeAdvance } from "./workbench-effect-state";
+import {
+  sessionFinishVideoBeforeAdvance,
+  sessionRandomVideoStart,
+} from "./workbench-effect-state";
 
 export function FocusLayout({
   focused,
@@ -15,6 +18,7 @@ export function FocusLayout({
   videoPositions,
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
+  randomVideoStart = false,
   hideUi,
   showInfo,
   onRestore,
@@ -37,6 +41,7 @@ export function FocusLayout({
   videoPositions: Record<string, number>;
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
+  randomVideoStart?: boolean;
   hideUi: boolean;
   showInfo: boolean;
   onRestore: () => void;
@@ -89,6 +94,7 @@ export function FocusLayout({
             focused,
             finishVideoBeforeAdvance,
           )}
+          randomVideoStart={sessionRandomVideoStart(focused, randomVideoStart)}
           forceInfoVisible={showInfo}
           hideUi={hideUi}
           isPlaybackActive={!focused.timer.isPaused}
@@ -143,6 +149,10 @@ export function FocusLayout({
                     finishVideoBeforeAdvance={sessionFinishVideoBeforeAdvance(
                       session,
                       finishVideoBeforeAdvance,
+                    )}
+                    randomVideoStart={sessionRandomVideoStart(
+                      session,
+                      randomVideoStart,
                     )}
                     compact
                     forceInfoVisible={showInfo}

@@ -106,6 +106,13 @@ export function sessionFinishVideoBeforeAdvance(
   );
 }
 
+export function sessionRandomVideoStart(
+  session: FeedSession,
+  globalRandomVideoStart: boolean | undefined,
+) {
+  return session.randomVideoStart ?? Boolean(globalRandomVideoStart);
+}
+
 export function activeVideoCompletionKey(
   session: FeedSession,
   galleryIndexes: Record<string, number> = {},

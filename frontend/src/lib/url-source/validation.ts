@@ -8,18 +8,25 @@ export const urlResolverHintSchema = z
     message: "Use a supported URL resolver hint",
   });
 
+const urlSourceUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value) => normalizeUrlSourceUrl(value));
+
 export const urlSourceConfigSchema = z
   .object({
     kind: z.literal("url"),
-    url: z
-      .string()
-      .trim()
-      .min(1)
-      .transform((value) => normalizeUrlSourceUrl(value)),
+    url: urlSourceUrlSchema,
+    urls: z.array(urlSourceUrlSchema).min(1).optional(),
     title: z.string().trim().min(1).max(120).optional(),
     resolverHint: urlResolverHintSchema.optional(),
   })
-  .strip();
+  .strip()
+  .transform(({ urls, ...source }) => ({
+    ...source,
+    ...(urls && urls.length > 1 ? { urls } : {}),
+  }));
 
 export function parseUrlSourceConfig(input: unknown): UrlSourceConfig {
   return urlSourceConfigSchema.parse(input);
