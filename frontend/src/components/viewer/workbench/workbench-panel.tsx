@@ -214,67 +214,74 @@ export function WorkbenchPanelContent({
   const isSelectedSourceRandomVideoStart =
     selected?.randomVideoStart ?? randomVideoStart;
   const selectedAudioLabel = isSelectedSourceAudioEnabled ? "Mute" : "Unmute";
-  const selectedSourceOrderButtons = (removeClassName?: string) => (
-    <>
-      {canRandomizeSelectedSource ? (
+  const selectedSourceOrderButtons = (removeClassName?: string) => {
+    const selectedRemoveClassName = cn(
+      canRandomizeSelectedSource && "col-span-2",
+      removeClassName,
+    );
+
+    return (
+      <>
+        {canRandomizeSelectedSource ? (
+          <Button
+            type="button"
+            variant={isRandomizeSelectedSourceEnabled ? "default" : "outline"}
+            aria-pressed={isRandomizeSelectedSourceEnabled}
+            aria-label="Shuffle selected source"
+            onClick={onRandomizeSelectedSource}
+            className={selectedSourceButtonClass}
+          >
+            <Shuffle />
+            <span className="min-w-0 truncate">Shuffle</span>
+          </Button>
+        ) : null}
         <Button
           type="button"
-          variant={isRandomizeSelectedSourceEnabled ? "default" : "outline"}
-          aria-pressed={isRandomizeSelectedSourceEnabled}
-          aria-label="Shuffle selected source"
-          onClick={onRandomizeSelectedSource}
+          variant={isSelectedSourceAudioEnabled ? "default" : "outline"}
+          aria-pressed={isSelectedSourceAudioEnabled}
+          aria-label={`${selectedAudioLabel} selected source`}
+          onClick={() =>
+            onSelectedAudioEnabledChange(!isSelectedSourceAudioEnabled)
+          }
+          className={selectedSourceButtonClass}
+        >
+          <Volume2 />
+          <span className="min-w-0 truncate">{selectedAudioLabel}</span>
+        </Button>
+        <Button
+          type="button"
+          variant={
+            isSelectedSourceFinishVideoBeforeAdvance ? "default" : "outline"
+          }
+          aria-pressed={isSelectedSourceFinishVideoBeforeAdvance}
+          aria-label="Play selected source to end"
+          onClick={() =>
+            onSelectedFinishVideoBeforeAdvanceChange(
+              !isSelectedSourceFinishVideoBeforeAdvance,
+            )
+          }
+          className={selectedSourceButtonClass}
+        >
+          <Film />
+          <span className="min-w-0 truncate">Play to end</span>
+        </Button>
+        <Button
+          type="button"
+          variant={isSelectedSourceRandomVideoStart ? "default" : "outline"}
+          aria-pressed={isSelectedSourceRandomVideoStart}
+          aria-label="Use random seek for selected source videos"
+          onClick={() =>
+            onSelectedRandomVideoStartChange(!isSelectedSourceRandomVideoStart)
+          }
           className={selectedSourceButtonClass}
         >
           <Shuffle />
-          <span className="min-w-0 truncate">Shuffle</span>
+          <span className="min-w-0 truncate">Random seek</span>
         </Button>
-      ) : null}
-      <Button
-        type="button"
-        variant={isSelectedSourceAudioEnabled ? "default" : "outline"}
-        aria-pressed={isSelectedSourceAudioEnabled}
-        aria-label={`${selectedAudioLabel} selected source`}
-        onClick={() =>
-          onSelectedAudioEnabledChange(!isSelectedSourceAudioEnabled)
-        }
-        className={selectedSourceButtonClass}
-      >
-        <Volume2 />
-        <span className="min-w-0 truncate">{selectedAudioLabel}</span>
-      </Button>
-      <Button
-        type="button"
-        variant={
-          isSelectedSourceFinishVideoBeforeAdvance ? "default" : "outline"
-        }
-        aria-pressed={isSelectedSourceFinishVideoBeforeAdvance}
-        aria-label="Finish selected source video"
-        onClick={() =>
-          onSelectedFinishVideoBeforeAdvanceChange(
-            !isSelectedSourceFinishVideoBeforeAdvance,
-          )
-        }
-        className={selectedSourceButtonClass}
-      >
-        <Film />
-        <span className="min-w-0 truncate">Finish video</span>
-      </Button>
-      <Button
-        type="button"
-        variant={isSelectedSourceRandomVideoStart ? "default" : "outline"}
-        aria-pressed={isSelectedSourceRandomVideoStart}
-        aria-label="Use random seek for selected source videos"
-        onClick={() =>
-          onSelectedRandomVideoStartChange(!isSelectedSourceRandomVideoStart)
-        }
-        className={selectedSourceButtonClass}
-      >
-        <Shuffle />
-        <span className="min-w-0 truncate">Random seek</span>
-      </Button>
-      {removeSelectedSourceButton(removeClassName)}
-    </>
-  );
+        {removeSelectedSourceButton(selectedRemoveClassName)}
+      </>
+    );
+  };
 
   return (
     <div className="flex min-h-full flex-col gap-3">

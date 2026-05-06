@@ -287,7 +287,7 @@ export function GlobalSettingsSection({
           <Button
             type="button"
             variant={finishVideoBeforeAdvance ? "default" : "outline"}
-            aria-label="Finish video"
+            aria-label="Play to end"
             aria-pressed={finishVideoBeforeAdvance}
             onClick={() =>
               onFinishVideoBeforeAdvanceChange(!finishVideoBeforeAdvance)
@@ -295,7 +295,7 @@ export function GlobalSettingsSection({
             className={workbenchActionButtonClass}
           >
             <Film />
-            <span className="min-w-0 truncate">Finish video</span>
+            <span className="min-w-0 truncate">Play to end</span>
           </Button>
           <Button
             type="button"

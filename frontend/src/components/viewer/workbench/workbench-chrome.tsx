@@ -496,6 +496,7 @@ export function WorkbenchChrome({
                         : "outline"
                     }
                     aria-pressed={isSelectedSourceFinishVideoBeforeAdvance}
+                    aria-label="Play selected source to end"
                     className="min-w-0 justify-start"
                     onClick={() => {
                       setIsMoreOpen(false);
@@ -505,7 +506,7 @@ export function WorkbenchChrome({
                     }}
                   >
                     <Film />
-                    <span className="min-w-0 truncate">Finish video</span>
+                    <span className="min-w-0 truncate">Play to end</span>
                   </Button>
                   <Button
                     type="button"

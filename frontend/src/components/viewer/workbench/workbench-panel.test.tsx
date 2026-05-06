@@ -8,7 +8,7 @@ import type { FeedSession } from "./types";
 import { WorkbenchPanelContent } from "./workbench-panel";
 
 describe("WorkbenchPanelContent", () => {
-  it("shows global settings with unmute-all and finish-video controls", async () => {
+  it("shows global settings with unmute-all and play-to-end controls", async () => {
     const user = userEvent.setup();
     const onGlobalAudioEnabledChange = vi.fn();
     const onFinishVideoBeforeAdvanceChange = vi.fn();
@@ -34,7 +34,7 @@ describe("WorkbenchPanelContent", () => {
     expect(screen.queryByText("Global timer")).not.toBeInTheDocument();
 
     const unmuteAll = screen.getByRole("button", { name: "Unmute all" });
-    const finishVideo = screen.getByRole("button", { name: "Finish video" });
+    const finishVideo = screen.getByRole("button", { name: "Play to end" });
     const randomSeek = screen.getByRole("button", {
       name: "Random seek",
     });
@@ -188,7 +188,7 @@ describe("WorkbenchPanelContent", () => {
       name: "Unmute selected source",
     });
     const finishVideo = screen.getByRole("button", {
-      name: "Finish selected source video",
+      name: "Play selected source to end",
     });
     const randomStart = screen.getByRole("button", {
       name: "Use random seek for selected source videos",
@@ -197,6 +197,7 @@ describe("WorkbenchPanelContent", () => {
 
     expect(shuffle).toHaveTextContent("Shuffle");
     expect(shuffle).not.toHaveClass("col-span-2");
+    expect(finishVideo).toHaveTextContent("Play to end");
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
     expect(randomStart).toHaveTextContent("Random seek");
@@ -205,7 +206,7 @@ describe("WorkbenchPanelContent", () => {
     expect(unmute).not.toHaveClass("col-span-2");
     expect(finishVideo).not.toHaveClass("col-span-2");
     expect(randomStart).not.toHaveClass("col-span-2");
-    expect(remove).not.toHaveClass("col-span-2");
+    expect(remove).toHaveClass("col-span-2");
     expect(
       shuffle.compareDocumentPosition(unmute) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -215,7 +216,7 @@ describe("WorkbenchPanelContent", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      finishVideo.compareDocumentPosition(remove) &
+      randomStart.compareDocumentPosition(remove) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
@@ -245,7 +246,7 @@ describe("WorkbenchPanelContent", () => {
       name: "Unmute selected source",
     });
     const finishVideo = screen.getByRole("button", {
-      name: "Finish selected source video",
+      name: "Play selected source to end",
     });
     const randomStart = screen.getByRole("button", {
       name: "Use random seek for selected source videos",
@@ -255,10 +256,11 @@ describe("WorkbenchPanelContent", () => {
     expect(shuffle).toHaveTextContent("Shuffle");
     expect(shuffle).not.toHaveClass("col-span-2");
     expect(unmute).not.toHaveClass("col-span-2");
+    expect(finishVideo).toHaveTextContent("Play to end");
     expect(finishVideo).not.toHaveClass("col-span-2");
     expect(randomStart).toHaveTextContent("Random seek");
     expect(randomStart).not.toHaveClass("col-span-2");
-    expect(remove).not.toHaveClass("col-span-2");
+    expect(remove).toHaveClass("col-span-2");
     expect(
       shuffle.compareDocumentPosition(unmute) &
         Node.DOCUMENT_POSITION_FOLLOWING,
