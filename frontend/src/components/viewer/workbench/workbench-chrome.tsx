@@ -1,26 +1,16 @@
 import {
   Clock3,
-  Copy,
   EyeOff,
-  Film,
   FolderOpen,
-  Grid2X2,
   Library,
-  Maximize2,
-  MoreHorizontal,
-  Pencil,
   Plus,
-  Shuffle,
   SlidersHorizontal,
-  Trash2,
   UserCircle,
-  Volume2,
 } from "lucide-react";
 import {
   Suspense,
   lazy,
   type ComponentType,
-  type ReactNode,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -29,11 +19,11 @@ import { Button } from "@/components/ui/button";
 import type { FixedGrid } from "@/lib/viewer/layout";
 import type { TimerMode } from "@/lib/viewer/timer";
 import { cn } from "@/lib/utils";
-import type { LayerStats } from "./selection-state";
 import {
-  canRandomizeSessionSource,
-  isSessionOrderRandomized,
-} from "./source-order-state";
+  MobileRailButton,
+  MobileSelectedSourceActions,
+} from "./mobile-selected-source-actions";
+import type { LayerStats } from "./selection-state";
 import type { FeedSession, LayoutMode, WorkspaceLayer } from "./types";
 import type {
   WorkbenchPanelContentProps,
@@ -179,7 +169,6 @@ export function WorkbenchChrome({
   onSelectLayer,
 }: WorkbenchChromeProps) {
   const [isWorkbenchSheetOpen, setIsWorkbenchSheetOpen] = useState(false);
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const isDesktopWorkbenchViewport = useDesktopWorkbenchViewport();
   const WorkbenchPanelContentComponent =
     workbenchPanelComponents?.Content ?? LazyWorkbenchPanelContent;
@@ -187,15 +176,6 @@ export function WorkbenchChrome({
     workbenchPanelComponents?.Sheet ?? LazyWorkbenchPanelSheet;
   const controlsHidden = isAnySheetOpen || isWorkbenchSheetOpen;
   const showPlaybackPill = Boolean(selected) && !controlsHidden;
-  const canRandomizeSelectedSource = canRandomizeSessionSource(selected);
-  const isRandomizeSelectedSourceEnabled = isSessionOrderRandomized(selected);
-  const isSelectedSourceAudioEnabled =
-    selected?.isAudioEnabled ?? globalAudioEnabled;
-  const isSelectedSourceFinishVideoBeforeAdvance =
-    selected?.finishVideoBeforeAdvance ?? finishVideoBeforeAdvance;
-  const isSelectedSourceRandomVideoStart =
-    selected?.randomVideoStart ?? randomVideoStart;
-  const selectedAudioLabel = isSelectedSourceAudioEnabled ? "Mute" : "Unmute";
   const desktopWorkbenchButtonLabel = isDesktopWorkbenchCollapsed
     ? "Open workbench"
     : "Collapse workbench";
@@ -255,12 +235,10 @@ export function WorkbenchChrome({
   } satisfies Omit<WorkbenchPanelContentProps, "mode">;
 
   function openMobileWorkbench() {
-    setIsMoreOpen(false);
     setIsWorkbenchSheetOpen(true);
   }
 
   function closeMobileChrome() {
-    setIsMoreOpen(false);
     setIsWorkbenchSheetOpen(false);
   }
 
@@ -389,183 +367,63 @@ export function WorkbenchChrome({
       ) : null}
 
       {!controlsHidden ? (
-        <div className="pointer-events-auto fixed right-3 bottom-[8.5rem] z-40 grid gap-2 md:hidden">
+        <div
+          role="toolbar"
+          aria-label={
+            selected
+              ? "Mobile selected source actions"
+              : "Mobile workspace actions"
+          }
+          className="pointer-events-auto fixed right-3 bottom-[8.5rem] z-40 grid gap-2 md:hidden"
+        >
           {selected ? (
-            <>
-              <RailButton
-                ariaLabel="Edit local timer"
-                onClick={() =>
-                  onSelectedTimerModeChange(
-                    selected.timerMode === "local" ? "global" : "local",
-                  )
-                }
-              >
-                <Clock3 />
-              </RailButton>
-              <RailButton
-                ariaLabel="Edit source"
-                onClick={onEditSelectedSource}
-              >
-                <Pencil />
-              </RailButton>
-              <RailButton
-                ariaLabel="Open in satellite"
-                onClick={onOpenSatellite}
-                active
-              >
-                <Maximize2 />
-              </RailButton>
-              <RailButton
-                ariaLabel="More source actions"
-                onClick={() => setIsMoreOpen((current) => !current)}
-              >
-                <MoreHorizontal />
-              </RailButton>
-              {isMoreOpen ? (
-                <div className="absolute right-12 bottom-0 grid w-[min(12rem,calc(100vw-5rem))] gap-1 rounded-xl border border-border/80 bg-popover/96 p-2 shadow-[0_16px_44px_rgba(18,10,10,0.48)] backdrop-blur-sm">
-                  {canCloneOrFillSelectedSource ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="min-w-0 justify-start"
-                        onClick={() => {
-                          setIsMoreOpen(false);
-                          onCloneSelectedSource();
-                        }}
-                      >
-                        <Copy />
-                        <span className="min-w-0 truncate">Clone</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="min-w-0 justify-start"
-                        onClick={() => {
-                          setIsMoreOpen(false);
-                          onFillSelectedSourceSpace();
-                        }}
-                      >
-                        <Grid2X2 />
-                        <span className="min-w-0 truncate">Fill</span>
-                      </Button>
-                    </>
-                  ) : null}
-                  {canRandomizeSelectedSource ? (
-                    <Button
-                      type="button"
-                      variant={
-                        isRandomizeSelectedSourceEnabled ? "default" : "outline"
-                      }
-                      aria-pressed={isRandomizeSelectedSourceEnabled}
-                      aria-label="Shuffle selected source"
-                      className="min-w-0 justify-start"
-                      onClick={() => {
-                        setIsMoreOpen(false);
-                        onRandomizeSelectedSource();
-                      }}
-                    >
-                      <Shuffle />
-                      <span className="min-w-0 truncate">Shuffle</span>
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant={
-                      isSelectedSourceAudioEnabled ? "default" : "outline"
-                    }
-                    aria-pressed={isSelectedSourceAudioEnabled}
-                    className="min-w-0 justify-start"
-                    onClick={() => {
-                      setIsMoreOpen(false);
-                      onSelectedAudioEnabledChange(
-                        !isSelectedSourceAudioEnabled,
-                      );
-                    }}
-                  >
-                    <Volume2 />
-                    <span className="min-w-0 truncate">
-                      {selectedAudioLabel}
-                    </span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={
-                      isSelectedSourceFinishVideoBeforeAdvance
-                        ? "default"
-                        : "outline"
-                    }
-                    aria-pressed={isSelectedSourceFinishVideoBeforeAdvance}
-                    aria-label="Play selected source to end"
-                    className="min-w-0 justify-start"
-                    onClick={() => {
-                      setIsMoreOpen(false);
-                      onSelectedFinishVideoBeforeAdvanceChange(
-                        !isSelectedSourceFinishVideoBeforeAdvance,
-                      );
-                    }}
-                  >
-                    <Film />
-                    <span className="min-w-0 truncate">Play to end</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={
-                      isSelectedSourceRandomVideoStart ? "default" : "outline"
-                    }
-                    aria-pressed={isSelectedSourceRandomVideoStart}
-                    aria-label="Use random seek for selected source videos"
-                    className="min-w-0 justify-start"
-                    onClick={() => {
-                      setIsMoreOpen(false);
-                      onSelectedRandomVideoStartChange(
-                        !isSelectedSourceRandomVideoStart,
-                      );
-                    }}
-                  >
-                    <Shuffle />
-                    <span className="min-w-0 truncate">Random seek</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    className="min-w-0 justify-start"
-                    onClick={() => {
-                      setIsMoreOpen(false);
-                      onRemoveSelectedSource();
-                    }}
-                  >
-                    <Trash2 />
-                    <span className="min-w-0 truncate">Remove</span>
-                  </Button>
-                </div>
-              ) : null}
-            </>
+            <MobileSelectedSourceActions
+              selected={selected}
+              canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
+              globalAudioEnabled={globalAudioEnabled}
+              finishVideoBeforeAdvance={finishVideoBeforeAdvance}
+              randomVideoStart={randomVideoStart}
+              onCloneSelectedSource={onCloneSelectedSource}
+              onFillSelectedSourceSpace={onFillSelectedSourceSpace}
+              onRemoveSelectedSource={onRemoveSelectedSource}
+              onRandomizeSelectedSource={onRandomizeSelectedSource}
+              onSelectedAudioEnabledChange={onSelectedAudioEnabledChange}
+              onSelectedFinishVideoBeforeAdvanceChange={
+                onSelectedFinishVideoBeforeAdvanceChange
+              }
+              onSelectedRandomVideoStartChange={
+                onSelectedRandomVideoStartChange
+              }
+              onSelectedTimerModeChange={onSelectedTimerModeChange}
+              onSelectedTimerSecondsChange={onSelectedTimerSecondsChange}
+              onEditSelectedSource={onEditSelectedSource}
+              onOpenSatellite={onOpenSatellite}
+            />
           ) : (
             <>
-              <RailButton
+              <MobileRailButton
                 ariaLabel="Add source"
                 onClick={openAddSource}
                 onPreload={onPreloadOverlays}
                 active
               >
                 <Plus />
-              </RailButton>
-              <RailButton ariaLabel="Hide UI" onClick={onHideUi}>
+              </MobileRailButton>
+              <MobileRailButton ariaLabel="Hide UI" onClick={onHideUi}>
                 <EyeOff />
-              </RailButton>
-              <RailButton
+              </MobileRailButton>
+              <MobileRailButton
                 ariaLabel="Global timer controls"
                 onClick={openMobileWorkbench}
               >
                 <Clock3 />
-              </RailButton>
-              <RailButton
+              </MobileRailButton>
+              <MobileRailButton
                 ariaLabel="Open workbench"
                 onClick={openMobileWorkbench}
               >
                 <SlidersHorizontal />
-              </RailButton>
+              </MobileRailButton>
             </>
           )}
         </div>
@@ -668,37 +526,4 @@ function getDesktopWorkbenchViewportSnapshot() {
 
 function getServerDesktopWorkbenchViewportSnapshot() {
   return false;
-}
-
-function RailButton({
-  ariaLabel,
-  active,
-  onClick,
-  onPreload,
-  children,
-}: {
-  ariaLabel: string;
-  active?: boolean;
-  onClick: () => void;
-  onPreload?: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Button
-      type="button"
-      size="icon"
-      variant={active ? "default" : "outline"}
-      aria-label={ariaLabel}
-      onMouseEnter={onPreload}
-      onPointerDown={onPreload}
-      onFocus={onPreload}
-      onClick={onClick}
-      className={cn(
-        "rounded-full shadow-[0_10px_30px_rgba(18,10,10,0.44)] backdrop-blur-sm",
-        !active && "border-border/70 bg-surface/92",
-      )}
-    >
-      {children}
-    </Button>
-  );
 }

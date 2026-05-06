@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   Clock3,
+  Dices,
   Download,
   EyeOff,
   Grid2X2,
@@ -305,7 +306,7 @@ export function GlobalSettingsSection({
             onClick={() => onRandomVideoStartChange(!randomVideoStart)}
             className={workbenchActionButtonClass}
           >
-            <Shuffle />
+            <Dices />
             <span className="min-w-0 truncate">Random seek</span>
           </Button>
           <Button

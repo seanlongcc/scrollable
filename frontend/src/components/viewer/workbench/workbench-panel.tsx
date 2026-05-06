@@ -3,6 +3,7 @@
 import {
   Clock3,
   Copy,
+  Dices,
   Film,
   Grid2X2,
   Maximize2,
@@ -275,7 +276,7 @@ export function WorkbenchPanelContent({
           }
           className={selectedSourceButtonClass}
         >
-          <Shuffle />
+          <Dices />
           <span className="min-w-0 truncate">Random seek</span>
         </Button>
         {removeSelectedSourceButton(selectedRemoveClassName)}

@@ -45,6 +45,7 @@ describe("WorkbenchPanelContent", () => {
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
     expect(randomSeek).toHaveTextContent("Random seek");
+    expect(randomSeek.querySelector(".lucide-dices")).toBeInTheDocument();
     expect(randomSeek).toHaveAttribute("aria-pressed", "false");
     expect(randomSeek).toHaveAttribute("data-variant", "outline");
     expect(shuffle).toHaveTextContent("Shuffle");
@@ -201,6 +202,7 @@ describe("WorkbenchPanelContent", () => {
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
     expect(randomStart).toHaveTextContent("Random seek");
+    expect(randomStart.querySelector(".lucide-dices")).toBeInTheDocument();
     expect(randomStart).toHaveAttribute("aria-pressed", "false");
     expect(randomStart).toHaveAttribute("data-variant", "outline");
     expect(unmute).not.toHaveClass("col-span-2");
@@ -259,6 +261,7 @@ describe("WorkbenchPanelContent", () => {
     expect(finishVideo).toHaveTextContent("Play to end");
     expect(finishVideo).not.toHaveClass("col-span-2");
     expect(randomStart).toHaveTextContent("Random seek");
+    expect(randomStart.querySelector(".lucide-dices")).toBeInTheDocument();
     expect(randomStart).not.toHaveClass("col-span-2");
     expect(remove).toHaveClass("col-span-2");
     expect(
