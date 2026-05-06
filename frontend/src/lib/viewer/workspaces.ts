@@ -73,13 +73,7 @@ export type WorkspaceSessionInput = {
 
 export type SerializedWorkspaceSession = Omit<
   WorkspaceSessionInput,
-  | "runtimeItems"
-  | "allRuntimeItems"
-  | "isOrderRandomized"
-  | "isAudioEnabled"
-  | "finishVideoBeforeAdvance"
-  | "randomVideoStart"
-  | "urlResolution"
+  "runtimeItems" | "allRuntimeItems" | "urlResolution" | "localFiles"
 >;
 
 export type SerializedWorkspace = {
@@ -176,6 +170,10 @@ export function serializeWorkspace(workspace: {
         fixedSlot,
         freeRect,
         sourceConfig,
+        isOrderRandomized,
+        isAudioEnabled,
+        finishVideoBeforeAdvance,
+        randomVideoStart,
       }) => ({
         id,
         title,
@@ -187,6 +185,12 @@ export function serializeWorkspace(workspace: {
         fixedSlot,
         freeRect,
         sourceConfig,
+        ...(isOrderRandomized === undefined ? {} : { isOrderRandomized }),
+        ...(isAudioEnabled === undefined ? {} : { isAudioEnabled }),
+        ...(finishVideoBeforeAdvance === undefined
+          ? {}
+          : { finishVideoBeforeAdvance }),
+        ...(randomVideoStart === undefined ? {} : { randomVideoStart }),
       }),
     ),
     ...(workspace.templateSlots?.length
