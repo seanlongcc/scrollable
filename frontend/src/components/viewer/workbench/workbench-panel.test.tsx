@@ -13,7 +13,7 @@ describe("WorkbenchPanelContent", () => {
     const onGlobalAudioEnabledChange = vi.fn();
     const onFinishVideoBeforeAdvanceChange = vi.fn();
     const onRandomVideoStartChange = vi.fn();
-    const onShuffleAllSources = vi.fn();
+    const onGlobalOrderRandomizedChange = vi.fn();
 
     render(
       <WorkbenchPanelContent
@@ -24,7 +24,8 @@ describe("WorkbenchPanelContent", () => {
           onGlobalAudioEnabledChange,
           onFinishVideoBeforeAdvanceChange,
           onRandomVideoStartChange,
-          onShuffleAllSources,
+          globalOrderRandomized: true,
+          onGlobalOrderRandomizedChange,
         })}
       />,
     );
@@ -47,6 +48,8 @@ describe("WorkbenchPanelContent", () => {
     expect(randomSeek).toHaveAttribute("aria-pressed", "false");
     expect(randomSeek).toHaveAttribute("data-variant", "outline");
     expect(shuffle).toHaveTextContent("Shuffle");
+    expect(shuffle).toHaveAttribute("aria-pressed", "true");
+    expect(shuffle).toHaveAttribute("data-variant", "default");
     expect(
       randomSeek.compareDocumentPosition(shuffle) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -60,7 +63,30 @@ describe("WorkbenchPanelContent", () => {
     expect(onGlobalAudioEnabledChange).toHaveBeenCalledWith(true);
     expect(onFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
     expect(onRandomVideoStartChange).toHaveBeenCalledWith(true);
-    expect(onShuffleAllSources).toHaveBeenCalledTimes(1);
+    expect(onGlobalOrderRandomizedChange).toHaveBeenCalledWith(false);
+  });
+
+  it("shows disabled global shuffle state and toggles it back on", async () => {
+    const user = userEvent.setup();
+    const onGlobalOrderRandomizedChange = vi.fn();
+
+    render(
+      <WorkbenchPanelContent
+        {...panelProps({
+          globalOrderRandomized: false,
+          onGlobalOrderRandomizedChange,
+        })}
+      />,
+    );
+
+    const shuffle = screen.getByRole("button", { name: "Shuffle all sources" });
+
+    expect(shuffle).toHaveAttribute("aria-pressed", "false");
+    expect(shuffle).toHaveAttribute("data-variant", "outline");
+
+    await user.click(shuffle);
+
+    expect(onGlobalOrderRandomizedChange).toHaveBeenCalledWith(true);
   });
 
   it("renames global audio action to mute-all when audio is enabled", async () => {
@@ -343,7 +369,8 @@ function panelProps(
     onGlobalAudioEnabledChange: vi.fn(),
     onFinishVideoBeforeAdvanceChange: vi.fn(),
     onRandomVideoStartChange: vi.fn(),
-    onShuffleAllSources: vi.fn(),
+    globalOrderRandomized: true,
+    onGlobalOrderRandomizedChange: vi.fn(),
     onCloneSelectedSource: vi.fn(),
     onFillSelectedSourceSpace: vi.fn(),
     onRemoveSelectedSource: vi.fn(),

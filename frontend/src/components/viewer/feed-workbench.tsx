@@ -63,7 +63,7 @@ import {
 } from "./workbench/feed-workbench-overlay-actions";
 import { useSelectedSessionTimerControls } from "./workbench/feed-workbench-selection-actions";
 import {
-  randomizeAllSessionSources,
+  setAllSessionSourcesOrderRandomized,
   toggleSessionOrderRandomized,
 } from "./workbench/source-order-state";
 import type { WorkbenchPanelComponents } from "./workbench/workbench-chrome";
@@ -121,6 +121,7 @@ export function FeedWorkbench({
   const [finishVideoBeforeAdvance, setFinishVideoBeforeAdvance] =
     useState(false);
   const [randomVideoStart, setRandomVideoStart] = useState(false);
+  const [globalOrderRandomized, setGlobalOrderRandomized] = useState(true);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("fixed");
   const [fixedGrid, setFixedGrid] = useState<FixedGrid>(DEFAULT_FIXED_GRID);
   const [layers, setLayers] = useState<WorkspaceLayer[]>(() =>
@@ -363,6 +364,7 @@ export function FeedWorkbench({
     urlTitle,
     activeLayerId,
     globalSeconds,
+    globalOrderRandomized,
     pendingFixedSlot,
     pendingTemplateSlotId,
     templateSlots,
@@ -395,8 +397,11 @@ export function FeedWorkbench({
     if (!selected) return;
     updateSession(selected.id, toggleSessionOrderRandomized);
   }, [selected, updateSession]);
-  const shuffleAllSources = useCallback(() => {
-    setSessions((current) => randomizeAllSessionSources(current));
+  const setGlobalSourceOrderRandomized = useCallback((enabled: boolean) => {
+    setGlobalOrderRandomized(enabled);
+    setSessions((current) =>
+      setAllSessionSourcesOrderRandomized(current, enabled),
+    );
   }, []);
   const setSelectedSourceAudioEnabled = useCallback(
     (enabled: boolean) => {
@@ -733,6 +738,7 @@ export function FeedWorkbench({
     globalSeconds,
     finishVideoBeforeAdvance,
     randomVideoStart,
+    globalOrderRandomized,
     importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
@@ -777,7 +783,7 @@ export function FeedWorkbench({
     rememberVideoFinished,
     removeSession,
     randomizeSelectedSource,
-    shuffleAllSources,
+    setGlobalSourceOrderRandomized,
     removeTemplateSlot,
     replaceLocalSessionFiles,
     requestLocalCacheAccess,

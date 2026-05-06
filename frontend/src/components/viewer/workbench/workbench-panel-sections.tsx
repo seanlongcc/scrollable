@@ -240,12 +240,13 @@ export function GlobalSettingsSection({
   globalAudioEnabled,
   finishVideoBeforeAdvance,
   randomVideoStart,
+  globalOrderRandomized,
   onGlobalTimerSecondsChange,
   onGlobalTimerAction,
   onGlobalAudioEnabledChange,
   onFinishVideoBeforeAdvanceChange,
   onRandomVideoStartChange,
-  onShuffleAllSources,
+  onGlobalOrderRandomizedChange,
 }: {
   mode: "mobile" | "desktop";
   globalSeconds: number;
@@ -253,12 +254,13 @@ export function GlobalSettingsSection({
   globalAudioEnabled: boolean;
   finishVideoBeforeAdvance: boolean;
   randomVideoStart: boolean;
+  globalOrderRandomized: boolean;
   onGlobalTimerSecondsChange: (seconds: number) => void;
   onGlobalTimerAction: (action: GlobalTimerAction) => void;
   onGlobalAudioEnabledChange: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange: (enabled: boolean) => void;
   onRandomVideoStartChange: (enabled: boolean) => void;
-  onShuffleAllSources: () => void;
+  onGlobalOrderRandomizedChange: (enabled: boolean) => void;
 }) {
   const globalAudioLabel = globalAudioEnabled ? "Mute all" : "Unmute all";
 
@@ -308,9 +310,12 @@ export function GlobalSettingsSection({
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant={globalOrderRandomized ? "default" : "outline"}
             aria-label="Shuffle all sources"
-            onClick={onShuffleAllSources}
+            aria-pressed={globalOrderRandomized}
+            onClick={() =>
+              onGlobalOrderRandomizedChange(!globalOrderRandomized)
+            }
             className={workbenchActionButtonClass}
           >
             <Shuffle />

@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { RuntimeFeedItem } from "@/lib/feed/types";
+import { createTimerState } from "@/lib/viewer/timer";
 import {
+  applyRuntimeHydrationResults,
   createRedditSessionSources,
   fetchRedditRuntimeItems,
   fetchUrlRuntimeItemsForSource,
 } from "./runtime-sources";
+import type { FeedSession } from "./types";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -259,3 +263,60 @@ describe("createRedditSessionSources", () => {
     expect(source?.isOrderRandomized).toBe(true);
   });
 });
+
+describe("applyRuntimeHydrationResults", () => {
+  it("restores URL source order when source shuffle is disabled", () => {
+    const first = item("first");
+    const second = item("second");
+    const [next] = applyRuntimeHydrationResults(
+      [
+        session({
+          items: [second, first],
+          allItems: [first, second],
+          isOrderRandomized: false,
+          sourceConfig: { kind: "url", url: "https://example.com/source" },
+        }),
+      ],
+      [
+        {
+          id: "session-1",
+          items: [second, first],
+          allItems: [first, second],
+          isOrderRandomized: true,
+        },
+      ],
+    );
+
+    expect(next.items.map((item) => item.id)).toEqual(["first", "second"]);
+    expect(next.isOrderRandomized).toBe(false);
+  });
+});
+
+function session(overrides: Partial<FeedSession> = {}): FeedSession {
+  const items = [item("first"), item("second")];
+
+  return {
+    id: "session-1",
+    title: "Source",
+    layerId: "layer-1",
+    timerMode: "global",
+    timer: createTimerState({ durationSeconds: 10, itemCount: items.length }),
+    fixedSlot: 0,
+    freeRect: { column: 1, row: 1, columnSpan: 2, rowSpan: 2 },
+    items,
+    allItems: items,
+    sourceConfig: { kind: "url", url: "https://example.com/source" },
+    ...overrides,
+  };
+}
+
+function item(id: string): RuntimeFeedItem {
+  return {
+    id,
+    source: "url",
+    title: id,
+    isNsfw: false,
+    createdAt: "2026-04-24T00:00:00.000Z",
+    media: [{ type: "image", url: `https://cdn.test/${id}.jpg` }],
+  };
+}

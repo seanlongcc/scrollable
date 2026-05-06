@@ -64,6 +64,7 @@ export type WorkbenchPanelContentProps = {
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
   randomVideoStart?: boolean;
+  globalOrderRandomized?: boolean;
   selected: FeedSession | null;
   canCloneOrFillSelectedSource: boolean;
   showAllInfo: boolean;
@@ -78,7 +79,7 @@ export type WorkbenchPanelContentProps = {
   onGlobalAudioEnabledChange?: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
   onRandomVideoStartChange?: (enabled: boolean) => void;
-  onShuffleAllSources?: () => void;
+  onGlobalOrderRandomizedChange?: (enabled: boolean) => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
@@ -147,6 +148,7 @@ export function WorkbenchPanelContent({
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
   randomVideoStart = false,
+  globalOrderRandomized = true,
   selected,
   canCloneOrFillSelectedSource,
   showAllInfo,
@@ -161,7 +163,7 @@ export function WorkbenchPanelContent({
   onGlobalAudioEnabledChange = () => undefined,
   onFinishVideoBeforeAdvanceChange = () => undefined,
   onRandomVideoStartChange = () => undefined,
-  onShuffleAllSources = () => undefined,
+  onGlobalOrderRandomizedChange = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
@@ -307,12 +309,13 @@ export function WorkbenchPanelContent({
             globalAudioEnabled={globalAudioEnabled}
             finishVideoBeforeAdvance={finishVideoBeforeAdvance}
             randomVideoStart={randomVideoStart}
+            globalOrderRandomized={globalOrderRandomized}
             onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
             onGlobalTimerAction={onGlobalTimerAction}
             onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
             onFinishVideoBeforeAdvanceChange={onFinishVideoBeforeAdvanceChange}
             onRandomVideoStartChange={onRandomVideoStartChange}
-            onShuffleAllSources={onShuffleAllSources}
+            onGlobalOrderRandomizedChange={onGlobalOrderRandomizedChange}
           />
           <ActionsSection
             showAllInfo={showAllInfo}
@@ -362,6 +365,7 @@ export function WorkbenchPanelContent({
               globalAudioEnabled={globalAudioEnabled}
               finishVideoBeforeAdvance={finishVideoBeforeAdvance}
               randomVideoStart={randomVideoStart}
+              globalOrderRandomized={globalOrderRandomized}
               onGlobalTimerSecondsChange={onGlobalTimerSecondsChange}
               onGlobalTimerAction={onGlobalTimerAction}
               onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
@@ -369,7 +373,7 @@ export function WorkbenchPanelContent({
                 onFinishVideoBeforeAdvanceChange
               }
               onRandomVideoStartChange={onRandomVideoStartChange}
-              onShuffleAllSources={onShuffleAllSources}
+              onGlobalOrderRandomizedChange={onGlobalOrderRandomizedChange}
             />
           </WorkbenchPanelDisclosure>
         </>

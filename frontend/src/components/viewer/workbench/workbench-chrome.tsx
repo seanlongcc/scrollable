@@ -64,6 +64,7 @@ export type WorkbenchChromeProps = {
   globalAudioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
   randomVideoStart?: boolean;
+  globalOrderRandomized?: boolean;
   selected: FeedSession | null;
   canCloneOrFillSelectedSource: boolean;
   showAllInfo: boolean;
@@ -82,7 +83,7 @@ export type WorkbenchChromeProps = {
   onGlobalAudioEnabledChange?: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
   onRandomVideoStartChange?: (enabled: boolean) => void;
-  onShuffleAllSources?: () => void;
+  onGlobalOrderRandomizedChange?: (enabled: boolean) => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
@@ -128,6 +129,7 @@ export function WorkbenchChrome({
   globalAudioEnabled = true,
   finishVideoBeforeAdvance = false,
   randomVideoStart = false,
+  globalOrderRandomized = true,
   selected,
   canCloneOrFillSelectedSource,
   showAllInfo,
@@ -146,7 +148,7 @@ export function WorkbenchChrome({
   onGlobalAudioEnabledChange = () => undefined,
   onFinishVideoBeforeAdvanceChange = () => undefined,
   onRandomVideoStartChange = () => undefined,
-  onShuffleAllSources = () => undefined,
+  onGlobalOrderRandomizedChange = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
@@ -211,6 +213,7 @@ export function WorkbenchChrome({
     globalAudioEnabled,
     finishVideoBeforeAdvance,
     randomVideoStart,
+    globalOrderRandomized,
     selected,
     canCloneOrFillSelectedSource,
     showAllInfo,
@@ -225,7 +228,7 @@ export function WorkbenchChrome({
     onGlobalAudioEnabledChange,
     onFinishVideoBeforeAdvanceChange,
     onRandomVideoStartChange,
-    onShuffleAllSources,
+    onGlobalOrderRandomizedChange,
     onCloneSelectedSource,
     onFillSelectedSourceSpace,
     onRemoveSelectedSource,

@@ -328,7 +328,8 @@ function runtimeResultForOrderMode(
 ): Omit<RuntimeHydrationResult, "id"> {
   if (
     session.sourceConfig.kind !== "reddit" &&
-    session.sourceConfig.kind !== "local"
+    session.sourceConfig.kind !== "local" &&
+    session.sourceConfig.kind !== "url"
   ) {
     return result;
   }
@@ -357,6 +358,10 @@ export function applyRuntimeHydrationResults(
   return sessions.map((session) => {
     const hydratedSession = hydratedBySession.get(session.id);
     if (!hydratedSession) return session;
+    const orderedHydratedSession = runtimeResultForOrderMode(
+      session,
+      hydratedSession,
+    );
     const {
       items,
       allItems,
@@ -364,8 +369,8 @@ export function applyRuntimeHydrationResults(
       localFiles,
       urlResolution,
       localRestoreStatus,
-    } = hydratedSession;
-    const { sourceConfig, title } = hydratedSession;
+    } = orderedHydratedSession;
+    const { sourceConfig, title } = orderedHydratedSession;
 
     return {
       ...session,

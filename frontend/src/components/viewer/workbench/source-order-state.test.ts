@@ -4,7 +4,8 @@ import { createTimerState } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
 import {
   isSessionOrderRandomized,
-  randomizeAllSessionSources,
+  setAllSessionSourcesOrderRandomized,
+  setSourceInputsOrderRandomized,
   toggleSessionOrderRandomized,
 } from "./source-order-state";
 
@@ -52,7 +53,7 @@ describe("source order state", () => {
     expect(next.items.map((item) => item.id)).toEqual(["second", "first"]);
   });
 
-  it("shuffles every randomizable session from global settings", () => {
+  it("sets every randomizable session order on from global settings", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.1);
     const reddit = session({ id: "reddit" });
     const url = session({
@@ -61,7 +62,10 @@ describe("source order state", () => {
     });
     const singleItem = session({ id: "single", items: [item("only")] });
 
-    const next = randomizeAllSessionSources([reddit, url, singleItem]);
+    const next = setAllSessionSourcesOrderRandomized(
+      [reddit, url, singleItem],
+      true,
+    );
 
     expect(next[0]).not.toBe(reddit);
     expect(next[0].isOrderRandomized).toBe(true);
@@ -70,6 +74,52 @@ describe("source order state", () => {
     expect(next[1].isOrderRandomized).toBe(true);
     expect(next[1].items.map((item) => item.id)).toEqual(["second", "first"]);
     expect(next[2]).toBe(singleItem);
+  });
+
+  it("sets every randomizable session order off from global settings", () => {
+    const randomized = session({
+      items: [item("second"), item("first")],
+      allItems: [item("first"), item("second")],
+      isOrderRandomized: true,
+      timer: {
+        ...createTimerState({ durationSeconds: 10, itemCount: 2 }),
+        activeIndex: 1,
+        elapsedMs: 4000,
+      },
+    });
+
+    const next = setAllSessionSourcesOrderRandomized([randomized], false);
+
+    expect(next[0]).not.toBe(randomized);
+    expect(next[0].isOrderRandomized).toBe(false);
+    expect(next[0].items.map((item) => item.id)).toEqual(["first", "second"]);
+    expect(next[0].timer.activeIndex).toBe(0);
+    expect(next[0].timer.elapsedMs).toBe(0);
+  });
+
+  it("applies global order mode to new source inputs before placement", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const source = {
+      title: "URL stack",
+      items: [item("second"), item("first")],
+      allItems: [item("first"), item("second")],
+      isOrderRandomized: true,
+      sourceConfig: { kind: "url" as const, url: "https://example.com" },
+    };
+
+    const restored = setSourceInputsOrderRandomized([source], false);
+    const shuffled = setSourceInputsOrderRandomized(restored, true);
+
+    expect(restored[0].isOrderRandomized).toBe(false);
+    expect(restored[0].items.map((item) => item.id)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(shuffled[0].isOrderRandomized).toBe(true);
+    expect(shuffled[0].items.map((item) => item.id)).toEqual([
+      "second",
+      "first",
+    ]);
   });
 });
 

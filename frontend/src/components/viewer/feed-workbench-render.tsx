@@ -112,6 +112,7 @@ export type FeedWorkbenchRenderProps = {
   globalSeconds: number;
   finishVideoBeforeAdvance: boolean;
   randomVideoStart: boolean;
+  globalOrderRandomized: boolean;
   importCurrentWorkspaceJson: () => void;
   importSavedJson: (target: SaveTarget) => void;
   isAccountOpen: boolean;
@@ -160,7 +161,7 @@ export type FeedWorkbenchRenderProps = {
   rememberVideoFinished: (key: string) => void;
   removeSession: (id: string) => void;
   randomizeSelectedSource: () => void;
-  shuffleAllSources: () => void;
+  setGlobalSourceOrderRandomized: (enabled: boolean) => void;
   removeTemplateSlot: (id: string) => void;
   replaceLocalSessionFiles: (
     id: string,
@@ -325,6 +326,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     globalSeconds,
     finishVideoBeforeAdvance,
     randomVideoStart,
+    globalOrderRandomized,
     importCurrentWorkspaceJson,
     importSavedJson,
     isAccountOpen,
@@ -367,7 +369,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     rememberVideoFinished,
     removeSession,
     randomizeSelectedSource,
-    shuffleAllSources,
+    setGlobalSourceOrderRandomized,
     removeTemplateSlot,
     replaceLocalSessionFiles,
     requestLocalCacheAccess,
@@ -674,6 +676,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           globalAudioEnabled={globalAudioEnabled}
           finishVideoBeforeAdvance={finishVideoBeforeAdvance}
           randomVideoStart={randomVideoStart}
+          globalOrderRandomized={globalOrderRandomized}
           selected={selected}
           canCloneOrFillSelectedSource={canCloneOrFillSelectedSource}
           showAllInfo={showAllInfo}
@@ -692,7 +695,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onGlobalAudioEnabledChange={setGlobalAudioEnabled}
           onFinishVideoBeforeAdvanceChange={setFinishVideoBeforeAdvance}
           onRandomVideoStartChange={setRandomVideoStart}
-          onShuffleAllSources={shuffleAllSources}
+          onGlobalOrderRandomizedChange={setGlobalSourceOrderRandomized}
           onCloneSelectedSource={cloneSelectedSource}
           onFillSelectedSourceSpace={fillSelectedSourceSpace}
           onRemoveSelectedSource={() => {
