@@ -118,6 +118,8 @@ export function FeedViewPane({
     ? (galleryIndexes[activeItem.id] ?? 0)
     : 0;
   const activeMedia = activeItem?.media[activeGalleryIndex];
+  const canSelectSource = Boolean(onSelect || onToggleSelect);
+  const showMediaControls = !hideUi && (!canSelectSource || isFocused);
   const activeMediaKey =
     activeItem && activeMedia
       ? `${activeItem.id}:${activeGalleryIndex}:${activeMedia.type}:${activeMedia.url}:${audioEnabled ? "audio" : "muted"}:${finishVideoBeforeAdvance ? "finish" : "loop"}:${randomVideoStart ? "random-start" : "resume"}`
@@ -348,7 +350,7 @@ export function FeedViewPane({
               <MediaRenderer
                 media={currentMediaFrame.media}
                 title={currentMediaFrame.title}
-                showControls={!hideUi}
+                showControls={showMediaControls}
                 shouldPlay={isPlaybackActive}
                 audioEnabled={currentMediaFrame.audioEnabled}
                 finishVideoBeforeAdvance={
