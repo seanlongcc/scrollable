@@ -20,24 +20,30 @@ export const TIMER_PROGRESS_TRANSITION_MS = 250;
 export function createTimerState({
   durationSeconds,
   itemCount,
+  isPaused = false,
 }: {
   durationSeconds: number;
   itemCount: number;
+  isPaused?: boolean;
 }): TimerState {
   return {
     durationSeconds,
     itemCount,
     activeIndex: 0,
     elapsedMs: 0,
-    isPaused: false,
+    isPaused,
   };
 }
 
 export function togglePaused(state: TimerState): TimerState {
+  return setPaused(state, !state.isPaused);
+}
+
+export function setPaused(state: TimerState, isPaused: boolean): TimerState {
   return {
     ...state,
-    isPaused: !state.isPaused,
-    elapsedMs: state.isPaused ? state.elapsedMs : 0,
+    isPaused,
+    elapsedMs: isPaused ? 0 : state.elapsedMs,
   };
 }
 
@@ -126,9 +132,13 @@ export function globalMoveTimerIndexes(
 }
 
 export function globalTogglePaused(timers: MultiTimerState): MultiTimerState {
+  const isPaused = Object.values(timers).some(
+    (viewTimer) => !viewTimer.timer.isPaused,
+  );
+
   return mapMultiTimerState(timers, (viewTimer) => ({
     ...viewTimer,
-    timer: togglePaused(viewTimer.timer),
+    timer: setPaused(viewTimer.timer, isPaused),
   }));
 }
 

@@ -85,6 +85,7 @@ describe("viewer workspaces", () => {
           timerMode: "local",
           timerSeconds: 23,
           timerActiveIndex: 2,
+          timerPaused: true,
           fixedSlot: 0,
           freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
           sourceConfig: {
@@ -116,6 +117,7 @@ describe("viewer workspaces", () => {
       timerMode: "local",
       timerSeconds: 23,
       timerActiveIndex: 2,
+      timerPaused: true,
       isOrderRandomized: false,
       isAudioEnabled: false,
       finishVideoBeforeAdvance: true,

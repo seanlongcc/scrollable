@@ -203,6 +203,7 @@ export function createCurrentWorkspaceState({
       timerMode: normalizeTimerMode(session.timerMode),
       timerSeconds: session.timer.durationSeconds,
       timerActiveIndex: session.timer.activeIndex,
+      timerPaused: session.timer.isPaused,
       fixedSlot: session.fixedSlot,
       freeRect: session.freeRect,
       sourceConfig: session.sourceConfig,
@@ -304,6 +305,7 @@ export function workspaceSnapshotToState(
     const timer = createTimerState({
       durationSeconds: session.timerSeconds,
       itemCount: items.length,
+      isPaused: session.timerPaused ?? false,
     });
 
     return {
