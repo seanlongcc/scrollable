@@ -6,6 +6,7 @@ import {
   fetchEditedRedditSource,
   fetchEditedUrlSource,
 } from "./runtime-sources";
+import { splitUrlValues } from "./source-add-state";
 import type {
   EditedRedditSourceState,
   EditedUrlSourceState,
@@ -26,6 +27,11 @@ export type PreparedRedditSourceEdit = {
   status: "ready";
   urls: string[];
   limit: number;
+};
+
+export type PreparedUrlSourceEdit = {
+  status: "ready";
+  urls: string[];
 };
 
 export type RedditSourceEditActionResult =
@@ -79,6 +85,24 @@ export function prepareRedditSourceEditAction({
   };
 }
 
+export function prepareUrlSourceEditAction({
+  urlValue,
+}: {
+  urlValue: string;
+}): PreparedUrlSourceEdit | SourceEditValidationError {
+  try {
+    return {
+      status: "ready",
+      urls: splitUrlValues(urlValue),
+    };
+  } catch (error) {
+    return {
+      status: "validation-error",
+      error: errorMessage(error, "Enter one or more URLs"),
+    };
+  }
+}
+
 export async function editPreparedRedditSourceAction({
   currentSource,
   urls,
@@ -113,11 +137,11 @@ export async function editPreparedRedditSourceAction({
 
 export async function editUrlSourceAction({
   currentSource,
-  url,
+  urls,
   title,
 }: {
   currentSource?: FeedSession;
-  url: string;
+  urls: string[];
   title?: string;
 }): Promise<UrlSourceEditActionResult> {
   try {
@@ -125,7 +149,7 @@ export async function editUrlSourceAction({
       status: "ready",
       result: await fetchEditedUrlSource({
         currentSource,
-        url,
+        urls,
         title,
       }),
     };

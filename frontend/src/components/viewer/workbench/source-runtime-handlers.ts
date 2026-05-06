@@ -37,6 +37,7 @@ import {
   editPreparedRedditSourceAction,
   editUrlSourceAction,
   prepareLocalSourceEditAction,
+  prepareUrlSourceEditAction,
   prepareRedditSourceEditAction,
 } from "./source-edit-actions";
 import {
@@ -484,11 +485,18 @@ export function useSourceRuntimeHandlers({
   }
 
   async function saveUrlSourceEdit(id: string, url: string, title?: string) {
+    const prepared = prepareUrlSourceEditAction({ urlValue: url });
+
+    if (prepared.status !== "ready") {
+      toast.error(prepared.error);
+      return;
+    }
+
     updateSession(id, (session) => withSessionRuntimeLoading(session, true));
 
     const result = await editUrlSourceAction({
       currentSource: sessions.find((session) => session.id === id),
-      url,
+      urls: prepared.urls,
       title,
     });
 
