@@ -80,6 +80,7 @@ export function placeSessions({
   let selectedSessionId: string | null = null;
   let consumedTemplateSlotId: string | null = null;
   let noFreeLayoutSpace = false;
+  const isGlobalPaused = current.length > 0 && current.every(isSessionPaused);
 
   for (const [index, source] of sources.entries()) {
     const freeRect =
@@ -108,6 +109,7 @@ export function placeSessions({
       timer: createTimerState({
         durationSeconds: globalSeconds,
         itemCount: source.items.length,
+        isPaused: isGlobalPaused,
       }),
       fixedSlot,
       freeRect,
@@ -132,4 +134,8 @@ export function placeSessions({
     consumedTemplateSlotId,
     noFreeLayoutSpace,
   };
+}
+
+function isSessionPaused(session: FeedSession) {
+  return session.timer.isPaused;
 }

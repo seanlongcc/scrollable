@@ -109,6 +109,30 @@ describe("timer state", () => {
     expect(globalRestartTimers(advanced).a.timer.elapsedMs).toBe(0);
   });
 
+  it("syncs mixed timers to paused when global pause is pressed", () => {
+    const timers = createMultiTimerState([
+      { id: "running", durationSeconds: 9, itemCount: 2, mode: "local" },
+      { id: "paused", durationSeconds: 12, itemCount: 3, mode: "global" },
+    ]);
+    const mixed = {
+      running: {
+        ...timers.running,
+        timer: advanceTimerState(timers.running.timer, 500),
+      },
+      paused: {
+        ...timers.paused,
+        timer: togglePaused(advanceTimerState(timers.paused.timer, 800)),
+      },
+    };
+
+    const paused = globalTogglePaused(mixed);
+
+    expect(paused.running.timer.isPaused).toBe(true);
+    expect(paused.paused.timer.isPaused).toBe(true);
+    expect(paused.running.timer.elapsedMs).toBe(0);
+    expect(paused.paused.timer.elapsedMs).toBe(0);
+  });
+
   it("applies global duration only to views in global mode", () => {
     const timers = createMultiTimerState([
       { id: "a", durationSeconds: 9, itemCount: 2, mode: "local" },
