@@ -32,7 +32,9 @@ describe("WorkbenchPanelContent", () => {
 
     const unmuteAll = screen.getByRole("button", { name: "Unmute all" });
     const finishVideo = screen.getByRole("button", { name: "Finish video" });
-    const randomStart = screen.getByRole("button", { name: "Random start" });
+    const randomStart = screen.getByRole("button", {
+      name: "Random timestamp",
+    });
 
     expect(unmuteAll).toHaveAttribute("aria-pressed", "false");
     expect(unmuteAll).toHaveAttribute("data-variant", "outline");
@@ -125,8 +127,9 @@ describe("WorkbenchPanelContent", () => {
     expect(onSelectedAudioEnabledChange).toHaveBeenCalledWith(false);
   });
 
-  it("places selected unmute and finish-video side by side without randomize", async () => {
+  it("places selected source controls side by side for URL sources", async () => {
     const user = userEvent.setup();
+    const onRandomizeSelectedSource = vi.fn();
     const onSelectedFinishVideoBeforeAdvanceChange = vi.fn();
     const onSelectedRandomVideoStartChange = vi.fn();
 
@@ -134,12 +137,16 @@ describe("WorkbenchPanelContent", () => {
       <WorkbenchPanelContent
         {...panelProps({
           selected: selectedSession("url"),
+          onRandomizeSelectedSource,
           onSelectedFinishVideoBeforeAdvanceChange,
           onSelectedRandomVideoStartChange,
         })}
       />,
     );
 
+    const shuffle = screen.getByRole("button", {
+      name: "Shuffle selected source",
+    });
     const unmute = screen.getByRole("button", {
       name: "Unmute selected source",
     });
@@ -147,18 +154,25 @@ describe("WorkbenchPanelContent", () => {
       name: "Finish selected source video",
     });
     const randomStart = screen.getByRole("button", {
-      name: "Start selected source videos randomly",
+      name: "Use random timestamp for selected source videos",
     });
     const remove = screen.getByRole("button", { name: "Remove" });
 
+    expect(shuffle).toHaveTextContent("Shuffle");
+    expect(shuffle).not.toHaveClass("col-span-2");
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
+    expect(randomStart).toHaveTextContent("Random timestamp");
     expect(randomStart).toHaveAttribute("aria-pressed", "false");
     expect(randomStart).toHaveAttribute("data-variant", "outline");
     expect(unmute).not.toHaveClass("col-span-2");
     expect(finishVideo).not.toHaveClass("col-span-2");
     expect(randomStart).not.toHaveClass("col-span-2");
     expect(remove).not.toHaveClass("col-span-2");
+    expect(
+      shuffle.compareDocumentPosition(unmute) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(
       unmute.compareDocumentPosition(finishVideo) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -168,9 +182,11 @@ describe("WorkbenchPanelContent", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
+    await user.click(shuffle);
     await user.click(finishVideo);
     await user.click(randomStart);
 
+    expect(onRandomizeSelectedSource).toHaveBeenCalledTimes(1);
     expect(onSelectedFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
     expect(onSelectedRandomVideoStartChange).toHaveBeenCalledWith(true);
   });
@@ -185,8 +201,8 @@ describe("WorkbenchPanelContent", () => {
       />,
     );
 
-    const randomize = screen.getByRole("button", {
-      name: "Randomize selected source",
+    const shuffle = screen.getByRole("button", {
+      name: "Shuffle selected source",
     });
     const unmute = screen.getByRole("button", {
       name: "Unmute selected source",
@@ -195,22 +211,24 @@ describe("WorkbenchPanelContent", () => {
       name: "Finish selected source video",
     });
     const randomStart = screen.getByRole("button", {
-      name: "Start selected source videos randomly",
+      name: "Use random timestamp for selected source videos",
     });
     const remove = screen.getByRole("button", { name: "Remove" });
 
-    expect(randomize).not.toHaveClass("col-span-2");
+    expect(shuffle).toHaveTextContent("Shuffle");
+    expect(shuffle).not.toHaveClass("col-span-2");
     expect(unmute).not.toHaveClass("col-span-2");
     expect(finishVideo).not.toHaveClass("col-span-2");
+    expect(randomStart).toHaveTextContent("Random timestamp");
     expect(randomStart).not.toHaveClass("col-span-2");
     expect(remove).not.toHaveClass("col-span-2");
     expect(
-      randomize.compareDocumentPosition(unmute) &
+      shuffle.compareDocumentPosition(unmute) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
-  it("shows normal randomize color when random order is disabled", () => {
+  it("shows normal shuffle color when random order is disabled", () => {
     render(
       <WorkbenchPanelContent
         {...panelProps({
@@ -219,12 +237,12 @@ describe("WorkbenchPanelContent", () => {
       />,
     );
 
-    const randomize = screen.getByRole("button", {
-      name: "Randomize selected source",
+    const shuffle = screen.getByRole("button", {
+      name: "Shuffle selected source",
     });
 
-    expect(randomize).toHaveAttribute("aria-pressed", "false");
-    expect(randomize).toHaveAttribute("data-variant", "outline");
+    expect(shuffle).toHaveAttribute("aria-pressed", "false");
+    expect(shuffle).toHaveAttribute("data-variant", "outline");
   });
 
   it("shows normal selected unmute color when source audio is disabled", () => {
@@ -269,7 +287,7 @@ describe("WorkbenchPanelContent", () => {
     expect(onSelectedAudioEnabledChange).toHaveBeenCalledWith(true);
   });
 
-  it("hides selected source randomize for URL sources", () => {
+  it("shows selected source shuffle for URL sources", () => {
     render(
       <WorkbenchPanelContent
         {...panelProps({
@@ -279,8 +297,8 @@ describe("WorkbenchPanelContent", () => {
     );
 
     expect(
-      screen.queryByRole("button", { name: "Randomize selected source" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Shuffle selected source" }),
+    ).toBeInTheDocument();
   });
 });
 

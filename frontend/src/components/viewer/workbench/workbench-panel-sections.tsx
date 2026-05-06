@@ -296,13 +296,13 @@ export function GlobalSettingsSection({
           <Button
             type="button"
             variant={randomVideoStart ? "default" : "outline"}
-            aria-label="Random start"
+            aria-label="Random timestamp"
             aria-pressed={randomVideoStart}
             onClick={() => onRandomVideoStartChange(!randomVideoStart)}
             className={workbenchActionButtonClass}
           >
             <Shuffle />
-            <span className="min-w-0 truncate">Random start</span>
+            <span className="min-w-0 truncate">Random timestamp</span>
           </Button>
         </div>
         <div

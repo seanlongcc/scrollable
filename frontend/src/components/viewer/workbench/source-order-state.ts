@@ -17,7 +17,8 @@ export function canRandomizeSessionSource(session: FeedSession | null) {
     session &&
     session.items.length > 1 &&
     (session.sourceConfig.kind === "local" ||
-      session.sourceConfig.kind === "reddit"),
+      session.sourceConfig.kind === "reddit" ||
+      session.sourceConfig.kind === "url"),
   );
 }
 

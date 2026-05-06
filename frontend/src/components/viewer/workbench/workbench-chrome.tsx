@@ -452,6 +452,7 @@ export function WorkbenchChrome({
                         isRandomizeSelectedSourceEnabled ? "default" : "outline"
                       }
                       aria-pressed={isRandomizeSelectedSourceEnabled}
+                      aria-label="Shuffle selected source"
                       className="min-w-0 justify-start"
                       onClick={() => {
                         setIsMoreOpen(false);
@@ -459,7 +460,7 @@ export function WorkbenchChrome({
                       }}
                     >
                       <Shuffle />
-                      <span className="min-w-0 truncate">Randomize</span>
+                      <span className="min-w-0 truncate">Shuffle</span>
                     </Button>
                   ) : null}
                   <Button
@@ -506,6 +507,7 @@ export function WorkbenchChrome({
                       isSelectedSourceRandomVideoStart ? "default" : "outline"
                     }
                     aria-pressed={isSelectedSourceRandomVideoStart}
+                    aria-label="Use random timestamp for selected source videos"
                     className="min-w-0 justify-start"
                     onClick={() => {
                       setIsMoreOpen(false);
@@ -515,7 +517,7 @@ export function WorkbenchChrome({
                     }}
                   >
                     <Shuffle />
-                    <span className="min-w-0 truncate">Random start</span>
+                    <span className="min-w-0 truncate">Random timestamp</span>
                   </Button>
                   <Button
                     type="button"

@@ -12,8 +12,15 @@ afterEach(() => {
 });
 
 describe("source order state", () => {
-  it("treats local and Reddit source random order as enabled by default", () => {
+  it("treats local, Reddit, and URL source random order as enabled by default", () => {
     expect(isSessionOrderRandomized(session())).toBe(true);
+    expect(
+      isSessionOrderRandomized(
+        session({
+          sourceConfig: { kind: "url", url: "https://example.com/source" },
+        }),
+      ),
+    ).toBe(true);
   });
 
   it("toggles random order off by restoring source order", () => {

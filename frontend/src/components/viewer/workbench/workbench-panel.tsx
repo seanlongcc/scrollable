@@ -217,12 +217,12 @@ export function WorkbenchPanelContent({
           type="button"
           variant={isRandomizeSelectedSourceEnabled ? "default" : "outline"}
           aria-pressed={isRandomizeSelectedSourceEnabled}
-          aria-label="Randomize selected source"
+          aria-label="Shuffle selected source"
           onClick={onRandomizeSelectedSource}
           className={selectedSourceButtonClass}
         >
           <Shuffle />
-          <span className="min-w-0 truncate">Randomize</span>
+          <span className="min-w-0 truncate">Shuffle</span>
         </Button>
       ) : null}
       <Button
@@ -259,14 +259,14 @@ export function WorkbenchPanelContent({
         type="button"
         variant={isSelectedSourceRandomVideoStart ? "default" : "outline"}
         aria-pressed={isSelectedSourceRandomVideoStart}
-        aria-label="Start selected source videos randomly"
+        aria-label="Use random timestamp for selected source videos"
         onClick={() =>
           onSelectedRandomVideoStartChange(!isSelectedSourceRandomVideoStart)
         }
         className={selectedSourceButtonClass}
       >
         <Shuffle />
-        <span className="min-w-0 truncate">Random start</span>
+        <span className="min-w-0 truncate">Random timestamp</span>
       </Button>
       {removeSelectedSourceButton(removeClassName)}
     </>
