@@ -4,6 +4,7 @@ import { createTimerState } from "@/lib/viewer/timer";
 import type { FeedSession } from "./types";
 import {
   isSessionOrderRandomized,
+  randomizeAllSessionSources,
   toggleSessionOrderRandomized,
 } from "./source-order-state";
 
@@ -49,6 +50,26 @@ describe("source order state", () => {
 
     expect(next.isOrderRandomized).toBe(true);
     expect(next.items.map((item) => item.id)).toEqual(["second", "first"]);
+  });
+
+  it("shuffles every randomizable session from global settings", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const reddit = session({ id: "reddit" });
+    const url = session({
+      id: "url",
+      sourceConfig: { kind: "url", url: "https://example.com/source" },
+    });
+    const singleItem = session({ id: "single", items: [item("only")] });
+
+    const next = randomizeAllSessionSources([reddit, url, singleItem]);
+
+    expect(next[0]).not.toBe(reddit);
+    expect(next[0].isOrderRandomized).toBe(true);
+    expect(next[0].items.map((item) => item.id)).toEqual(["second", "first"]);
+    expect(next[1]).not.toBe(url);
+    expect(next[1].isOrderRandomized).toBe(true);
+    expect(next[1].items.map((item) => item.id)).toEqual(["second", "first"]);
+    expect(next[2]).toBe(singleItem);
   });
 });
 

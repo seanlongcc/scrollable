@@ -13,6 +13,7 @@ describe("WorkbenchPanelContent", () => {
     const onGlobalAudioEnabledChange = vi.fn();
     const onFinishVideoBeforeAdvanceChange = vi.fn();
     const onRandomVideoStartChange = vi.fn();
+    const onShuffleAllSources = vi.fn();
 
     render(
       <WorkbenchPanelContent
@@ -23,6 +24,7 @@ describe("WorkbenchPanelContent", () => {
           onGlobalAudioEnabledChange,
           onFinishVideoBeforeAdvanceChange,
           onRandomVideoStartChange,
+          onShuffleAllSources,
         })}
       />,
     );
@@ -32,24 +34,33 @@ describe("WorkbenchPanelContent", () => {
 
     const unmuteAll = screen.getByRole("button", { name: "Unmute all" });
     const finishVideo = screen.getByRole("button", { name: "Finish video" });
-    const randomStart = screen.getByRole("button", {
-      name: "Random timestamp",
+    const randomSeek = screen.getByRole("button", {
+      name: "Random seek",
     });
+    const shuffle = screen.getByRole("button", { name: "Shuffle all sources" });
 
     expect(unmuteAll).toHaveAttribute("aria-pressed", "false");
     expect(unmuteAll).toHaveAttribute("data-variant", "outline");
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
-    expect(randomStart).toHaveAttribute("aria-pressed", "false");
-    expect(randomStart).toHaveAttribute("data-variant", "outline");
+    expect(randomSeek).toHaveTextContent("Random seek");
+    expect(randomSeek).toHaveAttribute("aria-pressed", "false");
+    expect(randomSeek).toHaveAttribute("data-variant", "outline");
+    expect(shuffle).toHaveTextContent("Shuffle");
+    expect(
+      randomSeek.compareDocumentPosition(shuffle) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     await user.click(unmuteAll);
     await user.click(finishVideo);
-    await user.click(randomStart);
+    await user.click(randomSeek);
+    await user.click(shuffle);
 
     expect(onGlobalAudioEnabledChange).toHaveBeenCalledWith(true);
     expect(onFinishVideoBeforeAdvanceChange).toHaveBeenCalledWith(true);
     expect(onRandomVideoStartChange).toHaveBeenCalledWith(true);
+    expect(onShuffleAllSources).toHaveBeenCalledTimes(1);
   });
 
   it("renames global audio action to mute-all when audio is enabled", async () => {
@@ -154,7 +165,7 @@ describe("WorkbenchPanelContent", () => {
       name: "Finish selected source video",
     });
     const randomStart = screen.getByRole("button", {
-      name: "Use random timestamp for selected source videos",
+      name: "Use random seek for selected source videos",
     });
     const remove = screen.getByRole("button", { name: "Remove" });
 
@@ -162,7 +173,7 @@ describe("WorkbenchPanelContent", () => {
     expect(shuffle).not.toHaveClass("col-span-2");
     expect(finishVideo).toHaveAttribute("aria-pressed", "false");
     expect(finishVideo).toHaveAttribute("data-variant", "outline");
-    expect(randomStart).toHaveTextContent("Random timestamp");
+    expect(randomStart).toHaveTextContent("Random seek");
     expect(randomStart).toHaveAttribute("aria-pressed", "false");
     expect(randomStart).toHaveAttribute("data-variant", "outline");
     expect(unmute).not.toHaveClass("col-span-2");
@@ -211,7 +222,7 @@ describe("WorkbenchPanelContent", () => {
       name: "Finish selected source video",
     });
     const randomStart = screen.getByRole("button", {
-      name: "Use random timestamp for selected source videos",
+      name: "Use random seek for selected source videos",
     });
     const remove = screen.getByRole("button", { name: "Remove" });
 
@@ -219,7 +230,7 @@ describe("WorkbenchPanelContent", () => {
     expect(shuffle).not.toHaveClass("col-span-2");
     expect(unmute).not.toHaveClass("col-span-2");
     expect(finishVideo).not.toHaveClass("col-span-2");
-    expect(randomStart).toHaveTextContent("Random timestamp");
+    expect(randomStart).toHaveTextContent("Random seek");
     expect(randomStart).not.toHaveClass("col-span-2");
     expect(remove).not.toHaveClass("col-span-2");
     expect(
@@ -332,6 +343,7 @@ function panelProps(
     onGlobalAudioEnabledChange: vi.fn(),
     onFinishVideoBeforeAdvanceChange: vi.fn(),
     onRandomVideoStartChange: vi.fn(),
+    onShuffleAllSources: vi.fn(),
     onCloneSelectedSource: vi.fn(),
     onFillSelectedSourceSpace: vi.fn(),
     onRemoveSelectedSource: vi.fn(),

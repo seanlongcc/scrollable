@@ -160,6 +160,7 @@ export type FeedWorkbenchRenderProps = {
   rememberVideoFinished: (key: string) => void;
   removeSession: (id: string) => void;
   randomizeSelectedSource: () => void;
+  shuffleAllSources: () => void;
   removeTemplateSlot: (id: string) => void;
   replaceLocalSessionFiles: (
     id: string,
@@ -366,6 +367,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     rememberVideoFinished,
     removeSession,
     randomizeSelectedSource,
+    shuffleAllSources,
     removeTemplateSlot,
     replaceLocalSessionFiles,
     requestLocalCacheAccess,
@@ -690,6 +692,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           onGlobalAudioEnabledChange={setGlobalAudioEnabled}
           onFinishVideoBeforeAdvanceChange={setFinishVideoBeforeAdvance}
           onRandomVideoStartChange={setRandomVideoStart}
+          onShuffleAllSources={shuffleAllSources}
           onCloneSelectedSource={cloneSelectedSource}
           onFillSelectedSourceSpace={fillSelectedSourceSpace}
           onRemoveSelectedSource={() => {

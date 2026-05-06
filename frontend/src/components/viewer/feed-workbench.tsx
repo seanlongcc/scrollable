@@ -62,7 +62,10 @@ import {
   useWorkbenchOverlayMounting,
 } from "./workbench/feed-workbench-overlay-actions";
 import { useSelectedSessionTimerControls } from "./workbench/feed-workbench-selection-actions";
-import { toggleSessionOrderRandomized } from "./workbench/source-order-state";
+import {
+  randomizeAllSessionSources,
+  toggleSessionOrderRandomized,
+} from "./workbench/source-order-state";
 import type { WorkbenchPanelComponents } from "./workbench/workbench-chrome";
 
 export function FeedWorkbench({
@@ -392,6 +395,9 @@ export function FeedWorkbench({
     if (!selected) return;
     updateSession(selected.id, toggleSessionOrderRandomized);
   }, [selected, updateSession]);
+  const shuffleAllSources = useCallback(() => {
+    setSessions((current) => randomizeAllSessionSources(current));
+  }, []);
   const setSelectedSourceAudioEnabled = useCallback(
     (enabled: boolean) => {
       if (!selected) return;
@@ -771,6 +777,7 @@ export function FeedWorkbench({
     rememberVideoFinished,
     removeSession,
     randomizeSelectedSource,
+    shuffleAllSources,
     removeTemplateSlot,
     replaceLocalSessionFiles,
     requestLocalCacheAccess,

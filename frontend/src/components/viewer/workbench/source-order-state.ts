@@ -68,6 +68,19 @@ export function randomizeSessionItems(session: FeedSession): FeedSession {
   };
 }
 
+export function randomizeAllSessionSources(
+  sessions: FeedSession[],
+): FeedSession[] {
+  let changed = false;
+  const nextSessions = sessions.map((session) => {
+    const nextSession = randomizeSessionItems(session);
+    if (nextSession !== session) changed = true;
+    return nextSession;
+  });
+
+  return changed ? nextSessions : sessions;
+}
+
 function visibleSourceOrderItems(session: FeedSession) {
   const allItems = session.allItems;
   if (!allItems) return session.items;

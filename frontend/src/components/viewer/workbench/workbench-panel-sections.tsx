@@ -245,6 +245,7 @@ export function GlobalSettingsSection({
   onGlobalAudioEnabledChange,
   onFinishVideoBeforeAdvanceChange,
   onRandomVideoStartChange,
+  onShuffleAllSources,
 }: {
   mode: "mobile" | "desktop";
   globalSeconds: number;
@@ -257,6 +258,7 @@ export function GlobalSettingsSection({
   onGlobalAudioEnabledChange: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange: (enabled: boolean) => void;
   onRandomVideoStartChange: (enabled: boolean) => void;
+  onShuffleAllSources: () => void;
 }) {
   const globalAudioLabel = globalAudioEnabled ? "Mute all" : "Unmute all";
 
@@ -296,13 +298,23 @@ export function GlobalSettingsSection({
           <Button
             type="button"
             variant={randomVideoStart ? "default" : "outline"}
-            aria-label="Random timestamp"
+            aria-label="Random seek"
             aria-pressed={randomVideoStart}
             onClick={() => onRandomVideoStartChange(!randomVideoStart)}
             className={workbenchActionButtonClass}
           >
             <Shuffle />
-            <span className="min-w-0 truncate">Random timestamp</span>
+            <span className="min-w-0 truncate">Random seek</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            aria-label="Shuffle all sources"
+            onClick={onShuffleAllSources}
+            className={workbenchActionButtonClass}
+          >
+            <Shuffle />
+            <span className="min-w-0 truncate">Shuffle</span>
           </Button>
         </div>
         <div

@@ -78,6 +78,7 @@ export type WorkbenchPanelContentProps = {
   onGlobalAudioEnabledChange?: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
   onRandomVideoStartChange?: (enabled: boolean) => void;
+  onShuffleAllSources?: () => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
@@ -160,6 +161,7 @@ export function WorkbenchPanelContent({
   onGlobalAudioEnabledChange = () => undefined,
   onFinishVideoBeforeAdvanceChange = () => undefined,
   onRandomVideoStartChange = () => undefined,
+  onShuffleAllSources = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
@@ -259,14 +261,14 @@ export function WorkbenchPanelContent({
         type="button"
         variant={isSelectedSourceRandomVideoStart ? "default" : "outline"}
         aria-pressed={isSelectedSourceRandomVideoStart}
-        aria-label="Use random timestamp for selected source videos"
+        aria-label="Use random seek for selected source videos"
         onClick={() =>
           onSelectedRandomVideoStartChange(!isSelectedSourceRandomVideoStart)
         }
         className={selectedSourceButtonClass}
       >
         <Shuffle />
-        <span className="min-w-0 truncate">Random timestamp</span>
+        <span className="min-w-0 truncate">Random seek</span>
       </Button>
       {removeSelectedSourceButton(removeClassName)}
     </>
@@ -310,6 +312,7 @@ export function WorkbenchPanelContent({
             onGlobalAudioEnabledChange={onGlobalAudioEnabledChange}
             onFinishVideoBeforeAdvanceChange={onFinishVideoBeforeAdvanceChange}
             onRandomVideoStartChange={onRandomVideoStartChange}
+            onShuffleAllSources={onShuffleAllSources}
           />
           <ActionsSection
             showAllInfo={showAllInfo}
@@ -366,6 +369,7 @@ export function WorkbenchPanelContent({
                 onFinishVideoBeforeAdvanceChange
               }
               onRandomVideoStartChange={onRandomVideoStartChange}
+              onShuffleAllSources={onShuffleAllSources}
             />
           </WorkbenchPanelDisclosure>
         </>

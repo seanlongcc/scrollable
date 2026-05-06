@@ -82,6 +82,7 @@ export type WorkbenchChromeProps = {
   onGlobalAudioEnabledChange?: (enabled: boolean) => void;
   onFinishVideoBeforeAdvanceChange?: (enabled: boolean) => void;
   onRandomVideoStartChange?: (enabled: boolean) => void;
+  onShuffleAllSources?: () => void;
   onCloneSelectedSource: () => void;
   onFillSelectedSourceSpace: () => void;
   onRemoveSelectedSource: () => void;
@@ -145,6 +146,7 @@ export function WorkbenchChrome({
   onGlobalAudioEnabledChange = () => undefined,
   onFinishVideoBeforeAdvanceChange = () => undefined,
   onRandomVideoStartChange = () => undefined,
+  onShuffleAllSources = () => undefined,
   onCloneSelectedSource,
   onFillSelectedSourceSpace,
   onRemoveSelectedSource,
@@ -223,6 +225,7 @@ export function WorkbenchChrome({
     onGlobalAudioEnabledChange,
     onFinishVideoBeforeAdvanceChange,
     onRandomVideoStartChange,
+    onShuffleAllSources,
     onCloneSelectedSource,
     onFillSelectedSourceSpace,
     onRemoveSelectedSource,
@@ -507,7 +510,7 @@ export function WorkbenchChrome({
                       isSelectedSourceRandomVideoStart ? "default" : "outline"
                     }
                     aria-pressed={isSelectedSourceRandomVideoStart}
-                    aria-label="Use random timestamp for selected source videos"
+                    aria-label="Use random seek for selected source videos"
                     className="min-w-0 justify-start"
                     onClick={() => {
                       setIsMoreOpen(false);
@@ -517,7 +520,7 @@ export function WorkbenchChrome({
                     }}
                   >
                     <Shuffle />
-                    <span className="min-w-0 truncate">Random timestamp</span>
+                    <span className="min-w-0 truncate">Random seek</span>
                   </Button>
                   <Button
                     type="button"
