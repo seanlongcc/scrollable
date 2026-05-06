@@ -19,21 +19,41 @@ export const metadata: Metadata = {
 
 const markdownComponents: Components = {
   h2: ({ children }) => (
-    <h3 className="text-lg font-semibold tracking-normal text-foreground">
+    <h3 className="text-wrap-anywhere text-lg font-semibold tracking-normal text-foreground">
       {children}
     </h3>
   ),
   p: ({ children }) => (
-    <p className="text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+    <p className="text-wrap-anywhere text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
       {children}
     </p>
   ),
   ul: ({ children }) => (
-    <ul className="grid gap-2 pl-5 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+    <ul className="text-wrap-anywhere grid list-disc gap-2 pl-5 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
       {children}
     </ul>
   ),
-  li: ({ children }) => <li className="list-disc">{children}</li>,
+  ol: ({ children }) => (
+    <ol className="text-wrap-anywhere grid list-decimal gap-2 pl-5 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => <li className="text-wrap-anywhere">{children}</li>,
+  blockquote: ({ children }) => (
+    <blockquote className="text-wrap-anywhere rounded-lg border border-border bg-background/55 px-3 py-2 text-sm leading-6 text-muted-foreground">
+      {children}
+    </blockquote>
+  ),
+  code: ({ children }) => (
+    <code className="text-wrap-anywhere rounded bg-background/70 px-1 py-0.5 font-mono text-[0.85em] text-foreground">
+      {children}
+    </code>
+  ),
+  pre: ({ children }) => (
+    <pre className="max-w-full overflow-hidden rounded-lg border border-border bg-background/70 p-3 whitespace-pre-wrap text-wrap-anywhere">
+      {children}
+    </pre>
+  ),
   a: ({ children, href }) => {
     const resolvedHref = releaseMarkdownHref(href);
 
@@ -41,7 +61,7 @@ const markdownComponents: Components = {
 
     return (
       <a
-        className="font-medium text-foreground underline underline-offset-4 hover:text-secondary"
+        className="text-wrap-anywhere font-medium text-foreground underline underline-offset-4 hover:text-secondary"
         href={resolvedHref}
         rel="noreferrer"
         target="_blank"
@@ -56,7 +76,7 @@ export default async function ChangelogPage() {
   const result = await fetchPublishedGitHubReleases();
 
   return (
-    <main className="min-h-dvh bg-background text-foreground">
+    <main className="min-h-dvh overflow-x-hidden bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-10">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <SiteLogo className="-ml-2.5" />
@@ -100,17 +120,17 @@ export default async function ChangelogPage() {
             <section className="grid gap-3">
               {result.releases.map((release, index) => (
                 <details
-                  className="group rounded-lg border border-border bg-card p-4 open:grid open:gap-4"
+                  className="group min-w-0 overflow-hidden rounded-lg border border-border bg-card p-4 open:grid open:gap-4"
                   data-testid={`release-${release.tagName}`}
                   key={release.tagName}
                   open={index === 0}
                 >
-                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
-                    <div className="grid gap-1">
-                      <h2 className="text-xl font-semibold tracking-normal">
+                  <summary className="flex min-w-0 cursor-pointer list-none items-start justify-between gap-3">
+                    <div className="grid min-w-0 gap-1">
+                      <h2 className="text-wrap-anywhere text-xl font-semibold tracking-normal">
                         {release.name}
                       </h2>
-                      <p className="font-mono text-xs uppercase text-muted-foreground">
+                      <p className="text-wrap-anywhere font-mono text-xs uppercase text-muted-foreground">
                         {formatReleaseDate(release.publishedAt)} -{" "}
                         {release.tagName}
                       </p>
@@ -126,7 +146,7 @@ export default async function ChangelogPage() {
                     </span>
                   </summary>
 
-                  <div className="grid gap-4">
+                  <div className="grid min-w-0 gap-4 overflow-hidden">
                     {release.body.trim() ? (
                       <ReactMarkdown
                         allowedElements={[
