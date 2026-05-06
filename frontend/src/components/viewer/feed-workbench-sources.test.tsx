@@ -662,18 +662,15 @@ describe("FeedWorkbench URL sources", () => {
     expect(screen.getAllByText("Iframe limit reached")).toHaveLength(2);
   });
 
-  it("keeps the add-source dialog available when UI chrome is hidden", async () => {
+  it("hides empty-cell add-source controls when UI chrome is hidden", async () => {
     const user = userEvent.setup();
     render(<FeedWorkbench />);
 
     await user.click(screen.getByRole("button", { name: "Hide UI" }));
-    await user.click(
-      screen.getAllByRole("button", { name: "Add source to empty cell" })[0],
-    );
 
     expect(
-      await screen.findByRole("dialog", { name: "Add source" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Add source to empty cell" }),
+    ).not.toBeInTheDocument();
   });
 });
 
