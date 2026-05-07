@@ -502,6 +502,7 @@ describe("FeedWorkbench workspaces", () => {
       within(dialog).getByRole("checkbox", { name: "Select Movie wall" }),
     ).toBeInTheDocument();
 
+    await user.click(within(dialog).getByRole("button", { name: "New tab" }));
     await user.click(
       within(dialog).getByRole("checkbox", { name: "Select Saved local" }),
     );
@@ -674,6 +675,9 @@ describe("FeedWorkbench workspaces", () => {
 
     await user.click(screen.getByRole("button", { name: "Library" }));
     const firstDialog = await screen.findByRole("dialog", { name: "Library" });
+    await user.click(
+      within(firstDialog).getByRole("button", { name: "New tab" }),
+    );
     await user.click(
       within(firstDialog).getByRole("checkbox", { name: "Select Saved local" }),
     );
