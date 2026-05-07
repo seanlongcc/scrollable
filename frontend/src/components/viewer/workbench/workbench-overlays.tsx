@@ -23,6 +23,7 @@ import type {
   AccountState,
   FeedSession,
   LayoutMode,
+  LibraryOpenTarget,
   SaveKind,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
@@ -115,8 +116,8 @@ export function WorkbenchOverlays({
   cloudTemplates: Record<string, SerializedWorkspaceTemplate>;
   libraryStorageTarget: SaveTarget;
   setLibraryStorageTarget: Dispatch<SetStateAction<SaveTarget>>;
-  openSavedWorkspaces: (ids: string[]) => void;
-  openSavedTemplates: (ids: string[]) => void;
+  openSavedWorkspaces: (ids: string[], target: LibraryOpenTarget) => void;
+  openSavedTemplates: (ids: string[], target: LibraryOpenTarget) => void;
   deleteSavedWorkspace: (id: string, target?: SaveTarget) => void;
   deleteSavedTemplate: (id: string, target?: SaveTarget) => void;
   renameSavedWorkspace: (input: {

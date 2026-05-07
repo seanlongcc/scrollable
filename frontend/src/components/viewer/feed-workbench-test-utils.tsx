@@ -376,6 +376,7 @@ export async function openSavedLayouts(
 ) {
   await user.click(screen.getByRole("button", { name: "Library" }));
   const dialog = await screen.findByRole("dialog", { name: "Library" });
+  await user.click(within(dialog).getByRole("button", { name: "New tab" }));
 
   for (const name of names) {
     await user.click(
@@ -394,6 +395,7 @@ export async function openSavedTemplates(
 ) {
   await user.click(screen.getByRole("button", { name: "Library" }));
   const dialog = await screen.findByRole("dialog", { name: "Library" });
+  await user.click(within(dialog).getByRole("button", { name: "New tab" }));
   await user.click(within(dialog).getByRole("tab", { name: "Templates" }));
 
   for (const name of names) {

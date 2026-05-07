@@ -1,6 +1,7 @@
 import { createEmptyWorkspace } from "@/lib/viewer/workspaces";
 
 import type {
+  LibraryOpenTarget,
   RuntimeWorkspace,
   SerializedWorkspace,
   SerializedWorkspaceTemplate,
@@ -302,12 +303,14 @@ export function prepareCloseWorkspaceTabs({
 
 export function prepareOpenSavedWorkspaces({
   ids,
+  target = "new-tab",
   current,
   workspaceTabs,
   workspaceStates,
   savedWorkspaces,
 }: {
   ids: string[];
+  target?: LibraryOpenTarget;
   current: RuntimeWorkspace;
   workspaceTabs: WorkspaceTab[];
   workspaceStates: Record<string, RuntimeWorkspace>;
@@ -320,6 +323,40 @@ export function prepareOpenSavedWorkspaces({
     );
 
   const currentAwareStates = { ...workspaceStates, [current.id]: current };
+
+  if (target === "current-tab") {
+    const [firstSnapshot, ...restSnapshots] = snapshots;
+    if (!firstSnapshot) return null;
+
+    const activeSnapshot = applyWorkspaceToCurrentLayer(current, firstSnapshot);
+    const nextTabs = [...workspaceTabs];
+    const nextStates = { ...currentAwareStates, [current.id]: activeSnapshot };
+
+    for (const snapshot of restSnapshots) {
+      const isAlreadyOpen = nextTabs.some((tab) => tab.id === snapshot.id);
+      if (!isAlreadyOpen && nextTabs.length >= MAX_OPEN_WORKSPACE_TABS) {
+        continue;
+      }
+
+      nextStates[snapshot.id] = withFirstLayerActive(
+        toRuntimeWorkspaceWithLocalRuntime(
+          snapshot,
+          currentAwareStates[snapshot.id],
+        ),
+      );
+      if (!isAlreadyOpen) {
+        nextTabs.push({ id: snapshot.id, name: snapshot.name });
+      }
+    }
+
+    return {
+      nextTabs,
+      nextStates,
+      activeWorkspaceId: current.id,
+      activeSnapshot,
+    };
+  }
+
   const nextTabs = [...workspaceTabs];
   const nextStates = { ...currentAwareStates };
   const openedSnapshots: SerializedWorkspace[] = [];
@@ -355,6 +392,7 @@ export function prepareOpenSavedWorkspaces({
 
 export function prepareOpenSavedTemplates({
   ids,
+  target = "new-tab",
   current,
   workspaceTabs,
   workspaceStates,
@@ -363,6 +401,7 @@ export function prepareOpenSavedTemplates({
   createId,
 }: {
   ids: string[];
+  target?: LibraryOpenTarget;
   current: RuntimeWorkspace;
   workspaceTabs: WorkspaceTab[];
   workspaceStates: Record<string, RuntimeWorkspace>;
@@ -378,11 +417,22 @@ export function prepareOpenSavedTemplates({
 
   const currentAwareStates = { ...workspaceStates, [current.id]: current };
   const nextTabs = [...workspaceTabs];
-  const nextStates = { ...currentAwareStates };
+  let nextStates = { ...currentAwareStates };
   let activeWorkspaceId = current.id;
   let openedCount = 0;
+  const templatesForNewTabs =
+    target === "current-tab" ? templates.slice(1) : templates;
 
-  for (const template of templates) {
+  if (target === "current-tab") {
+    const template = templates[0];
+    if (!template) return null;
+
+    const activeSnapshot = applyTemplateToCurrentLayer(current, template);
+    nextStates = { ...nextStates, [current.id]: activeSnapshot };
+    openedCount = 1;
+  }
+
+  for (const template of templatesForNewTabs) {
     if (nextTabs.length >= MAX_OPEN_WORKSPACE_TABS) break;
 
     const nextId = createId();
@@ -405,6 +455,95 @@ export function prepareOpenSavedTemplates({
     activeWorkspaceId,
     activeSnapshot,
   };
+}
+
+function applyWorkspaceToCurrentLayer(
+  current: RuntimeWorkspace,
+  snapshot: SerializedWorkspace,
+): RuntimeWorkspace {
+  const source = toRuntimeWorkspace(snapshot);
+  const targetLayerId = current.activeLayerId;
+
+  return {
+    ...current,
+    layoutMode: source.layoutMode,
+    fixedGrid: source.fixedGrid,
+    globalTimerSeconds: source.globalTimerSeconds,
+    sessions: [
+      ...current.sessions.filter(
+        (session) => (session.layerId ?? targetLayerId) !== targetLayerId,
+      ),
+      ...source.sessions.map((session) => ({
+        ...session,
+        id: scopedImportedId(
+          current.id,
+          targetLayerId,
+          snapshot.id,
+          session.id,
+        ),
+        layerId: targetLayerId,
+        templateSlotId: session.templateSlotId
+          ? scopedImportedId(
+              current.id,
+              targetLayerId,
+              snapshot.id,
+              session.templateSlotId,
+            )
+          : undefined,
+        runtimeItems: undefined,
+        allRuntimeItems: undefined,
+        urlResolution: undefined,
+        localFiles: undefined,
+      })),
+    ],
+    templateSlots: [
+      ...current.templateSlots.filter(
+        (slot) => (slot.layerId ?? targetLayerId) !== targetLayerId,
+      ),
+      ...source.templateSlots.map((slot) => ({
+        id: scopedImportedId(current.id, targetLayerId, snapshot.id, slot.id),
+        layerId: targetLayerId,
+        freeRect: slot.freeRect,
+      })),
+    ],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function applyTemplateToCurrentLayer(
+  current: RuntimeWorkspace,
+  template: SerializedWorkspaceTemplate,
+): RuntimeWorkspace {
+  const targetLayerId = current.activeLayerId;
+
+  return {
+    ...current,
+    layoutMode: "free",
+    globalTimerSeconds: template.globalTimerSeconds,
+    sessions: current.sessions.filter(
+      (session) => (session.layerId ?? targetLayerId) !== targetLayerId,
+    ),
+    templateSlots: [
+      ...current.templateSlots.filter(
+        (slot) => (slot.layerId ?? targetLayerId) !== targetLayerId,
+      ),
+      ...template.slots.map((slot) => ({
+        id: scopedImportedId(current.id, targetLayerId, template.id, slot.id),
+        layerId: targetLayerId,
+        freeRect: slot.freeRect,
+      })),
+    ],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function scopedImportedId(
+  workspaceId: string,
+  layerId: string,
+  sourceId: string,
+  itemId: string,
+) {
+  return `${workspaceId}:${layerId}:${sourceId}:${itemId}`;
 }
 
 export function deleteSavedWorkspaceRecord({

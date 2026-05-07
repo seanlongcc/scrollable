@@ -84,6 +84,128 @@ describe("workspace actions", () => {
     expect(result?.nextTabs.some((tab) => tab.id === "created-2")).toBe(false);
     expect(result?.activeWorkspaceId).toBe("created-1");
   });
+
+  it("applies a saved template to the current active layer without opening a tab", () => {
+    const tabs = workspaceTabs(1);
+    const current = {
+      ...runtimeWorkspace(tabs[0]),
+      layoutMode: "free" as const,
+      activeLayerId: "layer-2",
+      templateSlots: [
+        {
+          id: "keep-layer-1",
+          layerId: "layer-1",
+          freeRect: { column: 1, row: 1, columnSpan: 2, rowSpan: 2 },
+        },
+        {
+          id: "replace-layer-2",
+          layerId: "layer-2",
+          freeRect: { column: 3, row: 1, columnSpan: 2, rowSpan: 2 },
+        },
+      ],
+      sessions: [
+        serializedSession("keep-session", "layer-1"),
+        serializedSession("replace-session", "layer-2"),
+      ],
+    };
+
+    const result = prepareOpenSavedTemplates({
+      ids: ["template-1"],
+      target: "current-tab",
+      current,
+      workspaceTabs: tabs,
+      workspaceStates: { [current.id]: current },
+      savedWorkspaces: {},
+      savedTemplates: {
+        "template-1": {
+          ...serializedTemplate("template-1", "Template 1"),
+          slots: [
+            {
+              id: "slot-1",
+              layerId: "layer-1",
+              freeRect: { column: 5, row: 1, columnSpan: 3, rowSpan: 3 },
+            },
+          ],
+        },
+      },
+      createId: nextId(["created-1"]),
+    });
+
+    expect(result?.nextTabs).toEqual(tabs);
+    expect(result?.activeWorkspaceId).toBe("layout-1");
+    expect(result?.activeSnapshot.activeLayerId).toBe("layer-2");
+    expect(result?.activeSnapshot.sessions).toEqual([
+      serializedSession("keep-session", "layer-1"),
+    ]);
+    expect(result?.activeSnapshot.templateSlots).toEqual([
+      {
+        id: "keep-layer-1",
+        layerId: "layer-1",
+        freeRect: { column: 1, row: 1, columnSpan: 2, rowSpan: 2 },
+      },
+      {
+        id: "layout-1:layer-2:template-1:slot-1",
+        layerId: "layer-2",
+        freeRect: { column: 5, row: 1, columnSpan: 3, rowSpan: 3 },
+      },
+    ]);
+  });
+
+  it("applies a saved layout to the current active layer without opening a tab", () => {
+    const tabs = workspaceTabs(1);
+    const current = {
+      ...runtimeWorkspace(tabs[0]),
+      activeLayerId: "layer-2",
+      sessions: [
+        serializedSession("keep-session", "layer-1"),
+        serializedSession("replace-session", "layer-2"),
+      ],
+    };
+
+    const result = prepareOpenSavedWorkspaces({
+      ids: ["saved-1"],
+      target: "current-tab",
+      current,
+      workspaceTabs: tabs,
+      workspaceStates: { [current.id]: current },
+      savedWorkspaces: {
+        "saved-1": {
+          ...serializedWorkspace("saved-1"),
+          layoutMode: "free",
+          sessions: [serializedSession("saved-session", "layer-1")],
+          templateSlots: [
+            {
+              id: "saved-slot",
+              layerId: "layer-1",
+              freeRect: { column: 6, row: 2, columnSpan: 3, rowSpan: 3 },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(result?.nextTabs).toEqual(tabs);
+    expect(result?.activeWorkspaceId).toBe("layout-1");
+    expect(result?.activeSnapshot.layoutMode).toBe("free");
+    expect(result?.activeSnapshot.activeLayerId).toBe("layer-2");
+    expect(result?.activeSnapshot.sessions).toEqual([
+      serializedSession("keep-session", "layer-1"),
+      {
+        ...serializedSession(
+          "layout-1:layer-2:saved-1:saved-session",
+          "layer-2",
+        ),
+        title: "Saved saved-session",
+      },
+    ]);
+    expect(result?.activeSnapshot.templateSlots).toEqual([
+      {
+        id: "layout-1:layer-2:saved-1:saved-slot",
+        layerId: "layer-2",
+        freeRect: { column: 6, row: 2, columnSpan: 3, rowSpan: 3 },
+      },
+    ]);
+  });
 });
 
 function workspaceTabs(count: number): WorkspaceTab[] {
@@ -100,6 +222,22 @@ function runtimeWorkspace(tab: WorkspaceTab): RuntimeWorkspace {
 function serializedWorkspace(id: string): SerializedWorkspace {
   const name = `Saved ${id.split("-").at(-1) ?? id}`;
   return createEmptyWorkspace(id, name);
+}
+
+function serializedSession(id: string, layerId: string) {
+  return {
+    id,
+    title: `Saved ${id}`,
+    layerId,
+    timerMode: "global" as const,
+    timerSeconds: 10,
+    fixedSlot: 0,
+    freeRect: { column: 1, row: 1, columnSpan: 4, rowSpan: 4 },
+    sourceConfig: {
+      kind: "local" as const,
+      fileCount: 1,
+    },
+  };
 }
 
 function serializedTemplate(
