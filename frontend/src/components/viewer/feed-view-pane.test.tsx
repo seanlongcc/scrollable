@@ -271,6 +271,50 @@ describe("FeedViewPane", () => {
     expect(onSelect).toHaveBeenCalledOnce();
   });
 
+  it("shows video controls only after a selectable source is selected", () => {
+    const { container, rerender } = render(
+      <FeedViewPane
+        title="Video source"
+        items={[
+          feedItem("video", [
+            { type: "video", url: "https://cdn.test/video.mp4" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+        onSelect={vi.fn()}
+        isFocused={false}
+      />,
+    );
+
+    expect(container.querySelector("video")).not.toHaveAttribute("controls");
+
+    rerender(
+      <FeedViewPane
+        title="Video source"
+        items={[
+          feedItem("video", [
+            { type: "video", url: "https://cdn.test/video.mp4" },
+          ]),
+        ]}
+        timer={timerState({ activeIndex: 0, itemCount: 1 })}
+        galleryIndexes={{}}
+        onGalleryChange={vi.fn()}
+        onMove={vi.fn()}
+        onTogglePaused={vi.fn()}
+        onRestart={vi.fn()}
+        onSelect={vi.fn()}
+        isFocused
+      />,
+    );
+
+    expect(container.querySelector("video")).toHaveAttribute("controls");
+  });
+
   it("selects the source when media body is clicked", () => {
     const onSelect = vi.fn();
     const { container } = render(
