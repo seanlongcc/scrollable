@@ -176,16 +176,18 @@ export function FreeGridView({
                 </button>
               </div>
             ) : null}
-            <button
-              type="button"
-              aria-label="Add source to template box"
-              title="Add source to template box"
-              onClick={() => openSourcePanel(null, slot.id)}
-              className="hidden cursor-pointer items-center gap-2 rounded-md bg-background/70 px-2 py-1 backdrop-blur transition hover:bg-background hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none md:inline-flex"
-            >
-              <Plus className="size-4" />
-              <span className="min-w-0 truncate">Add source</span>
-            </button>
+            {!hideUi ? (
+              <button
+                type="button"
+                aria-label="Add source to template box"
+                title="Add source to template box"
+                onClick={() => openSourcePanel(null, slot.id)}
+                className="hidden cursor-pointer items-center gap-2 rounded-md bg-background/70 px-2 py-1 backdrop-blur transition hover:bg-background hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none md:inline-flex"
+              >
+                <Plus className="size-4" />
+                <span className="min-w-0 truncate">Add source</span>
+              </button>
+            ) : null}
             {!hideUi ? (
               <span className="text-wrap-anywhere rounded-md bg-background/70 px-2 py-1 text-[11px] backdrop-blur md:hidden">
                 Edit free layout on desktop.

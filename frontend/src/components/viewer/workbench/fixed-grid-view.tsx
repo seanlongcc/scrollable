@@ -198,14 +198,7 @@ export function FixedGridView({
                 }
               />
             ) : hideUi ? (
-              <button
-                type="button"
-                onClick={() => openSourcePanel(slot)}
-                aria-label="Add source to empty cell"
-                className="size-full bg-background"
-              >
-                <span className="sr-only">Add source</span>
-              </button>
+              <div className="size-full bg-background" aria-hidden="true" />
             ) : (
               <button
                 type="button"
