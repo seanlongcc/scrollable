@@ -34,23 +34,26 @@ export function withSessionRuntimeLoading(
 
 export function buildEditedUrlSourceConfig({
   currentSource,
-  url,
+  urls,
   title,
 }: {
   currentSource?: FeedSession;
-  url: string;
+  urls: string[];
   title?: string;
 }): UrlSourceConfig {
   const currentConfig =
     currentSource?.sourceConfig.kind === "url"
       ? currentSource.sourceConfig
       : null;
+  const sourceUrls = urls.map((url) => url.trim()).filter(Boolean);
+  const firstUrl = sourceUrls[0] ?? "";
 
   return {
     kind: "url",
-    url,
+    url: firstUrl,
+    ...(sourceUrls.length > 1 ? { urls: sourceUrls } : {}),
     ...(title?.trim() ? { title: title.trim() } : {}),
-    ...(currentConfig?.resolverHint
+    ...(sourceUrls.length === 1 && currentConfig?.resolverHint
       ? { resolverHint: currentConfig.resolverHint }
       : {}),
   };

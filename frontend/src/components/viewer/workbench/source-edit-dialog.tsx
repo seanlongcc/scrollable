@@ -1,4 +1,4 @@
-import { EyeOff, Pencil, Save, Trash2 } from "lucide-react";
+import { EyeOff, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { RedditSourceEditControls } from "./reddit-source-edit-controls";
+import {
+  SaveSourceButton,
+  SavingSourceOverlay,
+} from "./source-edit-saving-status";
 import { DEFAULT_REDDIT_MEDIA_LIMIT } from "./types";
 import type { FeedSession, RedditListingSort, RedditTimeRange } from "./types";
 import {
@@ -23,6 +28,16 @@ import {
   redditItemHashInput,
   redditRuntimeItemLabels,
 } from "./helpers";
+
+function urlSourceInputValue(source: FeedSession) {
+  if (source.sourceConfig.kind !== "url") return "";
+
+  const urls = source.sourceConfig.urls?.length
+    ? source.sourceConfig.urls
+    : [source.sourceConfig.url];
+
+  return urls.join("\n");
+}
 
 function focusEditDialogSurface(event: Event) {
   event.preventDefault();
@@ -48,9 +63,9 @@ export function EditSourceDialog({
     limit: number,
     hiddenItemIds: string[],
     unhiddenItemHashes: string[],
-  ) => void;
-  onSaveUrl: (id: string, url: string, title?: string) => void;
-  onSaveLocal: (id: string, files: File[]) => void;
+  ) => void | Promise<void>;
+  onSaveUrl: (id: string, url: string, title?: string) => void | Promise<void>;
+  onSaveLocal: (id: string, files: File[]) => void | Promise<void>;
 }) {
   type LocalEditEntry = { file: File; previewUrl?: string };
   const [redditUrls, setRedditUrls] = useState<string[]>(
@@ -81,9 +96,7 @@ export function EditSourceDialog({
         }))
       : [],
   );
-  const [urlValue, setUrlValue] = useState(
-    source.sourceConfig.kind === "url" ? source.sourceConfig.url : "",
-  );
+  const [urlValue, setUrlValue] = useState(urlSourceInputValue(source));
   const [urlTitle, setUrlTitle] = useState(
     source.sourceConfig.kind === "url" ? (source.sourceConfig.title ?? "") : "",
   );
@@ -91,6 +104,7 @@ export function EditSourceDialog({
   const [unhiddenRedditHashes, setUnhiddenRedditHashes] = useState<string[]>(
     [],
   );
+  const [isSaving, setIsSaving] = useState(false);
   const [savedHiddenHashMatches, setSavedHiddenHashMatches] = useState<
     Record<string, string[]>
   >({});
@@ -174,12 +188,8 @@ export function EditSourceDialog({
     savedHiddenHashSet,
   ]);
 
-  function updateRedditUrl(index: number, value: string) {
-    setRedditUrls((current) =>
-      current.map((url, currentIndex) =>
-        currentIndex === index ? value : url,
-      ),
-    );
+  function updateRedditUrls(value: string) {
+    setRedditUrls(value.split(/\r?\n/));
   }
 
   function updateRedditListingControls(next: {
@@ -209,30 +219,47 @@ export function EditSourceDialog({
     }
   }
 
-  function save() {
+  async function runSave(action: () => void | Promise<void>) {
+    setIsSaving(true);
+    try {
+      await action();
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function save() {
+    if (isSaving) return;
+
     if (isReddit) {
-      onSaveReddit(
-        currentSource.id,
-        redditUrls.map((url) => url.trim()).filter(Boolean),
-        redditLimit,
-        hiddenRedditItemIds,
-        unhiddenRedditHashes,
+      await runSave(() =>
+        onSaveReddit(
+          currentSource.id,
+          redditUrls.map((url) => url.trim()).filter(Boolean),
+          redditLimit,
+          hiddenRedditItemIds,
+          unhiddenRedditHashes,
+        ),
       );
       return;
     }
 
     if (isUrl) {
-      onSaveUrl(
-        currentSource.id,
-        urlValue.trim(),
-        urlTitle.trim() || undefined,
+      await runSave(() =>
+        onSaveUrl(
+          currentSource.id,
+          urlValue.trim(),
+          urlTitle.trim() || undefined,
+        ),
       );
       return;
     }
 
-    onSaveLocal(
-      currentSource.id,
-      localEntries.map((entry) => entry.file),
+    await runSave(() =>
+      onSaveLocal(
+        currentSource.id,
+        localEntries.map((entry) => entry.file),
+      ),
     );
   }
 
@@ -245,6 +272,7 @@ export function EditSourceDialog({
             ? "grid h-[min(92dvh,46rem)] grid-rows-[auto_minmax(0,1fr)]"
             : "max-h-[92dvh]",
         )}
+        aria-busy={isSaving}
         onOpenAutoFocus={focusEditDialogSurface}
       >
         <DialogHeader>
@@ -271,19 +299,15 @@ export function EditSourceDialog({
 
           {isReddit ? (
             <>
-              <div className="grid gap-2">
-                {redditUrls.map((url, index) => (
-                  <Input
-                    key={`reddit-source-url-${index}`}
-                    value={url}
-                    onChange={(event) =>
-                      updateRedditUrl(index, event.target.value)
-                    }
-                    aria-label={`Reddit source ${index + 1}`}
-                    className="h-9 font-mono text-xs"
-                  />
-                ))}
-              </div>
+              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                Reddit source URLs
+                <Textarea
+                  value={redditUrls.join("\n")}
+                  onChange={(event) => updateRedditUrls(event.target.value)}
+                  aria-label="Reddit source URLs"
+                  className="min-h-40 max-h-64 resize-y overflow-y-auto [field-sizing:fixed] font-mono text-xs leading-5"
+                />
+              </Label>
               <RedditSourceEditControls
                 subredditName={subredditName}
                 redditSort={redditSort}
@@ -379,20 +403,20 @@ export function EditSourceDialog({
           ) : isUrl ? (
             <div className="grid gap-3">
               <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                URL
-                <Input
-                  value={urlValue}
-                  onChange={(event) => setUrlValue(event.target.value)}
-                  className="h-9 font-mono text-xs"
-                />
-              </Label>
-              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Title
                 <Input
                   value={urlTitle}
                   onChange={(event) => setUrlTitle(event.target.value)}
                   placeholder="Optional"
                   className="h-9"
+                />
+              </Label>
+              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                URL
+                <Textarea
+                  value={urlValue}
+                  onChange={(event) => setUrlValue(event.target.value)}
+                  className="min-h-40 max-h-64 resize-y overflow-y-auto [field-sizing:fixed] font-mono text-xs leading-5"
                 />
               </Label>
             </div>
@@ -461,11 +485,9 @@ export function EditSourceDialog({
             </div>
           )}
 
-          <Button type="button" onClick={save} className="w-full">
-            <Save />
-            Save source
-          </Button>
+          <SaveSourceButton isSaving={isSaving} onSave={() => void save()} />
         </div>
+        {isSaving ? <SavingSourceOverlay /> : null}
       </DialogContent>
     </Dialog>
   );

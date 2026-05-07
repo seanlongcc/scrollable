@@ -186,17 +186,17 @@ export async function fetchEditedRedditSource({
 
 export async function fetchEditedUrlSource({
   currentSource,
-  url,
+  urls,
   title,
 }: {
   currentSource?: FeedSession;
-  url: string;
+  urls: string[];
   title?: string;
 }): Promise<EditedUrlSourceState> {
   return fetchUrlRuntimeItemsForSource(
     buildEditedUrlSourceConfig({
       currentSource,
-      url,
+      urls,
       title,
     }),
   );
