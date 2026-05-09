@@ -126,9 +126,7 @@ export async function addDefaultSubredditSource(
   const dialog = await screen.findByRole("dialog", { name: "Add source" });
   await user.click(within(dialog).getByRole("button", { name: "Reddit" }));
   await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
-  await user.click(
-    within(dialog).getByRole("button", { name: "Open Reddit links" }),
-  );
+  await user.click(within(dialog).getByRole("button", { name: "Add source" }));
 }
 
 export function stubRuntimeFetch(

@@ -33,7 +33,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
         "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
       ].join("\n"),
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByRole("button", { name: "Remove r/pics, r/aww" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -79,7 +79,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
       ),
       "https://www.reddit.com/r/kpop/top/?t=week",
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
     expectRedditJsonRequest(fetchMock, {
@@ -113,7 +113,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await user.clear(screen.getByLabelText("Reddit post count"));
     await user.type(screen.getByLabelText("Reddit post count"), "100");
     await user.type(screen.getByLabelText("Subreddit name"), "kpop");
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
     expectRedditJsonRequest(fetchMock, {
@@ -179,7 +179,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
       within(dialog).getByRole("combobox", { name: "Time range" }),
     );
     await user.click(screen.getByRole("option", { name: "Week" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
     expectRedditJsonRequest(fetchMock, {
@@ -212,7 +212,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
     await user.click(await screen.findByRole("button", { name: "Reddit" }));
     const dialog = await screen.findByRole("dialog", { name: "Add source" });
     await user.type(within(dialog).getByLabelText("Subreddit name"), "kpop");
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop" });
     expectRedditJsonRequest(fetchMock, {
@@ -268,7 +268,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
       within(dialog).getByRole("combobox", { name: "Time range" }),
     );
     await user.click(screen.getByRole("option", { name: "Week" }));
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByRole("button", { name: "Remove r/kpop, r/aww" });
     expect(screen.getByAltText("Runtime kpop")).toBeInTheDocument();
@@ -362,7 +362,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
         "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
       ].join("\n"),
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByRole("button", { name: "Remove r/pics" });
     await screen.findByRole("button", { name: "Remove r/aww" });
@@ -434,7 +434,7 @@ describe("FeedWorkbench Reddit source inputs", () => {
         "https://www.reddit.com/r/aww/comments/def456/runtime_image/",
       ].join("\n"),
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
     await screen.findByRole("button", { name: "Edit r/pics, r/aww" });
 
     await user.click(

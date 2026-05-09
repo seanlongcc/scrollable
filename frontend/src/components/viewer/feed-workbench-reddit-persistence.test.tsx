@@ -53,7 +53,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
       within(sourceDialog).getByLabelText("Subreddit name"),
       "kpop",
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
     await screen.findByAltText("Hidden listing item");
 
     await user.click(screen.getByRole("button", { name: "Edit r/kpop" }));
@@ -284,7 +284,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
       within(sourceDialog).getByLabelText("Subreddit name"),
       "kpop",
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
     await screen.findByAltText("Hidden listing item");
 
     await user.click(screen.getByRole("button", { name: "Edit r/kpop" }));
@@ -352,7 +352,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
       ),
       "https://www.reddit.com/r/pics/comments/gallery/gallery_post/",
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
     await user.click(screen.getByRole("button", { name: "Show info" }));
     await screen.findByText(/1\/2/);
 
@@ -422,7 +422,7 @@ describe("FeedWorkbench Reddit source persistence", () => {
       ),
       "https://www.reddit.com/r/pics/comments/abc123/runtime_gallery/",
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByLabelText("r/pics timer progress");
     await user.click(screen.getByRole("button", { name: "Show info" }));

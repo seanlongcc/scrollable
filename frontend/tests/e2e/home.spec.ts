@@ -287,7 +287,10 @@ test("warns before displaying provider page embeds", async ({ page }) => {
   await page
     .getByRole("textbox", { name: "URL" })
     .fill("https://hitomi.la/cg/sample-123.html");
-  await page.getByRole("button", { name: "Open URL" }).click();
+  await page
+    .getByRole("dialog", { name: "Add source" })
+    .getByRole("button", { name: "Add source", exact: true })
+    .click();
 
   await expect(page.getByText("Site not natively supported")).toBeVisible();
   await expect(page.locator("iframe[title='Hitomi']")).toHaveCount(0);
@@ -355,7 +358,10 @@ test("keyboard and wheel move through runtime feed items", async ({
   await page
     .getByLabel("Paste Reddit post or subreddit links, one per line")
     .fill("https://www.reddit.com/r/pics/comments/abc123/runtime_image/");
-  await page.getByRole("button", { name: "Open Reddit links" }).click();
+  await page
+    .getByRole("dialog", { name: "Add source" })
+    .getByRole("button", { name: "Add source", exact: true })
+    .click();
   await expect.poll(() => redditListingRequests.length).toBe(1);
   expect(redditListingRequests[0]).toContain(
     "https://www.reddit.com/r/pics/comments/abc123/runtime_image/.json?raw_json=1",
