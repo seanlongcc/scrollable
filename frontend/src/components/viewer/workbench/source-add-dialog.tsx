@@ -1,4 +1,4 @@
-import { FolderOpen, Globe, Grid2X2, Loader2, Upload } from "lucide-react";
+import { FolderOpen, Loader2, Plus, Upload } from "lucide-react";
 import { ChangeEvent, DragEvent as ReactDragEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -179,10 +179,10 @@ https://example.com/media-or-page`}
                 type="button"
                 onClick={openUrlSource}
                 disabled={isLoading}
-                aria-label="Open URL"
+                aria-label="Add source"
               >
-                {isLoading ? <Loader2 className="animate-spin" /> : <Globe />}
-                Open URL
+                {isLoading ? <Loader2 className="animate-spin" /> : <Plus />}
+                Add source
               </Button>
             </section>
           ) : null}
@@ -364,14 +364,14 @@ https://www.reddit.com/r/pics/top/?t=week`}
                     type="button"
                     onClick={fetchRedditFeed}
                     disabled={isLoading}
-                    aria-label="Open Reddit links"
+                    aria-label="Add source"
                   >
                     {isLoading ? (
                       <Loader2 className="animate-spin" />
                     ) : (
-                      <Grid2X2 />
+                      <Plus />
                     )}
-                    Open Reddit
+                    Add source
                   </Button>
                 </div>
               </div>

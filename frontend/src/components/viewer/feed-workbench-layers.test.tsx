@@ -230,7 +230,7 @@ describe("FeedWorkbench layers", () => {
       ),
       "https://www.reddit.com/r/aww/comments/abc123/runtime_image/",
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
     await screen.findByRole("button", { name: "Remove r/aww" });
 
     await user.click(screen.getByRole("button", { name: "Remove r/pics" }));
@@ -272,7 +272,7 @@ describe("FeedWorkbench layers", () => {
       ),
       "https://www.reddit.com/r/aww/comments/abc123/runtime_image/",
     );
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     expect(
       screen.queryByRole("button", { name: "Remove r/aww" }),

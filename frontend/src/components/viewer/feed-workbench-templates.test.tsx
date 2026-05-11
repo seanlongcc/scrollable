@@ -356,7 +356,7 @@ describe("FeedWorkbench workspace templates", () => {
     const dialog = await screen.findByRole("dialog", { name: "Add source" });
     await user.click(within(dialog).getByRole("button", { name: "Reddit" }));
     await user.type(within(dialog).getByLabelText("Subreddit name"), "pics");
-    await user.click(screen.getByRole("button", { name: "Open Reddit links" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await screen.findByRole("button", { name: "Remove r/pics" });
     expect(

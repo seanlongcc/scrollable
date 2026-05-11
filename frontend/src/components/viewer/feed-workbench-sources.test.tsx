@@ -155,7 +155,7 @@ describe("FeedWorkbench URL sources", () => {
       expect.stringContaining("https://example.com/media-or-page"),
     );
     setUrlValue("https://cdn.test/photo.jpg");
-    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     expect(await screen.findByAltText("Direct image")).toBeInTheDocument();
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
@@ -204,7 +204,7 @@ describe("FeedWorkbench URL sources", () => {
     setUrlValue(
       "https://cdn-one.test/photo.jpg\nhttps://cdn-two.test/photo.jpg",
     );
-    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     expect(await screen.findByAltText("cdn-one.test")).toBeInTheDocument();
     expect(await screen.findByAltText("cdn-two.test")).toBeInTheDocument();
@@ -249,10 +249,10 @@ describe("FeedWorkbench URL sources", () => {
     setUrlValue(
       "https://cdn-one.test/photo.jpg\nhttps://cdn-two.test/photo.jpg",
     );
-    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Open URL" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Add source" })).toBeEnabled(),
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.queryByAltText("cdn-one.test")).not.toBeInTheDocument();
@@ -296,7 +296,7 @@ describe("FeedWorkbench URL sources", () => {
 
     await openAddSourceUrlPanel(user);
     setUrlValue("https://nhentai.net/g/123456/");
-    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     expect(await screen.findByAltText("Gallery image")).toBeInTheDocument();
 
@@ -430,7 +430,7 @@ describe("FeedWorkbench URL sources", () => {
 
     await openAddSourceUrlPanel(user);
     setUrlValue("https://blocked.example/");
-    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     expect((await screen.findAllByText("Blocked site"))[0]).toBeVisible();
     expect(
@@ -512,7 +512,7 @@ describe("FeedWorkbench URL sources", () => {
 
     await openAddSourceUrlPanel(user);
     setUrlValue(resolution.externalUrl);
-    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     expect(
       await screen.findByText("Site not natively supported"),
@@ -548,7 +548,7 @@ describe("FeedWorkbench URL sources", () => {
 
     await openAddSourceUrlPanel(user);
     setUrlValue("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
 
     expect(await screen.findByTitle("YouTube video")).toBeInTheDocument();
     expectYoutubeIframeSrc(
@@ -588,7 +588,7 @@ describe("FeedWorkbench URL sources", () => {
 
     await openAddSourceUrlPanel(user);
     setUrlValue("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-    await user.click(screen.getByRole("button", { name: "Open URL" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
     expect(await screen.findByTitle("YouTube video")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
