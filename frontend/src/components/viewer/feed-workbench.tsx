@@ -46,6 +46,7 @@ import { useSharedViewerUrlActions } from "./workbench/shared-viewer-url-actions
 import { useOpenWorkspaceStats } from "./workbench/feed-workbench-open-workspace-stats";
 import {
   activeLayerFreeRects as deriveActiveLayerFreeRects,
+  activeLayerHasLayoutContent,
   availableSeparateSourceSlots as deriveAvailableSeparateSourceSlots,
   deriveLayerStats,
   selectedActiveLayerSession,
@@ -271,7 +272,11 @@ export function FeedWorkbench({
     account.status === "signed-in" ? "Account" : "Sign in";
   const accountButtonTitle =
     account.status === "signed-in" ? account.email : accountButtonLabel;
-  const isClearDisabled = sessions.length === 0 && templateSlots.length === 0;
+  const isClearDisabled = !activeLayerHasLayoutContent({
+    sessions,
+    templateSlots,
+    activeLayerId,
+  });
   const layerStats = useMemo(
     () => deriveLayerStats({ layers, sessions }),
     [layers, sessions],

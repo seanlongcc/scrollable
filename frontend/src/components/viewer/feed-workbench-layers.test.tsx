@@ -118,6 +118,46 @@ describe("FeedWorkbench layers", () => {
     expect(screen.getByTestId("layer-layer-2")).toHaveClass("opacity-0");
   });
 
+  it("clears only the active layer from the workbench actions", async () => {
+    stubObjectUrls();
+    stubRandomUuids([
+      "workspace-1",
+      "local-1",
+      "session-1",
+      "layer-2",
+      "local-2",
+      "session-2",
+    ]);
+
+    const user = userEvent.setup();
+    render(<FeedWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["a"], "foreground.png", { type: "image/png" }),
+    );
+    expect(await screen.findByAltText("foreground.png")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Select Layer 2" }));
+    await user.click(screen.getByRole("button", { name: "Add source" }));
+    await user.click(await screen.findByRole("button", { name: "Local" }));
+    await user.upload(
+      screen.getByLabelText("Image/video files"),
+      new File(["b"], "background.png", { type: "image/png" }),
+    );
+    expect(await screen.findByAltText("background.png")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear layout" }));
+    await user.click(
+      screen.getByRole("button", { name: "Confirm clear layout" }),
+    );
+
+    expect(screen.getByAltText("foreground.png")).toBeInTheDocument();
+    expect(screen.queryByAltText("background.png")).not.toBeInTheDocument();
+  });
+
   it("does not auto-select a source when switching layers", async () => {
     stubObjectUrls();
     stubRandomUuids([

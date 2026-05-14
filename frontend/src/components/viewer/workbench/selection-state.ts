@@ -23,6 +23,25 @@ export function activeLayerSessions(
   return sessions.filter((session) => session.layerId === activeLayerId);
 }
 
+export function activeLayerHasLayoutContent({
+  sessions,
+  templateSlots,
+  activeLayerId,
+}: {
+  sessions: FeedSession[];
+  templateSlots: WorkspaceTemplateSlot[];
+  activeLayerId: string;
+}) {
+  return (
+    sessions.some(
+      (session) => (session.layerId ?? activeLayerId) === activeLayerId,
+    ) ||
+    templateSlots.some(
+      (slot) => (slot.layerId ?? activeLayerId) === activeLayerId,
+    )
+  );
+}
+
 export function activeLayerFreeRects({
   sessions,
   templateSlots,

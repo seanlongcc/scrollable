@@ -30,6 +30,7 @@ import {
   updateTemplateSlotFreeRectState,
 } from "./free-layout-state";
 import {
+  prepareClearActiveLayerState,
   prepareAddLayerState,
   prepareDeleteActiveLayerState,
   prepareSelectLayerState,
@@ -399,14 +400,22 @@ export function useLayoutHandlers({
   }
 
   function clearCurrentLayout() {
-    setSessions([]);
-    setTemplateSlots([]);
-    setGalleryIndexes({});
-    setVideoPositions({});
-    setSelectedId(null);
-    setMaximizedId(null);
-    setPendingFixedSlot(null);
-    setPendingTemplateSlotId(null);
+    const nextState = prepareClearActiveLayerState({
+      activeLayerId,
+      sessions,
+      templateSlots,
+      galleryIndexes,
+      videoPositions,
+    });
+
+    setSessions(nextState.nextSessions);
+    setTemplateSlots(nextState.nextTemplateSlots);
+    setGalleryIndexes(nextState.nextGalleryIndexes);
+    setVideoPositions(nextState.nextVideoPositions);
+    setSelectedId(nextState.selectedId);
+    setMaximizedId(nextState.maximizedId);
+    setPendingFixedSlot(nextState.pendingFixedSlot);
+    setPendingTemplateSlotId(nextState.pendingTemplateSlotId);
     setIsClearOpen(false);
   }
 

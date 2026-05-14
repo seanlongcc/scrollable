@@ -24,6 +24,21 @@ export type DeleteActiveLayerStateResult = {
   nextSelectedId: string | null;
 };
 
+export type ClearActiveLayerStateInput = {
+  activeLayerId: string;
+  sessions: FeedSession[];
+  templateSlots: WorkspaceTemplateSlot[];
+  galleryIndexes: Record<string, number>;
+  videoPositions: Record<string, number>;
+};
+
+export type ClearActiveLayerStateResult = {
+  nextSessions: FeedSession[];
+  nextTemplateSlots: WorkspaceTemplateSlot[];
+  nextGalleryIndexes: Record<string, number>;
+  nextVideoPositions: Record<string, number>;
+};
+
 export function deleteActiveLayerState({
   layers,
   activeLayerId,
@@ -70,5 +85,43 @@ export function deleteActiveLayerState({
     nextSelectedId:
       sessions.find((session) => session.layerId === nextActiveLayer.id)?.id ??
       null,
+  };
+}
+
+export function clearActiveLayerState({
+  activeLayerId,
+  sessions,
+  templateSlots,
+  galleryIndexes,
+  videoPositions,
+}: ClearActiveLayerStateInput): ClearActiveLayerStateResult {
+  const removedSessions = sessions.filter(
+    (session) => (session.layerId ?? activeLayerId) === activeLayerId,
+  );
+  const removedSessionIds = new Set(
+    removedSessions.map((session) => session.id),
+  );
+  const removedItemIds = new Set(
+    removedSessions.flatMap((session) => session.items.map((item) => item.id)),
+  );
+
+  return {
+    nextSessions: sessions.filter(
+      (session) => (session.layerId ?? activeLayerId) !== activeLayerId,
+    ),
+    nextTemplateSlots: templateSlots.filter(
+      (slot) => (slot.layerId ?? activeLayerId) !== activeLayerId,
+    ),
+    nextGalleryIndexes: Object.fromEntries(
+      Object.entries(galleryIndexes).filter(
+        ([itemId]) => !removedItemIds.has(itemId),
+      ),
+    ),
+    nextVideoPositions: Object.fromEntries(
+      Object.entries(videoPositions).filter(([key]) => {
+        const sessionId = key.split(":")[0];
+        return !removedSessionIds.has(sessionId);
+      }),
+    ),
   };
 }
