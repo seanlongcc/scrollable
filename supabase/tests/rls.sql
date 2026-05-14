@@ -1,6 +1,6 @@
 begin;
 
-select plan(22);
+select plan(25);
 
 select has_table('public', 'feed_configs', 'feed_configs exists');
 select has_table('public', 'share_links', 'share_links exists');
@@ -15,25 +15,84 @@ select hasnt_column('public', 'share_links', 'collection_id', 'share links no lo
 select policies_are(
   'public',
   'feed_configs',
-  array['feed configs owner all', 'feed configs shared metadata read']
+  array[
+    'feed configs read metadata',
+    'feed configs owner insert',
+    'feed configs owner update',
+    'feed configs owner delete'
+  ]
 );
 
 select policies_are(
   'public',
   'share_links',
-  array['share links owner all', 'share links public read']
+  array[
+    'share links read metadata',
+    'share links owner insert',
+    'share links owner update',
+    'share links owner delete'
+  ]
 );
 
 select policies_are(
   'public',
   'viewer_sessions',
-  array['viewer sessions owner all', 'viewer sessions shared metadata read']
+  array[
+    'viewer sessions read metadata',
+    'viewer sessions owner insert',
+    'viewer sessions owner update',
+    'viewer sessions owner delete'
+  ]
 );
 
 select policies_are(
   'public',
   'viewer_templates',
-  array['viewer templates owner all', 'viewer templates shared metadata read']
+  array[
+    'viewer templates read metadata',
+    'viewer templates owner insert',
+    'viewer templates owner update',
+    'viewer templates owner delete'
+  ]
+);
+
+select is_empty(
+  $$ select 1
+     from pg_policy p
+     join pg_class c on c.oid = p.polrelid
+     join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public'
+       and c.relname in (
+         'profiles',
+         'feed_configs',
+         'share_links',
+         'viewer_sessions',
+         'viewer_templates'
+       )
+       and p.polroles = array[0]::oid[] $$,
+  'Data API policies target explicit API roles instead of PUBLIC'
+);
+
+select is_empty(
+  $$ select 1
+     from pg_policy p
+     join pg_class c on c.oid = p.polrelid
+     join pg_namespace n on n.oid = c.relnamespace
+     join unnest(p.polroles) policy_role(role_oid) on true
+     join pg_roles r on r.oid = policy_role.role_oid
+     where n.nspname = 'public'
+       and c.relname in (
+         'feed_configs',
+         'share_links',
+         'viewer_sessions',
+         'viewer_templates'
+       )
+       and p.polpermissive
+       and p.polcmd in ('r', '*')
+       and r.rolname in ('anon', 'authenticated')
+     group by c.relname, r.rolname
+     having count(*) > 1 $$,
+  'Data API tables avoid overlapping permissive SELECT policies'
 );
 
 select isnt_empty(
@@ -92,6 +151,64 @@ select is_empty(
        'EXECUTE'
      ) $$,
   'authenticated can execute private trigger helpers for cloud saves'
+);
+
+select is_empty(
+  $$ with expected_privileges(table_name, role_name, privilege_name) as (
+       values
+         ('profiles', 'authenticated', 'SELECT'),
+         ('profiles', 'authenticated', 'INSERT'),
+         ('profiles', 'authenticated', 'UPDATE'),
+         ('profiles', 'authenticated', 'DELETE'),
+         ('profiles', 'service_role', 'SELECT'),
+         ('profiles', 'service_role', 'INSERT'),
+         ('profiles', 'service_role', 'UPDATE'),
+         ('profiles', 'service_role', 'DELETE'),
+         ('feed_configs', 'anon', 'SELECT'),
+         ('feed_configs', 'authenticated', 'SELECT'),
+         ('feed_configs', 'authenticated', 'INSERT'),
+         ('feed_configs', 'authenticated', 'UPDATE'),
+         ('feed_configs', 'authenticated', 'DELETE'),
+         ('feed_configs', 'service_role', 'SELECT'),
+         ('feed_configs', 'service_role', 'INSERT'),
+         ('feed_configs', 'service_role', 'UPDATE'),
+         ('feed_configs', 'service_role', 'DELETE'),
+         ('share_links', 'anon', 'SELECT'),
+         ('share_links', 'authenticated', 'SELECT'),
+         ('share_links', 'authenticated', 'INSERT'),
+         ('share_links', 'authenticated', 'UPDATE'),
+         ('share_links', 'authenticated', 'DELETE'),
+         ('share_links', 'service_role', 'SELECT'),
+         ('share_links', 'service_role', 'INSERT'),
+         ('share_links', 'service_role', 'UPDATE'),
+         ('share_links', 'service_role', 'DELETE'),
+         ('viewer_sessions', 'anon', 'SELECT'),
+         ('viewer_sessions', 'authenticated', 'SELECT'),
+         ('viewer_sessions', 'authenticated', 'INSERT'),
+         ('viewer_sessions', 'authenticated', 'UPDATE'),
+         ('viewer_sessions', 'authenticated', 'DELETE'),
+         ('viewer_sessions', 'service_role', 'SELECT'),
+         ('viewer_sessions', 'service_role', 'INSERT'),
+         ('viewer_sessions', 'service_role', 'UPDATE'),
+         ('viewer_sessions', 'service_role', 'DELETE'),
+         ('viewer_templates', 'anon', 'SELECT'),
+         ('viewer_templates', 'authenticated', 'SELECT'),
+         ('viewer_templates', 'authenticated', 'INSERT'),
+         ('viewer_templates', 'authenticated', 'UPDATE'),
+         ('viewer_templates', 'authenticated', 'DELETE'),
+         ('viewer_templates', 'service_role', 'SELECT'),
+         ('viewer_templates', 'service_role', 'INSERT'),
+         ('viewer_templates', 'service_role', 'UPDATE'),
+         ('viewer_templates', 'service_role', 'DELETE')
+     )
+     select 1
+     from expected_privileges e
+     where not has_table_privilege(
+       e.role_name,
+       format('public.%I', e.table_name),
+       e.privilege_name
+     ) $$,
+  'Data API roles have explicit table privileges for exposed public tables'
 );
 
 insert into auth.users (id, aud, role, email)
