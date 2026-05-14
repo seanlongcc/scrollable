@@ -15,8 +15,10 @@ import type {
   LocalFileByteCacheConfirmation,
   LocalFileCacheStorageStatus,
 } from "@/lib/local-uploads/file-cache";
+import type { UrlSourceRow } from "@/lib/url-source/types";
 import { cn } from "@/lib/utils";
 import type { FixedGrid, FreeRect } from "@/lib/viewer/layout";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 import { HiddenUiRevealButton } from "./workbench/hidden-ui-reveal-button";
 import type { LayerStats } from "./workbench/selection-state";
 import type {
@@ -157,7 +159,11 @@ export type FeedWorkbenchRenderProps = {
   redditTimeRange: RedditTimeRange;
   redditUrls: string;
   regenerateCloudShareLink: (target: CloudShareTarget) => void;
-  rememberVideoPosition: (key: string, seconds: number) => void;
+  rememberVideoPosition: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
   rememberVideoFinished: (key: string) => void;
   removeSession: (id: string) => void;
   randomizeSelectedSource: () => void;
@@ -185,7 +191,11 @@ export type FeedWorkbenchRenderProps = {
   saveError: string | null;
   saveKind: SaveKind;
   saveLayoutAs: () => void;
-  saveLocalSourceEdit: (id: string, files: File[]) => void;
+  saveLocalSourceEdit: (
+    id: string,
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) => void;
   saveName: string;
   saveRedditSourceEdit: (
     id: string,
@@ -196,7 +206,7 @@ export type FeedWorkbenchRenderProps = {
   ) => void;
   saveTarget: SaveTarget;
   saveTemplateAs: () => void;
-  saveUrlSourceEdit: (id: string, url: string, title?: string) => void;
+  saveUrlSourceEdit: (id: string, rows: UrlSourceRow[], title?: string) => void;
   savedTemplates: Record<string, SerializedWorkspaceTemplate>;
   savedWorkspaces: Record<string, SerializedWorkspace>;
   selectLayer: (id: string) => void;
@@ -272,6 +282,7 @@ export type FeedWorkbenchRenderProps = {
   uploadWorkspaceToCloud: (id: string) => void;
   urlTitle: string;
   urlValue: string;
+  videoDurations: Record<string, number>;
   videoPositions: Record<string, number>;
   visibleFixedCells: number;
   workspaceName: string;
@@ -456,6 +467,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
     uploadWorkspaceToCloud,
     urlTitle,
     urlValue,
+    videoDurations,
     videoPositions,
     visibleFixedCells,
     workspaceName,
@@ -611,6 +623,7 @@ export function FeedWorkbenchRender(props: FeedWorkbenchRenderProps) {
           setIsClearOpen={setIsClearOpen}
           clearCurrentLayout={clearCurrentLayout}
           editingSource={editingSource}
+          videoDurations={videoDurations}
           setEditingSourceId={setEditingSourceId}
           saveRedditSourceEdit={saveRedditSourceEdit}
           saveUrlSourceEdit={saveUrlSourceEdit}

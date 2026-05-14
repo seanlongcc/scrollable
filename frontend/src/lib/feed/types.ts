@@ -1,3 +1,5 @@
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
+
 export type FeedSource = "reddit" | "local" | "url";
 
 export type RuntimeMedia = {
@@ -8,6 +10,7 @@ export type RuntimeMedia = {
   galleryIndex?: number;
   isHls?: boolean;
   hlsSegmentQuery?: string;
+  videoTimeRange?: VideoTimeRange;
 };
 
 export type RuntimeFeedItem = {

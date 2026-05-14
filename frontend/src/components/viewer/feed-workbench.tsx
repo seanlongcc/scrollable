@@ -135,6 +135,9 @@ export function FeedWorkbench({
   const [videoPositions, setVideoPositions] = useState<Record<string, number>>(
     {},
   );
+  const [videoDurations, setVideoDurations] = useState<Record<string, number>>(
+    {},
+  );
   const [finishedVideoKeys, setFinishedVideoKeys] = useState<
     Record<string, boolean>
   >({});
@@ -289,12 +292,21 @@ export function FeedWorkbench({
     hasLocalSources: currentLayoutHasLocalSources,
     isTemplate: layoutMode === "free" && saveKind === "template",
   });
-  const rememberVideoPosition = useCallback((key: string, seconds: number) => {
-    setVideoPositions((current) => {
-      if (current[key] === seconds) return current;
-      return { ...current, [key]: seconds };
-    });
-  }, []);
+  const rememberVideoPosition = useCallback(
+    (key: string, seconds: number, durationSeconds?: number) => {
+      setVideoPositions((current) => {
+        if (current[key] === seconds) return current;
+        return { ...current, [key]: seconds };
+      });
+      if (durationSeconds !== undefined) {
+        setVideoDurations((current) => {
+          if (current[key] === durationSeconds) return current;
+          return { ...current, [key]: durationSeconds };
+        });
+      }
+    },
+    [],
+  );
   const rememberVideoFinished = useCallback((key: string) => {
     setFinishedVideoKeys((current) =>
       current[key] ? current : { ...current, [key]: true },
@@ -868,6 +880,7 @@ export function FeedWorkbench({
     uploadWorkspaceToCloud,
     urlTitle,
     urlValue,
+    videoDurations,
     videoPositions,
     visibleFixedCells,
     workspaceName,

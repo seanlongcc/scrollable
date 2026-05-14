@@ -48,6 +48,10 @@ _Avoid_: Media payloads, third-party media URLs, raw source data
 The user-facing release history shown on the Scrollable site from published GitHub releases.
 _Avoid_: Commit log, pull request stream, manual duplicate changelog
 
+**Video Time Range**:
+User-authored start/end seconds that limit playback for a native video from a URL row or local file entry.
+_Avoid_: Media clip, media copy, remote duration, object URL, file path
+
 ## Relationships
 
 - A **Release** is created as a **Published Release** after exactly one **Production Deploy** succeeds.
@@ -59,6 +63,7 @@ _Avoid_: Commit log, pull request stream, manual duplicate changelog
 - **Release Notes** describe one **Release**.
 - A **Changelog** lists **Published Releases** newest first.
 - A **Preview Deploy** does not create a **Release**.
+- A **Video Time Range** belongs to one URL row or one local file order index and does not contain runtime media payloads.
 
 ## Example Dialogue
 
@@ -71,3 +76,4 @@ _Avoid_: Commit log, pull request stream, manual duplicate changelog
 - "version" could mean package metadata or release identity; resolved: **Release Version** is chosen by a human for release identity.
 - "automated release" could mean automatic triggering or automatic execution; resolved: release execution is automated, but a **Release Run** is manually triggered.
 - Package metadata versions do not define release identity; resolved: release tags are the source of truth for **Release Version**.
+- "clip" could imply storing or generating a new media asset; resolved: **Video Time Range** only controls playback bounds for existing native video media.

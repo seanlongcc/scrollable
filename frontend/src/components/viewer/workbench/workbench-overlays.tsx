@@ -3,6 +3,8 @@ import type {
   LocalFileByteCacheConfirmation,
   LocalFileCacheStorageStatus,
 } from "@/lib/local-uploads/file-cache";
+import type { UrlSourceRow } from "@/lib/url-source/types";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 
 import {
   AccountDialog,
@@ -89,6 +91,7 @@ export function WorkbenchOverlays({
   setIsClearOpen,
   clearCurrentLayout,
   editingSource,
+  videoDurations,
   setEditingSourceId,
   saveRedditSourceEdit,
   saveUrlSourceEdit,
@@ -174,6 +177,7 @@ export function WorkbenchOverlays({
   setIsClearOpen: Dispatch<SetStateAction<boolean>>;
   clearCurrentLayout: () => void;
   editingSource: FeedSession | null;
+  videoDurations: Record<string, number>;
   setEditingSourceId: Dispatch<SetStateAction<string | null>>;
   saveRedditSourceEdit: (
     id: string,
@@ -182,8 +186,12 @@ export function WorkbenchOverlays({
     hiddenItemIds: string[],
     unhiddenItemHashes: string[],
   ) => void;
-  saveUrlSourceEdit: (id: string, url: string, title?: string) => void;
-  saveLocalSourceEdit: (id: string, files: File[]) => void;
+  saveUrlSourceEdit: (id: string, rows: UrlSourceRow[], title?: string) => void;
+  saveLocalSourceEdit: (
+    id: string,
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) => void;
   isAccountOpen: boolean;
   setIsAccountOpen: Dispatch<SetStateAction<boolean>>;
   account: AccountState;
@@ -288,6 +296,7 @@ export function WorkbenchOverlays({
         <EditSourceDialog
           key={editingSource.id}
           source={editingSource}
+          videoDurations={videoDurations}
           open
           onOpenChange={(open) => {
             if (!open) setEditingSourceId(null);

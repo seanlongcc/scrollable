@@ -1,4 +1,4 @@
-import { EyeOff, Pencil, Trash2 } from "lucide-react";
+import { EyeOff, Pencil } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import type { UrlSourceRow } from "@/lib/url-source/types";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 import { RedditSourceEditControls } from "./reddit-source-edit-controls";
+import {
+  LocalSourceFilesEditor,
+  localEntriesFromSource,
+  prepareLocalVideoTimeRanges,
+  type LocalEditEntry,
+} from "./source-edit-local-files";
 import {
   SaveSourceButton,
   SavingSourceOverlay,
 } from "./source-edit-saving-status";
+import {
+  UrlSourceRowsEditor,
+  prepareUrlRowsForSave,
+  urlRowsFromSource,
+  type UrlEditRow,
+} from "./source-edit-url-rows";
 import { DEFAULT_REDDIT_MEDIA_LIMIT } from "./types";
 import type { FeedSession, RedditListingSort, RedditTimeRange } from "./types";
 import {
@@ -29,16 +43,6 @@ import {
   redditRuntimeItemLabels,
 } from "./helpers";
 
-function urlSourceInputValue(source: FeedSession) {
-  if (source.sourceConfig.kind !== "url") return "";
-
-  const urls = source.sourceConfig.urls?.length
-    ? source.sourceConfig.urls
-    : [source.sourceConfig.url];
-
-  return urls.join("\n");
-}
-
 function focusEditDialogSurface(event: Event) {
   event.preventDefault();
   if (event.currentTarget instanceof HTMLElement) {
@@ -49,6 +53,7 @@ function focusEditDialogSurface(event: Event) {
 export function EditSourceDialog({
   source,
   open,
+  videoDurations = {},
   onOpenChange,
   onSaveReddit,
   onSaveUrl,
@@ -56,6 +61,7 @@ export function EditSourceDialog({
 }: {
   source: FeedSession;
   open: boolean;
+  videoDurations?: Record<string, number>;
   onOpenChange: (open: boolean) => void;
   onSaveReddit: (
     id: string,
@@ -64,10 +70,17 @@ export function EditSourceDialog({
     hiddenItemIds: string[],
     unhiddenItemHashes: string[],
   ) => void | Promise<void>;
-  onSaveUrl: (id: string, url: string, title?: string) => void | Promise<void>;
-  onSaveLocal: (id: string, files: File[]) => void | Promise<void>;
+  onSaveUrl: (
+    id: string,
+    rows: UrlSourceRow[],
+    title?: string,
+  ) => void | Promise<void>;
+  onSaveLocal: (
+    id: string,
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) => void | Promise<void>;
 }) {
-  type LocalEditEntry = { file: File; previewUrl?: string };
   const [redditUrls, setRedditUrls] = useState<string[]>(
     source.sourceConfig.kind === "reddit" ? source.sourceConfig.urls : [],
   );
@@ -89,17 +102,15 @@ export function EditSourceDialog({
       : DEFAULT_REDDIT_MEDIA_LIMIT,
   );
   const [localEntries, setLocalEntries] = useState<LocalEditEntry[]>(
-    source.sourceConfig.kind === "local"
-      ? (source.localFiles ?? []).map((file, index) => ({
-          file,
-          previewUrl: (source.allItems ?? source.items)[index]?.media[0]?.url,
-        }))
-      : [],
+    localEntriesFromSource(source, videoDurations),
   );
-  const [urlValue, setUrlValue] = useState(urlSourceInputValue(source));
+  const [urlRows, setUrlRows] = useState<UrlEditRow[]>(
+    urlRowsFromSource(source, videoDurations),
+  );
   const [urlTitle, setUrlTitle] = useState(
     source.sourceConfig.kind === "url" ? (source.sourceConfig.title ?? "") : "",
   );
+  const [sourceEditError, setSourceEditError] = useState<string | null>(null);
   const [hiddenRedditItemIds, setHiddenRedditItemIds] = useState<string[]>([]);
   const [unhiddenRedditHashes, setUnhiddenRedditHashes] = useState<string[]>(
     [],
@@ -230,6 +241,7 @@ export function EditSourceDialog({
 
   async function save() {
     if (isSaving) return;
+    setSourceEditError(null);
 
     if (isReddit) {
       await runSave(() =>
@@ -245,13 +257,27 @@ export function EditSourceDialog({
     }
 
     if (isUrl) {
+      const preparedRows = prepareUrlRowsForSave(urlRows);
+      setUrlRows(preparedRows.editorRows);
+      if (!preparedRows.ok) {
+        setSourceEditError(preparedRows.error);
+        return;
+      }
+
       await runSave(() =>
         onSaveUrl(
           currentSource.id,
-          urlValue.trim(),
+          preparedRows.rows,
           urlTitle.trim() || undefined,
         ),
       );
+      return;
+    }
+
+    const localRanges = prepareLocalVideoTimeRanges(localEntries);
+    setLocalEntries(localRanges.entries);
+    if (!localRanges.ok) {
+      setSourceEditError(localRanges.error);
       return;
     }
 
@@ -259,6 +285,7 @@ export function EditSourceDialog({
       onSaveLocal(
         currentSource.id,
         localEntries.map((entry) => entry.file),
+        localRanges.videoTimeRanges,
       ),
     );
   }
@@ -411,79 +438,25 @@ export function EditSourceDialog({
                   className="h-9"
                 />
               </Label>
-              <Label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                URL
-                <Textarea
-                  value={urlValue}
-                  onChange={(event) => setUrlValue(event.target.value)}
-                  className="min-h-40 max-h-64 resize-y overflow-y-auto [field-sizing:fixed] font-mono text-xs leading-5"
-                />
-              </Label>
+              <UrlSourceRowsEditor rows={urlRows} onRowsChange={setUrlRows} />
             </div>
           ) : (
             <div className="grid gap-2">
-              {localEntries.length ? (
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
-                  {localEntries.map(({ file, previewUrl }, index) => (
-                    <div
-                      key={`${file.name}-${file.size}-${index}`}
-                      className="grid min-w-0 gap-2 rounded-lg border border-border bg-surface p-2"
-                    >
-                      <div className="relative aspect-square overflow-hidden rounded-md border border-border/70 bg-background">
-                        {previewUrl && file.type.startsWith("image/") ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={previewUrl}
-                            alt={`Preview ${file.name}`}
-                            className="size-full object-cover"
-                          />
-                        ) : file.type.startsWith("video/") ? (
-                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
-                            Video
-                          </span>
-                        ) : file.type.startsWith("audio/") ? (
-                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
-                            Audio
-                          </span>
-                        ) : (
-                          <span className="text-wrap-anywhere grid size-full place-items-center text-xs font-medium text-muted-foreground">
-                            File
-                          </span>
-                        )}
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          className="absolute right-1 top-1 border-0 bg-background/60 text-foreground/90 backdrop-blur hover:bg-destructive/15 hover:text-destructive"
-                          aria-label={`Remove ${file.name}`}
-                          onClick={() =>
-                            setLocalEntries((current) =>
-                              current.filter(
-                                (_entry, currentIndex) =>
-                                  currentIndex !== index,
-                              ),
-                            )
-                          }
-                        >
-                          <Trash2 />
-                        </Button>
-                      </div>
-                      <span
-                        className="text-wrap-anywhere line-clamp-2 text-xs font-medium"
-                        title={file.name}
-                      >
-                        {file.name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-wrap-anywhere rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  Reload files before editing this source.
-                </div>
-              )}
+              <LocalSourceFilesEditor
+                entries={localEntries}
+                onEntriesChange={setLocalEntries}
+              />
             </div>
           )}
+
+          {sourceEditError ? (
+            <p
+              role="alert"
+              className="text-wrap-anywhere rounded-md border border-destructive/35 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            >
+              {sourceEditError}
+            </p>
+          ) : null}
 
           <SaveSourceButton isSaving={isSaving} onSave={() => void save()} />
         </div>

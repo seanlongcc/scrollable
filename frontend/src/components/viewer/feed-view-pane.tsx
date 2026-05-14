@@ -38,6 +38,7 @@ import {
 import { useFeedMediaTransition } from "./feed-view-pane-motion";
 import { sourceActionRailClass } from "./source-action-rail";
 import { useFeedSwipe } from "./use-feed-swipe";
+import { videoPlaybackStateKey } from "./video-playback-keys";
 
 type ActiveMediaFrame = {
   key: string;
@@ -47,7 +48,7 @@ type ActiveMediaFrame = {
   finishVideoBeforeAdvance: boolean;
   randomVideoStart: boolean;
   initialVideoTime: number;
-  onVideoTimeChange?: (seconds: number) => void;
+  onVideoTimeChange?: (seconds: number, durationSeconds?: number) => void;
   onVideoEnded?: () => void;
 };
 
@@ -99,7 +100,11 @@ export function FeedViewPane({
   emptyAction?: ReactNode;
   hideUi?: boolean;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
-  onVideoPositionChange?: (key: string, seconds: number) => void;
+  onVideoPositionChange?: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
   onVideoEnded?: (key: string) => void;
   onMove: (direction: 1 | -1) => void;
   onTogglePaused: () => void;
@@ -143,11 +148,18 @@ export function FeedViewPane({
   const TimerModeIcon = timerMode === "global" ? Globe : GlobeOff;
   const videoPositionKey =
     activeItem && tracksPlaybackPosition
-      ? `${viewId ?? title}:${activeItem.id}:${activeGalleryIndex}`
+      ? videoPlaybackStateKey({
+          viewId,
+          title,
+          itemId: activeItem.id,
+          galleryIndex: activeGalleryIndex,
+        })
       : null;
   const handleVideoTimeChange = useCallback(
-    (seconds: number) => {
-      if (videoPositionKey) onVideoPositionChange?.(videoPositionKey, seconds);
+    (seconds: number, durationSeconds?: number) => {
+      if (videoPositionKey) {
+        onVideoPositionChange?.(videoPositionKey, seconds, durationSeconds);
+      }
     },
     [onVideoPositionChange, videoPositionKey],
   );

@@ -1,4 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 
 export type UrlResolverHint =
   | "direct-media"
@@ -10,8 +11,15 @@ export type UrlSourceConfig = {
   kind: "url";
   url: string;
   urls?: string[];
+  urlRows?: UrlSourceRow[];
   title?: string;
   resolverHint?: UrlResolverHint;
+};
+
+export type UrlSourceRow = {
+  id: string;
+  url: string;
+  videoTimeRange?: VideoTimeRange;
 };
 
 export type UrlMetadata = {

@@ -1,4 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 import {
   hydrateRuntimeSources,
   type RuntimeHydrationResult,
@@ -41,7 +42,10 @@ export async function hydrateRuntimeSessionsAction({
 }: {
   sessions: FeedSession[];
   visibility: RuntimeHydrationVisibilityState;
-  createLocalRuntimeItems: (files: File[]) => RuntimeFeedItem[];
+  createLocalRuntimeItems: (
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) => RuntimeFeedItem[];
   onError: (message: string) => void;
 }): Promise<RuntimeHydrationActionResult> {
   const sessionsToHydrate = runtimeHydrationCandidates({

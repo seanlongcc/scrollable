@@ -13,6 +13,7 @@ import {
   saveLocalFiles,
 } from "@/lib/local-uploads/file-cache";
 import { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 import { createTimerState } from "@/lib/viewer/timer";
 import type {
   DataTransferItemWithEntry,
@@ -312,13 +313,16 @@ function localCacheStorageFullStatus(
 export function createLocalRuntimeItems(
   files: File[],
   registryRef: { current: LocalObjectUrlRegistry | null },
+  videoTimeRanges?: Record<string, VideoTimeRange>,
 ) {
   if (!files.length) return [];
   if (registryRef.current === null) {
     registryRef.current = new LocalObjectUrlRegistry();
   }
 
-  return files.map((file) => registryRef.current!.add(file));
+  return files.map((file, index) =>
+    registryRef.current!.add(file, videoTimeRanges?.[String(index)]),
+  );
 }
 
 export function prepareLocalAddFiles({
@@ -432,11 +436,13 @@ export function applyLocalRuntimeItemsToSession({
   items,
   cacheSetId,
   files,
+  videoTimeRanges,
 }: {
   session: FeedSession;
   items: RuntimeFeedItem[];
   cacheSetId?: string;
   files?: File[];
+  videoTimeRanges?: Record<string, VideoTimeRange>;
 }): FeedSession {
   if (!items.length) {
     return { ...session, isRuntimeLoading: false };
@@ -467,6 +473,7 @@ export function applyLocalRuntimeItemsToSession({
       kind: "local",
       fileCount: nextItems.length,
       ...(cacheSetId ? { cacheSetId } : {}),
+      ...(videoTimeRanges ? { videoTimeRanges } : {}),
     },
     timer: {
       ...timer,

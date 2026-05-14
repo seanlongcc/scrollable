@@ -40,4 +40,58 @@ describe("URL source validation", () => {
       resolverHint: "provider:reddit",
     });
   });
+
+  it("parses persisted URL source configs with ranged rows", () => {
+    expect(
+      parseUrlSourceConfig({
+        kind: "url",
+        url: "https://example.com/legacy",
+        urls: ["https://example.com/clip", "https://example.com/clip"],
+        urlRows: [
+          {
+            id: "row-a",
+            url: "https://example.com/clip",
+            videoTimeRange: { startSeconds: 10, endSeconds: 30 },
+          },
+          {
+            id: "row-b",
+            url: "https://example.com/clip",
+            videoTimeRange: { startSeconds: 9015 },
+          },
+        ],
+      }),
+    ).toMatchObject({
+      kind: "url",
+      url: "https://example.com/clip",
+      urls: ["https://example.com/clip", "https://example.com/clip"],
+      urlRows: [
+        {
+          id: "row-a",
+          url: "https://example.com/clip",
+          videoTimeRange: { startSeconds: 10, endSeconds: 30 },
+        },
+        {
+          id: "row-b",
+          url: "https://example.com/clip",
+          videoTimeRange: { startSeconds: 9015 },
+        },
+      ],
+    });
+  });
+
+  it("rejects invalid URL source video time ranges", () => {
+    expect(() =>
+      parseUrlSourceConfig({
+        kind: "url",
+        url: "https://example.com/clip",
+        urlRows: [
+          {
+            id: "row-a",
+            url: "https://example.com/clip",
+            videoTimeRange: { startSeconds: 30, endSeconds: 10 },
+          },
+        ],
+      }),
+    ).toThrow(/End must be after start/i);
+  });
 });

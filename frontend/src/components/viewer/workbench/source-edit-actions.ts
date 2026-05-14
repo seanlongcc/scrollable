@@ -1,5 +1,10 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
+import type { UrlSourceRow } from "@/lib/url-source/types";
+import {
+  normalizeVideoTimeRange,
+  type VideoTimeRange,
+} from "@/lib/viewer/video-time-range";
 import { normalizeRedditLimit } from "./helpers";
 import { getUploadableFiles } from "./local-sources";
 import {
@@ -34,6 +39,11 @@ export type PreparedUrlSourceEdit = {
   urls: string[];
 };
 
+export type PreparedUrlRowsSourceEdit = {
+  status: "ready";
+  rows: UrlSourceRow[];
+};
+
 export type RedditSourceEditActionResult =
   | {
       status: "ready";
@@ -61,6 +71,7 @@ export type LocalSourceEditActionResult =
       items: RuntimeFeedItem[];
       cacheSetId?: string;
       files: File[];
+      videoTimeRanges?: Record<string, VideoTimeRange>;
     }
   | SourceEditActionError;
 
@@ -103,6 +114,45 @@ export function prepareUrlSourceEditAction({
   }
 }
 
+export function prepareUrlRowsSourceEditAction({
+  rows,
+}: {
+  rows: UrlSourceRow[];
+}): PreparedUrlRowsSourceEdit | SourceEditValidationError {
+  const nextRows: UrlSourceRow[] = [];
+
+  for (const row of rows) {
+    const url = row.url.trim();
+    if (!url) continue;
+
+    const range = normalizeVideoTimeRange(row.videoTimeRange);
+    if (!range.ok) {
+      return {
+        status: "validation-error",
+        error: range.error,
+      };
+    }
+
+    nextRows.push({
+      id: row.id,
+      url,
+      ...(range.range ? { videoTimeRange: range.range } : {}),
+    });
+  }
+
+  if (!nextRows.length) {
+    return {
+      status: "validation-error",
+      error: "Enter one or more URLs",
+    };
+  }
+
+  return {
+    status: "ready",
+    rows: nextRows,
+  };
+}
+
 export async function editPreparedRedditSourceAction({
   currentSource,
   urls,
@@ -138,10 +188,12 @@ export async function editPreparedRedditSourceAction({
 export async function editUrlSourceAction({
   currentSource,
   urls,
+  rows,
   title,
 }: {
   currentSource?: FeedSession;
-  urls: string[];
+  urls?: string[];
+  rows?: UrlSourceRow[];
   title?: string;
 }): Promise<UrlSourceEditActionResult> {
   try {
@@ -149,7 +201,8 @@ export async function editUrlSourceAction({
       status: "ready",
       result: await fetchEditedUrlSource({
         currentSource,
-        urls,
+        urls: urls ?? rows?.map((row) => row.url) ?? [],
+        rows,
         title,
       }),
     };
@@ -182,12 +235,17 @@ export async function editPreparedLocalSourceAction({
   fileReferences,
   createRuntimeItems,
   cacheFiles,
+  videoTimeRanges,
 }: {
   fileReferences: LocalFileReference[];
-  createRuntimeItems: (files: File[]) => RuntimeFeedItem[];
+  createRuntimeItems: (
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) => RuntimeFeedItem[];
   cacheFiles: (
     fileReferences: LocalFileReference[],
   ) => Promise<string | undefined>;
+  videoTimeRanges?: Record<string, VideoTimeRange>;
 }): Promise<LocalSourceEditActionResult> {
   const files = fileReferences.map((reference) =>
     reference instanceof File ? reference : reference.file,
@@ -196,9 +254,10 @@ export async function editPreparedLocalSourceAction({
   try {
     return {
       status: "ready",
-      items: createRuntimeItems(files),
+      items: createRuntimeItems(files, videoTimeRanges),
       cacheSetId: await cacheFiles(fileReferences),
       files,
+      videoTimeRanges,
     };
   } catch (error) {
     return {

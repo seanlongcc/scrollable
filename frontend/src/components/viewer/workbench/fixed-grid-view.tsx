@@ -69,7 +69,11 @@ export function FixedGridView({
   ) => void;
   removeSession: (id: string) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
-  onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoPositionChange: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
   onVideoEnded?: (key: string) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;

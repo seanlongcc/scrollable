@@ -816,6 +816,7 @@ describe("FeedViewPane", () => {
     expect(onVideoPositionChange).toHaveBeenCalledWith(
       "source-1:audio-item:0",
       12,
+      undefined,
     );
   });
 

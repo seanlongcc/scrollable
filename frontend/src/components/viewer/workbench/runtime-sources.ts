@@ -1,6 +1,10 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { loadLocalFiles } from "@/lib/local-uploads/file-cache";
-import type { UrlRuntimeResolution } from "@/lib/url-source/types";
+import type {
+  UrlRuntimeResolution,
+  UrlSourceRow,
+} from "@/lib/url-source/types";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 import type {
   FeedSession,
   LocalRestoreStatus,
@@ -187,16 +191,19 @@ export async function fetchEditedRedditSource({
 export async function fetchEditedUrlSource({
   currentSource,
   urls,
+  rows,
   title,
 }: {
   currentSource?: FeedSession;
   urls: string[];
+  rows?: UrlSourceRow[];
   title?: string;
 }): Promise<EditedUrlSourceState> {
   return fetchUrlRuntimeItemsForSource(
     buildEditedUrlSourceConfig({
       currentSource,
       urls,
+      urlRows: rows,
       title,
     }),
   );
@@ -236,7 +243,10 @@ export async function fetchLocalRuntimeItemsForSource({
   requestPermission = false,
 }: {
   sourceConfig: PersistedSourceConfig;
-  createLocalRuntimeItems: (files: File[]) => RuntimeFeedItem[];
+  createLocalRuntimeItems: (
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) => RuntimeFeedItem[];
   requestPermission?: boolean;
 }) {
   if (sourceConfig.kind !== "local" || !sourceConfig.cacheSetId) {
@@ -262,7 +272,7 @@ export async function fetchLocalRuntimeItemsForSource({
 
   const localFiles = getUploadableFiles(result.files);
   return {
-    items: createLocalRuntimeItems(localFiles),
+    items: createLocalRuntimeItems(localFiles, sourceConfig.videoTimeRanges),
     allItems: undefined,
     localFiles,
     localRestoreStatus: undefined,
@@ -275,7 +285,10 @@ export async function hydrateRuntimeSources({
   onError,
 }: {
   sessions: FeedSession[];
-  createLocalRuntimeItems: (files: File[]) => RuntimeFeedItem[];
+  createLocalRuntimeItems: (
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) => RuntimeFeedItem[];
   onError: (session: FeedSession, error: unknown) => void;
 }): Promise<RuntimeHydrationResult[]> {
   const redditCache = createRedditRuntimePostCache();

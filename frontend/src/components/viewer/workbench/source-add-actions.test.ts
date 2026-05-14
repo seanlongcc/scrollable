@@ -63,8 +63,8 @@ describe("addUrlSourceAction", () => {
         title: "URL stack",
       },
       items: [
-        { id: "url:one", title: "One" },
-        { id: "url:two", title: "Two" },
+        { id: "url-row:legacy-1:url:one", title: "One" },
+        { id: "url-row:legacy-2:url:two", title: "Two" },
       ],
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);

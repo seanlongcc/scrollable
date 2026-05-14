@@ -16,6 +16,7 @@ Allowed:
 - Supabase Auth user identity
 - User profile/preferences
 - User-pasted `http`/`https` URL source links in feed configuration settings, including Reddit post permalinks and subreddit listing URLs
+- User-authored native video time range metadata for URL rows and local file order indexes
 - URL source resolver hints such as `direct-media`, `provider:reddit`, `provider:youtube`, `provider:gallery`, `provider:hitomi`, `provider:yt-dlp`, `metadata`, and `iframe`
 - Saved configuration/workspace share settings, ownership, timestamps
 - Runtime logs/rate-limit records that do not contain third-party media payloads
@@ -25,6 +26,8 @@ Allowed:
 - Opaque SHA-256 hashes of Reddit runtime item IDs that the user explicitly hides from a saved source
 
 Runtime URL feeds resolve source metadata on demand from user-provided links. Resolution may use the pasted URL directly as media, a known provider adapter/embed such as Reddit or YouTube, runtime-only direct gallery image extraction, a Hitomi page iframe because its CDN image URLs require a `hitomi.la` browser referrer, runtime-only `yt-dlp` extraction, runtime-only page metadata, or a static iframe fallback. Gallery image URLs, API keys, runtime request headers, and `yt-dlp` HLS segment query parameters are runtime-only and must not be saved. Local image, video, and audio uploads use browser object URLs for the current session only and are revoked on cleanup.
+
+Video time ranges are saved as start/end seconds only. URL ranges attach to stable user-authored URL rows. Local ranges attach to local file order indexes in saved local layouts. They must not include media URLs, thumbnails, provider payloads, object URLs, file paths, duration probes, or normalized runtime media items.
 
 Saved free-layout templates are source-empty. They may store reusable box geometry and layer metadata, but must not store source configs, pasted third-party URLs, local cache set IDs, runtime media URLs, thumbnails, provider payloads, local object URLs, or normalized runtime items.
 

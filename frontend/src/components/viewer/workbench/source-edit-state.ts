@@ -1,6 +1,7 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import type {
   UrlRuntimeResolution,
+  UrlSourceRow,
   UrlSourceConfig,
 } from "@/lib/url-source/types";
 import { createTimerState } from "@/lib/viewer/timer";
@@ -35,23 +36,33 @@ export function withSessionRuntimeLoading(
 export function buildEditedUrlSourceConfig({
   currentSource,
   urls,
+  urlRows,
   title,
 }: {
   currentSource?: FeedSession;
   urls: string[];
+  urlRows?: UrlSourceRow[];
   title?: string;
 }): UrlSourceConfig {
   const currentConfig =
     currentSource?.sourceConfig.kind === "url"
       ? currentSource.sourceConfig
       : null;
-  const sourceUrls = urls.map((url) => url.trim()).filter(Boolean);
+  const sourceRows = urlRows
+    ?.map((row) => ({ ...row, url: row.url.trim() }))
+    .filter((row) => row.url);
+  const sourceUrls = (
+    sourceRows?.length ? sourceRows.map((row) => row.url) : urls
+  )
+    .map((url) => url.trim())
+    .filter(Boolean);
   const firstUrl = sourceUrls[0] ?? "";
 
   return {
     kind: "url",
     url: firstUrl,
     ...(sourceUrls.length > 1 ? { urls: sourceUrls } : {}),
+    ...(sourceRows?.length ? { urlRows: sourceRows } : {}),
     ...(title?.trim() ? { title: title.trim() } : {}),
     ...(sourceUrls.length === 1 && currentConfig?.resolverHint
       ? { resolverHint: currentConfig.resolverHint }
