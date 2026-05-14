@@ -33,8 +33,7 @@ describe("FeedWorkbench local uploads", () => {
     ]);
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Save layout" }));
-    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    await saveCurrentLayoutAsLayout(user);
     await user.click(screen.getByRole("button", { name: "New layout" }));
 
     expect(screen.queryByAltText("a.png")).not.toBeInTheDocument();
@@ -60,8 +59,7 @@ describe("FeedWorkbench local uploads", () => {
     ]);
     expect(await screen.findByAltText("a.png")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Save layout" }));
-    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    await saveCurrentLayoutAsLayout(user);
     await user.click(screen.getByRole("button", { name: "New layout" }));
     await user.click(screen.getByRole("button", { name: "Close Layout 1" }));
 
@@ -269,8 +267,7 @@ describe("FeedWorkbench local uploads", () => {
     );
     expect(await screen.findByAltText("cached.png")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Save layout" }));
-    await user.click(screen.getByRole("button", { name: "Save as layout" }));
+    await saveCurrentLayoutAsLayout(user);
 
     const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "";
     expect(saveLocalFiles).toHaveBeenCalledWith(
@@ -587,6 +584,18 @@ describe("FeedWorkbench local uploads", () => {
     expect(screen.queryByText("b.mp4")).not.toBeInTheDocument();
   });
 });
+
+async function saveCurrentLayoutAsLayout(
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  await user.click(screen.getByRole("button", { name: "Save layout" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Save layout as",
+  });
+  await user.click(
+    within(dialog).getByRole("button", { name: "Save as layout" }),
+  );
+}
 
 function commitNumberField(label: string, value: string) {
   const input = screen.getByLabelText(label);
