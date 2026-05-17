@@ -70,7 +70,11 @@ export function WorkbenchStage({
   showAllInfo: boolean;
   setMaximizedId: Dispatch<SetStateAction<string | null>>;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
-  rememberVideoPosition: (key: string, seconds: number) => void;
+  rememberVideoPosition: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
   rememberVideoFinished?: (key: string) => void;
   updateSession: (
     id: string,
@@ -290,7 +294,11 @@ function FixedLayerStage({
   ) => void;
   removeSession: (id: string) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
-  rememberVideoPosition: (key: string, seconds: number) => void;
+  rememberVideoPosition: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
   rememberVideoFinished: (key: string) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;
@@ -421,7 +429,11 @@ function FreeLayerStage({
     templateSlotId?: string | null,
   ) => void;
   changeGallery: (itemId: string, direction: 1 | -1) => void;
-  rememberVideoPosition: (key: string, seconds: number) => void;
+  rememberVideoPosition: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
   rememberVideoFinished: (key: string) => void;
   setViewTimerMode: (id: string, mode: TimerMode) => void;
   setViewTimerSeconds: (id: string, value: number) => void;

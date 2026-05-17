@@ -79,6 +79,7 @@ Acceptable stored data:
 - User identity records from Supabase Auth.
 - User profile/preferences needed for the app.
 - Feed configurations, including user-pasted Reddit post permalinks and subreddit listing URLs.
+- User-authored native video time ranges for URL rows and local file order indexes.
 - Viewer workspace/session layout metadata in `viewer_sessions`, including tab names, layout mode, grid dimensions, source configuration metadata, timer settings, slots, and free-layout rectangles.
 - Sharing settings, ownership, timestamps, and audit/security metadata for saved configurations/workspaces.
 - Runtime logs or rate-limit records that do not contain third-party media payloads.

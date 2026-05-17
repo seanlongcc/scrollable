@@ -47,7 +47,11 @@ export function FocusLayout({
   onRestore: () => void;
   onFocus: (id: string) => void;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
-  onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoPositionChange: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
   onVideoEnded?: (key: string) => void;
   onMove: (id: string, direction: 1 | -1) => void;
   onTogglePaused: (id: string) => void;

@@ -98,17 +98,17 @@ export function LargeLocalCacheDialog({
         {storageStatus ? (
           <LocalCacheStatusBlock status={storageStatus} />
         ) : null}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            Skip
           </Button>
           <Button type="button" onClick={onConfirm}>
             <Database />
-            Continue
+            Copy and continue
           </Button>
         </div>
       </DialogContent>

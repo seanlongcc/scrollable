@@ -80,6 +80,7 @@ describe("cloud save state", () => {
     });
     expect(JSON.stringify(portable)).not.toContain('"kind":"local"');
     expect(JSON.stringify(portable)).not.toContain("cache-local-1");
+    expect(JSON.stringify(portable)).not.toContain("videoTimeRanges");
   });
 
   it("measures cloud metadata usage across layouts and templates", () => {
@@ -199,6 +200,9 @@ function freeWorkspaceWithLocalAndUrlSources(): SerializedWorkspace {
           kind: "local",
           fileCount: 2,
           cacheSetId: "cache-local-1",
+          videoTimeRanges: {
+            0: { startSeconds: 10, endSeconds: 30 },
+          },
         },
       },
       {

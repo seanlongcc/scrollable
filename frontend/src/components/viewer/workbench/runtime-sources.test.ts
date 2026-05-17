@@ -173,6 +173,63 @@ describe("fetchRedditRuntimeItems", () => {
       ),
     ).toBe(false);
   });
+
+  it("keeps duplicate URL rows distinct and applies row video ranges", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        resolution: {
+          status: "resolved",
+          mode: "direct-media",
+          hint: "direct-media",
+          title: "Clip",
+          externalUrl: "https://example.com/clip.mp4",
+          items: [
+            {
+              id: "url:clip",
+              source: "url",
+              title: "Clip",
+              isNsfw: false,
+              createdAt: "2026-04-24T00:00:00.000Z",
+              media: [{ type: "video", url: "https://cdn.test/clip.mp4" }],
+            },
+          ],
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchUrlRuntimeItemsForSource({
+      kind: "url",
+      url: "https://example.com/clip.mp4",
+      urls: ["https://example.com/clip.mp4", "https://example.com/clip.mp4"],
+      urlRows: [
+        {
+          id: "row-a",
+          url: "https://example.com/clip.mp4",
+          videoTimeRange: { startSeconds: 10, endSeconds: 30 },
+        },
+        {
+          id: "row-b",
+          url: "https://example.com/clip.mp4",
+          videoTimeRange: { startSeconds: 9015 },
+        },
+      ],
+    });
+
+    expect(result.items.map((item) => item.id)).toEqual([
+      "url-row:row-a:url:clip",
+      "url-row:row-b:url:clip",
+    ]);
+    expect(result.items[0]?.media[0]).toMatchObject({
+      type: "video",
+      videoTimeRange: { startSeconds: 10, endSeconds: 30 },
+    });
+    expect(result.items[1]?.media[0]).toMatchObject({
+      type: "video",
+      videoTimeRange: { startSeconds: 9015 },
+    });
+  });
 });
 
 describe("createRedditSessionSources", () => {

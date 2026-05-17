@@ -3,6 +3,7 @@ import type {
   UrlRuntimeResolution,
   UrlSourceConfig,
 } from "@/lib/url-source/types";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 import {
   DEFAULT_FIXED_GRID,
   createFreeRect,
@@ -43,6 +44,7 @@ export type LocalSourceConfig = {
   kind: "local";
   fileCount: number;
   cacheSetId?: string;
+  videoTimeRanges?: Record<string, VideoTimeRange>;
 };
 
 export type PersistedSourceConfig =

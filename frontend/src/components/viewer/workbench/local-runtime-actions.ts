@@ -1,5 +1,6 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import type { LocalFileReference } from "@/lib/local-uploads/file-cache";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 import {
   canSelectLocalFilesWithHandles,
   canSelectLocalFoldersWithHandles,
@@ -106,7 +107,10 @@ export async function requestLocalCacheAccessAction({
     id: string,
     updater: (session: FeedSession) => FeedSession,
   ) => void;
-  createLocalRuntimeItems: (files: File[]) => RuntimeFeedItem[];
+  createLocalRuntimeItems: (
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) => RuntimeFeedItem[];
   onError: (error: unknown) => void;
 }) {
   const session = sessions.find((candidate) => candidate.id === id);

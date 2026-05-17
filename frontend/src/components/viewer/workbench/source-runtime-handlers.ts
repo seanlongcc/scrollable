@@ -6,6 +6,7 @@ import type {
 } from "react";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { UrlSourceRow } from "@/lib/url-source/types";
 import type {
   LocalFileByteCacheConfirmation,
   LocalFileCacheStorageStatus,
@@ -13,6 +14,7 @@ import type {
 } from "@/lib/local-uploads/file-cache";
 import type { LocalObjectUrlRegistry } from "@/lib/local-uploads/object-urls";
 import { toast } from "@/lib/toast";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 import {
   addPreparedLocalSourceAction,
   addRedditSourceAction,
@@ -37,7 +39,7 @@ import {
   editPreparedRedditSourceAction,
   editUrlSourceAction,
   prepareLocalSourceEditAction,
-  prepareUrlSourceEditAction,
+  prepareUrlRowsSourceEditAction,
   prepareRedditSourceEditAction,
 } from "./source-edit-actions";
 import {
@@ -364,14 +366,28 @@ export function useSourceRuntimeHandlers({
     items: RuntimeFeedItem[],
     cacheSetId?: string,
     files?: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
   ) {
     updateSession(id, (session) =>
-      applyLocalRuntimeItemsToSession({ session, items, cacheSetId, files }),
+      applyLocalRuntimeItemsToSession({
+        session,
+        items,
+        cacheSetId,
+        files,
+        videoTimeRanges,
+      }),
     );
   }
 
-  function createLocalRuntimeItems(files: File[]) {
-    return createLocalRuntimeItemsForWorkbench(files, registryRef);
+  function createLocalRuntimeItems(
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) {
+    return createLocalRuntimeItemsForWorkbench(
+      files,
+      registryRef,
+      videoTimeRanges,
+    );
   }
 
   function addSessions(sources: SessionPlacementSourceInput[]) {
@@ -484,8 +500,12 @@ export function useSourceRuntimeHandlers({
     setEditingSourceId(null);
   }
 
-  async function saveUrlSourceEdit(id: string, url: string, title?: string) {
-    const prepared = prepareUrlSourceEditAction({ urlValue: url });
+  async function saveUrlSourceEdit(
+    id: string,
+    rows: UrlSourceRow[],
+    title?: string,
+  ) {
+    const prepared = prepareUrlRowsSourceEditAction({ rows });
 
     if (prepared.status !== "ready") {
       toast.error(prepared.error);
@@ -496,7 +516,7 @@ export function useSourceRuntimeHandlers({
 
     const result = await editUrlSourceAction({
       currentSource: sessions.find((session) => session.id === id),
-      urls: prepared.urls,
+      rows: prepared.rows,
       title,
     });
 
@@ -512,7 +532,11 @@ export function useSourceRuntimeHandlers({
     setEditingSourceId(null);
   }
 
-  async function saveLocalSourceEdit(id: string, files: File[]) {
+  async function saveLocalSourceEdit(
+    id: string,
+    files: File[],
+    videoTimeRanges?: Record<string, VideoTimeRange>,
+  ) {
     const prepared = prepareLocalSourceEditAction({ files });
 
     if (prepared.status !== "ready") {
@@ -524,6 +548,7 @@ export function useSourceRuntimeHandlers({
       fileReferences: localFileReferencesFromFiles(prepared.files),
       createRuntimeItems: createLocalRuntimeItems,
       cacheFiles: cacheLocalFiles,
+      videoTimeRanges,
     });
 
     if (result.status !== "ready") {
@@ -532,7 +557,13 @@ export function useSourceRuntimeHandlers({
       return;
     }
 
-    applyLocalRuntimeItems(id, result.items, result.cacheSetId, result.files);
+    applyLocalRuntimeItems(
+      id,
+      result.items,
+      result.cacheSetId,
+      result.files,
+      result.videoTimeRanges,
+    );
     setEditingSourceId(null);
   }
 

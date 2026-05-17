@@ -13,7 +13,11 @@ export function InactiveIframeMounts({
   activeLayerId: string;
   galleryIndexes: Record<string, number>;
   videoPositions: Record<string, number>;
-  onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoPositionChange: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
 }) {
   const preservedSessions = sessions.filter(
     (session) =>

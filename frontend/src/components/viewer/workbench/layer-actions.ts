@@ -4,7 +4,7 @@ import type {
   WorkspaceLayer,
   WorkspaceTemplateSlot,
 } from "./types";
-import { deleteActiveLayerState } from "./layer-state";
+import { clearActiveLayerState, deleteActiveLayerState } from "./layer-state";
 
 export type ClearedLayerSelectionState = {
   selectedId: null;
@@ -25,6 +25,9 @@ export type DeleteLayerActionResult = ReturnType<
   nextPendingFixedSlot: null;
   nextPendingTemplateSlotId: null;
 };
+
+export type ClearLayerActionResult = ReturnType<typeof clearActiveLayerState> &
+  ClearedLayerSelectionState;
 
 export function clearedLayerSelectionState(): ClearedLayerSelectionState {
   return {
@@ -97,5 +100,30 @@ export function prepareDeleteActiveLayerState({
     nextMaximizedId: null,
     nextPendingFixedSlot: null,
     nextPendingTemplateSlotId: null,
+  };
+}
+
+export function prepareClearActiveLayerState({
+  activeLayerId,
+  sessions,
+  templateSlots,
+  galleryIndexes,
+  videoPositions,
+}: {
+  activeLayerId: string;
+  sessions: FeedSession[];
+  templateSlots: WorkspaceTemplateSlot[];
+  galleryIndexes: Record<string, number>;
+  videoPositions: Record<string, number>;
+}): ClearLayerActionResult {
+  return {
+    ...clearActiveLayerState({
+      activeLayerId,
+      sessions,
+      templateSlots,
+      galleryIndexes,
+      videoPositions,
+    }),
+    ...clearedLayerSelectionState(),
   };
 }

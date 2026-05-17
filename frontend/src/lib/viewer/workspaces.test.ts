@@ -92,6 +92,9 @@ describe("viewer workspaces", () => {
             kind: "local",
             fileCount: 3,
             cacheSetId: "cache-set-1",
+            videoTimeRanges: {
+              0: { startSeconds: 10, endSeconds: 30 },
+            },
           },
           isOrderRandomized: false,
           isAudioEnabled: false,
@@ -122,6 +125,12 @@ describe("viewer workspaces", () => {
       isAudioEnabled: false,
       finishVideoBeforeAdvance: true,
       randomVideoStart: true,
+      sourceConfig: {
+        kind: "local",
+        videoTimeRanges: {
+          0: { startSeconds: 10, endSeconds: 30 },
+        },
+      },
     });
     expect(JSON.stringify(snapshot)).not.toContain("runtime-local-1");
     expect(JSON.stringify(snapshot)).not.toContain(
@@ -174,6 +183,13 @@ describe("viewer workspaces", () => {
           sourceConfig: {
             kind: "url",
             url: "https://example.com/watch",
+            urlRows: [
+              {
+                id: "row-a",
+                url: "https://example.com/watch",
+                videoTimeRange: { startSeconds: 10, endSeconds: 30 },
+              },
+            ],
             title: "User title",
             resolverHint: "metadata",
           },
@@ -206,6 +222,7 @@ describe("viewer workspaces", () => {
     const encoded = JSON.stringify(snapshot);
 
     expect(encoded).toContain("https://example.com/watch");
+    expect(encoded).toContain('"videoTimeRange":{"startSeconds":10');
     expect(encoded).toContain('"resolverHint":"metadata"');
     expect(encoded).toContain("User title");
     expect(encoded).not.toContain("https://cdn.test/extracted.jpg");

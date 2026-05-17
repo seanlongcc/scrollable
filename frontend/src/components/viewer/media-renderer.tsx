@@ -7,9 +7,18 @@ import {
   appendHlsSegmentQuery,
   chooseVideoPlayback,
   normalizedPlaybackSeconds,
-  randomVideoStartSeconds,
   shouldSeekToPlaybackTime,
 } from "@/lib/viewer/video";
+import {
+  isAtOrAfterVideoRangeEnd,
+  isBeforeVideoRangeStart,
+  playbackStartSecondsForRange,
+  randomVideoStartSecondsWithinRange,
+  videoTimeRangeEndSeconds,
+  videoTimeRangeForDuration,
+  videoTimeRangeKey,
+  videoTimeRangeStartSeconds,
+} from "@/lib/viewer/video-time-range";
 
 type PlaybackRestoreTarget = {
   key: string;
@@ -39,7 +48,7 @@ export function MediaRenderer({
   audioEnabled?: boolean;
   finishVideoBeforeAdvance?: boolean;
   randomVideoStart?: boolean;
-  onVideoTimeChange?: (seconds: number) => void;
+  onVideoTimeChange?: (seconds: number, durationSeconds?: number) => void;
   onVideoEnded?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -47,6 +56,7 @@ export function MediaRenderer({
   const playbackRestoreTargetRef = useRef<PlaybackRestoreTarget | null>(null);
   const restoredVideoKeyRef = useRef<string | null>(null);
   const lastReportedVideoSecondRef = useRef<number | null>(null);
+  const reportedRangeEndKeyRef = useRef<string | null>(null);
   const [hasLoadedPlayback, setHasLoadedPlayback] = useState(false);
   const [failedMediaKey, setFailedMediaKey] = useState<string | null>(null);
   const mediaKey = `${media.type}:${media.url}`;
@@ -57,8 +67,11 @@ export function MediaRenderer({
   const videoUrl = media.url;
   const videoIsHls = isVideo ? media.isHls : undefined;
   const videoHlsSegmentQuery = isVideo ? media.hlsSegmentQuery : undefined;
+  const videoRange = isVideo ? media.videoTimeRange : undefined;
+  const videoRangeKey = isVideo ? videoTimeRangeKey(videoRange) : "full";
+  const hasVideoRangeEnd = videoTimeRangeEndSeconds(videoRange) !== undefined;
   const videoPlaybackKey = isVideo
-    ? `${videoUrl}:${videoIsHls ? "hls" : "native"}:${videoHlsSegmentQuery ?? ""}`
+    ? `${videoUrl}:${videoIsHls ? "hls" : "native"}:${videoHlsSegmentQuery ?? ""}:${videoRangeKey}`
     : null;
   const playbackPositionKey =
     media.type === "video"
@@ -83,7 +96,13 @@ export function MediaRenderer({
 
     playbackRestoreTargetRef.current = {
       key: playbackPositionKey,
-      targetSeconds: normalizedPlaybackSeconds(initialVideoTime),
+      targetSeconds:
+        media.type === "video"
+          ? playbackStartSecondsForRange({
+              currentSeconds: normalizedPlaybackSeconds(initialVideoTime),
+              range: videoRange,
+            })
+          : normalizedPlaybackSeconds(initialVideoTime),
       randomVideoStart: media.type === "video" && randomVideoStart,
     };
     restoredVideoKeyRef.current = null;
@@ -92,7 +111,7 @@ export function MediaRenderer({
     // Live parent time updates must not reset this value, or playback
     // micro-seeks on every report.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [media.type, playbackPositionKey, randomVideoStart]);
+  }, [media.type, playbackPositionKey, randomVideoStart, videoRange]);
 
   useEffect(() => {
     const element =
@@ -114,7 +133,12 @@ export function MediaRenderer({
       if (!force && lastReportedVideoSecondRef.current === seconds) return;
 
       lastReportedVideoSecondRef.current = seconds;
-      handleTimeChange(seconds);
+      handleTimeChange(
+        seconds,
+        media.type === "video"
+          ? finiteDurationSeconds(mediaElement.duration)
+          : undefined,
+      );
     }
 
     function reportPosition() {
@@ -126,12 +150,16 @@ export function MediaRenderer({
     }
 
     mediaElement.addEventListener("timeupdate", reportPosition);
+    mediaElement.addEventListener("loadedmetadata", forceReportPosition);
+    mediaElement.addEventListener("durationchange", forceReportPosition);
     mediaElement.addEventListener("pause", forceReportPosition);
     mediaElement.addEventListener("seeked", forceReportPosition);
 
     return () => {
       forceReportPosition();
       mediaElement.removeEventListener("timeupdate", reportPosition);
+      mediaElement.removeEventListener("loadedmetadata", forceReportPosition);
+      mediaElement.removeEventListener("durationchange", forceReportPosition);
       mediaElement.removeEventListener("pause", forceReportPosition);
       mediaElement.removeEventListener("seeked", forceReportPosition);
     };
@@ -325,8 +353,15 @@ export function MediaRenderer({
         return;
       }
       const targetSeconds = shouldRandomVideoStart
-        ? randomVideoStartSeconds(mediaElement.duration)
-        : savedTargetSeconds;
+        ? randomVideoStartSecondsWithinRange({
+            durationSeconds: mediaElement.duration,
+            range: videoRange,
+          })
+        : playbackStartSecondsForRange({
+            currentSeconds: savedTargetSeconds,
+            range: videoRange,
+            durationSeconds: mediaElement.duration,
+          });
       if (targetSeconds <= 0) {
         restoredVideoKeyRef.current = restoreKey;
         lastReportedVideoSecondRef.current = 0;
@@ -366,7 +401,123 @@ export function MediaRenderer({
     playbackPositionKey,
     randomVideoStart,
     shouldLoadPlayback,
+    videoRange,
   ]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (
+      !video ||
+      media.type !== "video" ||
+      !shouldLoadPlayback ||
+      hasLoadError ||
+      !videoRange
+    ) {
+      return;
+    }
+    const videoElement = video;
+    const rangeEndKey = `${videoPlaybackKey}:${videoRangeKey}`;
+
+    function enforceVideoRange() {
+      const effectiveRange = videoTimeRangeForDuration({
+        range: videoRange,
+        durationSeconds: videoElement.duration,
+      });
+
+      if (!effectiveRange) {
+        if (
+          Number.isFinite(videoElement.duration) &&
+          videoElement.duration > 0 &&
+          videoElement.currentTime >= videoElement.duration
+        ) {
+          videoElement.currentTime = 0;
+        }
+        reportedRangeEndKeyRef.current = null;
+        return;
+      }
+
+      if (
+        isBeforeVideoRangeStart({
+          currentSeconds: videoElement.currentTime,
+          range: effectiveRange,
+        })
+      ) {
+        videoElement.currentTime = videoTimeRangeStartSeconds(effectiveRange);
+        return;
+      }
+
+      if (
+        !isAtOrAfterVideoRangeEnd({
+          currentSeconds: videoElement.currentTime,
+          range: effectiveRange,
+        })
+      ) {
+        reportedRangeEndKeyRef.current = null;
+        return;
+      }
+
+      if (finishVideoBeforeAdvance) {
+        if (reportedRangeEndKeyRef.current !== rangeEndKey) {
+          reportedRangeEndKeyRef.current = rangeEndKey;
+          onVideoEnded?.();
+        }
+        return;
+      }
+
+      reportedRangeEndKeyRef.current = null;
+      videoElement.currentTime = videoTimeRangeStartSeconds(effectiveRange);
+      if (shouldPlay) requestMediaPlayback(videoElement);
+    }
+
+    enforceVideoRange();
+    videoElement.addEventListener("loadedmetadata", enforceVideoRange);
+    videoElement.addEventListener("timeupdate", enforceVideoRange);
+    videoElement.addEventListener("seeked", enforceVideoRange);
+
+    return () => {
+      videoElement.removeEventListener("loadedmetadata", enforceVideoRange);
+      videoElement.removeEventListener("timeupdate", enforceVideoRange);
+      videoElement.removeEventListener("seeked", enforceVideoRange);
+    };
+  }, [
+    finishVideoBeforeAdvance,
+    hasLoadError,
+    media.type,
+    onVideoEnded,
+    shouldLoadPlayback,
+    shouldPlay,
+    videoPlaybackKey,
+    videoRange,
+    videoRangeKey,
+  ]);
+
+  function handleVideoElementEnded() {
+    if (media.type !== "video" || !videoRange || finishVideoBeforeAdvance) {
+      onVideoEnded?.();
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) {
+      onVideoEnded?.();
+      return;
+    }
+
+    const effectiveRange = videoTimeRangeForDuration({
+      range: videoRange,
+      durationSeconds: video.duration,
+    });
+    const shouldLoopFromRange =
+      effectiveRange || videoTimeRangeEndSeconds(videoRange) !== undefined;
+
+    if (!shouldLoopFromRange) {
+      onVideoEnded?.();
+      return;
+    }
+
+    video.currentTime = videoTimeRangeStartSeconds(effectiveRange);
+    if (shouldPlay) requestMediaPlayback(video);
+  }
 
   function handleMediaError() {
     setFailedMediaKey(mediaKey);
@@ -435,8 +586,8 @@ export function MediaRenderer({
       playsInline
       muted={!audioEnabled}
       preload={shouldLoadPlayback ? "auto" : "metadata"}
-      loop={!finishVideoBeforeAdvance}
-      onEnded={onVideoEnded}
+      loop={!finishVideoBeforeAdvance && !hasVideoRangeEnd}
+      onEnded={handleVideoElementEnded}
       onLoadedMetadata={markPlaybackLoaded}
       onCanPlay={markPlaybackLoaded}
       onPlay={markPlaybackLoaded}
@@ -462,6 +613,12 @@ function requestMediaPlayback(element: HTMLMediaElement) {
   } catch {
     // Autoplay can be rejected by browser policy; controls stay available.
   }
+}
+
+function finiteDurationSeconds(durationSeconds: number) {
+  return Number.isFinite(durationSeconds) && durationSeconds > 0
+    ? durationSeconds
+    : undefined;
 }
 
 function unloadVideo(video: HTMLVideoElement) {

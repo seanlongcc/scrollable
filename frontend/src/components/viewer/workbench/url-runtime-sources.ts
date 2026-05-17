@@ -2,6 +2,7 @@ import type { RuntimeFeedItem } from "@/lib/feed/types";
 import type {
   UrlResolverHint,
   UrlRuntimeResolution,
+  UrlSourceRow,
   UrlSourceConfig,
 } from "@/lib/url-source/types";
 import { isRedditUrl } from "@/lib/url-source/resolver-routing";
@@ -81,11 +82,11 @@ export async function fetchUrlRuntimeItemsForSource(
   sourceConfig: UrlSourceConfig,
   redditCache?: RedditRuntimePostCache,
 ) {
-  const sourceUrls = urlSourceUrls(sourceConfig);
-  if (sourceUrls.length > 1) {
+  const sourceRows = urlSourceRows(sourceConfig);
+  if (sourceConfig.urlRows?.length || sourceRows.length > 1) {
     return fetchStackedUrlRuntimeItemsForSource(
       sourceConfig,
-      sourceUrls,
+      sourceRows,
       redditCache,
     );
   }
@@ -95,15 +96,34 @@ export async function fetchUrlRuntimeItemsForSource(
 
 async function fetchStackedUrlRuntimeItemsForSource(
   sourceConfig: UrlSourceConfig,
-  urls: string[],
+  rows: UrlSourceRow[],
   redditCache?: RedditRuntimePostCache,
 ) {
   const results = await Promise.all(
-    urls.map((url) =>
-      fetchSingleUrlRuntimeItemsForSource({ kind: "url", url }, redditCache),
-    ),
+    rows.map(async (row) => {
+      const result = await fetchSingleUrlRuntimeItemsForSource(
+        {
+          kind: "url",
+          url: row.url,
+          ...(rows.length === 1 && sourceConfig.resolverHint
+            ? { resolverHint: sourceConfig.resolverHint }
+            : {}),
+        },
+        redditCache,
+      );
+
+      return {
+        ...result,
+        items: applyUrlRowRuntimeMetadata(result.items, row),
+        allItems: applyUrlRowRuntimeMetadata(
+          result.allItems ?? result.items,
+          row,
+        ),
+      };
+    }),
   );
   const items = results.flatMap((result) => result.items);
+  const urls = rows.map((row) => row.url);
   const title =
     sourceConfig.title ??
     (urls.length === 1 ? results[0]?.title : `${urls.length} URL sources`) ??
@@ -113,12 +133,19 @@ async function fetchStackedUrlRuntimeItemsForSource(
     title,
     items,
     allItems: items,
-    urlResolution: undefined as UrlRuntimeResolution | undefined,
+    urlResolution:
+      rows.length === 1
+        ? results[0]?.urlResolution
+        : (undefined as UrlRuntimeResolution | undefined),
     sourceConfig: {
       kind: "url",
       url: urls[0]!,
       urls,
+      ...(sourceConfig.urlRows?.length ? { urlRows: rows } : {}),
       ...(sourceConfig.title ? { title: sourceConfig.title } : {}),
+      ...(rows.length === 1 && results[0]?.sourceConfig.resolverHint
+        ? { resolverHint: results[0].sourceConfig.resolverHint }
+        : {}),
     } satisfies UrlSourceConfig,
   };
 }
@@ -216,6 +243,30 @@ async function fetchRedditUrlRuntimeItemsForSource(
 
 function urlSourceUrls(sourceConfig: UrlSourceConfig) {
   return sourceConfig.urls?.length ? sourceConfig.urls : [sourceConfig.url];
+}
+
+function urlSourceRows(sourceConfig: UrlSourceConfig): UrlSourceRow[] {
+  if (sourceConfig.urlRows?.length) return sourceConfig.urlRows;
+
+  return urlSourceUrls(sourceConfig).map((url, index) => ({
+    id: `legacy-${index + 1}`,
+    url,
+  }));
+}
+
+function applyUrlRowRuntimeMetadata(
+  items: RuntimeFeedItem[],
+  row: UrlSourceRow,
+): RuntimeFeedItem[] {
+  return items.map((item) => ({
+    ...item,
+    id: `url-row:${row.id}:${item.id}`,
+    media: item.media.map((media) =>
+      media.type === "video" && row.videoTimeRange
+        ? { ...media, videoTimeRange: row.videoTimeRange }
+        : media,
+    ),
+  }));
 }
 
 function isBrowserResolvedRedditUrl(value: string) {

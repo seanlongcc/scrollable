@@ -153,7 +153,7 @@ describe("FeedWorkbench local cache storage", () => {
       screen.getByText("Local cache: 1.0 GB / 10 GB used"),
     ).toBeInTheDocument();
     expect(screen.getByText("9.0 GB free")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Copy and continue" }));
 
     expect(await screen.findByLabelText("large.mp4")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save layout" }));
@@ -205,7 +205,7 @@ describe("FeedWorkbench local cache storage", () => {
         "This will copy about 1.2 GB into browser storage for auto-restore. Continue?",
       ),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Skip" }));
 
     expect(await screen.findByLabelText("large.mp4")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save layout" }));

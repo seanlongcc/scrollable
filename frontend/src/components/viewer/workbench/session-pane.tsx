@@ -58,7 +58,11 @@ export function SessionPane({
   isPlaybackActive?: boolean;
   isRuntimeLoading?: boolean;
   onGalleryChange: (itemId: string, direction: 1 | -1) => void;
-  onVideoPositionChange: (key: string, seconds: number) => void;
+  onVideoPositionChange: (
+    key: string,
+    seconds: number,
+    durationSeconds?: number,
+  ) => void;
   onVideoEnded?: (key: string) => void;
   onMove: (direction: 1 | -1) => void;
   onTogglePaused: () => void;

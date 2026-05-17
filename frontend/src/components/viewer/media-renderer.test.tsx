@@ -159,7 +159,28 @@ describe("MediaRenderer", () => {
     }
     unmount();
 
-    expect(onVideoTimeChange).toHaveBeenLastCalledWith(11);
+    expect(onVideoTimeChange).toHaveBeenLastCalledWith(11, undefined);
+  });
+
+  it("reports loaded video duration with playback position", () => {
+    const onVideoTimeChange = vi.fn();
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "video", url: "https://cdn.test/video.mp4" }}
+        title="Runtime video"
+        onVideoTimeChange={onVideoTimeChange}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 360,
+    });
+
+    fireEvent.loadedMetadata(video!);
+
+    expect(onVideoTimeChange).toHaveBeenLastCalledWith(0, 360);
   });
 
   it("starts videos from a random section instead of restoring saved position", () => {
@@ -182,6 +203,126 @@ describe("MediaRenderer", () => {
     fireEvent.loadedMetadata(video!);
 
     expect(video?.currentTime).toBe(42);
+  });
+
+  it("starts and loops native video inside its selected time range", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url: "https://cdn.test/video.mp4",
+          videoTimeRange: { startSeconds: 10, endSeconds: 12 },
+        }}
+        title="Runtime video"
+      />,
+    );
+
+    const video = container.querySelector("video");
+    fireEvent.loadedMetadata(video!);
+
+    expect(video?.currentTime).toBe(10);
+
+    video!.currentTime = 12;
+    fireEvent.timeUpdate(video!);
+
+    expect(video?.currentTime).toBe(10);
+  });
+
+  it("falls back to the natural start when selected start exceeds video duration", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url: "https://cdn.test/video.mp4",
+          videoTimeRange: { startSeconds: 120 },
+        }}
+        title="Runtime video"
+      />,
+    );
+
+    const video = container.querySelector("video");
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 30,
+    });
+
+    fireEvent.loadedMetadata(video!);
+
+    expect(video?.currentTime).toBe(0);
+  });
+
+  it("does not pin playback to zero after an impossible selected start is ignored", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url: "https://cdn.test/video.mp4",
+          videoTimeRange: { startSeconds: 120 },
+        }}
+        title="Runtime video"
+      />,
+    );
+
+    const video = container.querySelector("video");
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 30,
+    });
+    fireEvent.loadedMetadata(video!);
+
+    video!.currentTime = 1;
+    fireEvent.timeUpdate(video!);
+
+    expect(video?.currentTime).toBe(1);
+  });
+
+  it("loops at the natural end when selected range end exceeds video duration", () => {
+    const onVideoEnded = vi.fn();
+    const { container } = render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url: "https://cdn.test/video.mp4",
+          videoTimeRange: { startSeconds: 10, endSeconds: 120 },
+        }}
+        title="Runtime video"
+        onVideoEnded={onVideoEnded}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 30,
+    });
+    fireEvent.loadedMetadata(video!);
+    video!.currentTime = 30;
+    fireEvent.ended(video!);
+
+    expect(video?.currentTime).toBe(10);
+    expect(onVideoEnded).not.toHaveBeenCalled();
+  });
+
+  it("treats the selected range end as ended when finish-video advancement is enabled", () => {
+    const onVideoEnded = vi.fn();
+    const { container } = render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url: "https://cdn.test/video.mp4",
+          videoTimeRange: { startSeconds: 10, endSeconds: 12 },
+        }}
+        title="Runtime video"
+        finishVideoBeforeAdvance
+        onVideoEnded={onVideoEnded}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    video!.currentTime = 12;
+    fireEvent.timeUpdate(video!);
+
+    expect(onVideoEnded).toHaveBeenCalledOnce();
   });
 
   it("uses saved video position when random start is disabled", () => {
@@ -256,8 +397,8 @@ describe("MediaRenderer", () => {
     fireEvent.timeUpdate(video!);
 
     expect(onVideoTimeChange).toHaveBeenCalledTimes(2);
-    expect(onVideoTimeChange).toHaveBeenNthCalledWith(1, 3);
-    expect(onVideoTimeChange).toHaveBeenNthCalledWith(2, 4);
+    expect(onVideoTimeChange).toHaveBeenNthCalledWith(1, 3, undefined);
+    expect(onVideoTimeChange).toHaveBeenNthCalledWith(2, 4, undefined);
   });
 
   it("reports video time before browser unload resets the element", () => {
@@ -284,7 +425,7 @@ describe("MediaRenderer", () => {
     }
     unmount();
 
-    expect(onVideoTimeChange).toHaveBeenLastCalledWith(42);
+    expect(onVideoTimeChange).toHaveBeenLastCalledWith(42, undefined);
   });
 
   it("restores and reports audio playback position", () => {
@@ -306,7 +447,7 @@ describe("MediaRenderer", () => {
     }
     unmount();
 
-    expect(onVideoTimeChange).toHaveBeenLastCalledWith(11);
+    expect(onVideoTimeChange).toHaveBeenLastCalledWith(11, undefined);
   });
 
   it("adds signed HLS params to segment requests", async () => {

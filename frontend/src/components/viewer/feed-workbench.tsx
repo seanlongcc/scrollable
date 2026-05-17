@@ -46,6 +46,7 @@ import { useSharedViewerUrlActions } from "./workbench/shared-viewer-url-actions
 import { useOpenWorkspaceStats } from "./workbench/feed-workbench-open-workspace-stats";
 import {
   activeLayerFreeRects as deriveActiveLayerFreeRects,
+  activeLayerHasLayoutContent,
   availableSeparateSourceSlots as deriveAvailableSeparateSourceSlots,
   deriveLayerStats,
   selectedActiveLayerSession,
@@ -133,6 +134,9 @@ export function FeedWorkbench({
     {},
   );
   const [videoPositions, setVideoPositions] = useState<Record<string, number>>(
+    {},
+  );
+  const [videoDurations, setVideoDurations] = useState<Record<string, number>>(
     {},
   );
   const [finishedVideoKeys, setFinishedVideoKeys] = useState<
@@ -268,7 +272,11 @@ export function FeedWorkbench({
     account.status === "signed-in" ? "Account" : "Sign in";
   const accountButtonTitle =
     account.status === "signed-in" ? account.email : accountButtonLabel;
-  const isClearDisabled = sessions.length === 0 && templateSlots.length === 0;
+  const isClearDisabled = !activeLayerHasLayoutContent({
+    sessions,
+    templateSlots,
+    activeLayerId,
+  });
   const layerStats = useMemo(
     () => deriveLayerStats({ layers, sessions }),
     [layers, sessions],
@@ -289,12 +297,21 @@ export function FeedWorkbench({
     hasLocalSources: currentLayoutHasLocalSources,
     isTemplate: layoutMode === "free" && saveKind === "template",
   });
-  const rememberVideoPosition = useCallback((key: string, seconds: number) => {
-    setVideoPositions((current) => {
-      if (current[key] === seconds) return current;
-      return { ...current, [key]: seconds };
-    });
-  }, []);
+  const rememberVideoPosition = useCallback(
+    (key: string, seconds: number, durationSeconds?: number) => {
+      setVideoPositions((current) => {
+        if (current[key] === seconds) return current;
+        return { ...current, [key]: seconds };
+      });
+      if (durationSeconds !== undefined) {
+        setVideoDurations((current) => {
+          if (current[key] === durationSeconds) return current;
+          return { ...current, [key]: durationSeconds };
+        });
+      }
+    },
+    [],
+  );
   const rememberVideoFinished = useCallback((key: string) => {
     setFinishedVideoKeys((current) =>
       current[key] ? current : { ...current, [key]: true },
@@ -868,6 +885,7 @@ export function FeedWorkbench({
     uploadWorkspaceToCloud,
     urlTitle,
     urlValue,
+    videoDurations,
     videoPositions,
     visibleFixedCells,
     workspaceName,

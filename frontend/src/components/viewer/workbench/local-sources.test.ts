@@ -2,15 +2,51 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import {
+  createLocalRuntimeItems,
   createLocalSessionSources,
   localFileReferencesFromFiles,
 } from "./local-sources";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("createLocalSessionSources", () => {
+  it("applies per-file video ranges to local runtime video items", () => {
+    vi.stubGlobal("URL", {
+      createObjectURL: vi
+        .fn()
+        .mockReturnValueOnce("blob:video")
+        .mockReturnValueOnce("blob:image"),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.stubGlobal("crypto", {
+      randomUUID: vi
+        .fn()
+        .mockReturnValueOnce("video")
+        .mockReturnValueOnce("image"),
+    });
+    const files = [
+      new File(["video"], "clip.mp4", { type: "video/mp4" }),
+      new File(["image"], "still.png", { type: "image/png" }),
+    ];
+
+    const items = createLocalRuntimeItems(
+      files,
+      { current: null },
+      {
+        0: { startSeconds: 10, endSeconds: 30 },
+      },
+    );
+
+    expect(items[0]?.media[0]).toMatchObject({
+      type: "video",
+      videoTimeRange: { startSeconds: 10, endSeconds: 30 },
+    });
+    expect(items[1]?.media[0]).not.toHaveProperty("videoTimeRange");
+  });
+
   it("randomizes grouped local source item order", async () => {
     vi.spyOn(Math, "random").mockReturnValueOnce(0.1).mockReturnValueOnce(0.1);
     const files = ["first", "second", "third"].map(

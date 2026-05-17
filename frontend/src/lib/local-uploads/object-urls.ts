@@ -1,4 +1,5 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { VideoTimeRange } from "@/lib/viewer/video-time-range";
 
 function mediaTypeForFile(file: File) {
   if (file.type.startsWith("video/")) return "video";
@@ -9,9 +10,10 @@ function mediaTypeForFile(file: File) {
 export class LocalObjectUrlRegistry {
   private urls = new Set<string>();
 
-  add(file: File): RuntimeFeedItem {
+  add(file: File, videoTimeRange?: VideoTimeRange): RuntimeFeedItem {
     const url = URL.createObjectURL(file);
     this.urls.add(url);
+    const mediaType = mediaTypeForFile(file);
 
     return {
       id: `local:${crypto.randomUUID()}`,
@@ -21,8 +23,11 @@ export class LocalObjectUrlRegistry {
       createdAt: new Date().toISOString(),
       media: [
         {
-          type: mediaTypeForFile(file),
+          type: mediaType,
           url,
+          ...(mediaType === "video" && videoTimeRange
+            ? { videoTimeRange }
+            : {}),
         },
       ],
     };
