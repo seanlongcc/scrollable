@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe("fetchRedditRuntimeItems", () => {
-  it("fetches Reddit listing media directly from Reddit", async () => {
+  it("fetches Reddit listing media through the app API", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -39,25 +39,7 @@ describe("fetchRedditRuntimeItems", () => {
         };
       }
 
-      return {
-        ok: true,
-        json: async () => ({
-          kind: "Listing",
-          data: {
-            children: [
-              {
-                data: {
-                  id: "direct",
-                  title: "Direct Reddit item",
-                  subreddit: "pics",
-                  post_hint: "image",
-                  url: "https://cdn.test/direct.jpg",
-                },
-              },
-            ],
-          },
-        }),
-      };
+      throw new Error(`Unexpected fetch: ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -68,23 +50,23 @@ describe("fetchRedditRuntimeItems", () => {
 
     expect(items).toMatchObject([
       {
-        id: "reddit:direct",
-        title: "Direct Reddit item",
-        media: [{ url: "https://cdn.test/direct.jpg" }],
+        id: "reddit:api",
+        title: "API item",
+        media: [{ url: "https://cdn.test/api.jpg" }],
       },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=24",
+      "/api/reddit/listing?urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fpics%2Ftop%2F%3Ft%3Dweek&allowNsfw=true&limit=24",
       { cache: "no-store" },
     );
     expect(
       fetchMock.mock.calls.some(([input]) =>
-        String(input).startsWith("/api/reddit/listing"),
+        String(input).startsWith("https://www.reddit.com"),
       ),
     ).toBe(false);
   });
 
-  it("resolves Reddit URL sources directly from Reddit", async () => {
+  it("resolves Reddit URL sources through the app API", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -107,27 +89,7 @@ describe("fetchRedditRuntimeItems", () => {
         };
       }
 
-      return {
-        ok: true,
-        json: async () => [
-          {
-            kind: "Listing",
-            data: {
-              children: [
-                {
-                  data: {
-                    id: "direct-url",
-                    title: "Direct URL item",
-                    subreddit: "pics",
-                    post_hint: "image",
-                    url: "https://cdn.test/direct-url.jpg",
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      };
+      throw new Error(`Unexpected fetch: ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -140,9 +102,9 @@ describe("fetchRedditRuntimeItems", () => {
       title: "r/pics",
       items: [
         {
-          id: "reddit:direct-url",
-          title: "Direct URL item",
-          media: [{ url: "https://cdn.test/direct-url.jpg" }],
+          id: "reddit:api-url",
+          title: "API URL item",
+          media: [{ url: "https://cdn.test/api-url.jpg" }],
         },
       ],
       urlResolution: {
@@ -159,12 +121,12 @@ describe("fetchRedditRuntimeItems", () => {
       },
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/pics/comments/abc123/title/.json?raw_json=1",
+      "/api/reddit/listing?urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fpics%2Fcomments%2Fabc123%2Ftitle%2F&allowNsfw=true&limit=20",
       { cache: "no-store" },
     );
     expect(
       fetchMock.mock.calls.some(([input]) =>
-        String(input).startsWith("/api/reddit/listing"),
+        String(input).startsWith("https://www.reddit.com"),
       ),
     ).toBe(false);
     expect(
@@ -236,24 +198,19 @@ describe("createRedditSessionSources", () => {
   it("reuses one Reddit fetch for duplicate separate post sources", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
-      json: async () => [
-        {
-          kind: "Listing",
-          data: {
-            children: [
-              {
-                data: {
-                  id: "duplicate",
-                  title: "Duplicate post",
-                  subreddit: "pics",
-                  post_hint: "image",
-                  url: "https://cdn.test/duplicate.jpg",
-                },
-              },
-            ],
+      json: async () => ({
+        items: [
+          {
+            id: "reddit:duplicate",
+            source: "reddit",
+            title: "Duplicate post",
+            subreddit: "pics",
+            isNsfw: false,
+            createdAt: "2026-04-24T00:00:00.000Z",
+            media: [{ type: "image", url: "https://cdn.test/duplicate.jpg" }],
           },
-        },
-      ],
+        ],
+      }),
     }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -275,7 +232,7 @@ describe("createRedditSessionSources", () => {
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/pics/comments/abc123/title/.json?raw_json=1",
+      "/api/reddit/listing?urls=https%3A%2F%2Fwww.reddit.com%2Fr%2Fpics%2Fcomments%2Fabc123%2Ftitle%2F&allowNsfw=true&limit=10",
       { cache: "no-store" },
     );
   });
@@ -284,18 +241,15 @@ describe("createRedditSessionSources", () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
-        kind: "Listing",
-        data: {
-          children: ["first", "second", "third"].map((id) => ({
-            data: {
-              id,
-              title: id,
-              subreddit: "pics",
-              post_hint: "image",
-              url: `https://cdn.test/${id}.jpg`,
-            },
-          })),
-        },
+        items: ["first", "second", "third"].map((id) => ({
+          id: `reddit:${id}`,
+          source: "reddit",
+          title: id,
+          subreddit: "pics",
+          isNsfw: false,
+          createdAt: "2026-04-24T00:00:00.000Z",
+          media: [{ type: "image", url: `https://cdn.test/${id}.jpg` }],
+        })),
       }),
     }));
     vi.stubGlobal("fetch", fetchMock);

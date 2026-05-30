@@ -1,8 +1,12 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
-import { fetchPublicRedditRuntimePostLinks } from "@/lib/reddit/public-client";
 import { parseRedditPostLinksInput } from "@/lib/reddit/source";
 
 export type RedditRuntimePostCache = Map<string, Promise<RuntimeFeedItem[]>>;
+
+type RedditListingApiPayload = {
+  items?: RuntimeFeedItem[];
+  error?: string;
+};
 
 export function createRedditRuntimePostCache(): RedditRuntimePostCache {
   return new Map();
@@ -58,14 +62,44 @@ async function fetchSingleRedditRuntimePostItems({
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const request = fetchPublicRedditRuntimePostLinks({
-    urls: canonicalUrl,
+  const request = fetchRedditRuntimePostItemsFromApi({
+    url: canonicalUrl,
     allowNsfw: parsed.allowNsfw,
     limit: parsed.limit,
-  }).then((result) => result.items);
+  });
   cache.set(cacheKey, request);
 
   return request;
+}
+
+async function fetchRedditRuntimePostItemsFromApi({
+  url,
+  allowNsfw,
+  limit,
+}: {
+  url: string;
+  allowNsfw: boolean;
+  limit: number;
+}) {
+  const params = new URLSearchParams({
+    urls: url,
+    allowNsfw: String(allowNsfw),
+    limit: String(limit),
+  });
+  const response = await fetch(`/api/reddit/listing?${params}`, {
+    cache: "no-store",
+  });
+  const payload = (await response.json()) as RedditListingApiPayload;
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? "reddit_source_fetch_failed");
+  }
+
+  if (!Array.isArray(payload.items)) {
+    throw new Error("reddit_source_fetch_failed");
+  }
+
+  return payload.items;
 }
 
 function cloneRuntimeItems(items: RuntimeFeedItem[]) {

@@ -1,15 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { extractYtDlpRuntimeItems } from "@/lib/url-source/ytdlp";
 import {
   fetchRedditRuntimePostLinks,
   parseRedditPostLinksInput,
 } from "./client";
 
+vi.mock("@/lib/url-source/ytdlp", () => ({
+  extractYtDlpRuntimeItems: vi.fn(async () => []),
+}));
+
 const originalRedditClientId = process.env.REDDIT_CLIENT_ID;
 const originalRedditClientSecret = process.env.REDDIT_CLIENT_SECRET;
+const extractYtDlpRuntimeItemsMock = vi.mocked(extractYtDlpRuntimeItems);
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  extractYtDlpRuntimeItemsMock.mockReset();
+  extractYtDlpRuntimeItemsMock.mockResolvedValue([]);
   if (originalRedditClientId === undefined) {
     delete process.env.REDDIT_CLIENT_ID;
   } else {
@@ -264,6 +272,337 @@ describe("fetchRedditRuntimePostLinks", () => {
       expect.any(Object),
     );
     expect(result.items.map((item) => item.id)).toEqual(["reddit:fallback"]);
+  });
+
+  it("falls back to Reddit RSS when public JSON endpoints are forbidden", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/poster</name></author>
+              <category term="pics" label="r/pics"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://i.redd.it/rss-image.jpg&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <link href="https://www.reddit.com/r/pics/comments/rss123/rss_image/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS image</title>
+            </entry>
+          </feed>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/pics/top/?t=week",
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "https://www.reddit.com/r/pics/top/.rss?t=week&limit=10",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:rss123",
+        title: "RSS image",
+        subreddit: "pics",
+        author: "poster",
+        media: [{ type: "image", url: "https://i.redd.it/rss-image.jpg" }],
+      },
+    ]);
+  });
+
+  it("resolves Reddit RSS gallery links through old Reddit gallery HTML", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/gallery-poster</name></author>
+              <category term="pics" label="r/pics"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://www.reddit.com/gallery/gallery123&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <id>t3_gallery123</id>
+              <link href="https://www.reddit.com/r/pics/comments/gallery123/gallery_title/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS gallery</title>
+            </entry>
+          </feed>
+        `,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <div class="media-preview" data-media-ids="first,second">
+            <div class="gallery-preview" id="gallery-preview-gallery123-first">
+              <a class="may-blank gallery-item-thumbnail-link" data-position="1" href="https://preview.redd.it/first.jpg?width=960&amp;format=pjpg&amp;auto=webp&amp;s=one">
+                <img class="preview" src="https://preview.redd.it/first.jpg?width=320&amp;crop=smart&amp;auto=webp&amp;s=thumb-one" width="576" height="768">
+              </a>
+            </div>
+            <div class="gallery-preview" id="gallery-preview-gallery123-second">
+              <a class="may-blank gallery-item-thumbnail-link" data-position="2" href="https://preview.redd.it/second.jpg?width=960&amp;format=pjpg&amp;auto=webp&amp;s=two">
+                <img class="preview" src="https://preview.redd.it/second.jpg?width=320&amp;crop=smart&amp;auto=webp&amp;s=thumb-two" width="640" height="480">
+              </a>
+            </div>
+          </div>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/pics/top/?t=week",
+      allowNsfw: true,
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          Cookie: "over18=1",
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:gallery123",
+        title: "RSS gallery",
+        subreddit: "pics",
+        author: "gallery-poster",
+        media: [
+          {
+            type: "image",
+            url: "https://preview.redd.it/first.jpg?width=960&format=pjpg&auto=webp&s=one",
+            width: 576,
+            height: 768,
+            galleryIndex: 0,
+          },
+          {
+            type: "image",
+            url: "https://preview.redd.it/second.jpg?width=960&format=pjpg&auto=webp&s=two",
+            width: 640,
+            height: 480,
+            galleryIndex: 1,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("resolves Reddit RSS video links through the media embed endpoint", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/poster</name></author>
+              <category term="discordVideos" label="r/discordVideos"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://v.redd.it/videoabc&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <id>t3_video123</id>
+              <link href="https://www.reddit.com/r/discordVideos/comments/video123/video_title/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS video</title>
+            </entry>
+          </feed>
+        `,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <div
+            id="video-video123"
+            data-hls-url="https://v.redd.it/videoabc/HLSPlaylist.m3u8?a=signed&amp;v=1&amp;f=sd"
+            data-video-width="486"
+            data-video-height="864"
+          ></div>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/discordVideos/top/?t=week",
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "https://www.redditmedia.com/mediaembed/video123",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:video123",
+        title: "RSS video",
+        subreddit: "discordVideos",
+        author: "poster",
+        media: [
+          {
+            type: "video",
+            url: "https://v.redd.it/videoabc/HLSPlaylist.m3u8?a=signed&v=1&f=sd",
+            width: 486,
+            height: 864,
+            isHls: true,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("resolves Reddit RSS external video links through yt-dlp", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    extractYtDlpRuntimeItemsMock.mockResolvedValueOnce([
+      {
+        id: "url:ytdlp:redgifs",
+        source: "url",
+        title: "Redgifs video",
+        isNsfw: true,
+        createdAt: "2026-05-30T17:41:27.000Z",
+        media: [
+          {
+            type: "video",
+            url: "https://media.redgifs.com/ShabbyAllLongspur.mp4",
+            width: 852,
+            height: 480,
+          },
+        ],
+      },
+    ]);
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/poster</name></author>
+              <category term="kpopfap" label="r/kpopfap"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://www.redgifs.com/watch/shabbyalllongspur&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <id>t3_nsfwvideo</id>
+              <link href="https://www.reddit.com/r/kpopfap/comments/nsfwvideo/video_title/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS external video</title>
+            </entry>
+          </feed>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/kpopfap/top/?t=week",
+      allowNsfw: true,
+      limit: 10,
+    });
+
+    expect(extractYtDlpRuntimeItemsMock).toHaveBeenCalledWith(
+      "https://www.redgifs.com/watch/shabbyalllongspur",
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:nsfwvideo",
+        title: "RSS external video",
+        subreddit: "kpopfap",
+        author: "poster",
+        media: [
+          {
+            type: "video",
+            url: "https://media.redgifs.com/ShabbyAllLongspur.mp4",
+            width: 852,
+            height: 480,
+          },
+        ],
+      },
+    ]);
   });
 
   it("fetches subreddit listings and returns the requested number of usable media posts after skips", async () => {
