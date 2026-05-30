@@ -4,6 +4,10 @@ import { extractYtDlpRuntimeItems } from "@/lib/url-source/ytdlp";
 import { fetchRedditMediaEmbed, isRedditHostedVideoUrl } from "./mediaembed";
 import { normalizeRedditListing } from "./normalization";
 import {
+  fetchOldRedditGalleryMedia,
+  isRedditGalleryUrl,
+} from "./oldreddit-gallery";
+import {
   normalizeRedditAtomFeed,
   type RedditRssMediaResolverInput,
 } from "./rss";
@@ -145,6 +149,8 @@ async function normalizeRedditResponse(
 }
 
 async function resolveRedditRssMedia({
+  allowNsfw,
+  permalink,
   postId,
   url,
 }: RedditRssMediaResolverInput): Promise<RuntimeMedia[]> {
@@ -154,6 +160,15 @@ async function resolveRedditRssMedia({
     });
 
     return media ? [media] : [];
+  }
+
+  if (postId && isRedditGalleryUrl(url)) {
+    return fetchOldRedditGalleryMedia({
+      allowNsfw,
+      permalink,
+      postId,
+      userAgent: getRedditUserAgent(),
+    });
   }
 
   if (isRedditUrl(url)) return [];

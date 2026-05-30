@@ -18,6 +18,7 @@ export type RedditRssMediaResolverInput = {
   url: string;
   postId: string | null;
   permalink: string | null;
+  allowNsfw?: boolean;
 };
 
 const IMAGE_EXTENSIONS = new Set([
@@ -50,6 +51,7 @@ export async function normalizeRedditAtomFeed(
     const permalink = entryPermalink(entryXml);
     const id = redditPostId(entryXml, permalink);
     const media = await mediaFromEntry(entryXml, {
+      allowNsfw: options.allowNsfw,
       permalink,
       postId: id,
       resolveMedia: options.resolveMedia,
@@ -85,6 +87,7 @@ export async function normalizeRedditAtomFeed(
 async function mediaFromEntry(
   entryXml: string,
   options: {
+    allowNsfw?: boolean;
     postId: string | null;
     permalink: string | null;
     resolveMedia?: NormalizeRedditAtomFeedOptions["resolveMedia"];
@@ -98,6 +101,7 @@ async function mediaFromEntry(
   if (linkUrl && options.resolveMedia) {
     try {
       const resolved = await options.resolveMedia({
+        allowNsfw: options.allowNsfw,
         url: linkUrl,
         postId: options.postId,
         permalink: options.permalink,
