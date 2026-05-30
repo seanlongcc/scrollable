@@ -1,15 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { extractYtDlpRuntimeItems } from "@/lib/url-source/ytdlp";
 import {
   fetchRedditRuntimePostLinks,
   parseRedditPostLinksInput,
 } from "./client";
 
+vi.mock("@/lib/url-source/ytdlp", () => ({
+  extractYtDlpRuntimeItems: vi.fn(async () => []),
+}));
+
 const originalRedditClientId = process.env.REDDIT_CLIENT_ID;
 const originalRedditClientSecret = process.env.REDDIT_CLIENT_SECRET;
+const extractYtDlpRuntimeItemsMock = vi.mocked(extractYtDlpRuntimeItems);
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  extractYtDlpRuntimeItemsMock.mockReset();
+  extractYtDlpRuntimeItemsMock.mockResolvedValue([]);
   if (originalRedditClientId === undefined) {
     delete process.env.REDDIT_CLIENT_ID;
   } else {
@@ -408,6 +416,90 @@ describe("fetchRedditRuntimePostLinks", () => {
             width: 486,
             height: 864,
             isHls: true,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("resolves Reddit RSS external video links through yt-dlp", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    extractYtDlpRuntimeItemsMock.mockResolvedValueOnce([
+      {
+        id: "url:ytdlp:redgifs",
+        source: "url",
+        title: "Redgifs video",
+        isNsfw: true,
+        createdAt: "2026-05-30T17:41:27.000Z",
+        media: [
+          {
+            type: "video",
+            url: "https://media.redgifs.com/ShabbyAllLongspur.mp4",
+            width: 852,
+            height: 480,
+          },
+        ],
+      },
+    ]);
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/poster</name></author>
+              <category term="kpopfap" label="r/kpopfap"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://www.redgifs.com/watch/shabbyalllongspur&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <id>t3_nsfwvideo</id>
+              <link href="https://www.reddit.com/r/kpopfap/comments/nsfwvideo/video_title/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS external video</title>
+            </entry>
+          </feed>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/kpopfap/top/?t=week",
+      allowNsfw: true,
+      limit: 10,
+    });
+
+    expect(extractYtDlpRuntimeItemsMock).toHaveBeenCalledWith(
+      "https://www.redgifs.com/watch/shabbyalllongspur",
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:nsfwvideo",
+        title: "RSS external video",
+        subreddit: "kpopfap",
+        author: "poster",
+        media: [
+          {
+            type: "video",
+            url: "https://media.redgifs.com/ShabbyAllLongspur.mp4",
+            width: 852,
+            height: 480,
           },
         ],
       },

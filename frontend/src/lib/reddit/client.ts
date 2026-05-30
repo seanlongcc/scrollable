@@ -1,4 +1,6 @@
 import type { RuntimeFeedItem, RuntimeMedia } from "@/lib/feed/types";
+import { isRedditUrl } from "@/lib/url-source/resolver-routing";
+import { extractYtDlpRuntimeItems } from "@/lib/url-source/ytdlp";
 import { fetchRedditMediaEmbed, isRedditHostedVideoUrl } from "./mediaembed";
 import { normalizeRedditListing } from "./normalization";
 import {
@@ -146,13 +148,19 @@ async function resolveRedditRssMedia({
   postId,
   url,
 }: RedditRssMediaResolverInput): Promise<RuntimeMedia[]> {
-  if (!postId || !isRedditHostedVideoUrl(url)) return [];
+  if (postId && isRedditHostedVideoUrl(url)) {
+    const media = await fetchRedditMediaEmbed(postId, {
+      userAgent: getRedditUserAgent(),
+    });
 
-  const media = await fetchRedditMediaEmbed(postId, {
-    userAgent: getRedditUserAgent(),
-  });
+    return media ? [media] : [];
+  }
 
-  return media ? [media] : [];
+  if (isRedditUrl(url)) return [];
+
+  const items = await extractYtDlpRuntimeItems(url);
+
+  return items.flatMap((item) => item.media);
 }
 
 function getRedditUserAgent() {
