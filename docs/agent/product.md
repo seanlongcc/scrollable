@@ -23,7 +23,7 @@ Planned capabilities:
 
 When implementing Reddit integration:
 
-- Fetch only user-provided Reddit post links and subreddit listing URLs through public JSON endpoints unless product direction changes.
+- Fetch only user-provided Reddit post links and subreddit listing URLs through Reddit runtime endpoints. Prefer Reddit OAuth/public JSON; use public Reddit RSS only as a no-credentials fallback when public JSON is forbidden.
 - Respect Reddit API/public endpoint terms, rate limits, and content restrictions.
 - Treat Reddit responses as runtime source data, not application-owned content.
 - Avoid saving third-party post/listing/media payloads beyond user-pasted post permalinks, subreddit listing URLs, and opaque `sha256:` hashes for user-hidden listing items.

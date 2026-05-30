@@ -29,7 +29,7 @@ Current installed stack:
 - Runtime arbitrary-site URL extraction uses the bundled `youtube-dl-exec` `yt-dlp` binary in production. Local overrides can use `YTDLP_PATH`, a `yt-dlp` executable on `PATH`, or `python3 -m yt_dlp`.
 - Root `postinstall` downloads the standalone platform `yt-dlp` binary into `node_modules/youtube-dl-exec/bin` so Vercel Functions do not depend on system Python.
 - Optional server-only `NHENTAI_API_KEY` for runtime nHentai gallery API requests. Store it in local/deployment secrets only, never as `NEXT_PUBLIC_*`.
-- Optional server-only `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` for Reddit app-only OAuth API requests in production. Store them in local/deployment secrets only, never as `NEXT_PUBLIC_*`. Without them the app falls back to public Reddit JSON, which may be blocked by some hosting IP ranges.
+- Optional server-only `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` for Reddit app-only OAuth API requests in production. Store them in local/deployment secrets only, never as `NEXT_PUBLIC_*`. Without them the app falls back to public Reddit JSON and then public Reddit RSS when JSON is forbidden by Reddit.
 - Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
 - Vercel for deployment through GitHub Actions and the pinned Vercel CLI
 - Mobile-first user experience

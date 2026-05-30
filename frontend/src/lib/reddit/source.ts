@@ -144,6 +144,10 @@ export function toRedditOauthUrl(source: ParsedRedditSourceUrl, limit: number) {
   return `${REDDIT_OAUTH_API_ORIGIN}${toRedditApiPath(source, limit)}`;
 }
 
+export function toRedditRssUrl(source: ParsedRedditSourceUrl, limit: number) {
+  return `${REDDIT_PUBLIC_ORIGIN}${toRedditRssPath(source, limit)}`;
+}
+
 export function shouldTryNextRedditRequest(status: number) {
   return status === 403 || status === 429 || status >= 500;
 }
@@ -203,6 +207,25 @@ function toRedditApiPath(source: ParsedRedditSourceUrl, limit: number) {
     REDDIT_PUBLIC_ORIGIN,
   );
   url.searchParams.set("raw_json", "1");
+  if (source.timeRange) url.searchParams.set("t", source.timeRange);
+  url.searchParams.set(
+    "limit",
+    String(Math.min(Math.max(limit, 1), MAX_REDDIT_SOURCE_LIMIT)),
+  );
+
+  return `${url.pathname}${url.search}`;
+}
+
+function toRedditRssPath(source: ParsedRedditSourceUrl, limit: number) {
+  if (source.kind === "post") {
+    const url = new URL(source.url);
+    return `${url.pathname.replace(/\/$/, "")}/.rss`;
+  }
+
+  const url = new URL(
+    `/r/${source.subreddit}/${source.sort}/.rss`,
+    REDDIT_PUBLIC_ORIGIN,
+  );
   if (source.timeRange) url.searchParams.set("t", source.timeRange);
   url.searchParams.set(
     "limit",

@@ -1,5 +1,6 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { normalizeRedditListing } from "./normalization";
+import { normalizeRedditAtomFeed } from "./rss";
 import {
   parseRedditPostLinksInput,
   parseRedditSourceUrl,
@@ -7,6 +8,7 @@ import {
   shouldTryNextRedditRequest,
   toRedditOauthUrl,
   toRedditPostError,
+  toRedditRssUrl,
   type ParsedRedditSourceUrl,
   type RedditPostLinksInput,
 } from "./source";
@@ -25,6 +27,12 @@ type RedditAccessToken = {
   expiresAt: number;
 };
 
+type RedditRequest = {
+  url: string;
+  headers: Record<string, string>;
+  parser: "json" | "rss";
+};
+
 let cachedAccessToken: RedditAccessToken | null = null;
 
 export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
@@ -36,6 +44,7 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
     const source = parseRedditSourceUrl(sourceUrl);
     const requests = await redditJsonRequests(source, parsed.limit);
     let response: Response | null = null;
+    let selectedRequest: RedditRequest | null = null;
 
     for (const request of requests) {
       response = await fetch(request.url, {
@@ -47,6 +56,7 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
       });
 
       if (response.ok || !shouldTryNextRedditRequest(response.status)) {
+        selectedRequest = request;
         break;
       }
     }
@@ -55,13 +65,15 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
       throw toRedditPostError(response?.status ?? 502);
     }
 
-    const payload = await response.json();
-    const listing = Array.isArray(payload) ? payload[0] : payload;
-    const normalized = normalizeRedditListing(listing, {
-      subreddit: source.subreddit ?? "reddit",
-      allowNsfw: parsed.allowNsfw,
-      limit: parsed.limit,
-    });
+    const normalized = await normalizeRedditResponse(
+      response,
+      selectedRequest?.parser ?? "json",
+      {
+        subreddit: source.subreddit ?? "reddit",
+        allowNsfw: parsed.allowNsfw,
+        limit: parsed.limit,
+      },
+    );
 
     items.push(...normalized.items);
     unsupportedIds.push(...normalized.unsupportedIds);
@@ -77,13 +89,21 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
 async function redditJsonRequests(
   source: ParsedRedditSourceUrl,
   limit: number,
-): Promise<Array<{ url: string; headers: Record<string, string> }>> {
+): Promise<RedditRequest[]> {
   const accessToken = await redditAccessToken();
   if (!accessToken) {
-    return redditPublicJsonRequests(source, limit).map((request) => ({
-      ...request,
-      headers: {},
-    }));
+    return [
+      ...redditPublicJsonRequests(source, limit).map((request) => ({
+        ...request,
+        headers: {},
+        parser: "json" as const,
+      })),
+      {
+        url: toRedditRssUrl(source, limit),
+        headers: {},
+        parser: "rss",
+      },
+    ];
   }
 
   return [
@@ -92,8 +112,27 @@ async function redditJsonRequests(
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      parser: "json",
     },
   ];
+}
+
+async function normalizeRedditResponse(
+  response: Response,
+  parser: RedditRequest["parser"],
+  options: {
+    subreddit: string;
+    allowNsfw?: boolean;
+    limit?: number;
+  },
+) {
+  if (parser === "rss") {
+    return normalizeRedditAtomFeed(await response.text(), options);
+  }
+
+  const payload = await response.json();
+  const listing = Array.isArray(payload) ? payload[0] : payload;
+  return normalizeRedditListing(listing, options);
 }
 
 function getRedditUserAgent() {

@@ -266,6 +266,70 @@ describe("fetchRedditRuntimePostLinks", () => {
     expect(result.items.map((item) => item.id)).toEqual(["reddit:fallback"]);
   });
 
+  it("falls back to Reddit RSS when public JSON endpoints are forbidden", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/poster</name></author>
+              <category term="pics" label="r/pics"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://i.redd.it/rss-image.jpg&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <link href="https://www.reddit.com/r/pics/comments/rss123/rss_image/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS image</title>
+            </entry>
+          </feed>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/pics/top/?t=week",
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "https://www.reddit.com/r/pics/top/.rss?t=week&limit=10",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:rss123",
+        title: "RSS image",
+        subreddit: "pics",
+        author: "poster",
+        media: [{ type: "image", url: "https://i.redd.it/rss-image.jpg" }],
+      },
+    ]);
+  });
+
   it("fetches subreddit listings and returns the requested number of usable media posts after skips", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
