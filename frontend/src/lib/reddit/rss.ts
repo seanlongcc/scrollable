@@ -4,11 +4,20 @@ export type NormalizeRedditAtomFeedOptions = {
   subreddit: string;
   allowNsfw?: boolean;
   limit?: number;
+  resolveMedia?: (
+    input: RedditRssMediaResolverInput,
+  ) => Promise<RuntimeMedia[]>;
 };
 
 export type NormalizedRedditAtomFeed = {
   items: RuntimeFeedItem[];
   unsupportedIds: string[];
+};
+
+export type RedditRssMediaResolverInput = {
+  url: string;
+  postId: string | null;
+  permalink: string | null;
 };
 
 const IMAGE_EXTENSIONS = new Set([
@@ -22,10 +31,10 @@ const IMAGE_EXTENSIONS = new Set([
 ]);
 const VIDEO_EXTENSIONS = new Set([".m3u8", ".m4v", ".mov", ".mp4", ".webm"]);
 
-export function normalizeRedditAtomFeed(
+export async function normalizeRedditAtomFeed(
   feed: string,
   options: NormalizeRedditAtomFeedOptions,
-): NormalizedRedditAtomFeed {
+): Promise<NormalizedRedditAtomFeed> {
   const limit = options.limit ?? Number.POSITIVE_INFINITY;
   const entries = Array.from(
     feed.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi),
@@ -40,7 +49,11 @@ export function normalizeRedditAtomFeed(
     const title = textContent(entryXml, "title") ?? "Untitled Reddit post";
     const permalink = entryPermalink(entryXml);
     const id = redditPostId(entryXml, permalink);
-    const media = mediaFromEntry(entryXml);
+    const media = await mediaFromEntry(entryXml, {
+      permalink,
+      postId: id,
+      resolveMedia: options.resolveMedia,
+    });
 
     if (media.length === 0) {
       if (id) unsupportedIds.push(id);
@@ -69,12 +82,38 @@ export function normalizeRedditAtomFeed(
   };
 }
 
-function mediaFromEntry(entryXml: string): RuntimeMedia[] {
+async function mediaFromEntry(
+  entryXml: string,
+  options: {
+    postId: string | null;
+    permalink: string | null;
+    resolveMedia?: NormalizeRedditAtomFeedOptions["resolveMedia"];
+  },
+): Promise<RuntimeMedia[]> {
   const content = textContent(entryXml, "content") ?? "";
-  const sourceUrl = linkUrlFromContent(content) ?? thumbnailUrl(entryXml);
-  const media = sourceUrl ? mediaFromUrl(sourceUrl) : null;
+  const linkUrl = linkUrlFromContent(content);
+  const linkMedia = linkUrl ? mediaFromUrl(linkUrl) : null;
+  if (linkMedia) return [linkMedia];
 
-  return media ? [media] : [];
+  if (linkUrl && options.resolveMedia) {
+    try {
+      const resolved = await options.resolveMedia({
+        url: linkUrl,
+        postId: options.postId,
+        permalink: options.permalink,
+      });
+      if (resolved.length) return resolved;
+    } catch {
+      // Leave this RSS entry unsupported and let the caller continue.
+    }
+  }
+
+  if (linkUrl) return [];
+
+  const thumbnail = thumbnailUrl(entryXml);
+  const thumbnailMedia = thumbnail ? mediaFromUrl(thumbnail) : null;
+
+  return thumbnailMedia ? [thumbnailMedia] : [];
 }
 
 function linkUrlFromContent(content: string) {

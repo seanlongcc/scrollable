@@ -1,6 +1,10 @@
-import type { RuntimeFeedItem } from "@/lib/feed/types";
+import type { RuntimeFeedItem, RuntimeMedia } from "@/lib/feed/types";
+import { fetchRedditMediaEmbed, isRedditHostedVideoUrl } from "./mediaembed";
 import { normalizeRedditListing } from "./normalization";
-import { normalizeRedditAtomFeed } from "./rss";
+import {
+  normalizeRedditAtomFeed,
+  type RedditRssMediaResolverInput,
+} from "./rss";
 import {
   parseRedditPostLinksInput,
   parseRedditSourceUrl,
@@ -127,12 +131,28 @@ async function normalizeRedditResponse(
   },
 ) {
   if (parser === "rss") {
-    return normalizeRedditAtomFeed(await response.text(), options);
+    return normalizeRedditAtomFeed(await response.text(), {
+      ...options,
+      resolveMedia: resolveRedditRssMedia,
+    });
   }
 
   const payload = await response.json();
   const listing = Array.isArray(payload) ? payload[0] : payload;
   return normalizeRedditListing(listing, options);
+}
+
+async function resolveRedditRssMedia({
+  postId,
+  url,
+}: RedditRssMediaResolverInput): Promise<RuntimeMedia[]> {
+  if (!postId || !isRedditHostedVideoUrl(url)) return [];
+
+  const media = await fetchRedditMediaEmbed(postId, {
+    userAgent: getRedditUserAgent(),
+  });
+
+  return media ? [media] : [];
 }
 
 function getRedditUserAgent() {

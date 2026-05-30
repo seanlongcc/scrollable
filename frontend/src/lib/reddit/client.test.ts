@@ -330,6 +330,90 @@ describe("fetchRedditRuntimePostLinks", () => {
     ]);
   });
 
+  it("resolves Reddit RSS video links through the media embed endpoint", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/poster</name></author>
+              <category term="discordVideos" label="r/discordVideos"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://v.redd.it/videoabc&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <id>t3_video123</id>
+              <link href="https://www.reddit.com/r/discordVideos/comments/video123/video_title/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS video</title>
+            </entry>
+          </feed>
+        `,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <div
+            id="video-video123"
+            data-hls-url="https://v.redd.it/videoabc/HLSPlaylist.m3u8?a=signed&amp;v=1&amp;f=sd"
+            data-video-width="486"
+            data-video-height="864"
+          ></div>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/discordVideos/top/?t=week",
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "https://www.redditmedia.com/mediaembed/video123",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:video123",
+        title: "RSS video",
+        subreddit: "discordVideos",
+        author: "poster",
+        media: [
+          {
+            type: "video",
+            url: "https://v.redd.it/videoabc/HLSPlaylist.m3u8?a=signed&v=1&f=sd",
+            width: 486,
+            height: 864,
+            isHls: true,
+          },
+        ],
+      },
+    ]);
+  });
+
   it("fetches subreddit listings and returns the requested number of usable media posts after skips", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
