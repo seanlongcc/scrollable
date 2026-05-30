@@ -13,7 +13,7 @@ import {
   FeedWorkbench,
   installFeedWorkbenchTestHooks,
   openSavedLayouts,
-  redditListingFromRuntimeItems,
+  redditApiPayloadFromRuntimeItems,
   savedLayeredWorkspace,
   savedLocalUploadWorkspace,
   stubObjectUrls,
@@ -521,10 +521,11 @@ describe("FeedWorkbench workspaces", () => {
     ).toBeInTheDocument();
   });
 
-  it("hydrates shared Cloud Reddit layouts with browser Reddit JSON requests", async () => {
+  it("hydrates shared Cloud Reddit layouts with app Reddit API requests", async () => {
     window.history.pushState({}, "", "/?openLayout=reddit-wall");
     stubRandomUuids(["blank-workspace", "shared-copy"]);
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      const [input] = args;
       const requestUrl = String(input);
 
       if (requestUrl === "/api/share/layout/reddit-wall") {
@@ -568,14 +569,11 @@ describe("FeedWorkbench workspaces", () => {
         };
       }
 
-      if (
-        requestUrl ===
-        "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=24"
-      ) {
+      if (requestUrl.startsWith("/api/reddit/listing")) {
         return {
           ok: true,
           json: async () =>
-            redditListingFromRuntimeItems(
+            redditApiPayloadFromRuntimeItems(
               [
                 {
                   id: "reddit:shared",
@@ -607,13 +605,21 @@ describe("FeedWorkbench workspaces", () => {
       await screen.findByAltText("Shared runtime image"),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/share/layout/reddit-wall");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/pics/top/.json?raw_json=1&t=week&limit=24",
-      { cache: "no-store" },
+    const redditRequest = fetchMock.mock.calls.find(([input]) =>
+      String(input).startsWith("/api/reddit/listing"),
     );
+    expect(redditRequest?.[1]).toEqual({ cache: "no-store" });
+    const redditRequestUrl = new URL(
+      String(redditRequest?.[0]),
+      "http://localhost",
+    );
+    expect(redditRequestUrl.searchParams.get("urls")).toBe(
+      "https://www.reddit.com/r/pics/top/?t=week",
+    );
+    expect(redditRequestUrl.searchParams.get("limit")).toBe("24");
     expect(
       fetchMock.mock.calls.some(([input]) =>
-        String(input).startsWith("/api/reddit/listing"),
+        String(input).startsWith("https://www.reddit.com"),
       ),
     ).toBe(false);
   });

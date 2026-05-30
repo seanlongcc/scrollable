@@ -149,11 +149,28 @@ export function stubRuntimeFetch(
 ) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => ({
     ok: true,
-    json: async () => redditListingFromRuntimeItems(items, String(input)),
+    json: async () => redditApiPayloadFromRuntimeItems(items, String(input)),
   }));
   vi.stubGlobal("fetch", fetchMock);
 
   return fetchMock;
+}
+
+export function redditApiPayloadFromRuntimeItems(
+  items: RuntimeFeedItem[],
+  requestUrl?: string,
+) {
+  const requestSubreddit = requestUrl
+    ? subredditFromRedditRequestUrl(requestUrl)
+    : null;
+  const matchingItems = requestSubreddit
+    ? items.filter((item) => item.subreddit?.toLowerCase() === requestSubreddit)
+    : items;
+
+  return {
+    items: matchingItems.length ? matchingItems : items,
+    unsupportedIds: [],
+  };
 }
 
 export function redditListingFromRuntimeItems(
@@ -249,9 +266,14 @@ function runtimeItemToRedditPost(
   };
 }
 
-function subredditFromRedditRequestUrl(value: string) {
+function subredditFromRedditRequestUrl(value: string): string | null {
   try {
     const url = new URL(value, "https://www.reddit.com");
+    if (url.pathname === "/api/reddit/listing") {
+      const redditUrl = url.searchParams.get("urls");
+      return redditUrl ? subredditFromRedditRequestUrl(redditUrl) : null;
+    }
+
     const segments = url.pathname.split("/").filter(Boolean);
     const subredditIndex = segments.indexOf("r");
     if (subredditIndex !== -1 && segments[subredditIndex + 1]) {
@@ -296,7 +318,7 @@ export function deferredFetch(items: Parameters<typeof stubRuntimeFetch>[0]) {
       return {
         ok: true,
         json: async () =>
-          redditListingFromRuntimeItems(items ?? [], String(input)),
+          redditApiPayloadFromRuntimeItems(items ?? [], String(input)),
       };
     }),
   );
