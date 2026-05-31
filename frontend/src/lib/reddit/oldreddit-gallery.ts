@@ -1,5 +1,13 @@
 import type { RuntimeMedia } from "@/lib/feed/types";
 
+export type OldRedditGalleryPost = {
+  author?: string;
+  createdAt?: string;
+  media: RuntimeMedia[];
+  subreddit?: string;
+  title?: string;
+};
+
 const IMAGE_EXTENSIONS = new Set([
   ".apng",
   ".avif",
@@ -21,6 +29,29 @@ export async function fetchOldRedditGalleryMedia({
   postId: string;
   userAgent: string;
 }): Promise<RuntimeMedia[]> {
+  return (
+    (
+      await fetchOldRedditGalleryPost({
+        allowNsfw,
+        permalink,
+        postId,
+        userAgent,
+      })
+    )?.media ?? []
+  );
+}
+
+export async function fetchOldRedditGalleryPost({
+  allowNsfw,
+  permalink,
+  postId,
+  userAgent,
+}: {
+  allowNsfw?: boolean;
+  permalink: string | null;
+  postId: string;
+  userAgent: string;
+}): Promise<OldRedditGalleryPost | null> {
   const response = await fetch(oldRedditGalleryUrl(permalink, postId), {
     cache: "no-store",
     headers: {
@@ -29,9 +60,18 @@ export async function fetchOldRedditGalleryMedia({
     },
   });
 
-  if (!response.ok) return [];
+  if (!response.ok) return null;
 
-  return oldRedditGalleryHtmlToMedia(await response.text());
+  const html = await response.text();
+  const media = oldRedditGalleryHtmlToMedia(html);
+
+  return {
+    author: oldRedditAuthor(html),
+    createdAt: oldRedditCreatedAt(html),
+    media,
+    subreddit: oldRedditSubreddit(html),
+    title: oldRedditTitle(html),
+  };
 }
 
 export function oldRedditGalleryHtmlToMedia(html: string): RuntimeMedia[] {
@@ -114,6 +154,63 @@ function mediaFromGalleryUrl(value: string): RuntimeMedia | null {
   };
 }
 
+function oldRedditTitle(html: string) {
+  const title =
+    htmlAttribute(
+      html.match(
+        /<a\b(?=[^>]*\btitle\b)(?=[^>]*\bdata-event-action="title")[^>]*>/i,
+      )?.[0] ?? "",
+      "title",
+    ) ??
+    htmlAttribute(
+      html.match(/<meta\b(?=[^>]*\bproperty=["']og:title["'])[^>]*>/i)?.[0] ??
+        "",
+      "content",
+    ) ??
+    titleTagFromHtml(html);
+
+  return title?.replace(/\s*:\s*[^:]+$/u, "").trim() || undefined;
+}
+
+function oldRedditAuthor(html: string) {
+  return (
+    htmlAttribute(
+      html.match(/<div\b(?=[^>]*\bdata-author=)[^>]*>/i)?.[0] ?? "",
+      "data-author",
+    ) ??
+    html.match(/\/user\/([^"'/\s]+)/i)?.[1] ??
+    undefined
+  );
+}
+
+function oldRedditSubreddit(html: string) {
+  return (
+    htmlAttribute(
+      html.match(/<div\b(?=[^>]*\bdata-subreddit=)[^>]*>/i)?.[0] ?? "",
+      "data-subreddit",
+    ) ??
+    html.match(/\/r\/([^"'/\s]+)/i)?.[1] ??
+    undefined
+  );
+}
+
+function oldRedditCreatedAt(html: string) {
+  const value = htmlAttribute(
+    html.match(/<time\b[^>]*>/i)?.[0] ?? "",
+    "datetime",
+  );
+  const timestamp = value ? Date.parse(value) : Number.NaN;
+
+  return Number.isNaN(timestamp)
+    ? undefined
+    : new Date(timestamp).toISOString();
+}
+
+function titleTagFromHtml(html: string) {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return match?.[1] ? decodeXmlEntities(match[1]).trim() : undefined;
+}
+
 function galleryHtmlFragments(html: string) {
   return [html, ...cachedGalleryHtmlFragments(html)];
 }
@@ -128,13 +225,17 @@ function cachedGalleryHtmlFragments(html: string) {
 }
 
 function numberAttribute(tag: string, name: string) {
-  const value = xmlAttribute(tag, name);
+  const value = htmlAttribute(tag, name);
   const number = value ? Number.parseInt(value, 10) : Number.NaN;
 
   return Number.isFinite(number) ? number : undefined;
 }
 
 function xmlAttribute(tag: string, name: string) {
+  return htmlAttribute(tag, name);
+}
+
+function htmlAttribute(tag: string, name: string) {
   const match = tag.match(
     new RegExp(
       `(?:^|[\\s<])${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`,

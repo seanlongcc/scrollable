@@ -225,6 +225,87 @@ describe("fetchRedditRuntimePostLinks", () => {
     ).rejects.toThrow("reddit_fetch_forbidden");
   });
 
+  it("falls back to old Reddit gallery HTML when post JSON and RSS are forbidden", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <html>
+            <head><title>Fallback gallery title : kpop</title></head>
+            <body>
+              <div data-author="poster" data-subreddit="kpop"></div>
+              <time datetime="2026-05-30T17:41:27+00:00"></time>
+              <div
+                class="expando expando-uninitialized"
+                data-cachedhtml="
+                  &lt;div class=&quot;media-preview&quot;&gt;
+                    &lt;a class=&quot;may-blank gallery-item-thumbnail-link&quot; data-position=&quot;1&quot; href=&quot;https://preview.redd.it/first.jpg?width=1080&amp;amp;format=pjpg&amp;amp;auto=webp&amp;amp;s=one&quot;&gt;
+                      &lt;img width=&quot;617&quot; height=&quot;768&quot;&gt;
+                    &lt;/a&gt;
+                  &lt;/div&gt;
+                "
+              ></div>
+            </body>
+          </html>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/kpop/comments/fallback123/fallback_gallery_title/",
+      allowNsfw: true,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "https://old.reddit.com/r/kpop/comments/fallback123/fallback_gallery_title/",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          Cookie: "over18=1",
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:fallback123",
+        title: "Fallback gallery title",
+        author: "poster",
+        subreddit: "kpop",
+        createdAt: "2026-05-30T17:41:27.000Z",
+        media: [
+          {
+            type: "image",
+            url: "https://preview.redd.it/first.jpg?width=1080&format=pjpg&auto=webp&s=one",
+            width: 617,
+            height: 768,
+            galleryIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it("retries the public API origin when the Reddit web origin blocks the request", async () => {
     delete process.env.REDDIT_CLIENT_ID;
     delete process.env.REDDIT_CLIENT_SECRET;
