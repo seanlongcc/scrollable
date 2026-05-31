@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hlsState = vi.hoisted(() => ({
@@ -35,6 +35,7 @@ describe("MediaRenderer", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -70,6 +71,51 @@ describe("MediaRenderer", () => {
     expect(video).toHaveAttribute("webkit-playsinline");
     expect(video).toHaveAttribute("preload", "auto");
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+  });
+
+  it("loads Redgifs videos through a no-referrer object URL", async () => {
+    const videoBlob = new Blob(["video"], { type: "video/mp4" });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => videoBlob,
+    });
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:redgifs-video");
+    const revokeObjectUrl = vi
+      .spyOn(URL, "revokeObjectURL")
+      .mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container, unmount } = render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url: "https://media.redgifs.com/EnergeticFemaleTuna.mp4",
+        }}
+        title="Runtime video"
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(video).toHaveAttribute("src", "blob:redgifs-video"),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://media.redgifs.com/EnergeticFemaleTuna.mp4",
+      expect.objectContaining({
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(createObjectUrl).toHaveBeenCalledWith(videoBlob);
+
+    unmount();
+
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:redgifs-video");
   });
 
   it("unmutes video when audio is enabled", () => {
