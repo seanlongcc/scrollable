@@ -306,6 +306,88 @@ describe("fetchRedditRuntimePostLinks", () => {
     ]);
   });
 
+  it("falls back to Redlib gallery HTML when Reddit and old Reddit are forbidden", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <div class="post highlighted">
+            <p class="post_header">
+              <a class="post_subreddit" href="/r/kpop">r/kpop</a>
+              <a class="post_author" href="/user/poster">u/poster</a>
+              <span class="created" title="May 28 2026, 05:28:45 UTC">2d ago</span>
+            </p>
+            <h1 class="post_title">Fallback Redlib gallery title</h1>
+            <div class="gallery">
+              <figure>
+                <a href="/preview/pre/first.jpg?width=1080&#38;format=pjpg&#38;auto=webp&#38;s=one">
+                  <img loading="lazy" alt="Gallery image" src="/preview/pre/first.jpg?width=1080&#38;format=pjpg&#38;auto=webp&#38;s=one"/>
+                </a>
+              </figure>
+            </div>
+          </div>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/kpop/comments/redlib123/fallback_redlib_gallery_title/",
+      allowNsfw: true,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      "https://redlib.perennialte.ch/r/kpop/comments/redlib123/fallback_redlib_gallery_title/",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          Accept: "text/html,application/xhtml+xml",
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:redlib123",
+        title: "Fallback Redlib gallery title",
+        author: "poster",
+        subreddit: "kpop",
+        createdAt: "2026-05-28T05:28:45.000Z",
+        media: [
+          {
+            type: "image",
+            url: "https://preview.redd.it/first.jpg?width=1080&format=pjpg&auto=webp&s=one",
+            galleryIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it("retries the public API origin when the Reddit web origin blocks the request", async () => {
     delete process.env.REDDIT_CLIENT_ID;
     delete process.env.REDDIT_CLIENT_SECRET;
