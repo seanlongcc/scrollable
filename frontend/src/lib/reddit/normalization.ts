@@ -150,11 +150,12 @@ function extractGalleryMedia(post: RedditPost): RuntimeMedia[] {
     }
 
     const type = metadata.m?.startsWith("video/") ? "video" : "image";
+    const decodedUrl = decodeRedditUrl(url);
 
     return [
       {
         type,
-        url: decodeRedditUrl(url),
+        url: type === "image" ? redditImageUrl(decodedUrl) : decodedUrl,
         width: metadata.s?.x,
         height: metadata.s?.y,
         galleryIndex: index,
@@ -165,4 +166,16 @@ function extractGalleryMedia(post: RedditPost): RuntimeMedia[] {
 
 function decodeRedditUrl(url: string) {
   return url.replaceAll("&amp;", "&");
+}
+
+function redditImageUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "preview.redd.it") return url;
+
+    const mediaPath = parsed.pathname.replace(/^\/+/, "");
+    return mediaPath ? `https://i.redd.it/${mediaPath}` : url;
+  } catch {
+    return url;
+  }
 }

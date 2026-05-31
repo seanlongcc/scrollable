@@ -8,7 +8,10 @@ import {
   fetchOldRedditGalleryPost,
   isRedditGalleryUrl,
 } from "./oldreddit-gallery";
-import { fetchRedlibGalleryPost } from "./redlib-gallery";
+import {
+  fetchRedlibGalleryPost,
+  fetchRedlibListingItems,
+} from "./redlib-gallery";
 import {
   normalizeRedditAtomFeed,
   type RedditRssMediaResolverInput,
@@ -54,7 +57,11 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
 
   for (const sourceUrl of parsed.urls) {
     const source = parseRedditSourceUrl(sourceUrl);
-    const requests = await redditJsonRequests(source, parsed.limit);
+    const requests = await redditJsonRequests(
+      source,
+      parsed.limit,
+      parsed.allowNsfw,
+    );
     let sawOkResponse = false;
     let sourceHasItems = false;
     let lastRetryableStatus = 502;
@@ -97,11 +104,12 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
     }
 
     if (!sourceHasItems) {
-      const oldRedditFallback = await oldRedditPostFallbackItem(source, {
+      const sourceFallbackItems = await redditSourceFallbackItems(source, {
         allowNsfw: parsed.allowNsfw,
+        limit: parsed.limit,
       });
-      if (oldRedditFallback) {
-        items.push(oldRedditFallback);
+      if (sourceFallbackItems.length) {
+        items.push(...sourceFallbackItems);
         continue;
       }
 
@@ -120,12 +128,13 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
 async function redditJsonRequests(
   source: ParsedRedditSourceUrl,
   limit: number,
+  allowNsfw?: boolean,
 ): Promise<RedditRequest[]> {
   const accessToken = await redditAccessToken();
   if (!accessToken) {
     return [
       ...redditPublicJsonRequests(source, limit).map((request) => ({
-        ...request,
+        url: redditRequestUrl(request.url, allowNsfw),
         headers: {},
         parser: "json" as const,
       })),
@@ -139,13 +148,21 @@ async function redditJsonRequests(
 
   return [
     {
-      url: toRedditOauthUrl(source, limit),
+      url: redditRequestUrl(toRedditOauthUrl(source, limit), allowNsfw),
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       parser: "json",
     },
   ];
+}
+
+function redditRequestUrl(url: string, allowNsfw?: boolean) {
+  if (!allowNsfw) return url;
+
+  const parsed = new URL(url);
+  parsed.searchParams.set("include_over_18", "on");
+  return parsed.toString();
 }
 
 async function normalizeRedditResponse(
@@ -167,6 +184,28 @@ async function normalizeRedditResponse(
   const payload = await response.json();
   const listing = Array.isArray(payload) ? payload[0] : payload;
   return normalizeRedditListing(listing, options);
+}
+
+async function redditSourceFallbackItems(
+  source: ParsedRedditSourceUrl,
+  options: {
+    allowNsfw?: boolean;
+    limit: number;
+  },
+): Promise<RuntimeFeedItem[]> {
+  const oldRedditFallback = await oldRedditPostFallbackItem(source, {
+    allowNsfw: options.allowNsfw,
+  });
+  if (oldRedditFallback) return [oldRedditFallback];
+
+  if (source.kind !== "listing") return [];
+
+  return fetchRedlibListingItems({
+    allowNsfw: options.allowNsfw,
+    limit: options.limit,
+    listingUrl: source.url,
+    userAgent: getRedditUserAgent(),
+  });
 }
 
 async function oldRedditPostFallbackItem(
