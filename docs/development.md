@@ -68,6 +68,5 @@ The workflow deploys with the Vercel CLI from `frontend/`. Disable or ignore Ver
 Optional server-only environment variables:
 
 - `NHENTAI_API_KEY` for runtime nHentai gallery API requests.
-- `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` for Reddit app-only OAuth API requests in production.
 
 Keep server-only secrets out of `NEXT_PUBLIC_*` variables.

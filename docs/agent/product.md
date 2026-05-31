@@ -9,7 +9,7 @@ Build a reels-like scrollable image/video feed viewer.
 Planned capabilities:
 
 - Accept user-provided Reddit post permalinks and subreddit listing URLs, then fetch media metadata at runtime.
-- Do not require Reddit API/OAuth keys for runtime Reddit post-link or subreddit-listing fetching.
+- Do not use or require Reddit API/OAuth keys for runtime Reddit post-link or subreddit-listing fetching.
 - Provide a configurable timer for feed advancement.
 - Provide a slice/filter input for excluding items from the initial listing, since sticky posts count in listing limits.
 - Support posts with multiple images by presenting those images as a horizontal left-to-right sequence inside the vertical feed.
@@ -23,7 +23,7 @@ Planned capabilities:
 
 When implementing Reddit integration:
 
-- Fetch only user-provided Reddit post links and subreddit listing URLs through Reddit runtime endpoints. Prefer Reddit OAuth/public JSON; use public Reddit RSS only as a no-credentials fallback when public JSON is forbidden. RSS fallback may resolve Reddit-hosted `v.redd.it` videos through Reddit's public
+- Fetch only user-provided Reddit post links and subreddit listing URLs through Reddit runtime endpoints. Prefer public Reddit JSON; use public Reddit RSS when public JSON is forbidden. RSS fallback may resolve Reddit-hosted `v.redd.it` videos through Reddit's public
   `redditmedia.com/mediaembed/<postId>` endpoint, Reddit gallery links through old Reddit gallery HTML, and external provider links such as Redgifs through the bundled runtime `yt-dlp` extractor. All paths are runtime-only.
 - Respect Reddit API/public endpoint terms, rate limits, and content restrictions.
 - Treat Reddit responses as runtime source data, not application-owned content.

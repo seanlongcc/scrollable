@@ -6,28 +6,12 @@ vi.mock("@/lib/url-source/ytdlp", () => ({
   extractYtDlpRuntimeItems: vi.fn(async () => []),
 }));
 
-const originalRedditClientId = process.env.REDDIT_CLIENT_ID;
-const originalRedditClientSecret = process.env.REDDIT_CLIENT_SECRET;
-
 afterEach(() => {
   vi.unstubAllGlobals();
-  if (originalRedditClientId === undefined) {
-    delete process.env.REDDIT_CLIENT_ID;
-  } else {
-    process.env.REDDIT_CLIENT_ID = originalRedditClientId;
-  }
-  if (originalRedditClientSecret === undefined) {
-    delete process.env.REDDIT_CLIENT_SECRET;
-  } else {
-    process.env.REDDIT_CLIENT_SECRET = originalRedditClientSecret;
-  }
 });
 
 describe("fetchRedditRuntimePostLinks RSS gallery fallbacks", () => {
   it("resolves Reddit RSS gallery links through Redlib when old Reddit is blocked", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({

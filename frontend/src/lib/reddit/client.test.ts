@@ -10,24 +10,13 @@ vi.mock("@/lib/url-source/ytdlp", () => ({
   extractYtDlpRuntimeItems: vi.fn(async () => []),
 }));
 
-const originalRedditClientId = process.env.REDDIT_CLIENT_ID;
-const originalRedditClientSecret = process.env.REDDIT_CLIENT_SECRET;
 const extractYtDlpRuntimeItemsMock = vi.mocked(extractYtDlpRuntimeItems);
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   extractYtDlpRuntimeItemsMock.mockReset();
   extractYtDlpRuntimeItemsMock.mockResolvedValue([]);
-  if (originalRedditClientId === undefined) {
-    delete process.env.REDDIT_CLIENT_ID;
-  } else {
-    process.env.REDDIT_CLIENT_ID = originalRedditClientId;
-  }
-  if (originalRedditClientSecret === undefined) {
-    delete process.env.REDDIT_CLIENT_SECRET;
-  } else {
-    process.env.REDDIT_CLIENT_SECRET = originalRedditClientSecret;
-  }
 });
 
 describe("parseRedditPostLinksInput", () => {
@@ -95,10 +84,7 @@ describe("parseRedditPostLinksInput", () => {
 });
 
 describe("fetchRedditRuntimePostLinks", () => {
-  it("fetches public post JSON without Reddit OAuth credentials", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
+  it("fetches public post JSON", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => [
@@ -143,40 +129,29 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
   });
 
-  it("uses Reddit OAuth API when server credentials are configured", async () => {
-    process.env.REDDIT_CLIENT_ID = "client-id";
-    process.env.REDDIT_CLIENT_SECRET = "client-secret";
+  it("ignores Reddit OAuth credentials and uses public Reddit JSON", async () => {
+    vi.stubEnv("REDDIT_CLIENT_ID", "client-id");
+    vi.stubEnv("REDDIT_CLIENT_SECRET", "client-secret");
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-
-      if (url === "https://www.reddit.com/api/v1/access_token") {
-        return {
-          ok: true,
-          json: async () => ({ access_token: "token-123" }),
-        };
-      }
-
-      return {
-        ok: true,
-        json: async () => ({
-          kind: "Listing",
-          data: {
-            children: [
-              {
-                data: {
-                  id: "one",
-                  title: "One",
-                  subreddit: "kpop",
-                  post_hint: "image",
-                  url: "https://i.redd.it/one.jpg",
-                },
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        kind: "Listing",
+        data: {
+          children: [
+            {
+              data: {
+                id: "one",
+                title: "One",
+                subreddit: "kpop",
+                post_hint: "image",
+                url: "https://i.redd.it/one.jpg",
               },
-            ],
-          },
-        }),
-      };
-    });
+            },
+          ],
+        },
+      }),
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await fetchRedditRuntimePostLinks({
@@ -186,27 +161,15 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "https://www.reddit.com/api/v1/access_token",
-      expect.objectContaining({
-        body: "grant_type=client_credentials",
-        method: "POST",
-        headers: expect.objectContaining({
-          Authorization: expect.stringMatching(/^Basic /),
-          "User-Agent": expect.any(String),
-        }),
-      }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://oauth.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=1&include_over_18=on",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=1&include_over_18=on",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
-          Authorization: "Bearer token-123",
           "User-Agent": expect.any(String),
         }),
       }),
     );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.items.map((item) => item.id)).toEqual(["reddit:one"]);
   });
 
@@ -226,9 +189,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("falls back to old Reddit gallery HTML when post JSON and RSS are forbidden", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -307,9 +267,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("falls back to Redlib gallery HTML when Reddit and old Reddit are forbidden", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -389,9 +346,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("falls back to Redlib listing HTML for NSFW subreddit listings", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -472,9 +426,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("retries the public API origin when the Reddit web origin blocks the request", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -521,9 +472,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("falls back to Reddit RSS when public JSON endpoints are forbidden", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -585,9 +533,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("falls back to Reddit RSS when public JSON has no supported media", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -655,9 +600,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("resolves Reddit RSS gallery links through old Reddit gallery HTML", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -754,9 +696,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("does not use the RSS thumbnail when Reddit gallery resolution returns no media", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValue({
@@ -827,9 +766,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("resolves Reddit RSS video links through the media embed endpoint", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -911,9 +847,6 @@ describe("fetchRedditRuntimePostLinks", () => {
   });
 
   it("resolves Reddit RSS external video links through yt-dlp", async () => {
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-
     extractYtDlpRuntimeItemsMock.mockResolvedValueOnce([
       {
         id: "url:ytdlp:redgifs",
