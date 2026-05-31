@@ -262,12 +262,22 @@ async function resolveRedditRssMedia({
   }
 
   if (postId && isRedditGalleryUrl(url)) {
-    return fetchOldRedditGalleryMedia({
+    const userAgent = getRedditUserAgent();
+    const oldRedditMedia = await fetchOldRedditGalleryMedia({
       allowNsfw,
       permalink,
       postId,
-      userAgent: getRedditUserAgent(),
+      userAgent,
     });
+    if (oldRedditMedia.length) return oldRedditMedia;
+
+    if (!permalink) return [];
+    const redlibPost = await fetchRedlibGalleryPost({
+      permalink,
+      userAgent,
+    });
+
+    return redlibPost?.media ?? [];
   }
 
   if (isRedditUrl(url)) return [];
