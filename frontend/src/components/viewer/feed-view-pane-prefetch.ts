@@ -3,6 +3,8 @@ import type { RuntimeFeedItem } from "@/lib/feed/types";
 const DEFAULT_PREFETCH_NEXT_ITEM_COUNT = 10;
 const MOBILE_PREFETCH_NEXT_ITEM_COUNT = 5;
 const CONSERVATIVE_PREFETCH_NEXT_ITEM_COUNT = 3;
+const DEFAULT_PREFETCH_NEXT_VIDEO_COUNT = 2;
+const MOBILE_PREFETCH_NEXT_VIDEO_COUNT = 1;
 const PREFETCH_PREVIOUS_GALLERY_IMAGE_COUNT = 1;
 const PREFETCH_NEXT_GALLERY_IMAGE_COUNT = 4;
 const CONSTRAINED_PREFETCH_CONNECTION_TYPES = new Set(["slow-2g", "2g"]);
@@ -14,6 +16,8 @@ type NavigatorConnectionLike = {
   downlink?: number;
   rtt?: number;
 };
+
+export type ImagePrefetchCache = Map<string, HTMLImageElement>;
 
 export function getNextImagePrefetchCount() {
   if (typeof navigator === "undefined") return DEFAULT_PREFETCH_NEXT_ITEM_COUNT;
@@ -64,6 +68,13 @@ export function shouldPrefetchLocalImages() {
   }
 
   return !isCoarsePointerDevice();
+}
+
+export function getNextVideoPrefetchCount() {
+  if (getNextImagePrefetchCount() === 0) return 0;
+  if (isCoarsePointerDevice()) return MOBILE_PREFETCH_NEXT_VIDEO_COUNT;
+
+  return DEFAULT_PREFETCH_NEXT_VIDEO_COUNT;
 }
 
 export function collectImagePrefetchUrls({
@@ -139,6 +150,48 @@ export function collectImagePrefetchUrls({
   }
 
   return [...urls];
+}
+
+export function collectVideoPrefetchUrls({
+  items,
+  activeIndex,
+  prefetchNextItemCount,
+}: {
+  items: RuntimeFeedItem[];
+  activeIndex: number;
+  prefetchNextItemCount: number;
+}) {
+  const urls = new Set<string>();
+
+  for (let offset = 1; offset <= prefetchNextItemCount; offset += 1) {
+    const media = items[activeIndex + offset]?.media[0];
+    if (media?.type === "video") urls.add(media.url);
+  }
+
+  return [...urls];
+}
+
+export function prefetchImageUrl({
+  cache,
+  url,
+}: {
+  cache: ImagePrefetchCache;
+  url: string;
+}) {
+  if (cache.has(url)) return false;
+
+  const image = new Image();
+  image.decoding = "async";
+  if ("fetchPriority" in image) image.fetchPriority = "low";
+  image.src = url;
+  image.onerror = () => {
+    cache.delete(url);
+  };
+  if (typeof image.decode === "function") {
+    void image.decode().catch(() => undefined);
+  }
+  cache.set(url, image);
+  return true;
 }
 
 function isCoarsePointerDevice() {

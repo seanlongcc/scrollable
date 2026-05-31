@@ -29,6 +29,31 @@ type PlaybackRestoreTarget = {
 type HlsInstance = InstanceType<typeof import("hls.js").default>;
 
 const REFERRERLESS_BLOB_PLAYBACK_HOSTS = new Set(["media.redgifs.com"]);
+const REFERRERLESS_BLOB_PREFETCH_LIMIT = 4;
+
+type ReferrerlessBlobPlaybackEntry = {
+  objectUrl?: string;
+  promise: Promise<string>;
+  refs: number;
+  lastUsedAt: number;
+};
+
+const referrerlessBlobPlaybackCache = new Map<
+  string,
+  ReferrerlessBlobPlaybackEntry
+>();
+
+export function canPrefetchReferrerlessBlobPlayback(url: string) {
+  return shouldUseReferrerlessBlobPlayback(url);
+}
+
+export function prefetchReferrerlessBlobPlayback(url: string) {
+  if (!canPrefetchReferrerlessBlobPlayback(url)) return null;
+
+  const entry = referrerlessBlobPlaybackEntry(url);
+  pruneReferrerlessBlobPlaybackCache();
+  return entry.promise;
+}
 
 export function MediaRenderer({
   media,
@@ -192,6 +217,27 @@ export function MediaRenderer({
 
     if (playback.mode === "native") {
       if (shouldUseReferrerlessBlobPlayback(playback.src)) {
+        const retainedPrefetch = retainReferrerlessBlobPlayback(playback.src);
+        if (retainedPrefetch) {
+          let isCancelled = false;
+
+          video.removeAttribute("src");
+          void retainedPrefetch.promise.then(
+            (objectUrl) => {
+              if (!isCancelled) video.src = objectUrl;
+            },
+            () => {
+              if (!isCancelled) video.src = playback.src;
+            },
+          );
+
+          return () => {
+            isCancelled = true;
+            retainedPrefetch.release();
+            unloadVideo(video);
+          };
+        }
+
         const controller = new AbortController();
         let isCancelled = false;
         let objectUrl: string | null = null;
@@ -582,6 +628,8 @@ export function MediaRenderer({
         src={media.url}
         alt={title}
         decoding="async"
+        loading="eager"
+        fetchPriority="high"
         className="h-full w-full object-contain"
         draggable={false}
         onError={handleMediaError}
@@ -644,6 +692,74 @@ function shouldUseReferrerlessBlobPlayback(value: string) {
     return REFERRERLESS_BLOB_PLAYBACK_HOSTS.has(url.hostname.toLowerCase());
   } catch {
     return false;
+  }
+}
+
+function retainReferrerlessBlobPlayback(value: string) {
+  const entry = referrerlessBlobPlaybackCache.get(value);
+  if (!entry) return null;
+
+  entry.refs += 1;
+  entry.lastUsedAt = Date.now();
+
+  return {
+    promise: entry.promise,
+    release: () => {
+      entry.refs = Math.max(0, entry.refs - 1);
+      entry.lastUsedAt = Date.now();
+      pruneReferrerlessBlobPlaybackCache();
+    },
+  };
+}
+
+function referrerlessBlobPlaybackEntry(value: string) {
+  const cached = referrerlessBlobPlaybackCache.get(value);
+  if (cached) {
+    cached.lastUsedAt = Date.now();
+    return cached;
+  }
+
+  const entry: ReferrerlessBlobPlaybackEntry = {
+    refs: 0,
+    lastUsedAt: Date.now(),
+    promise: Promise.resolve(""),
+  };
+  entry.promise = fetch(value, {
+    cache: "no-store",
+    referrerPolicy: "no-referrer",
+  })
+    .then((response) => {
+      if (!response.ok) throw new Error("media_fetch_failed");
+      return response.blob();
+    })
+    .then((blob) => {
+      const objectUrl = URL.createObjectURL(blob);
+      entry.objectUrl = objectUrl;
+      entry.lastUsedAt = Date.now();
+      pruneReferrerlessBlobPlaybackCache();
+      return objectUrl;
+    })
+    .catch((error: unknown) => {
+      referrerlessBlobPlaybackCache.delete(value);
+      throw error;
+    });
+
+  referrerlessBlobPlaybackCache.set(value, entry);
+  return entry;
+}
+
+function pruneReferrerlessBlobPlaybackCache() {
+  const evictable = [...referrerlessBlobPlaybackCache.entries()]
+    .filter(([, entry]) => entry.refs === 0 && entry.objectUrl)
+    .sort((first, second) => first[1].lastUsedAt - second[1].lastUsedAt);
+
+  while (
+    referrerlessBlobPlaybackCache.size > REFERRERLESS_BLOB_PREFETCH_LIMIT &&
+    evictable.length
+  ) {
+    const [url, entry] = evictable.shift()!;
+    if (entry.objectUrl) URL.revokeObjectURL(entry.objectUrl);
+    referrerlessBlobPlaybackCache.delete(url);
   }
 }
 

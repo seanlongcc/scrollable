@@ -24,7 +24,11 @@ vi.mock("hls.js", () => {
   return { default: MockHls };
 });
 
-import { MediaRenderer } from "./media-renderer";
+import {
+  MediaRenderer,
+  canPrefetchReferrerlessBlobPlayback,
+  prefetchReferrerlessBlobPlayback,
+} from "./media-renderer";
 
 describe("MediaRenderer", () => {
   beforeEach(() => {
@@ -116,6 +120,55 @@ describe("MediaRenderer", () => {
     unmount();
 
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:redgifs-video");
+  });
+
+  it("reuses prefetched Redgifs object URLs without another fetch", async () => {
+    const url = "https://media.redgifs.com/EnergeticFemaleTuna.mp4";
+    const videoBlob = new Blob(["video"], { type: "video/mp4" });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => videoBlob,
+    });
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:redgifs-prefetch");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(canPrefetchReferrerlessBlobPlayback(url)).toBe(true);
+    await expect(prefetchReferrerlessBlobPlayback(url)).resolves.toBe(
+      "blob:redgifs-prefetch",
+    );
+
+    const { container } = render(
+      <MediaRenderer
+        media={{
+          type: "video",
+          url,
+        }}
+        title="Runtime video"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector("video")).toHaveAttribute(
+        "src",
+        "blob:redgifs-prefetch",
+      ),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("prioritizes active image loading", () => {
+    const { container } = render(
+      <MediaRenderer
+        media={{ type: "image", url: "https://cdn.test/animated.gif" }}
+        title="Runtime GIF"
+      />,
+    );
+
+    const image = container.querySelector("img");
+
+    expect(image).toHaveAttribute("loading", "eager");
+    expect(image).toHaveAttribute("fetchpriority", "high");
   });
 
   it("unmutes video when audio is enabled", () => {
