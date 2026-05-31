@@ -8,6 +8,7 @@ import {
   fetchOldRedditGalleryPost,
   isRedditGalleryUrl,
 } from "./oldreddit-gallery";
+import { fetchRedlibGalleryPost } from "./redlib-gallery";
 import {
   normalizeRedditAtomFeed,
   type RedditRssMediaResolverInput,
@@ -184,7 +185,14 @@ async function oldRedditPostFallbackItem(
     permalink: source.url,
     postId,
     userAgent: getRedditUserAgent(),
-  });
+  }).then(
+    (oldRedditPost) =>
+      oldRedditPost ??
+      fetchRedlibGalleryPost({
+        permalink: source.url,
+        userAgent: getRedditUserAgent(),
+      }),
+  );
   if (!post?.media.length) return null;
 
   return {
