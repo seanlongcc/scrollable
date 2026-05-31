@@ -5,6 +5,7 @@ import { fetchRedditMediaEmbed, isRedditHostedVideoUrl } from "./mediaembed";
 import { normalizeRedditListing } from "./normalization";
 import {
   fetchOldRedditGalleryMedia,
+  fetchOldRedditGalleryPost,
   isRedditGalleryUrl,
 } from "./oldreddit-gallery";
 import {
@@ -95,6 +96,14 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
     }
 
     if (!sourceHasItems) {
+      const oldRedditFallback = await oldRedditPostFallbackItem(source, {
+        allowNsfw: parsed.allowNsfw,
+      });
+      if (oldRedditFallback) {
+        items.push(oldRedditFallback);
+        continue;
+      }
+
       if (!sawOkResponse) throw toRedditPostError(lastRetryableStatus);
       unsupportedIds.push(...lastUnsupportedIds);
     }
@@ -159,6 +168,38 @@ async function normalizeRedditResponse(
   return normalizeRedditListing(listing, options);
 }
 
+async function oldRedditPostFallbackItem(
+  source: ParsedRedditSourceUrl,
+  options: {
+    allowNsfw?: boolean;
+  },
+): Promise<RuntimeFeedItem | null> {
+  if (source.kind !== "post") return null;
+
+  const postId = redditPostIdFromUrl(source.url);
+  if (!postId) return null;
+
+  const post = await fetchOldRedditGalleryPost({
+    allowNsfw: options.allowNsfw,
+    permalink: source.url,
+    postId,
+    userAgent: getRedditUserAgent(),
+  });
+  if (!post?.media.length) return null;
+
+  return {
+    id: `reddit:${postId}`,
+    source: "reddit",
+    title: post.title ?? titleFromRedditPostUrl(source.url),
+    permalink: source.url,
+    author: post.author,
+    subreddit: post.subreddit ?? source.subreddit ?? "reddit",
+    isNsfw: false,
+    createdAt: post.createdAt ?? new Date().toISOString(),
+    media: post.media,
+  };
+}
+
 async function resolveRedditRssMedia({
   allowNsfw,
   permalink,
@@ -187,6 +228,28 @@ async function resolveRedditRssMedia({
   const items = await extractYtDlpRuntimeItems(url);
 
   return items.flatMap((item) => item.media);
+}
+
+function redditPostIdFromUrl(value: string) {
+  try {
+    const segments = new URL(value).pathname.split("/").filter(Boolean);
+    const commentsIndex = segments.indexOf("comments");
+    return commentsIndex === -1 ? null : (segments[commentsIndex + 1] ?? null);
+  } catch {
+    return null;
+  }
+}
+
+function titleFromRedditPostUrl(value: string) {
+  try {
+    const segments = new URL(value).pathname.split("/").filter(Boolean);
+    const commentsIndex = segments.indexOf("comments");
+    const slug =
+      commentsIndex === -1 ? "" : (segments[commentsIndex + 2] ?? "");
+    return slug ? slug.replaceAll("_", " ") : "Reddit post";
+  } catch {
+    return "Reddit post";
+  }
 }
 
 function getRedditUserAgent() {
