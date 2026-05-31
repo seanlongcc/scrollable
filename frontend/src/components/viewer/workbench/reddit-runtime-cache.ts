@@ -116,6 +116,7 @@ function shouldTryBrowserRedditFallback(error: string) {
   return (
     error === "reddit_fetch_forbidden" ||
     error === "reddit_rate_limited" ||
+    error === "reddit_source_has_no_supported_media" ||
     error.startsWith("reddit_post_fetch_failed_")
   );
 }

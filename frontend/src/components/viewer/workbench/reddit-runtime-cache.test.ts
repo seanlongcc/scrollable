@@ -10,98 +10,101 @@ describe("fetchRedditRuntimePostItems", () => {
     });
   });
 
-  it("falls back to browser Reddit JSONP when the app API is forbidden", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(
-          JSON.stringify({ error: "reddit_fetch_forbidden" }),
-          {
+  it.each([
+    ["reddit_fetch_forbidden", 502],
+    ["reddit_source_has_no_supported_media", 422],
+  ])(
+    "falls back to browser Reddit JSONP when the app API returns %s",
+    async (error, status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          return new Response(JSON.stringify({ error }), {
             headers: { "Content-Type": "application/json" },
-            status: 502,
-          },
-        );
-      }),
-    );
+            status,
+          });
+        }),
+      );
 
-    const request = fetchRedditRuntimePostItems({
-      urls: [
-        "https://www.reddit.com/r/kpop/comments/jsonp123/browser_jsonp_gallery/",
-      ],
-      allowNsfw: true,
-      limit: 5,
-    });
+      const request = fetchRedditRuntimePostItems({
+        urls: [
+          "https://www.reddit.com/r/kpop/comments/jsonp123/browser_jsonp_gallery/",
+        ],
+        allowNsfw: true,
+        limit: 5,
+      });
 
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      if (document.head.querySelector("script")) break;
-      await new Promise((resolve) => window.setTimeout(resolve, 0));
-    }
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        if (document.head.querySelector("script")) break;
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+      }
 
-    const script = document.head.querySelector("script");
-    expect(script).toBeTruthy();
-    expect(script?.src).toContain(
-      "https://www.reddit.com/r/kpop/comments/jsonp123/browser_jsonp_gallery/.json",
-    );
-    expect(script?.src).toContain("include_over_18=on");
-    const callbackName = new URL(script?.src ?? "").searchParams.get("jsonp");
-    expect(callbackName).toBeTruthy();
+      const script = document.head.querySelector("script");
+      expect(script).toBeTruthy();
+      expect(script?.src).toContain(
+        "https://www.reddit.com/r/kpop/comments/jsonp123/browser_jsonp_gallery/.json",
+      );
+      expect(script?.src).toContain("include_over_18=on");
+      const callbackName = new URL(script?.src ?? "").searchParams.get("jsonp");
+      expect(callbackName).toBeTruthy();
 
-    (window as unknown as Record<string, (payload: unknown) => void>)[
-      callbackName!
-    ]([
-      {
-        data: {
-          children: [
-            {
-              data: {
-                created_utc: 1_780_000_000,
-                gallery_data: {
-                  items: [{ media_id: "first" }, { media_id: "second" }],
-                },
-                id: "jsonp123",
-                is_gallery: true,
-                media_metadata: {
-                  first: {
-                    e: "Image",
-                    m: "image/jpeg",
-                    s: {
-                      u: "https://preview.redd.it/first.jpg",
-                      x: 800,
-                      y: 600,
-                    },
-                    status: "valid",
+      (window as unknown as Record<string, (payload: unknown) => void>)[
+        callbackName!
+      ]([
+        {
+          data: {
+            children: [
+              {
+                data: {
+                  created_utc: 1_780_000_000,
+                  gallery_data: {
+                    items: [{ media_id: "first" }, { media_id: "second" }],
                   },
-                  second: {
-                    e: "Image",
-                    m: "image/jpeg",
-                    s: {
-                      u: "https://preview.redd.it/second.jpg",
-                      x: 640,
-                      y: 480,
+                  id: "jsonp123",
+                  is_gallery: true,
+                  media_metadata: {
+                    first: {
+                      e: "Image",
+                      m: "image/jpeg",
+                      s: {
+                        u: "https://preview.redd.it/first.jpg",
+                        x: 800,
+                        y: 600,
+                      },
+                      status: "valid",
                     },
-                    status: "valid",
+                    second: {
+                      e: "Image",
+                      m: "image/jpeg",
+                      s: {
+                        u: "https://preview.redd.it/second.jpg",
+                        x: 640,
+                        y: 480,
+                      },
+                      status: "valid",
+                    },
                   },
+                  over_18: true,
+                  permalink: "/r/kpop/comments/jsonp123/browser_jsonp_gallery/",
+                  subreddit: "kpop",
+                  title: "Browser JSONP gallery",
                 },
-                over_18: true,
-                permalink: "/r/kpop/comments/jsonp123/browser_jsonp_gallery/",
-                subreddit: "kpop",
-                title: "Browser JSONP gallery",
               },
-            },
+            ],
+          },
+        },
+      ]);
+
+      await expect(request).resolves.toMatchObject([
+        {
+          id: "reddit:jsonp123",
+          isNsfw: true,
+          media: [
+            { galleryIndex: 0, url: "https://i.redd.it/first.jpg" },
+            { galleryIndex: 1, url: "https://i.redd.it/second.jpg" },
           ],
         },
-      },
-    ]);
-
-    await expect(request).resolves.toMatchObject([
-      {
-        id: "reddit:jsonp123",
-        isNsfw: true,
-        media: [
-          { galleryIndex: 0, url: "https://i.redd.it/first.jpg" },
-          { galleryIndex: 1, url: "https://i.redd.it/second.jpg" },
-        ],
-      },
-    ]);
-  });
+      ]);
+    },
+  );
 });

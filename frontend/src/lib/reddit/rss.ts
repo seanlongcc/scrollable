@@ -114,25 +114,9 @@ async function mediaFromEntry(
     }
   }
 
-  if (linkUrl) {
-    return isRedditGalleryUrl(linkUrl) && thumbnailMedia
-      ? [thumbnailMedia]
-      : [];
-  }
+  if (linkUrl) return [];
 
   return thumbnailMedia ? [thumbnailMedia] : [];
-}
-
-function isRedditGalleryUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return (
-      /^(.+\.)?reddit\.com$/i.test(url.hostname) &&
-      /^\/gallery\/[^/]+\/?$/i.test(url.pathname)
-    );
-  } catch {
-    return false;
-  }
 }
 
 function linkUrlFromContent(content: string) {

@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const chromiumChannel = process.env.PLAYWRIGHT_CHROMIUM_CHANNEL;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
@@ -13,6 +15,7 @@ export default defineConfig({
   },
   use: {
     baseURL: "http://127.0.0.1:3000",
+    ...(chromiumChannel ? { channel: chromiumChannel } : {}),
     trace: "on-first-retry",
   },
   projects: [

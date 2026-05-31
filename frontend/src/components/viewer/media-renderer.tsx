@@ -28,6 +28,8 @@ type PlaybackRestoreTarget = {
 
 type HlsInstance = InstanceType<typeof import("hls.js").default>;
 
+const REFERRERLESS_BLOB_PLAYBACK_HOSTS = new Set(["media.redgifs.com"]);
+
 export function MediaRenderer({
   media,
   title,
@@ -189,6 +191,38 @@ export function MediaRenderer({
     });
 
     if (playback.mode === "native") {
+      if (shouldUseReferrerlessBlobPlayback(playback.src)) {
+        const controller = new AbortController();
+        let isCancelled = false;
+        let objectUrl: string | null = null;
+
+        video.removeAttribute("src");
+        void fetch(playback.src, {
+          cache: "no-store",
+          referrerPolicy: "no-referrer",
+          signal: controller.signal,
+        })
+          .then((response) => {
+            if (!response.ok) throw new Error("media_fetch_failed");
+            return response.blob();
+          })
+          .then((blob) => {
+            if (isCancelled) return;
+            objectUrl = URL.createObjectURL(blob);
+            video.src = objectUrl;
+          })
+          .catch(() => {
+            if (!isCancelled) video.src = playback.src;
+          });
+
+        return () => {
+          isCancelled = true;
+          controller.abort();
+          unloadVideo(video);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+      }
+
       video.src = playback.src;
       return () => unloadVideo(video);
     }
@@ -601,6 +635,15 @@ function hostFromUrl(value: string) {
     return new URL(value).hostname;
   } catch {
     return "Media host";
+  }
+}
+
+function shouldUseReferrerlessBlobPlayback(value: string) {
+  try {
+    const url = new URL(value);
+    return REFERRERLESS_BLOB_PLAYBACK_HOSTS.has(url.hostname.toLowerCase());
+  } catch {
+    return false;
   }
 }
 
