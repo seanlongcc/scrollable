@@ -33,7 +33,7 @@ Current installed stack:
   `redditmedia.com/mediaembed/<postId>` endpoint, Reddit gallery links through old Reddit gallery HTML, and external provider links such as Redgifs through the bundled runtime `yt-dlp` extractor. All paths are runtime-only.
 - Optional server-only `REDDIT_REDLIB_ORIGIN` overrides the last-resort Redlib origin(s) used when Reddit JSON/RSS and old Reddit are forbidden for pasted post URLs or listing URLs. Redlib fallback must convert media links back to original Reddit CDN URLs and remain runtime-only. Browser-side Reddit JSONP fallback may be used only as runtime recovery when the app API is forbidden/rate-limited; it must not persist returned Reddit payloads or media URLs.
 - Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
-- Vercel for deployment through GitHub Actions and the pinned Vercel CLI
+- Vercel Git integration for preview branch deployments; production deployment/promotion remains manual.
 - Mobile-first user experience
 
 Current package/runtime defaults:
@@ -53,7 +53,7 @@ Current package/runtime defaults:
 - Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
 - GitHub Actions workflow `.github/workflows/ci-cd.yml` runs format check, ESLint, typecheck, Vitest, Next build, local Supabase DB tests, and Playwright desktop/mobile e2e on pull requests and `main`.
 - CI install steps pass the built-in `GITHUB_TOKEN` to `npm ci` so `youtube-dl-exec` can fetch the `yt-dlp` release binary without anonymous GitHub API rate-limit failures.
-- GitHub Actions deploys Vercel previews for same-repository pull requests only. Automatic Vercel Git deployments are disabled in `frontend/vercel.json`, and CI must not deploy or promote production from `main` or any branch. Production deployment/promotion must be a deliberate manual action. Required repository secrets for preview deploys are `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
+- Vercel Git integration creates preview branch deployments for pull requests. `frontend/vercel.json` disables automatic deployments from `main` only, so production deployment/promotion remains a deliberate manual action. CI must not deploy or promote production from `main` or any branch.
 - GitHub Actions workflow `.github/workflows/release.yml` manually creates GitHub Releases from `main`. It requires a human-selected `vX.Y.Z` version, reruns core gates, refuses duplicate tags/releases, and prepends production URL plus commit metadata to generated release notes.
 - CI Supabase tests must stay local-only. Do not add `--linked`, `db push`, `SUPABASE_ACCESS_TOKEN`, or remote database URLs to the test workflow unless the production/staging database deployment strategy is explicitly changed.
 - Saved free-layout templates use `viewer_templates` in Supabase and `scrollable.workspace-templates.v1` in localStorage.
