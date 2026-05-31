@@ -29,11 +29,19 @@ import {
   type TimerMode,
   type TimerState,
 } from "@/lib/viewer/timer";
-import { MediaRenderer } from "./media-renderer";
+import {
+  MediaRenderer,
+  canPrefetchReferrerlessBlobPlayback,
+  prefetchReferrerlessBlobPlayback,
+} from "./media-renderer";
 import {
   collectImagePrefetchUrls,
+  collectVideoPrefetchUrls,
   getNextImagePrefetchCount,
+  getNextVideoPrefetchCount,
+  prefetchImageUrl,
   shouldPrefetchLocalImages,
+  type ImagePrefetchCache,
 } from "./feed-view-pane-prefetch";
 import { useFeedMediaTransition } from "./feed-view-pane-motion";
 import { sourceActionRailClass } from "./source-action-rail";
@@ -117,7 +125,7 @@ export function FeedViewPane({
   onTimerModeChange?: (mode: TimerMode) => void;
   onTimerSecondsChange?: (seconds: number) => void;
 }) {
-  const prefetchedImageUrlsRef = useRef<Set<string>>(new Set());
+  const prefetchedImagesRef = useRef<ImagePrefetchCache>(new Map());
   const activeItem = items[timer.activeIndex];
   const activeGalleryIndex = activeItem
     ? (galleryIndexes[activeItem.id] ?? 0)
@@ -209,7 +217,7 @@ export function FeedViewPane({
     if (prefetchNextItemCount === 0) return;
 
     const prefetchLocalImages = shouldPrefetchLocalImages();
-    const prefetchedImageUrls = prefetchedImageUrlsRef.current;
+    const prefetchedImages = prefetchedImagesRef.current;
     const urls = collectImagePrefetchUrls({
       items,
       activeIndex: timer.activeIndex,
@@ -219,18 +227,25 @@ export function FeedViewPane({
     });
 
     for (const url of urls) {
-      if (prefetchedImageUrls.has(url)) continue;
-
-      const image = new Image();
-      image.decoding = "async";
-      if ("fetchPriority" in image) image.fetchPriority = "low";
-      image.src = url;
-      if (typeof image.decode === "function") {
-        void image.decode().catch(() => undefined);
-      }
-      prefetchedImageUrls.add(url);
+      prefetchImageUrl({ cache: prefetchedImages, url });
     }
   }, [activeGalleryIndex, items, timer.activeIndex]);
+
+  useEffect(() => {
+    const prefetchNextItemCount = getNextVideoPrefetchCount();
+    if (prefetchNextItemCount === 0) return;
+
+    const urls = collectVideoPrefetchUrls({
+      items,
+      activeIndex: timer.activeIndex,
+      prefetchNextItemCount,
+    });
+
+    for (const url of urls) {
+      if (!canPrefetchReferrerlessBlobPlayback(url)) continue;
+      void prefetchReferrerlessBlobPlayback(url)?.catch(() => undefined);
+    }
+  }, [items, timer.activeIndex]);
 
   const showProgress = !hideUi && timer.itemCount > 1;
   const sourceChromeClass = cn(

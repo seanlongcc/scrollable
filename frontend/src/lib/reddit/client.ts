@@ -191,19 +191,18 @@ async function oldRedditPostFallbackItem(
   const postId = redditPostIdFromUrl(source.url);
   if (!postId) return null;
 
-  const post = await fetchOldRedditGalleryPost({
+  const oldRedditPost = await fetchOldRedditGalleryPost({
     allowNsfw: options.allowNsfw,
     permalink: source.url,
     postId,
     userAgent: getRedditUserAgent(),
-  }).then(
-    (oldRedditPost) =>
-      oldRedditPost ??
-      fetchRedlibGalleryPost({
+  });
+  const post = oldRedditPost?.media.length
+    ? oldRedditPost
+    : await fetchRedlibGalleryPost({
         permalink: source.url,
         userAgent: getRedditUserAgent(),
-      }),
-  );
+      });
   if (!post?.media.length) return null;
 
   return {
