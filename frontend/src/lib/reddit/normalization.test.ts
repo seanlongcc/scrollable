@@ -80,8 +80,8 @@ describe("normalizeRedditListing", () => {
       isNsfw: false,
     });
     expect(result.items[0].media.map((media) => media.url)).toEqual([
-      "https://preview.redd.it/b.jpg",
-      "https://preview.redd.it/a.jpg",
+      "https://i.redd.it/b.jpg",
+      "https://i.redd.it/a.jpg",
     ]);
     expect(result.items[0].media.map((media) => media.galleryIndex)).toEqual([
       0, 1,

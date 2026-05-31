@@ -127,7 +127,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/kpop/comments/1sui8xh/nmixx_the_5th_ep_heavy_serenade_concept_photo/.json?raw_json=1",
+      "https://www.reddit.com/r/kpop/comments/1sui8xh/nmixx_the_5th_ep_heavy_serenade_concept_photo/.json?raw_json=1&include_over_18=on",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -198,7 +198,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://oauth.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=1",
+      "https://oauth.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=1&include_over_18=on",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -380,8 +380,91 @@ describe("fetchRedditRuntimePostLinks", () => {
         media: [
           {
             type: "image",
-            url: "https://preview.redd.it/first.jpg?width=1080&format=pjpg&auto=webp&s=one",
+            url: "https://i.redd.it/first.jpg",
             galleryIndex: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("falls back to Redlib listing HTML for NSFW subreddit listings", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <div id="posts">
+            <hr class="sep" />
+            <div class="post" id="video123">
+              <p class="post_header">
+                <a class="post_subreddit" href="/r/kpopfap">r/kpopfap</a>
+                <a class="post_author" href="/u/poster">u/poster</a>
+                <span class="created" title="May 29 2026, 11:45:33 UTC">1d ago</span>
+              </p>
+              <h2 class="post_title">
+                <a href="/r/kpopfap/comments/video123/winter_aespa/">Winter - aespa</a> <small class="nsfw">NSFW</small>
+              </h2>
+              <video class="post_media_video short" width="480" height="854">
+                <source src="/hls/video-media-id/HLSPlaylist.m3u8" type="application/vnd.apple.mpegurl" />
+              </video>
+            </div>
+          </div>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/kpopfap/top/?t=week",
+      allowNsfw: true,
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "https://redlib.perennialte.ch/r/kpopfap/top/?t=week",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          Accept: "text/html,application/xhtml+xml",
+          Cookie: "show_nsfw=on; blur_nsfw=off",
+          "User-Agent": expect.any(String),
+        }),
+      }),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:video123",
+        title: "Winter - aespa",
+        author: "poster",
+        subreddit: "kpopfap",
+        isNsfw: true,
+        createdAt: "2026-05-29T11:45:33.000Z",
+        media: [
+          {
+            type: "video",
+            url: "https://v.redd.it/video-media-id/HLSPlaylist.m3u8",
+            width: 480,
+            height: 854,
+            isHls: true,
           },
         ],
       },
@@ -426,12 +509,12 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=20",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=20&include_over_18=on",
       expect.any(Object),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=20",
+      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=20&include_over_18=on",
       expect.any(Object),
     );
     expect(result.items.map((item) => item.id)).toEqual(["reddit:fallback"]);
@@ -971,7 +1054,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=2",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=2&include_over_18=on",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({

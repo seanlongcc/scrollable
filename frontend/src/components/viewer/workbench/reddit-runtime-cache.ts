@@ -1,5 +1,6 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
 import { parseRedditPostLinksInput } from "@/lib/reddit/source";
+import { fetchBrowserRedditRuntimePostItems } from "./browser-reddit-runtime";
 
 export type RedditRuntimePostCache = Map<string, Promise<RuntimeFeedItem[]>>;
 
@@ -92,7 +93,16 @@ async function fetchRedditRuntimePostItemsFromApi({
   const payload = (await response.json()) as RedditListingApiPayload;
 
   if (!response.ok) {
-    throw new Error(payload.error ?? "reddit_source_fetch_failed");
+    const error = payload.error ?? "reddit_source_fetch_failed";
+    if (shouldTryBrowserRedditFallback(error)) {
+      return fetchBrowserRedditRuntimePostItems({
+        url,
+        allowNsfw,
+        limit,
+      });
+    }
+
+    throw new Error(error);
   }
 
   if (!Array.isArray(payload.items)) {
@@ -100,6 +110,14 @@ async function fetchRedditRuntimePostItemsFromApi({
   }
 
   return payload.items;
+}
+
+function shouldTryBrowserRedditFallback(error: string) {
+  return (
+    error === "reddit_fetch_forbidden" ||
+    error === "reddit_rate_limited" ||
+    error.startsWith("reddit_post_fetch_failed_")
+  );
 }
 
 function cloneRuntimeItems(items: RuntimeFeedItem[]) {

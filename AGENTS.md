@@ -31,7 +31,7 @@ Current installed stack:
 - Optional server-only `NHENTAI_API_KEY` for runtime nHentai gallery API requests. Store it in local/deployment secrets only, never as `NEXT_PUBLIC_*`.
 - Optional server-only `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` for Reddit app-only OAuth API requests in production. Store them in local/deployment secrets only, never as `NEXT_PUBLIC_*`. Without them the app falls back to public Reddit JSON and then public Reddit RSS when JSON is forbidden by Reddit. RSS fallback resolves Reddit-hosted `v.redd.it` videos through Reddit's public
   `redditmedia.com/mediaembed/<postId>` endpoint, Reddit gallery links through old Reddit gallery HTML, and external provider links such as Redgifs through the bundled runtime `yt-dlp` extractor. All paths are runtime-only.
-- Optional server-only `REDDIT_REDLIB_ORIGIN` overrides the last-resort Redlib origin used only when Reddit JSON/RSS and old Reddit are forbidden for pasted post URLs. Redlib fallback must convert media links back to original Reddit CDN URLs and remain runtime-only.
+- Optional server-only `REDDIT_REDLIB_ORIGIN` overrides the last-resort Redlib origin(s) used when Reddit JSON/RSS and old Reddit are forbidden for pasted post URLs or listing URLs. Redlib fallback must convert media links back to original Reddit CDN URLs and remain runtime-only. Browser-side Reddit JSONP fallback may be used only as runtime recovery when the app API is forbidden/rate-limited; it must not persist returned Reddit payloads or media URLs.
 - Auth providers: email/password and Google. Reddit is a runtime content source only, not a login provider.
 - Vercel for deployment through GitHub Actions and the pinned Vercel CLI
 - Mobile-first user experience
