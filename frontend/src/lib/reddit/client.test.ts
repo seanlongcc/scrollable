@@ -338,6 +338,76 @@ describe("fetchRedditRuntimePostLinks", () => {
     ]);
   });
 
+  it("falls back to Reddit RSS when public JSON has no supported media", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          kind: "Listing",
+          data: {
+            children: [
+              {
+                data: {
+                  id: "textonly",
+                  title: "Text only",
+                  subreddit: "pics",
+                },
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/poster</name></author>
+              <category term="pics" label="r/pics"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://i.redd.it/rss-image.jpg&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <id>t3_rssimage</id>
+              <link href="https://www.reddit.com/r/pics/comments/rssimage/rss_image/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS image after empty JSON</title>
+            </entry>
+          </feed>
+        `,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/pics/top/?t=week",
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "https://www.reddit.com/r/pics/top/.rss?t=week&limit=10",
+      expect.any(Object),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:rssimage",
+        media: [{ type: "image", url: "https://i.redd.it/rss-image.jpg" }],
+      },
+    ]);
+    expect(result.unsupportedIds).toEqual([]);
+  });
+
   it("resolves Reddit RSS gallery links through old Reddit gallery HTML", async () => {
     delete process.env.REDDIT_CLIENT_ID;
     delete process.env.REDDIT_CLIENT_SECRET;
@@ -431,6 +501,76 @@ describe("fetchRedditRuntimePostLinks", () => {
             width: 640,
             height: 480,
             galleryIndex: 1,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("uses the RSS thumbnail when old Reddit gallery resolution returns no media", async () => {
+    delete process.env.REDDIT_CLIENT_ID;
+    delete process.env.REDDIT_CLIENT_SECRET;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `
+          <?xml version="1.0" encoding="UTF-8"?>
+          <feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+            <entry>
+              <author><name>/u/gallery-poster</name></author>
+              <category term="pics" label="r/pics"/>
+              <content type="html">
+                &lt;table&gt;&lt;tr&gt;&lt;td&gt;
+                &lt;span&gt;&lt;a href=&quot;https://www.reddit.com/gallery/gallery123&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt;
+                &lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+              </content>
+              <media:thumbnail url="https://preview.redd.it/gallery123.jpg?width=140&amp;height=140&amp;auto=webp"/>
+              <id>t3_gallery123</id>
+              <link href="https://www.reddit.com/r/pics/comments/gallery123/gallery_title/"/>
+              <updated>2026-05-30T17:41:27+00:00</updated>
+              <title>RSS gallery thumbnail</title>
+            </entry>
+          </feed>
+        `,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchRedditRuntimePostLinks({
+      urls: "https://www.reddit.com/r/pics/top/?t=week",
+      allowNsfw: true,
+      limit: 10,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/",
+      expect.any(Object),
+    );
+    expect(result.items).toMatchObject([
+      {
+        id: "reddit:gallery123",
+        title: "RSS gallery thumbnail",
+        media: [
+          {
+            type: "image",
+            url: "https://preview.redd.it/gallery123.jpg?width=140&height=140&auto=webp",
           },
         ],
       },

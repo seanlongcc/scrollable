@@ -53,11 +53,13 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
   for (const sourceUrl of parsed.urls) {
     const source = parseRedditSourceUrl(sourceUrl);
     const requests = await redditJsonRequests(source, parsed.limit);
-    let response: Response | null = null;
-    let selectedRequest: RedditRequest | null = null;
+    let sawOkResponse = false;
+    let sourceHasItems = false;
+    let lastRetryableStatus = 502;
+    let lastUnsupportedIds: string[] = [];
 
     for (const request of requests) {
-      response = await fetch(request.url, {
+      const response = await fetch(request.url, {
         headers: {
           "User-Agent": getRedditUserAgent(),
           ...request.headers,
@@ -65,28 +67,37 @@ export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
         cache: "no-store",
       });
 
-      if (response.ok || !shouldTryNextRedditRequest(response.status)) {
-        selectedRequest = request;
+      if (!response.ok) {
+        lastRetryableStatus = response.status;
+        if (shouldTryNextRedditRequest(response.status)) continue;
+        throw toRedditPostError(response.status);
+      }
+
+      sawOkResponse = true;
+      const normalized = await normalizeRedditResponse(
+        response,
+        request.parser,
+        {
+          subreddit: source.subreddit ?? "reddit",
+          allowNsfw: parsed.allowNsfw,
+          limit: parsed.limit,
+        },
+      );
+
+      if (normalized.items.length > 0) {
+        items.push(...normalized.items);
+        unsupportedIds.push(...normalized.unsupportedIds);
+        sourceHasItems = true;
         break;
       }
+
+      lastUnsupportedIds = normalized.unsupportedIds;
     }
 
-    if (!response?.ok) {
-      throw toRedditPostError(response?.status ?? 502);
+    if (!sourceHasItems) {
+      if (!sawOkResponse) throw toRedditPostError(lastRetryableStatus);
+      unsupportedIds.push(...lastUnsupportedIds);
     }
-
-    const normalized = await normalizeRedditResponse(
-      response,
-      selectedRequest?.parser ?? "json",
-      {
-        subreddit: source.subreddit ?? "reddit",
-        allowNsfw: parsed.allowNsfw,
-        limit: parsed.limit,
-      },
-    );
-
-    items.push(...normalized.items);
-    unsupportedIds.push(...normalized.unsupportedIds);
   }
 
   if (items.length === 0) {

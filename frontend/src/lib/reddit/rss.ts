@@ -95,6 +95,8 @@ async function mediaFromEntry(
 ): Promise<RuntimeMedia[]> {
   const content = textContent(entryXml, "content") ?? "";
   const linkUrl = linkUrlFromContent(content);
+  const thumbnail = thumbnailUrl(entryXml);
+  const thumbnailMedia = thumbnail ? mediaFromUrl(thumbnail) : null;
   const linkMedia = linkUrl ? mediaFromUrl(linkUrl) : null;
   if (linkMedia) return [linkMedia];
 
@@ -112,12 +114,25 @@ async function mediaFromEntry(
     }
   }
 
-  if (linkUrl) return [];
-
-  const thumbnail = thumbnailUrl(entryXml);
-  const thumbnailMedia = thumbnail ? mediaFromUrl(thumbnail) : null;
+  if (linkUrl) {
+    return isRedditGalleryUrl(linkUrl) && thumbnailMedia
+      ? [thumbnailMedia]
+      : [];
+  }
 
   return thumbnailMedia ? [thumbnailMedia] : [];
+}
+
+function isRedditGalleryUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (
+      /^(.+\.)?reddit\.com$/i.test(url.hostname) &&
+      /^\/gallery\/[^/]+\/?$/i.test(url.pathname)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function linkUrlFromContent(content: string) {
