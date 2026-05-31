@@ -753,7 +753,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     ]);
   });
 
-  it("uses the RSS thumbnail when old Reddit gallery resolution returns no media", async () => {
+  it("does not use the RSS thumbnail when Reddit gallery resolution returns no media", async () => {
     delete process.env.REDDIT_CLIENT_ID;
     delete process.env.REDDIT_CLIENT_SECRET;
 
@@ -803,29 +803,27 @@ describe("fetchRedditRuntimePostLinks", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await fetchRedditRuntimePostLinks({
-      urls: "https://www.reddit.com/r/pics/top/?t=week",
-      allowNsfw: true,
-      limit: 10,
-    });
+    await expect(
+      fetchRedditRuntimePostLinks({
+        urls: "https://www.reddit.com/r/pics/top/?t=week",
+        allowNsfw: true,
+        limit: 10,
+      }),
+    ).rejects.toThrow("reddit_source_has_no_supported_media");
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
       "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/",
       expect.any(Object),
     );
-    expect(result.items).toMatchObject([
-      {
-        id: "reddit:gallery123",
-        title: "RSS gallery thumbnail",
-        media: [
-          {
-            type: "image",
-            url: "https://preview.redd.it/gallery123.jpg?width=140&height=140&auto=webp",
-          },
-        ],
-      },
-    ]);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      "https://redlib.perennialte.ch/r/pics/comments/gallery123/gallery_title/",
+      expect.any(Object),
+    );
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
+      "https://redlib.perennialte.ch/r/pics/top/?t=week",
+    );
   });
 
   it("resolves Reddit RSS video links through the media embed endpoint", async () => {
