@@ -21,6 +21,18 @@ export type RedditRssMediaResolverInput = {
   allowNsfw?: boolean;
 };
 
+type NormalizedRedditAtomEntry =
+  | {
+      item: RuntimeFeedItem;
+      unsupportedId?: undefined;
+    }
+  | {
+      item?: undefined;
+      unsupportedId?: string;
+    };
+
+const RSS_MEDIA_RESOLVE_CONCURRENCY = 4;
+
 const IMAGE_EXTENSIONS = new Set([
   ".apng",
   ".avif",
@@ -43,26 +55,69 @@ export async function normalizeRedditAtomFeed(
   const unsupportedIds: string[] = [];
   const items: RuntimeFeedItem[] = [];
 
-  for (const entry of entries) {
-    if (items.length >= limit) break;
+  for (
+    let startIndex = 0;
+    startIndex < entries.length && items.length < limit;
+    startIndex += RSS_MEDIA_RESOLVE_CONCURRENCY
+  ) {
+    const remainingLimit = Number.isFinite(limit)
+      ? Math.max(
+          1,
+          Math.min(RSS_MEDIA_RESOLVE_CONCURRENCY, limit - items.length),
+        )
+      : RSS_MEDIA_RESOLVE_CONCURRENCY;
+    const batch = entries.slice(startIndex, startIndex + remainingLimit);
+    const normalizedEntries = await Promise.all(
+      batch.map((entry) =>
+        normalizeRedditAtomEntry(entry[1] ?? "", {
+          allowNsfw: options.allowNsfw,
+          resolveMedia: options.resolveMedia,
+          subreddit: options.subreddit,
+        }),
+      ),
+    );
 
-    const entryXml = entry[1] ?? "";
-    const title = textContent(entryXml, "title") ?? "Untitled Reddit post";
-    const permalink = entryPermalink(entryXml);
-    const id = redditPostId(entryXml, permalink);
-    const media = await mediaFromEntry(entryXml, {
-      allowNsfw: options.allowNsfw,
-      permalink,
-      postId: id,
-      resolveMedia: options.resolveMedia,
-    });
-
-    if (media.length === 0) {
-      if (id) unsupportedIds.push(id);
-      continue;
+    for (const entry of normalizedEntries) {
+      if (items.length >= limit) break;
+      if (entry.item) {
+        items.push(entry.item);
+      } else if (entry.unsupportedId) {
+        unsupportedIds.push(entry.unsupportedId);
+      }
     }
+  }
 
-    items.push({
+  return {
+    items:
+      options.allowNsfw === false
+        ? items.filter((item) => !item.isNsfw)
+        : items,
+    unsupportedIds,
+  };
+}
+
+async function normalizeRedditAtomEntry(
+  entryXml: string,
+  options: {
+    allowNsfw?: boolean;
+    resolveMedia?: NormalizeRedditAtomFeedOptions["resolveMedia"];
+    subreddit: string;
+  },
+): Promise<NormalizedRedditAtomEntry> {
+  const title = textContent(entryXml, "title") ?? "Untitled Reddit post";
+  const permalink = entryPermalink(entryXml);
+  const id = redditPostId(entryXml, permalink);
+  const media = await mediaFromEntry(entryXml, {
+    allowNsfw: options.allowNsfw,
+    permalink,
+    postId: id,
+    resolveMedia: options.resolveMedia,
+  });
+
+  if (media.length === 0) return { unsupportedId: id ?? undefined };
+
+  return {
+    item: {
       id: `reddit:${id ?? crypto.randomUUID()}`,
       source: "reddit",
       title,
@@ -72,15 +127,7 @@ export async function normalizeRedditAtomFeed(
       isNsfw: /\bnsfw\b/i.test(title),
       createdAt: dateFromEntry(entryXml),
       media,
-    });
-  }
-
-  return {
-    items:
-      options.allowNsfw === false
-        ? items.filter((item) => !item.isNsfw)
-        : items,
-    unsupportedIds,
+    },
   };
 }
 
