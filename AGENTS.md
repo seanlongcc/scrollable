@@ -45,7 +45,7 @@ Current package/runtime defaults:
 - Main scripts: `npm run dev`, `npm run build`, `npm start`, `npm run lint`, `npm run format`, `npm run format:check`, `npm run typecheck`, `npm test`, `npm run test:watch`, `npm run e2e`.
 - Supabase local scripts: `npm run supabase:start`, `npm run supabase:stop`, `npm run supabase:reset`, `npm run supabase:test`.
 - `npm test` runs Vitest/jsdom unit tests in `frontend/`. It excludes `frontend/tests/e2e`.
-- `npm run e2e` runs Playwright desktop Chrome and iPhone 15 mobile projects and starts the dev server through `nvm use 24`.
+- `npm run e2e` runs Playwright desktop Chrome and iPhone 15 mobile projects and starts the dev server through `nvm use 24`. GitHub E2E sets `PLAYWRIGHT_CHROMIUM_CHANNEL=chrome` and uses the hosted runner's system Chrome, so do not add a Playwright browser install step back to CI unless the runner image changes.
 - Prettier 3.x is configured. Use `npm run format` to write formatting and `npm run format:check` for verification.
 - Keep local app environment files in `frontend/.env.local`; keep `supabase/`, `.beads/`, `.serena/`, and docs at repo root.
 - Vercel deployment should use `frontend/` as the project root directory.
@@ -53,7 +53,7 @@ Current package/runtime defaults:
 - Supabase local verification requires Docker socket access. If `supabase start` fails with Docker permission errors, report the blocker. Current Supabase local config uses API port `54321`, DB port `54322`, and Postgres major `17`.
 - GitHub Actions workflow `.github/workflows/ci-cd.yml` runs format check, ESLint, typecheck, Vitest, Next build, local Supabase DB tests, and Playwright desktop/mobile e2e on pull requests and `main`.
 - CI install steps pass the built-in `GITHUB_TOKEN` to `npm ci` so `youtube-dl-exec` can fetch the `yt-dlp` release binary without anonymous GitHub API rate-limit failures.
-- GitHub Actions deploys Vercel previews for same-repository pull requests and production for pushes to `main`. Deploy jobs are gated by quality and local Supabase DB checks; Playwright E2E still runs on PRs and `main` with its own timeout, but does not block Vercel deploys when browser installation stalls. Required repository secrets are `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
+- GitHub Actions deploys Vercel previews for same-repository pull requests only. Automatic Vercel Git deployments are disabled in `frontend/vercel.json`, and CI must not deploy or promote production from `main` or any branch. Production deployment/promotion must be a deliberate manual action. Required repository secrets for preview deploys are `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
 - GitHub Actions workflow `.github/workflows/release.yml` manually creates GitHub Releases from `main`. It requires a human-selected `vX.Y.Z` version, reruns core gates, refuses duplicate tags/releases, and prepends production URL plus commit metadata to generated release notes.
 - CI Supabase tests must stay local-only. Do not add `--linked`, `db push`, `SUPABASE_ACCESS_TOKEN`, or remote database URLs to the test workflow unless the production/staging database deployment strategy is explicitly changed.
 - Saved free-layout templates use `viewer_templates` in Supabase and `scrollable.workspace-templates.v1` in localStorage.

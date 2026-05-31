@@ -10,10 +10,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   VERCEL_CLI_VERSION: 52.0.0
 
@@ -99,6 +95,8 @@ jobs:
     name: Playwright E2E
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      PLAYWRIGHT_CHROMIUM_CHANNEL: chrome
 
     steps:
       - name: Checkout
@@ -116,8 +114,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: npm ci
 
-      - name: Install Playwright Chromium
-        run: npm --workspace frontend exec -- playwright install --with-deps chromium
+      - name: Verify Chrome for Playwright
+        run: google-chrome --version
 
       - name: Start Next.js dev server
         run: |
@@ -196,61 +194,6 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           {
             echo "## Vercel Preview"
-            echo ""
-            echo "- URL: $url"
-            echo "- Commit: $GITHUB_SHA"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  deploy-production:
-    name: Deploy Production
-    runs-on: ubuntu-latest
-    needs:
-      - quality
-      - supabase-db
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: npm ci
-
-      - name: Install Vercel CLI
-        run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
-
-      - name: Check Vercel secrets
-        run: |
-          test -n "$VERCEL_TOKEN"
-          test -n "$VERCEL_ORG_ID"
-          test -n "$VERCEL_PROJECT_ID"
-
-      - name: Pull Vercel production environment
-        run: vercel pull --yes --environment=production
-
-      - name: Build Vercel production artifact
-        run: vercel build --prod
-
-      - name: Deploy Vercel production artifact
-        id: deploy
-        run: |
-          url="$(vercel deploy --prebuilt --prod --archive=tgz)"
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          {
-            echo "## Vercel Production"
             echo ""
             echo "- URL: $url"
             echo "- Commit: $GITHUB_SHA"
