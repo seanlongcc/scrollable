@@ -294,10 +294,10 @@ export function EditSourceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-2xl border border-border/70 bg-popover pb-[calc(1rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-18px_64px_rgba(18,10,10,0.58)] sm:max-w-2xl md:rounded-xl md:pb-4 md:shadow-[0_20px_64px_rgba(18,10,10,0.62)]",
+          "max-h-[92dvh] w-[min(94vw,42rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-2xl border border-border/70 bg-popover pb-[calc(1rem+env(safe-area-inset-bottom))] text-popover-foreground shadow-[0_-18px_64px_rgba(18,10,10,0.58)] sm:max-w-2xl md:rounded-xl md:pb-4 md:shadow-[0_20px_64px_rgba(18,10,10,0.62)]",
           isReddit
-            ? "grid h-[min(92dvh,46rem)] grid-rows-[auto_minmax(0,1fr)]"
-            : "max-h-[92dvh]",
+            ? "md:h-[min(92dvh,46rem)] md:grid-rows-[auto_minmax(0,1fr)]"
+            : "",
         )}
         aria-busy={isSaving}
         onOpenAutoFocus={focusEditDialogSurface}
@@ -311,7 +311,8 @@ export function EditSourceDialog({
         <div
           className={cn(
             "grid gap-3",
-            isReddit && "min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]",
+            isReddit &&
+              "md:min-h-0 md:grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]",
           )}
         >
           <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border/70 bg-background/55 px-3 py-2 text-sm">
@@ -343,7 +344,7 @@ export function EditSourceDialog({
                 onListingChange={updateRedditListingControls}
                 onLimitChange={setRedditLimit}
               />
-              <div className="grid min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-border bg-background/45 p-3">
+              <div className="grid min-h-24 w-full grid-rows-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-border bg-background/45 p-3 md:min-h-0">
                 <div className="grid w-full grid-cols-[minmax(0,1fr)_5rem] items-center gap-2">
                   <h3 className="text-xs font-medium text-muted-foreground">
                     Items
@@ -359,7 +360,7 @@ export function EditSourceDialog({
                   </span>
                 </div>
                 {runtimeRedditItems.length ? (
-                  <div className="grid min-h-0 content-start gap-1.5 overflow-y-auto pr-1">
+                  <div className="grid max-h-56 min-h-0 content-start gap-1.5 overflow-y-auto pr-1 md:max-h-none">
                     {runtimeRedditItems.map((item) => {
                       const subreddit = item.subreddit ?? source.title;
                       const itemId = redditItemHashInput(item.id);
@@ -421,7 +422,7 @@ export function EditSourceDialog({
                     })}
                   </div>
                 ) : (
-                  <div className="text-wrap-anywhere rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                  <div className="text-wrap-anywhere flex min-h-16 items-center rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
                     No runtime items in this source.
                   </div>
                 )}

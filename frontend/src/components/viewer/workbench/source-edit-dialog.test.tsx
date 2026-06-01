@@ -475,6 +475,39 @@ describe("EditSourceDialog", () => {
     expect(screen.getByRole("dialog")).not.toHaveClass("relative");
   });
 
+  it("lets mobile Reddit edit content scroll without squeezing items", () => {
+    render(
+      <EditSourceDialog
+        source={redditSession()}
+        open
+        onOpenChange={vi.fn()}
+        onSaveReddit={vi.fn()}
+        onSaveUrl={vi.fn()}
+        onSaveLocal={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveClass("max-h-[92dvh]", "overflow-y-auto");
+    expect(dialog).toHaveClass("md:h-[min(92dvh,46rem)]");
+    expect(dialog).not.toHaveClass("h-[min(92dvh,46rem)]");
+
+    const sourceSummary = screen.getByText("r/pics").closest("div");
+    const editGrid = sourceSummary?.parentElement;
+    expect(editGrid).toHaveClass("grid", "gap-3");
+    expect(editGrid).toHaveClass(
+      "md:grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]",
+    );
+    expect(editGrid).not.toHaveClass(
+      "grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]",
+    );
+
+    const itemsPanel = screen
+      .getByRole("heading", { name: "Items" })
+      .closest("div")?.parentElement;
+    expect(itemsPanel).toHaveClass("min-h-24", "md:min-h-0");
+  });
+
   it("updates a Reddit listing URL from edit listing controls", async () => {
     const user = userEvent.setup();
     const onSaveReddit = vi.fn();
