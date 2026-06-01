@@ -13,6 +13,7 @@ const REDDIT_LISTING_SORTS = new Set([
 const REDDIT_TIME_RANGES = new Set(["day", "week", "month", "year", "all"]);
 const REDDIT_PUBLIC_ORIGIN = "https://www.reddit.com";
 const REDDIT_PUBLIC_API_ORIGIN = "https://api.reddit.com";
+const REDDIT_OLD_ORIGIN = "https://old.reddit.com";
 
 const booleanQuerySchema = z.preprocess((value) => {
   if (value === "false" || value === "0") return false;
@@ -141,6 +142,13 @@ export function redditPublicJsonRequests(
 
 export function toRedditRssUrl(source: ParsedRedditSourceUrl, limit: number) {
   return `${REDDIT_PUBLIC_ORIGIN}${toRedditRssPath(source, limit)}`;
+}
+
+export function toOldRedditRssUrl(
+  source: ParsedRedditSourceUrl,
+  limit: number,
+) {
+  return `${REDDIT_OLD_ORIGIN}${toRedditRssPath(source, limit)}`;
 }
 
 export function shouldTryNextRedditRequest(status: number) {

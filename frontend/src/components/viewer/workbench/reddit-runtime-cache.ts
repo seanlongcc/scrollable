@@ -21,20 +21,6 @@ type RedditApiOutcome =
       error: string;
     };
 
-type BrowserFallbackOutcome =
-  | {
-      source: "browser";
-      status: "success";
-      items: RuntimeFeedItem[];
-    }
-  | {
-      source: "browser";
-      status: "error";
-      error: unknown;
-    };
-
-const BROWSER_REDDIT_FALLBACK_RACE_DELAY_MS = 750;
-
 export function createRedditRuntimePostCache(): RedditRuntimePostCache {
   return new Map();
 }
@@ -134,19 +120,8 @@ async function fetchRedditRuntimePostItemsFromApi({
     });
     return browserFallback;
   };
-  const browserOutcome = delayedBrowserFallbackOutcome({
-    apiOutcome,
-    startBrowserFallback,
-  });
 
-  const firstOutcome = await Promise.race([apiOutcome, browserOutcome]);
-  if (firstOutcome.status === "success") return firstOutcome.items;
-
-  if (firstOutcome.source === "browser") {
-    return resolveApiOutcome(await apiOutcome, startBrowserFallback);
-  }
-
-  return resolveApiOutcome(firstOutcome, startBrowserFallback);
+  return resolveApiOutcome(await apiOutcome, startBrowserFallback);
 }
 
 async function fetchRedditRuntimePostItemsFromApiOnly({
@@ -212,33 +187,6 @@ async function resolveApiOutcome(
   throw new Error(outcome.error);
 }
 
-function delayedBrowserFallbackOutcome({
-  apiOutcome,
-  startBrowserFallback,
-}: {
-  apiOutcome: Promise<RedditApiOutcome>;
-  startBrowserFallback: () => Promise<RuntimeFeedItem[]>;
-}): Promise<BrowserFallbackOutcome> {
-  return new Promise((resolve) => {
-    const timeout = window.setTimeout(() => {
-      void startBrowserFallback().then(
-        (items) => resolve({ source: "browser", status: "success", items }),
-        (error: unknown) =>
-          resolve({ source: "browser", status: "error", error }),
-      );
-    }, BROWSER_REDDIT_FALLBACK_RACE_DELAY_MS);
-
-    void apiOutcome.then((outcome) => {
-      if (
-        outcome.status === "success" ||
-        !shouldTryBrowserRedditFallback(outcome.error)
-      ) {
-        window.clearTimeout(timeout);
-      }
-    });
-  });
-}
-
 function canUseBrowserRedditFallback() {
   return typeof window !== "undefined" && Boolean(window.document);
 }
@@ -248,7 +196,6 @@ function shouldTryBrowserRedditFallback(error: string) {
     error === "reddit_fetch_forbidden" ||
     error === "reddit_rate_limited" ||
     error === "reddit_source_fetch_failed" ||
-    error === "reddit_source_has_no_supported_media" ||
     error.startsWith("reddit_post_fetch_failed_")
   );
 }

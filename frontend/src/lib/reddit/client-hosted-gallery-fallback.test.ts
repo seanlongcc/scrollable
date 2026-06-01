@@ -35,6 +35,11 @@ describe("fetchRedditRuntimePostLinks hosted gallery fallback", () => {
         text: async () => "",
       })
       .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
         ok: true,
         text: async () => `
           <html>
@@ -76,7 +81,7 @@ describe("fetchRedditRuntimePostLinks hosted gallery fallback", () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
+      6,
       "https://redlib.perennialte.ch/r/STAYC/comments/1tsx806/260531_sumin_instagram_update/",
       expect.objectContaining({
         cache: "no-store",

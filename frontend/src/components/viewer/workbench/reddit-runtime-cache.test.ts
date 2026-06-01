@@ -12,14 +12,13 @@ describe("fetchRedditRuntimePostItems", () => {
     });
   });
 
-  it("uses browser Reddit JSONP before a slow app API request settles", async () => {
-    vi.useFakeTimers();
+  it("does not use browser Reddit JSONP while the app API request is still pending", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => new Promise<Response>(() => {})),
     );
 
-    const request = fetchRedditRuntimePostItems({
+    void fetchRedditRuntimePostItems({
       urls: [
         "https://www.reddit.com/r/kpop/comments/jsonp123/browser_jsonp_gallery/",
       ],
@@ -28,75 +27,12 @@ describe("fetchRedditRuntimePostItems", () => {
     });
 
     expect(document.head.querySelector("script")).toBeNull();
-    await vi.advanceTimersByTimeAsync(750);
+    await new Promise((resolve) => window.setTimeout(resolve, 900));
 
-    const script = document.head.querySelector("script");
-    expect(script).toBeTruthy();
-    expect(script?.src).toContain(
-      "https://www.reddit.com/r/kpop/comments/jsonp123/browser_jsonp_gallery/.json",
-    );
-
-    resolveRedditJsonpScript(script, [
-      {
-        data: {
-          children: [
-            {
-              data: {
-                created_utc: 1_780_000_000,
-                gallery_data: {
-                  items: [{ media_id: "first" }, { media_id: "second" }],
-                },
-                id: "jsonp123",
-                is_gallery: true,
-                media_metadata: {
-                  first: {
-                    e: "Image",
-                    m: "image/jpeg",
-                    s: {
-                      u: "https://preview.redd.it/first.jpg",
-                      x: 800,
-                      y: 600,
-                    },
-                    status: "valid",
-                  },
-                  second: {
-                    e: "Image",
-                    m: "image/jpeg",
-                    s: {
-                      u: "https://preview.redd.it/second.jpg",
-                      x: 640,
-                      y: 480,
-                    },
-                    status: "valid",
-                  },
-                },
-                over_18: true,
-                permalink: "/r/kpop/comments/jsonp123/browser_jsonp_gallery/",
-                subreddit: "kpop",
-                title: "Browser JSONP gallery",
-              },
-            },
-          ],
-        },
-      },
-    ]);
-
-    await expect(request).resolves.toMatchObject([
-      {
-        id: "reddit:jsonp123",
-        isNsfw: true,
-        media: [
-          { galleryIndex: 0, url: "https://i.redd.it/first.jpg" },
-          { galleryIndex: 1, url: "https://i.redd.it/second.jpg" },
-        ],
-      },
-    ]);
+    expect(document.head.querySelector("script")).toBeNull();
   });
 
-  it.each([
-    ["reddit_fetch_forbidden", 502],
-    ["reddit_source_has_no_supported_media", 422],
-  ])(
+  it.each([["reddit_fetch_forbidden", 502]])(
     "falls back to browser Reddit JSONP when the app API returns %s",
     async (error, status) => {
       vi.stubGlobal(
@@ -188,6 +124,39 @@ describe("fetchRedditRuntimePostItems", () => {
       ]);
     },
   );
+
+  it("does not use browser Reddit JSONP when the app API found no supported media", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({ error: "reddit_source_has_no_supported_media" }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 422,
+          },
+        );
+      }),
+    );
+
+    const request = fetchRedditRuntimePostItems({
+      urls: [
+        "https://www.reddit.com/r/kpop/comments/jsonp123/browser_jsonp_gallery/",
+      ],
+      allowNsfw: true,
+      limit: 5,
+    });
+    const rejection = expect(request).rejects.toThrow(
+      "reddit_source_has_no_supported_media",
+    );
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    }
+
+    expect(document.head.querySelector("script")).toBeNull();
+    await rejection;
+  });
 
   it("falls back to browser Reddit JSONP when the app API request fails before a response", async () => {
     vi.stubGlobal(
