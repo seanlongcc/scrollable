@@ -52,6 +52,11 @@ describe("fetchRedditRuntimePostLinks RSS gallery fallbacks", () => {
         text: async () => "",
       })
       .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
         ok: true,
         text: async () => `
           <div class="post highlighted">
@@ -80,7 +85,7 @@ describe("fetchRedditRuntimePostLinks RSS gallery fallbacks", () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
+      6,
       "https://redlib.perennialte.ch/r/kpop/comments/gallery123/gallery_title/",
       expect.objectContaining({
         cache: "no-store",

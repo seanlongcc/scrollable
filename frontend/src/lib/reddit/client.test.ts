@@ -169,7 +169,12 @@ describe("fetchRedditRuntimePostLinks", () => {
         }),
       }),
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=1&include_over_18=on",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.items.map((item) => item.id)).toEqual(["reddit:one"]);
   });
 
@@ -207,6 +212,11 @@ describe("fetchRedditRuntimePostLinks", () => {
         text: async () => "",
       })
       .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
         ok: true,
         text: async () => `
           <html>
@@ -236,7 +246,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      5,
       "https://old.reddit.com/r/kpop/comments/fallback123/fallback_gallery_title/",
       expect.objectContaining({
         cache: "no-store",
@@ -290,6 +300,11 @@ describe("fetchRedditRuntimePostLinks", () => {
         text: async () => "",
       })
       .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
         ok: true,
         text: async () => `
           <div class="post highlighted">
@@ -317,7 +332,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
+      6,
       "https://redlib.perennialte.ch/r/kpop/comments/redlib123/fallback_redlib_gallery_title/",
       expect.objectContaining({
         cache: "no-store",
@@ -364,6 +379,16 @@ describe("fetchRedditRuntimePostLinks", () => {
         text: async () => "",
       })
       .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
         ok: true,
         text: async () => `
           <div id="posts">
@@ -393,7 +418,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      6,
       "https://redlib.perennialte.ch/r/kpopfap/top/?t=week",
       expect.objectContaining({
         cache: "no-store",
@@ -503,6 +528,11 @@ describe("fetchRedditRuntimePostLinks", () => {
             </entry>
           </feed>
         `,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -577,6 +607,11 @@ describe("fetchRedditRuntimePostLinks", () => {
             </entry>
           </feed>
         `,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -634,6 +669,11 @@ describe("fetchRedditRuntimePostLinks", () => {
         `,
       })
       .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
         ok: true,
         text: async () => `
           <div class="media-preview" data-media-ids="first,second">
@@ -659,7 +699,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      5,
       "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/",
       expect.objectContaining({
         cache: "no-store",
@@ -751,12 +791,12 @@ describe("fetchRedditRuntimePostLinks", () => {
     ).rejects.toThrow("reddit_source_has_no_supported_media");
 
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      5,
       "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/",
       expect.any(Object),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
+      6,
       "https://redlib.perennialte.ch/r/pics/comments/gallery123/gallery_title/",
       expect.any(Object),
     );
@@ -800,6 +840,11 @@ describe("fetchRedditRuntimePostLinks", () => {
         `,
       })
       .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
         ok: true,
         text: async () => `
           <div
@@ -818,7 +863,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      5,
       "https://www.redditmedia.com/mediaembed/video123",
       expect.objectContaining({
         cache: "no-store",
@@ -897,6 +942,11 @@ describe("fetchRedditRuntimePostLinks", () => {
             </entry>
           </feed>
         `,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => "",
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1049,7 +1099,7 @@ describe("fetchRedditRuntimePostLinks", () => {
       limit: 2,
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(result.items.map((item) => item.id)).toEqual([
       "reddit:kpop-one",
       "reddit:kpop-two",
