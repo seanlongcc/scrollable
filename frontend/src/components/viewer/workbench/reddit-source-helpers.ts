@@ -1,5 +1,8 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
-import { parseRedditSourceUrl } from "@/lib/reddit/source";
+import {
+  parseRedditSourceUrl,
+  splitRedditSourceUrlInput,
+} from "@/lib/reddit/source";
 import type {
   PersistedSourceConfig,
   RedditListingSort,
@@ -13,10 +16,7 @@ export function normalizeRedditLimit(value: number) {
 }
 
 export function splitRedditUrls(value: string) {
-  return value
-    .split(/[\n,]+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  return splitRedditSourceUrlInput(value);
 }
 
 export function buildSubredditListingUrls(

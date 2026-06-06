@@ -3,6 +3,7 @@ import { z } from "zod";
 const DEFAULT_REDDIT_SOURCE_LIMIT = 20;
 const MAX_REDDIT_SOURCE_LIMIT = 100;
 const MAX_REDDIT_SOURCE_URLS = 100;
+const REDDIT_LISTING_OVERFETCH_FACTOR = 2;
 const REDDIT_LISTING_SORTS = new Set([
   "hot",
   "new",
@@ -140,6 +141,18 @@ export function redditPublicJsonRequests(
   ];
 }
 
+export function redditRuntimeFetchLimit(
+  source: ParsedRedditSourceUrl,
+  requestedLimit: number,
+) {
+  if (source.kind !== "listing") return requestedLimit;
+
+  return Math.min(
+    MAX_REDDIT_SOURCE_LIMIT,
+    Math.max(requestedLimit, requestedLimit * REDDIT_LISTING_OVERFETCH_FACTOR),
+  );
+}
+
 export function toRedditRssUrl(source: ParsedRedditSourceUrl, limit: number) {
   return `${REDDIT_PUBLIC_ORIGIN}${toRedditRssPath(source, limit)}`;
 }
@@ -171,10 +184,37 @@ function splitUrlInput(value: unknown): unknown {
 
   if (typeof value !== "string") return value;
 
-  return value
+  return splitRedditSourceUrlInput(value);
+}
+
+export function splitRedditSourceUrlInput(value: string) {
+  const entries = normalizeRedditUrlProtocol(value)
+    .replace(
+      /(?!^)https?:\/\/(?=(?:(?:www|old|new)\.)?reddit\.com|redd\.it)/gi,
+      "\n$&",
+    )
     .split(/[\n,]+/)
+    .flatMap((entry) => entry.split(/\s+/))
     .map((entry) => entry.trim())
     .filter(Boolean);
+
+  const validEntries = entries.filter((entry) => {
+    try {
+      parseRedditSourceUrl(entry);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  return validEntries.length ? validEntries : entries;
+}
+
+function normalizeRedditUrlProtocol(value: string) {
+  return value.replace(
+    /(https?):\/(?=(?:(?:www|old|new)\.)?reddit\.com|redd\.it)/gi,
+    "$1://",
+  );
 }
 
 function subredditFromSegments(segments: string[]) {

@@ -3,6 +3,7 @@ import { normalizeRedditListing } from "@/lib/reddit/normalization";
 import {
   parseRedditSourceUrl,
   redditPublicJsonRequests,
+  redditRuntimeFetchLimit,
 } from "@/lib/reddit/source";
 
 type RedditJsonpPayload = unknown;
@@ -21,7 +22,10 @@ export async function fetchBrowserRedditRuntimePostItems({
   }
 
   const source = parseRedditSourceUrl(url);
-  const request = redditPublicJsonRequests(source, limit)[0]?.url;
+  const request = redditPublicJsonRequests(
+    source,
+    redditRuntimeFetchLimit(source, limit),
+  )[0]?.url;
   if (!request) throw new Error("reddit_browser_fallback_unavailable");
 
   const requestUrl = new URL(request);

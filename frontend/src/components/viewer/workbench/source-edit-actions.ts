@@ -5,7 +5,7 @@ import {
   normalizeVideoTimeRange,
   type VideoTimeRange,
 } from "@/lib/viewer/video-time-range";
-import { normalizeRedditLimit } from "./helpers";
+import { normalizeRedditLimit, splitRedditUrls } from "./helpers";
 import { getUploadableFiles } from "./local-sources";
 import {
   fetchEditedRedditSource,
@@ -82,7 +82,8 @@ export function prepareRedditSourceEditAction({
   urls: string[];
   limit: number;
 }): PreparedRedditSourceEdit | SourceEditValidationError {
-  if (!urls.length) {
+  const parsedUrls = urls.flatMap(splitRedditUrls);
+  if (!parsedUrls.length) {
     return {
       status: "validation-error",
       error: "Keep at least one Reddit source",
@@ -91,7 +92,7 @@ export function prepareRedditSourceEditAction({
 
   return {
     status: "ready",
-    urls,
+    urls: parsedUrls,
     limit: normalizeRedditLimit(limit),
   };
 }

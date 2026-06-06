@@ -85,7 +85,7 @@ export async function oldRedditListingHtmlToItems(
     const openingTag = `<div ${match[1] ?? ""}>`;
     const block = match[2] ?? "";
     const id = postIdFromFullname(htmlAttribute(openingTag, "data-fullname"));
-    const url = htmlAttribute(openingTag, "data-url");
+    const url = oldRedditAbsoluteUrl(htmlAttribute(openingTag, "data-url"));
     const permalink = oldRedditPermalink(
       htmlAttribute(openingTag, "data-permalink"),
       listingUrl,
@@ -185,6 +185,16 @@ function oldRedditPermalink(value: string | null, listingUrl: string) {
     return new URL(value, "https://www.reddit.com").toString();
   } catch {
     return listingUrl;
+  }
+}
+
+function oldRedditAbsoluteUrl(value: string | null) {
+  if (!value) return null;
+
+  try {
+    return new URL(value, "https://www.reddit.com").toString();
+  } catch {
+    return value;
   }
 }
 

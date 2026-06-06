@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { extractYtDlpRuntimeItems } from "@/lib/url-source/ytdlp";
 import {
@@ -11,6 +11,11 @@ vi.mock("@/lib/url-source/ytdlp", () => ({
 }));
 
 const extractYtDlpRuntimeItemsMock = vi.mocked(extractYtDlpRuntimeItems);
+
+beforeEach(() => {
+  vi.stubEnv("REDDIT_ENABLE_PUBLIC_JSON", "1");
+  vi.stubEnv("REDDIT_LISTING_HTML_FALLBACK_FIRST", "0");
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -42,6 +47,16 @@ describe("parseRedditPostLinksInput", () => {
     expect(() =>
       parseRedditPostLinksInput({ urls: "https://www.reddit.com/r/pics/" }),
     ).toThrow();
+  });
+
+  it("salvages a pasted post URL when another Reddit URL is glued before it", () => {
+    expect(
+      parseRedditPostLinksInput({
+        urls: "https://www.reddit.com/r/GOONEhttps:/www.reddit.com/r/GOONED/comments/1txha81/ill_give_you_a_slide_and_instruction_but_be/",
+      }).urls,
+    ).toEqual([
+      "https://www.reddit.com/r/GOONED/comments/1txha81/ill_give_you_a_slide_and_instruction_but_be/",
+    ]);
   });
 
   it("parses subreddit listing URLs and a custom post count", () => {
@@ -161,7 +176,7 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=1&include_over_18=on",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=2&include_over_18=on",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -171,7 +186,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=1&include_over_18=on",
+      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=2&include_over_18=on",
       expect.any(Object),
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -247,7 +262,7 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      "https://old.reddit.com/r/kpop/comments/fallback123/fallback_gallery_title/",
+      "https://old.reddit.com/r/kpop/comments/fallback123/fallback_gallery_title/.compact",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -419,7 +434,7 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       6,
-      "https://redlib.perennialte.ch/r/kpopfap/top/?t=week",
+      "https://redlib.perennialte.ch/r/kpopfap/top/?t=week&limit=20",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -485,12 +500,12 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=20&include_over_18=on",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=40&include_over_18=on",
       expect.any(Object),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=20&include_over_18=on",
+      "https://api.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=40&include_over_18=on",
       expect.any(Object),
     );
     expect(result.items.map((item) => item.id)).toEqual(["reddit:fallback"]);
@@ -543,7 +558,7 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      "https://www.reddit.com/r/pics/top/.rss?t=week&limit=10",
+      "https://www.reddit.com/r/pics/top/.rss?t=week&limit=20",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -622,7 +637,7 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      "https://www.reddit.com/r/pics/top/.rss?t=week&limit=10",
+      "https://www.reddit.com/r/pics/top/.rss?t=week&limit=20",
       expect.any(Object),
     );
     expect(result.items).toMatchObject([
@@ -700,7 +715,7 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/",
+      "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/.compact",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -792,7 +807,7 @@ describe("fetchRedditRuntimePostLinks", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/",
+      "https://old.reddit.com/r/pics/comments/gallery123/gallery_title/.compact",
       expect.any(Object),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -801,7 +816,7 @@ describe("fetchRedditRuntimePostLinks", () => {
       expect.any(Object),
     );
     expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
-      "https://redlib.perennialte.ch/r/pics/top/?t=week",
+      "https://redlib.perennialte.ch/r/pics/top/?t=week&limit=20",
     );
   });
 
@@ -1040,7 +1055,7 @@ describe("fetchRedditRuntimePostLinks", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=2&include_over_18=on",
+      "https://www.reddit.com/r/kpop/top/.json?raw_json=1&t=week&limit=4&include_over_18=on",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({

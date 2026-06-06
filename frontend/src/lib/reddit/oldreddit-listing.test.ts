@@ -132,4 +132,37 @@ describe("oldRedditListingHtmlToItems", () => {
       },
     ]);
   });
+
+  it("normalizes relative Reddit listing URLs before media resolution", async () => {
+    const seenUrls: string[] = [];
+    const items = await oldRedditListingHtmlToItems(
+      `
+        <div class=" thing id-t3_relative123 link "
+          data-fullname="t3_relative123"
+          data-author="poster"
+          data-subreddit="kpop"
+          data-url="/r/kpop/comments/relative123/title/"
+          data-permalink="/r/kpop/comments/relative123/title/"
+          data-nsfw="false">
+          <p class="title">
+            <a class="title may-blank outbound" href="/r/kpop/comments/relative123/title/">Relative Reddit link</a>
+          </p>
+        </div>
+      `,
+      {
+        allowNsfw: true,
+        limit: 10,
+        listingUrl: "https://www.reddit.com/r/kpop/top/?t=week",
+        resolveMedia: async ({ url }) => {
+          seenUrls.push(url);
+          return [];
+        },
+      },
+    );
+
+    expect(items).toEqual([]);
+    expect(seenUrls).toEqual([
+      "https://www.reddit.com/r/kpop/comments/relative123/title/",
+    ]);
+  });
 });

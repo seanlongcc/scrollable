@@ -125,6 +125,85 @@ describe("fetchRedditRuntimePostItems", () => {
     },
   );
 
+  it("falls back to browser Reddit JSONP when the app API returns a partial listing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: "reddit:api-one",
+                source: "reddit",
+                title: "API one",
+                media: [
+                  { type: "image", url: "https://i.redd.it/api-one.jpg" },
+                ],
+              },
+              {
+                id: "reddit:api-two",
+                source: "reddit",
+                title: "API two",
+                media: [
+                  { type: "image", url: "https://i.redd.it/api-two.jpg" },
+                ],
+              },
+            ],
+            unsupportedIds: ["text-one"],
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          },
+        );
+      }),
+    );
+
+    const request = fetchRedditRuntimePostItems({
+      urls: ["https://www.reddit.com/r/kpop/top/?t=week"],
+      allowNsfw: true,
+      limit: 5,
+    });
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      if (document.head.querySelector("script")) break;
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    }
+
+    const script = document.head.querySelector("script");
+    expect(script).toBeTruthy();
+    expect(script?.src).toContain("https://www.reddit.com/r/kpop/top/.json");
+    expect(script?.src).toContain("limit=10");
+
+    resolveRedditJsonpScript(script, {
+      kind: "Listing",
+      data: {
+        children: Array.from({ length: 5 }, (_, index) => ({
+          data: {
+            created_utc: 1_780_000_000 + index,
+            id: `jsonp${index}`,
+            over_18: false,
+            permalink: `/r/kpop/comments/jsonp${index}/browser_jsonp_image/`,
+            post_hint: "image",
+            subreddit: "kpop",
+            title: `Browser JSONP image ${index}`,
+            url_overridden_by_dest: `https://i.redd.it/jsonp-${index}.jpg`,
+          },
+        })),
+      },
+    });
+
+    const items = await request;
+    expect(items).toHaveLength(5);
+    expect(items.map((item) => item.id)).toEqual([
+      "reddit:jsonp0",
+      "reddit:jsonp1",
+      "reddit:jsonp2",
+      "reddit:jsonp3",
+      "reddit:jsonp4",
+    ]);
+  });
+
   it("does not use browser Reddit JSONP when the app API found no supported media", async () => {
     vi.stubGlobal(
       "fetch",

@@ -23,7 +23,7 @@ Planned capabilities:
 
 When implementing Reddit integration:
 
-- Fetch only user-provided Reddit post links and subreddit listing URLs through Reddit runtime endpoints. Prefer public Reddit JSON; use public Reddit RSS when public JSON is forbidden. RSS fallback may resolve Reddit-hosted `v.redd.it` videos through Reddit's public
+- Fetch only user-provided Reddit post links and subreddit listing URLs through Reddit runtime endpoints. Server runtime skips public Reddit JSON by default on deployments; use old Reddit/Redlib HTML and Reddit RSS fallbacks instead. Set `REDDIT_ENABLE_PUBLIC_JSON=1` only for intentional testing of the old JSON path. RSS fallback may resolve Reddit-hosted `v.redd.it` videos through Reddit's public
   `redditmedia.com/mediaembed/<postId>` endpoint, Reddit gallery links through old Reddit gallery HTML, and external provider links such as Redgifs through the bundled runtime `yt-dlp` extractor. All paths are runtime-only.
 - Respect Reddit API/public endpoint terms, rate limits, and content restrictions.
 - Treat Reddit responses as runtime source data, not application-owned content.

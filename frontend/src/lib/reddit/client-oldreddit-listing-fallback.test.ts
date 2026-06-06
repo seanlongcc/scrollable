@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { extractYtDlpRuntimeItems } from "@/lib/url-source/ytdlp";
 import { fetchRedditRuntimePostLinks } from "./client";
@@ -6,6 +6,11 @@ import { fetchRedditRuntimePostLinks } from "./client";
 vi.mock("@/lib/url-source/ytdlp", () => ({
   extractYtDlpRuntimeItems: vi.fn(async () => []),
 }));
+
+beforeEach(() => {
+  vi.stubEnv("REDDIT_ENABLE_PUBLIC_JSON", "1");
+  vi.stubEnv("REDDIT_LISTING_HTML_FALLBACK_FIRST", "0");
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -62,7 +67,7 @@ describe("fetchRedditRuntimePostLinks old Reddit listing fallback", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
-      "https://old.reddit.com/r/pics/top/.rss?t=week&limit=10",
+      "https://old.reddit.com/r/pics/top/.rss?t=week&limit=20",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
@@ -133,7 +138,7 @@ describe("fetchRedditRuntimePostLinks old Reddit listing fallback", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      "https://old.reddit.com/r/pics/top/?t=week&limit=10",
+      "https://old.reddit.com/r/pics/top/?t=week&limit=20",
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({
