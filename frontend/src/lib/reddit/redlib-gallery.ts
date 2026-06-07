@@ -32,6 +32,13 @@ export type RedlibListingMediaResolver = (
   input: RedlibListingMediaResolverInput,
 ) => Promise<RuntimeMedia[]>;
 
+type RedlibHtmlRequest = {
+  abort: () => void;
+  promise: Promise<string | null>;
+};
+
+type RedlibHtmlValidator = (html: string) => boolean;
+
 export async function fetchRedlibGalleryPost({
   permalink,
   userAgent,
@@ -225,27 +232,15 @@ async function redlibListingMedia(
 async function fetchRedlibHtml(
   path: string,
   userAgent: string,
-  isUsable: (html: string) => boolean,
+  isUsable: RedlibHtmlValidator,
 ) {
-  const requests = redlibOrigins().map((origin) =>
-    startRedlibHtmlRequest(origin, path, userAgent, isUsable),
-  );
-  const pendingRequests = new Set(requests);
+  const pendingRequests = startRedlibHtmlRequests(path, userAgent, isUsable);
 
   while (pendingRequests.size) {
-    const { html, request } = await Promise.race(
-      [...pendingRequests].map(async (pendingRequest) => ({
-        html: await pendingRequest.promise,
-        request: pendingRequest,
-      })),
-    );
-    pendingRequests.delete(request);
+    const html = await settleNextRedlibHtmlRequest(pendingRequests);
 
     if (html) {
-      for (const pendingRequest of pendingRequests) {
-        pendingRequest.abort();
-      }
-
+      abortRedlibHtmlRequests(pendingRequests);
       return html;
     }
   }
@@ -266,45 +261,27 @@ async function fetchRedlibListingItemsFromOrigins({
   path: string;
   userAgent: string;
 }) {
-  const requests = redlibOrigins().map((origin) =>
-    startRedlibHtmlRequest(
-      origin,
-      path,
-      userAgent,
-      redlibListingHtmlLooksUsable,
-    ),
+  const pendingRequests = startRedlibHtmlRequests(
+    path,
+    userAgent,
+    redlibListingHtmlLooksUsable,
   );
-  const pendingRequests = new Set(requests);
+  const resolveMedia = redlibListingMediaResolver(userAgent);
   let bestItems: RuntimeFeedItem[] = [];
 
   while (pendingRequests.size) {
-    const { html, request } = await Promise.race(
-      [...pendingRequests].map(async (pendingRequest) => ({
-        html: await pendingRequest.promise,
-        request: pendingRequest,
-      })),
-    );
-    pendingRequests.delete(request);
+    const html = await settleNextRedlibHtmlRequest(pendingRequests);
     if (!html) continue;
 
     const items = await redlibListingHtmlToItems(html, {
       allowNsfw,
       limit,
       listingUrl,
-      resolveMedia: async ({ permalink }) =>
-        (
-          await fetchRedlibGalleryPost({
-            permalink,
-            userAgent,
-          })
-        )?.media ?? [],
+      resolveMedia,
     });
 
     if (items.length >= limit) {
-      for (const pendingRequest of pendingRequests) {
-        pendingRequest.abort();
-      }
-
+      abortRedlibHtmlRequests(pendingRequests);
       return items.slice(0, limit);
     }
 
@@ -316,11 +293,56 @@ async function fetchRedlibListingItemsFromOrigins({
   return bestItems.slice(0, limit);
 }
 
+function redlibListingMediaResolver(
+  userAgent: string,
+): RedlibListingMediaResolver {
+  return async ({ permalink }) =>
+    (
+      await fetchRedlibGalleryPost({
+        permalink,
+        userAgent,
+      })
+    )?.media ?? [];
+}
+
+function startRedlibHtmlRequests(
+  path: string,
+  userAgent: string,
+  isUsable: RedlibHtmlValidator,
+) {
+  return new Set(
+    redlibOrigins().map((origin) =>
+      startRedlibHtmlRequest(origin, path, userAgent, isUsable),
+    ),
+  );
+}
+
+async function settleNextRedlibHtmlRequest(
+  pendingRequests: Set<RedlibHtmlRequest>,
+) {
+  const { html, request } = await Promise.race(
+    [...pendingRequests].map(async (pendingRequest) => ({
+      html: await pendingRequest.promise,
+      request: pendingRequest,
+    })),
+  );
+  pendingRequests.delete(request);
+
+  return html;
+}
+
+function abortRedlibHtmlRequests(pendingRequests: Set<RedlibHtmlRequest>) {
+  for (const pendingRequest of pendingRequests) {
+    pendingRequest.abort();
+  }
+  pendingRequests.clear();
+}
+
 function startRedlibHtmlRequest(
   origin: string,
   path: string,
   userAgent: string,
-  isUsable: (html: string) => boolean,
+  isUsable: RedlibHtmlValidator,
 ) {
   const controller = new AbortController();
   const timeout = setTimeout(() => {
