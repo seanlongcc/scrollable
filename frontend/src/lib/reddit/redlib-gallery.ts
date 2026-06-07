@@ -73,24 +73,12 @@ export async function fetchRedlibListingItems({
   const path = redlibListingPath(listingUrl, limit);
   if (!path) return [];
 
-  const html = await fetchRedlibHtml(
-    path,
-    userAgent,
-    redlibListingHtmlLooksUsable,
-  );
-  if (!html) return [];
-
-  return redlibListingHtmlToItems(html, {
+  return fetchRedlibListingItemsFromOrigins({
     allowNsfw,
     limit,
     listingUrl,
-    resolveMedia: async ({ permalink }) =>
-      (
-        await fetchRedlibGalleryPost({
-          permalink,
-          userAgent,
-        })
-      )?.media ?? [],
+    path,
+    userAgent,
   });
 }
 
@@ -263,6 +251,69 @@ async function fetchRedlibHtml(
   }
 
   return null;
+}
+
+async function fetchRedlibListingItemsFromOrigins({
+  allowNsfw,
+  limit,
+  listingUrl,
+  path,
+  userAgent,
+}: {
+  allowNsfw?: boolean;
+  limit: number;
+  listingUrl: string;
+  path: string;
+  userAgent: string;
+}) {
+  const requests = redlibOrigins().map((origin) =>
+    startRedlibHtmlRequest(
+      origin,
+      path,
+      userAgent,
+      redlibListingHtmlLooksUsable,
+    ),
+  );
+  const pendingRequests = new Set(requests);
+  let bestItems: RuntimeFeedItem[] = [];
+
+  while (pendingRequests.size) {
+    const { html, request } = await Promise.race(
+      [...pendingRequests].map(async (pendingRequest) => ({
+        html: await pendingRequest.promise,
+        request: pendingRequest,
+      })),
+    );
+    pendingRequests.delete(request);
+    if (!html) continue;
+
+    const items = await redlibListingHtmlToItems(html, {
+      allowNsfw,
+      limit,
+      listingUrl,
+      resolveMedia: async ({ permalink }) =>
+        (
+          await fetchRedlibGalleryPost({
+            permalink,
+            userAgent,
+          })
+        )?.media ?? [],
+    });
+
+    if (items.length >= limit) {
+      for (const pendingRequest of pendingRequests) {
+        pendingRequest.abort();
+      }
+
+      return items.slice(0, limit);
+    }
+
+    if (items.length > bestItems.length) {
+      bestItems = items;
+    }
+  }
+
+  return bestItems.slice(0, limit);
 }
 
 function startRedlibHtmlRequest(

@@ -338,6 +338,74 @@ describe("redlibGalleryHtmlToMedia", () => {
     ]);
   });
 
+  it("continues past Redlib listing pages with posts but no supported media", async () => {
+    vi.stubEnv(
+      "REDDIT_REDLIB_ORIGIN",
+      "https://nomedia.test,https://media.test",
+    );
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("https://nomedia.test")) {
+        return {
+          ok: true,
+          text: async () => `
+            <div id="posts">
+              <hr class="sep" />
+              <div class="post" id="text123">
+                <h2 class="post_title">
+                  <a href="/r/kpop/comments/text123/text_post/">Text post</a>
+                </h2>
+              </div>
+            </div>
+          `,
+        };
+      }
+
+      if (url.startsWith("https://media.test")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return {
+          ok: true,
+          text: async () => `
+            <div id="posts">
+              <hr class="sep" />
+              <div class="post" id="image123">
+                <h2 class="post_title">
+                  <a href="/r/kpop/comments/image123/direct_image/">Direct image</a>
+                </h2>
+                <div class="post_media_content">
+                  <a href="/img/direct.jpeg" class="post_media_image short">
+                    <img loading="lazy" alt="Post image" src="/img/direct.jpeg"/>
+                  </a>
+                </div>
+              </div>
+            </div>
+          `,
+        };
+      }
+
+      return {
+        ok: false,
+        status: 403,
+        text: async () => "",
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const items = await fetchRedlibListingItems({
+      allowNsfw: true,
+      limit: 10,
+      listingUrl: "https://www.reddit.com/r/kpop/top/?t=week",
+      userAgent: "test-agent",
+    });
+
+    expect(items).toMatchObject([
+      {
+        id: "reddit:image123",
+        media: [{ url: "https://i.redd.it/direct.jpeg" }],
+      },
+    ]);
+  });
+
   it("resolves Redlib listing gallery rows in parallel while preserving order", async () => {
     const pending: Array<{
       permalink: string;
