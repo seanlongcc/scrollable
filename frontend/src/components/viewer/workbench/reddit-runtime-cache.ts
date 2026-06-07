@@ -1,16 +1,11 @@
 import type { RuntimeFeedItem } from "@/lib/feed/types";
-import {
-  parseRedditPostLinksInput,
-  parseRedditSourceUrl,
-} from "@/lib/reddit/source";
-import { fetchBrowserRedditRuntimePostItems } from "./browser-reddit-runtime";
+import { parseRedditPostLinksInput } from "@/lib/reddit/source";
 
 export type RedditRuntimePostCache = Map<string, Promise<RuntimeFeedItem[]>>;
 
 type RedditListingApiPayload = {
   items?: RuntimeFeedItem[];
   error?: string;
-  unsupportedIds?: string[];
 };
 
 type RedditApiOutcome =
@@ -18,7 +13,6 @@ type RedditApiOutcome =
       source: "api";
       status: "success";
       items: RuntimeFeedItem[];
-      unsupportedIds: string[];
     }
   | {
       source: "api";
@@ -77,14 +71,12 @@ async function fetchSingleRedditRuntimePostItems({
     parsed.allowNsfw,
     parsed.limit,
   ]);
-  const source = parseRedditSourceUrl(canonicalUrl);
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
   const request = fetchRedditRuntimePostItemsFromApi({
     url: canonicalUrl,
     allowNsfw: parsed.allowNsfw,
-    fallbackOnPartial: source.kind === "listing",
     limit: parsed.limit,
   });
   cache.set(cacheKey, request);
@@ -95,49 +87,15 @@ async function fetchSingleRedditRuntimePostItems({
 async function fetchRedditRuntimePostItemsFromApi({
   url,
   allowNsfw,
-  fallbackOnPartial,
   limit,
 }: {
   url: string;
   allowNsfw: boolean;
-  fallbackOnPartial: boolean;
   limit: number;
 }) {
-  if (!canUseBrowserRedditFallback()) {
-    return resolveApiOutcome(
-      await fetchRedditRuntimePostItemsFromApiOnly({ url, allowNsfw, limit }),
-      () =>
-        fetchBrowserRedditRuntimePostItems({
-          url,
-          allowNsfw,
-          limit,
-        }),
-      {
-        fallbackOnPartial: false,
-        limit,
-      },
-    );
-  }
-
-  const apiOutcome = fetchRedditRuntimePostItemsFromApiOnly({
-    url,
-    allowNsfw,
-    limit,
-  });
-  let browserFallback: Promise<RuntimeFeedItem[]> | undefined;
-  const startBrowserFallback = () => {
-    browserFallback ??= fetchBrowserRedditRuntimePostItems({
-      url,
-      allowNsfw,
-      limit,
-    });
-    return browserFallback;
-  };
-
-  return resolveApiOutcome(await apiOutcome, startBrowserFallback, {
-    fallbackOnPartial,
-    limit,
-  });
+  return resolveApiOutcome(
+    await fetchRedditRuntimePostItemsFromApiOnly({ url, allowNsfw, limit }),
+  );
 }
 
 async function fetchRedditRuntimePostItemsFromApiOnly({
@@ -192,52 +150,15 @@ async function fetchRedditRuntimePostItemsFromApiOnly({
     source: "api",
     status: "success",
     items: payload.items,
-    unsupportedIds: Array.isArray(payload.unsupportedIds)
-      ? payload.unsupportedIds
-      : [],
   };
 }
 
-async function resolveApiOutcome(
-  outcome: RedditApiOutcome,
-  startBrowserFallback: () => Promise<RuntimeFeedItem[]>,
-  {
-    fallbackOnPartial,
-    limit,
-  }: {
-    fallbackOnPartial: boolean;
-    limit: number;
-  },
-) {
+async function resolveApiOutcome(outcome: RedditApiOutcome) {
   if (outcome.status === "success") {
-    if (
-      fallbackOnPartial &&
-      outcome.items.length < limit &&
-      outcome.unsupportedIds.length > 0
-    ) {
-      return startBrowserFallback();
-    }
-
     return outcome.items;
-  }
-  if (shouldTryBrowserRedditFallback(outcome.error)) {
-    return startBrowserFallback();
   }
 
   throw new Error(outcome.error);
-}
-
-function canUseBrowserRedditFallback() {
-  return typeof window !== "undefined" && Boolean(window.document);
-}
-
-function shouldTryBrowserRedditFallback(error: string) {
-  return (
-    error === "reddit_fetch_forbidden" ||
-    error === "reddit_rate_limited" ||
-    error === "reddit_source_fetch_failed" ||
-    error.startsWith("reddit_post_fetch_failed_")
-  );
 }
 
 function cloneRuntimeItems(items: RuntimeFeedItem[]) {
