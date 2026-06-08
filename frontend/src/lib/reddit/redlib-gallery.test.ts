@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  fetchRedlibGalleryPost,
   fetchRedlibListingItems,
   redlibGalleryHtmlToMedia,
   redlibListingHtmlToItems,
@@ -81,6 +82,72 @@ describe("redlibGalleryHtmlToMedia", () => {
         galleryIndex: 2,
       },
     ]);
+  });
+
+  it("continues past Redlib direct post pages with metadata but no supported media", async () => {
+    vi.stubEnv(
+      "REDDIT_REDLIB_ORIGIN",
+      "https://nomedia.test,https://media.test",
+    );
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("https://nomedia.test")) {
+        return {
+          ok: true,
+          text: async () => `
+            <main>
+              <h1 class="post_title">Metadata only post</h1>
+              <p>post body without supported media</p>
+            </main>
+          `,
+        };
+      }
+
+      if (url.startsWith("https://media.test")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return {
+          ok: true,
+          text: async () => `
+            <main>
+              <h1 class="post_title">Gallery post</h1>
+              <div class="gallery">
+                <figure>
+                  <a href="/img/first.jpg">
+                    <img loading="lazy" alt="Gallery image" src="/img/first.jpg"/>
+                  </a>
+                </figure>
+                <figure>
+                  <a href="/img/second.jpg">
+                    <img loading="lazy" alt="Gallery image" src="/img/second.jpg"/>
+                  </a>
+                </figure>
+              </div>
+            </main>
+          `,
+        };
+      }
+
+      return {
+        ok: false,
+        status: 403,
+        text: async () => "",
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const post = await fetchRedlibGalleryPost({
+      permalink:
+        "https://www.reddit.com/r/kpop/comments/gallery123/gallery_post/",
+      userAgent: "test-agent",
+    });
+
+    expect(post).toMatchObject({
+      title: "Gallery post",
+      media: [
+        { url: "https://i.redd.it/first.jpg", galleryIndex: 0 },
+        { url: "https://i.redd.it/second.jpg", galleryIndex: 1 },
+      ],
+    });
   });
 
   it("extracts Redlib listing posts with NSFW videos and images", async () => {

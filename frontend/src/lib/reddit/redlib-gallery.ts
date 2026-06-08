@@ -49,21 +49,10 @@ export async function fetchRedlibGalleryPost({
   const path = redlibPostPath(permalink);
   if (!path) return null;
 
-  const html = await fetchRedlibHtml(
+  return fetchRedlibGalleryPostFromOrigins({
     path,
     userAgent,
-    redlibPostHtmlLooksUsable,
-  );
-  if (!html) return null;
-  const media = redlibGalleryHtmlToMedia(html);
-
-  return {
-    author: redlibAuthor(html),
-    createdAt: redlibCreatedAt(html),
-    media,
-    subreddit: redlibSubreddit(html),
-    title: redlibTitle(html),
-  };
+  });
 }
 
 export async function fetchRedlibListingItems({
@@ -229,23 +218,34 @@ async function redlibListingMedia(
   }
 }
 
-async function fetchRedlibHtml(
-  path: string,
-  userAgent: string,
-  isUsable: RedlibHtmlValidator,
-) {
-  const pendingRequests = startRedlibHtmlRequests(path, userAgent, isUsable);
+async function fetchRedlibGalleryPostFromOrigins({
+  path,
+  userAgent,
+}: {
+  path: string;
+  userAgent: string;
+}): Promise<RedlibGalleryPost | null> {
+  const pendingRequests = startRedlibHtmlRequests(
+    path,
+    userAgent,
+    redlibPostHtmlLooksUsable,
+  );
+  let bestPost: RedlibGalleryPost | null = null;
 
   while (pendingRequests.size) {
     const html = await settleNextRedlibHtmlRequest(pendingRequests);
+    if (!html) continue;
 
-    if (html) {
+    const post = redlibGalleryPostFromHtml(html);
+    if (post.media.length) {
       abortRedlibHtmlRequests(pendingRequests);
-      return html;
+      return post;
     }
+
+    bestPost ??= post;
   }
 
-  return null;
+  return bestPost;
 }
 
 async function fetchRedlibListingItemsFromOrigins({
@@ -291,6 +291,16 @@ async function fetchRedlibListingItemsFromOrigins({
   }
 
   return bestItems.slice(0, limit);
+}
+
+function redlibGalleryPostFromHtml(html: string): RedlibGalleryPost {
+  return {
+    author: redlibAuthor(html),
+    createdAt: redlibCreatedAt(html),
+    media: redlibGalleryHtmlToMedia(html),
+    subreddit: redlibSubreddit(html),
+    title: redlibTitle(html),
+  };
 }
 
 function redlibListingMediaResolver(
