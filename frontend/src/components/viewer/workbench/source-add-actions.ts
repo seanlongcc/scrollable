@@ -15,6 +15,10 @@ import {
   type LocalCacheFilesOptions,
   prepareLocalAddFiles,
 } from "./local-sources";
+import {
+  runtimeSourceNotice,
+  type RuntimeNotice,
+} from "./runtime-source-notices";
 import type { SourceAddFormState } from "./source-add-state";
 import {
   resolveRedditAddInput,
@@ -26,6 +30,7 @@ import type { SourceGroupingMode } from "./types";
 type SourceAddActionError = {
   status: "error";
   error: string;
+  notice: RuntimeNotice;
 };
 
 type SourceAddSlotError = {
@@ -106,9 +111,13 @@ export async function addRedditSourceAction({
       }),
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "Reddit fetch failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "Reddit fetch failed"),
+      error: notice.message,
+      notice,
     };
   }
 }
@@ -156,9 +165,13 @@ export async function addUrlSourceAction({
               ),
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "URL source failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "URL source failed"),
+      error: notice.message,
+      notice,
     };
   }
 }
@@ -212,13 +225,13 @@ export async function addPreparedLocalSourceAction({
       }),
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "Local file cache failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "Local file cache failed"),
+      error: notice.message,
+      notice,
     };
   }
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
 }

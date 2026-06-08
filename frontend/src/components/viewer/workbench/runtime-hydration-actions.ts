@@ -5,6 +5,11 @@ import {
   type RuntimeHydrationResult,
 } from "./runtime-sources";
 import {
+  prefixRuntimeNotice,
+  runtimeSourceNotice,
+  type RuntimeNotice,
+} from "./runtime-source-notices";
+import {
   applyHydratedRuntimeSessions,
   runtimeHydrationCandidates,
   visibleUnresolvedUrlHydrationSessions,
@@ -46,7 +51,7 @@ export async function hydrateRuntimeSessionsAction({
     files: File[],
     videoTimeRanges?: Record<string, VideoTimeRange>,
   ) => RuntimeFeedItem[];
-  onError: (message: string) => void;
+  onError: (notice: RuntimeNotice) => void;
 }): Promise<RuntimeHydrationActionResult> {
   const sessionsToHydrate = runtimeHydrationCandidates({
     sessions,
@@ -61,7 +66,7 @@ export async function hydrateRuntimeSessionsAction({
       sessions: sessionsToHydrate,
       createLocalRuntimeItems,
       onError: (session, error) =>
-        onError(runtimeHydrationErrorMessage(session, error)),
+        onError(runtimeHydrationErrorNotice(session, error)),
     }),
   };
 }
@@ -76,8 +81,12 @@ export function applyRuntimeHydrationAction({
   return applyHydratedRuntimeSessions(sessions, hydrated);
 }
 
-function runtimeHydrationErrorMessage(session: FeedSession, error: unknown) {
-  return error instanceof Error
-    ? `Could not load ${session.title}: ${error.message}`
-    : `Could not load ${session.title}`;
+function runtimeHydrationErrorNotice(
+  session: FeedSession,
+  error: unknown,
+): RuntimeNotice {
+  return prefixRuntimeNotice(
+    runtimeSourceNotice(error, { fallback: "" }),
+    `Could not load ${session.title}`,
+  );
 }

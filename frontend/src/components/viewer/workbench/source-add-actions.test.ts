@@ -1,9 +1,51 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { addUrlSourceAction } from "./source-add-actions";
+import {
+  addRedditSourceAction,
+  addUrlSourceAction,
+} from "./source-add-actions";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("addRedditSourceAction", () => {
+  it("returns a warning notice when Reddit blocks the hosted fetch", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({ error: "reddit_fetch_forbidden" }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 502,
+          },
+        );
+      }),
+    );
+
+    const result = await addRedditSourceAction({
+      redditInputMode: "links",
+      subredditName: "",
+      redditSort: "top",
+      redditTimeRange: "week",
+      redditUrls: "https://www.reddit.com/r/kpop/top/?t=week",
+      redditLimit: 10,
+      sourceGroupingMode: "stacked",
+      availableSeparateSourceSlots: 1,
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      error:
+        "Reddit blocked this request. Hosted Reddit fetching can fail or return partial results.",
+      notice: {
+        tone: "warning",
+        message:
+          "Reddit blocked this request. Hosted Reddit fetching can fail or return partial results.",
+      },
+    });
+  });
 });
 
 describe("addUrlSourceAction", () => {

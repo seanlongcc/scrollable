@@ -11,6 +11,10 @@ import {
   fetchEditedRedditSource,
   fetchEditedUrlSource,
 } from "./runtime-sources";
+import {
+  runtimeSourceNotice,
+  type RuntimeNotice,
+} from "./runtime-source-notices";
 import { splitUrlValues } from "./source-add-state";
 import type {
   EditedRedditSourceState,
@@ -26,6 +30,7 @@ type SourceEditValidationError = {
 type SourceEditActionError = {
   status: "error";
   error: string;
+  notice: RuntimeNotice;
 };
 
 export type PreparedRedditSourceEdit = {
@@ -179,9 +184,13 @@ export async function editPreparedRedditSourceAction({
       }),
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "Reddit fetch failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "Reddit fetch failed"),
+      error: notice.message,
+      notice,
     };
   }
 }
@@ -208,9 +217,13 @@ export async function editUrlSourceAction({
       }),
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "URL source failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "URL source failed"),
+      error: notice.message,
+      notice,
     };
   }
 }
@@ -261,9 +274,13 @@ export async function editPreparedLocalSourceAction({
       videoTimeRanges,
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "Local file cache failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "Local file cache failed"),
+      error: notice.message,
+      notice,
     };
   }
 }
