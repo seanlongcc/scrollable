@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "env": {
+    "REDDIT_LISTING_HTML_FALLBACK_FIRST": "1"
+  },
   "git": {
     "deploymentEnabled": {
       "main": false

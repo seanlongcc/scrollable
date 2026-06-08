@@ -80,8 +80,7 @@ describe("fetchRedditRuntimePostLinks hosted gallery fallback", () => {
       allowNsfw: true,
     });
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      6,
+    expect(fetchMock.mock.calls).toContainEqual([
       "https://redlib.perennialte.ch/r/STAYC/comments/1tsx806/260531_sumin_instagram_update/",
       expect.objectContaining({
         cache: "no-store",
@@ -90,7 +89,7 @@ describe("fetchRedditRuntimePostLinks hosted gallery fallback", () => {
           "User-Agent": expect.any(String),
         }),
       }),
-    );
+    ]);
     expect(result.items).toMatchObject([
       {
         id: "reddit:1tsx806",

@@ -21,6 +21,7 @@ import {
   parseRedditPostLinksInput,
   parseRedditSourceUrl,
   redditPublicJsonRequests,
+  redditRuntimeFetchLimit,
   toOldRedditRssUrl,
   toRedditPostError,
   toRedditRssUrl,
@@ -40,7 +41,6 @@ export type {
 } from "./source";
 
 const REDDIT_SOURCE_FETCH_CONCURRENCY = 4;
-
 export async function fetchRedditRuntimePostLinks(input: RedditPostLinksInput) {
   const parsed = parseRedditPostLinksInput(input);
   const sourceResults = await mapWithConcurrency(
@@ -72,15 +72,51 @@ async function fetchRedditRuntimeSource(
   },
 ) {
   const source = parseRedditSourceUrl(sourceUrl);
+  const fetchLimit = redditRuntimeFetchLimit(source, options.limit);
+  let listingFallbackItems: RuntimeFeedItem[] = [];
+  let postFallbackItems: RuntimeFeedItem[] | null = null;
   let sawOkResponse = false;
   let lastRetryableStatus = 502;
   let lastUnsupportedIds: string[] = [];
-
-  for (const requests of redditRequestGroups(
+  const requestGroups = redditRequestGroups(
     source,
-    options.limit,
+    fetchLimit,
     options.allowNsfw,
-  )) {
+  );
+
+  if (source.kind === "post" && !shouldUsePublicRedditJson()) {
+    postFallbackItems = await redditSourceFallbackItems(source, {
+      allowNsfw: options.allowNsfw,
+      fetchLimit,
+      limit: options.limit,
+    });
+    if (postFallbackItems.length) {
+      return {
+        items: postFallbackItems,
+        unsupportedIds: [],
+      };
+    }
+  }
+
+  if (
+    source.kind === "listing" &&
+    shouldPreferListingHtmlFallbackBeforeRss() &&
+    !shouldUsePublicRedditJson()
+  ) {
+    listingFallbackItems = await redditSourceFallbackItems(source, {
+      allowNsfw: options.allowNsfw,
+      fetchLimit,
+      limit: options.limit,
+    });
+    if (listingFallbackItems.length >= options.limit) {
+      return {
+        items: listingFallbackItems.slice(0, options.limit),
+        unsupportedIds: [],
+      };
+    }
+  }
+
+  for (const [groupIndex, requests] of requestGroups.entries()) {
     const result = await fetchFirstSupportedRedditResponse(requests, {
       allowNsfw: options.allowNsfw,
       limit: options.limit,
@@ -90,6 +126,21 @@ async function fetchRedditRuntimeSource(
     });
 
     if (result.status === "supported") {
+      if (
+        source.kind === "listing" &&
+        result.normalized.items.length < options.limit &&
+        listingFallbackItems.length
+      ) {
+        return {
+          items: mergeRuntimeItems(
+            listingFallbackItems,
+            result.normalized.items,
+            options.limit,
+          ),
+          unsupportedIds: result.normalized.unsupportedIds,
+        };
+      }
+
       return {
         items: result.normalized.items,
         unsupportedIds: result.normalized.unsupportedIds,
@@ -102,12 +153,41 @@ async function fetchRedditRuntimeSource(
       lastUnsupportedIds = result.lastUnsupportedIds;
     }
     if (result.fatalError) throw result.fatalError;
+
+    if (
+      source.kind === "listing" &&
+      groupIndex === 0 &&
+      shouldPreferListingHtmlFallbackBeforeRss() &&
+      !listingFallbackItems.length
+    ) {
+      listingFallbackItems = await redditSourceFallbackItems(source, {
+        allowNsfw: options.allowNsfw,
+        fetchLimit,
+        limit: options.limit,
+      });
+      if (listingFallbackItems.length >= options.limit) {
+        return {
+          items: listingFallbackItems.slice(0, options.limit),
+          unsupportedIds: [],
+        };
+      }
+    }
   }
 
-  const sourceFallbackItems = await redditSourceFallbackItems(source, {
-    allowNsfw: options.allowNsfw,
-    limit: options.limit,
-  });
+  if (listingFallbackItems.length) {
+    return {
+      items: listingFallbackItems.slice(0, options.limit),
+      unsupportedIds: [],
+    };
+  }
+
+  const sourceFallbackItems =
+    postFallbackItems ??
+    (await redditSourceFallbackItems(source, {
+      allowNsfw: options.allowNsfw,
+      fetchLimit,
+      limit: options.limit,
+    }));
   if (sourceFallbackItems.length) {
     return {
       items: sourceFallbackItems,
@@ -123,30 +203,63 @@ async function fetchRedditRuntimeSource(
   };
 }
 
+function mergeRuntimeItems(
+  primary: RuntimeFeedItem[],
+  secondary: RuntimeFeedItem[],
+  limit: number,
+) {
+  const items: RuntimeFeedItem[] = [];
+  const seen = new Set<string>();
+
+  for (const item of [...primary, ...secondary]) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    items.push(item);
+    if (items.length >= limit) break;
+  }
+
+  return items;
+}
+
+function shouldPreferListingHtmlFallbackBeforeRss() {
+  return process.env.REDDIT_LISTING_HTML_FALLBACK_FIRST !== "0";
+}
+
 function redditRequestGroups(
   source: ParsedRedditSourceUrl,
   limit: number,
   allowNsfw?: boolean,
 ): RedditRuntimeRequest[][] {
-  return [
-    redditPublicJsonRequests(source, limit).map((request) => ({
-      url: redditRequestUrl(request.url, allowNsfw),
+  const requests: RedditRuntimeRequest[][] = [];
+
+  if (shouldUsePublicRedditJson()) {
+    requests.push(
+      redditPublicJsonRequests(source, limit).map((request) => ({
+        url: redditRequestUrl(request.url, allowNsfw),
+        headers: {},
+        parser: "json" as const,
+      })),
+    );
+  }
+
+  requests.push([
+    {
+      url: toRedditRssUrl(source, limit),
       headers: {},
-      parser: "json" as const,
-    })),
-    [
-      {
-        url: toRedditRssUrl(source, limit),
-        headers: {},
-        parser: "rss",
-      },
-      {
-        url: toOldRedditRssUrl(source, limit),
-        headers: {},
-        parser: "rss",
-      },
-    ],
-  ];
+      parser: "rss",
+    },
+    {
+      url: toOldRedditRssUrl(source, limit),
+      headers: {},
+      parser: "rss",
+    },
+  ]);
+
+  return requests;
+}
+
+function shouldUsePublicRedditJson() {
+  return process.env.REDDIT_ENABLE_PUBLIC_JSON === "1";
 }
 
 function redditRequestUrl(url: string, allowNsfw?: boolean) {
@@ -182,6 +295,7 @@ async function redditSourceFallbackItems(
   source: ParsedRedditSourceUrl,
   options: {
     allowNsfw?: boolean;
+    fetchLimit: number;
     limit: number;
   },
 ): Promise<RuntimeFeedItem[]> {
@@ -194,19 +308,22 @@ async function redditSourceFallbackItems(
 
   const oldRedditListingItems = await fetchOldRedditListingItems({
     allowNsfw: options.allowNsfw,
-    limit: options.limit,
+    limit: options.fetchLimit,
     listingUrl: source.url,
     resolveMedia: resolveRedditRssMedia,
     userAgent: getRedditUserAgent(),
   });
-  if (oldRedditListingItems.length) return oldRedditListingItems;
+  if (oldRedditListingItems.length) {
+    return oldRedditListingItems.slice(0, options.limit);
+  }
 
-  return fetchRedlibListingItems({
+  const redlibListingItems = await fetchRedlibListingItems({
     allowNsfw: options.allowNsfw,
-    limit: options.limit,
+    limit: options.fetchLimit,
     listingUrl: source.url,
     userAgent: getRedditUserAgent(),
   });
+  return redlibListingItems.slice(0, options.limit);
 }
 
 async function oldRedditPostFallbackItem(

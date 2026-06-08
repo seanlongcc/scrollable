@@ -1,9 +1,50 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  editPreparedRedditSourceAction,
   prepareUrlRowsSourceEditAction,
   prepareUrlSourceEditAction,
 } from "./source-edit-actions";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("editPreparedRedditSourceAction", () => {
+  it("returns a warning notice when Reddit returns no usable media", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({ error: "reddit_source_has_no_supported_media" }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 422,
+          },
+        );
+      }),
+    );
+
+    const result = await editPreparedRedditSourceAction({
+      currentSource: undefined,
+      urls: ["https://www.reddit.com/r/kpop/top/?t=week"],
+      limit: 10,
+      hiddenItemIds: [],
+      unhiddenItemHashes: [],
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      error:
+        "Reddit returned no usable media. Reddit blocks hosted requests sometimes.",
+      notice: {
+        tone: "warning",
+        message:
+          "Reddit returned no usable media. Reddit blocks hosted requests sometimes.",
+      },
+    });
+  });
+});
 
 describe("prepareUrlSourceEditAction", () => {
   it("keeps multiple edited URL values", () => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fetchRedditRuntimePostLinks } from "./client";
 
@@ -6,8 +6,14 @@ vi.mock("@/lib/url-source/ytdlp", () => ({
   extractYtDlpRuntimeItems: vi.fn(async () => []),
 }));
 
+beforeEach(() => {
+  vi.stubEnv("REDDIT_ENABLE_PUBLIC_JSON", "1");
+  vi.stubEnv("REDDIT_LISTING_HTML_FALLBACK_FIRST", "0");
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("fetchRedditRuntimePostLinks RSS gallery fallbacks", () => {

@@ -1,4 +1,5 @@
 import type { RuntimeFeedItem, RuntimeMedia } from "@/lib/feed/types";
+import { mapWithConcurrency } from "./runtime-request-scheduler";
 
 const DEFAULT_REDLIB_ORIGINS = [
   "https://redlib.perennialte.ch",
@@ -6,8 +7,14 @@ const DEFAULT_REDLIB_ORIGINS = [
   "https://redlib.r4fo.com",
   "https://red.artemislena.eu",
   "https://redlib.cow.rip",
+  "https://redlib.privacyredirect.com",
+  "https://redlib.nadeko.net",
+  "https://redlib.orangenet.cc",
   "https://redlib.privadency.com",
 ];
+const REDLIB_REQUEST_TIMEOUT_MS = 10000;
+const REDLIB_LISTING_MAX_LIMIT = 50;
+const REDLIB_LISTING_MEDIA_RESOLVE_CONCURRENCY = 4;
 
 export type RedlibGalleryPost = {
   author?: string;
@@ -16,6 +23,21 @@ export type RedlibGalleryPost = {
   subreddit?: string;
   title?: string;
 };
+
+export type RedlibListingMediaResolverInput = {
+  permalink: string;
+};
+
+export type RedlibListingMediaResolver = (
+  input: RedlibListingMediaResolverInput,
+) => Promise<RuntimeMedia[]>;
+
+type RedlibHtmlRequest = {
+  abort: () => void;
+  promise: Promise<string | null>;
+};
+
+type RedlibHtmlValidator = (html: string) => boolean;
 
 export async function fetchRedlibGalleryPost({
   permalink,
@@ -27,17 +49,10 @@ export async function fetchRedlibGalleryPost({
   const path = redlibPostPath(permalink);
   if (!path) return null;
 
-  const html = await fetchRedlibHtml(path, userAgent);
-  if (!html) return null;
-  const media = redlibGalleryHtmlToMedia(html);
-
-  return {
-    author: redlibAuthor(html),
-    createdAt: redlibCreatedAt(html),
-    media,
-    subreddit: redlibSubreddit(html),
-    title: redlibTitle(html),
-  };
+  return fetchRedlibGalleryPostFromOrigins({
+    path,
+    userAgent,
+  });
 }
 
 export async function fetchRedlibListingItems({
@@ -51,16 +66,15 @@ export async function fetchRedlibListingItems({
   listingUrl: string;
   userAgent: string;
 }): Promise<RuntimeFeedItem[]> {
-  const path = redlibListingPath(listingUrl);
+  const path = redlibListingPath(listingUrl, limit);
   if (!path) return [];
 
-  const html = await fetchRedlibHtml(path, userAgent);
-  if (!html) return [];
-
-  return redlibListingHtmlToItems(html, {
+  return fetchRedlibListingItemsFromOrigins({
     allowNsfw,
     limit,
     listingUrl,
+    path,
+    userAgent,
   });
 }
 
@@ -69,7 +83,7 @@ export function redlibGalleryHtmlToMedia(html: string): RuntimeMedia[] {
   const seenUrls = new Set<string>();
 
   for (const match of html.matchAll(
-    /<a\b(?=[^>]*(?:\bpost_media_image\b|href\s*=\s*["']\/preview\/pre\/))[^>]*href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>[\s\S]*?<img\b[^>]*(?:alt\s*=\s*["'](?:Gallery image|Post image)["'][^>]*)?>/gi,
+    /<a\b(?=[^>]*(?:\bpost_media_image\b|href\s*=\s*["']\/(?:preview\/pre|img)\/))[^>]*href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>[\s\S]*?<img\b[^>]*(?:alt\s*=\s*["'](?:Gallery image|Post image)["'][^>]*)?>/gi,
   )) {
     const raw = match[2] ?? match[3] ?? match[4];
     const url = raw ? redlibPreviewToRedditUrl(decodeHtml(raw)) : null;
@@ -105,79 +119,284 @@ export function redlibGalleryHtmlToMedia(html: string): RuntimeMedia[] {
   return media;
 }
 
-export function redlibListingHtmlToItems(
+export async function redlibListingHtmlToItems(
   html: string,
   {
     allowNsfw,
     limit,
     listingUrl,
+    resolveMedia,
   }: {
     allowNsfw?: boolean;
     limit: number;
     listingUrl: string;
+    resolveMedia?: RedlibListingMediaResolver;
   },
-): RuntimeFeedItem[] {
-  const items: RuntimeFeedItem[] = [];
+): Promise<RuntimeFeedItem[]> {
+  const matches = Array.from(
+    html.matchAll(
+      /<div\b[^>]*class=["'][^"']*\bpost\b[^"']*["'][^>]*id=["']([^"']+)["'][^>]*>([\s\S]*?)(?=<hr\b[^>]*class=["'][^"']*\bsep\b|<\/main>|<footer|$)/gi,
+    ),
+  ).map((match) => ({
+    block: match[2] ?? "",
+    postId: match[1],
+  }));
 
-  for (const match of html.matchAll(
-    /<div\b[^>]*class=["'][^"']*\bpost\b[^"']*["'][^>]*id=["']([^"']+)["'][^>]*>([\s\S]*?)(?=<hr\b[^>]*class=["'][^"']*\bsep\b|<\/main>|<footer|$)/gi,
-  )) {
-    if (items.length >= limit) break;
+  const resolvedItems = await mapWithConcurrency(
+    matches,
+    REDLIB_LISTING_MEDIA_RESOLVE_CONCURRENCY,
+    ({ block, postId }) =>
+      redlibListingItemFromBlock({
+        allowNsfw,
+        block,
+        listingUrl,
+        postId,
+        resolveMedia,
+      }),
+  );
 
-    const postId = match[1];
-    const block = match[2] ?? "";
-    const isNsfw = /\bclass=["'][^"']*\bnsfw\b/i.test(block);
-    if (isNsfw && allowNsfw === false) continue;
-
-    const media = redlibGalleryHtmlToMedia(block);
-    if (!postId || !media.length) continue;
-
-    items.push({
-      id: `reddit:${postId}`,
-      source: "reddit",
-      title: redlibTitle(block) ?? "Untitled Reddit post",
-      permalink: redlibPermalink(block) ?? listingUrl,
-      author: redlibAuthor(block),
-      subreddit: redlibSubreddit(block) ?? subredditFromRedlibPath(listingUrl),
-      isNsfw,
-      createdAt: redlibCreatedAt(block) ?? new Date().toISOString(),
-      media,
-    });
-  }
-
-  return items;
+  return resolvedItems
+    .filter((item): item is RuntimeFeedItem => Boolean(item))
+    .slice(0, limit);
 }
 
-async function fetchRedlibHtml(path: string, userAgent: string) {
-  for (const origin of redlibOrigins()) {
-    const url = new URL(origin);
-    url.pathname = path;
-    url.search = path.includes("?") ? path.slice(path.indexOf("?")) : "";
-    if (path.includes("?")) {
-      url.pathname = path.slice(0, path.indexOf("?"));
+async function redlibListingItemFromBlock({
+  allowNsfw,
+  block,
+  listingUrl,
+  postId,
+  resolveMedia,
+}: {
+  allowNsfw?: boolean;
+  block: string;
+  listingUrl: string;
+  postId: string | undefined;
+  resolveMedia?: RedlibListingMediaResolver;
+}): Promise<RuntimeFeedItem | null> {
+  const isNsfw = /\bclass=["'][^"']*\bnsfw\b/i.test(block);
+  if (!postId || (isNsfw && allowNsfw === false)) return null;
+
+  const permalink = redlibPermalink(block) ?? listingUrl;
+  const media = await redlibListingMedia(block, {
+    permalink,
+    resolveMedia,
+  });
+  if (!media.length) return null;
+
+  return {
+    id: `reddit:${postId}`,
+    source: "reddit",
+    title: redlibTitle(block) ?? "Untitled Reddit post",
+    permalink,
+    author: redlibAuthor(block),
+    subreddit: redlibSubreddit(block) ?? subredditFromRedlibPath(listingUrl),
+    isNsfw,
+    createdAt: redlibCreatedAt(block) ?? new Date().toISOString(),
+    media,
+  };
+}
+
+async function redlibListingMedia(
+  block: string,
+  {
+    permalink,
+    resolveMedia,
+  }: {
+    permalink: string;
+    resolveMedia?: RedlibListingMediaResolver;
+  },
+) {
+  const media = redlibGalleryHtmlToMedia(block);
+  if (media.length) return media;
+
+  if (!resolveMedia || !redlibListingBlockLooksLikeGallery(block)) return [];
+
+  try {
+    return await resolveMedia({ permalink });
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRedlibGalleryPostFromOrigins({
+  path,
+  userAgent,
+}: {
+  path: string;
+  userAgent: string;
+}): Promise<RedlibGalleryPost | null> {
+  const pendingRequests = startRedlibHtmlRequests(
+    path,
+    userAgent,
+    redlibPostHtmlLooksUsable,
+  );
+  let bestPost: RedlibGalleryPost | null = null;
+
+  while (pendingRequests.size) {
+    const html = await settleNextRedlibHtmlRequest(pendingRequests);
+    if (!html) continue;
+
+    const post = redlibGalleryPostFromHtml(html);
+    if (post.media.length) {
+      abortRedlibHtmlRequests(pendingRequests);
+      return post;
     }
 
-    try {
-      const response = await fetch(url.toString(), {
+    bestPost ??= post;
+  }
+
+  return bestPost;
+}
+
+async function fetchRedlibListingItemsFromOrigins({
+  allowNsfw,
+  limit,
+  listingUrl,
+  path,
+  userAgent,
+}: {
+  allowNsfw?: boolean;
+  limit: number;
+  listingUrl: string;
+  path: string;
+  userAgent: string;
+}) {
+  const pendingRequests = startRedlibHtmlRequests(
+    path,
+    userAgent,
+    redlibListingHtmlLooksUsable,
+  );
+  const resolveMedia = redlibListingMediaResolver(userAgent);
+  let bestItems: RuntimeFeedItem[] = [];
+
+  while (pendingRequests.size) {
+    const html = await settleNextRedlibHtmlRequest(pendingRequests);
+    if (!html) continue;
+
+    const items = await redlibListingHtmlToItems(html, {
+      allowNsfw,
+      limit,
+      listingUrl,
+      resolveMedia,
+    });
+
+    if (items.length >= limit) {
+      abortRedlibHtmlRequests(pendingRequests);
+      return items.slice(0, limit);
+    }
+
+    if (items.length > bestItems.length) {
+      bestItems = items;
+    }
+  }
+
+  return bestItems.slice(0, limit);
+}
+
+function redlibGalleryPostFromHtml(html: string): RedlibGalleryPost {
+  return {
+    author: redlibAuthor(html),
+    createdAt: redlibCreatedAt(html),
+    media: redlibGalleryHtmlToMedia(html),
+    subreddit: redlibSubreddit(html),
+    title: redlibTitle(html),
+  };
+}
+
+function redlibListingMediaResolver(
+  userAgent: string,
+): RedlibListingMediaResolver {
+  return async ({ permalink }) =>
+    (
+      await fetchRedlibGalleryPost({
+        permalink,
+        userAgent,
+      })
+    )?.media ?? [];
+}
+
+function startRedlibHtmlRequests(
+  path: string,
+  userAgent: string,
+  isUsable: RedlibHtmlValidator,
+) {
+  return new Set(
+    redlibOrigins().map((origin) =>
+      startRedlibHtmlRequest(origin, path, userAgent, isUsable),
+    ),
+  );
+}
+
+async function settleNextRedlibHtmlRequest(
+  pendingRequests: Set<RedlibHtmlRequest>,
+) {
+  const { html, request } = await Promise.race(
+    [...pendingRequests].map(async (pendingRequest) => ({
+      html: await pendingRequest.promise,
+      request: pendingRequest,
+    })),
+  );
+  pendingRequests.delete(request);
+
+  return html;
+}
+
+function abortRedlibHtmlRequests(pendingRequests: Set<RedlibHtmlRequest>) {
+  for (const pendingRequest of pendingRequests) {
+    pendingRequest.abort();
+  }
+  pendingRequests.clear();
+}
+
+function startRedlibHtmlRequest(
+  origin: string,
+  path: string,
+  userAgent: string,
+  isUsable: RedlibHtmlValidator,
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, REDLIB_REQUEST_TIMEOUT_MS);
+  const abort = () => {
+    clearTimeout(timeout);
+    controller.abort();
+  };
+  const promise = Promise.resolve()
+    .then(() =>
+      fetch(redlibUrl(origin, path), {
         cache: "no-store",
         headers: {
           Accept: "text/html,application/xhtml+xml",
           Cookie: "show_nsfw=on; blur_nsfw=off",
           "User-Agent": userAgent,
         },
-        signal: AbortSignal.timeout(6000),
-      });
-      if (!response.ok) continue;
+        signal: controller.signal,
+      }),
+    )
+    .then(async (response) => {
+      if (!response.ok) return null;
 
       const html = await response.text();
-      if (redlibLooksBlocked(html)) continue;
-      return html;
-    } catch {
-      continue;
-    }
+      return redlibLooksBlocked(html) || !isUsable(html) ? null : html;
+    })
+    .catch(() => null)
+    .finally(() => {
+      clearTimeout(timeout);
+    });
+
+  return { abort, promise };
+}
+
+function redlibUrl(origin: string, path: string) {
+  const url = new URL(origin);
+  url.pathname = path;
+  url.search = path.includes("?") ? path.slice(path.indexOf("?")) : "";
+  if (path.includes("?")) {
+    url.pathname = path.slice(0, path.indexOf("?"));
   }
 
-  return null;
+  return url.toString();
 }
 
 function redlibPostPath(permalink: string) {
@@ -189,12 +408,16 @@ function redlibPostPath(permalink: string) {
   }
 }
 
-function redlibListingPath(listingUrl: string) {
+function redlibListingPath(listingUrl: string, limit: number) {
   try {
     const redditUrl = new URL(listingUrl);
     const path = redditUrl.pathname.endsWith("/")
       ? redditUrl.pathname
       : `${redditUrl.pathname}/`;
+    redditUrl.searchParams.set(
+      "limit",
+      String(Math.min(limit, REDLIB_LISTING_MAX_LIMIT)),
+    );
     const search = redditUrl.search;
     return `${path}${search}`;
   } catch {
@@ -205,6 +428,11 @@ function redlibListingPath(listingUrl: string) {
 function redlibPreviewToRedditUrl(value: string) {
   try {
     const parsed = new URL(value, redlibOrigins()[0]);
+    if (parsed.pathname.startsWith("/img/")) {
+      const mediaPath = parsed.pathname.replace(/^\/img\//, "");
+      return mediaPath ? `https://i.redd.it/${mediaPath}` : null;
+    }
+
     if (!parsed.pathname.startsWith("/preview/pre/")) return null;
 
     const mediaPath = parsed.pathname.replace(/^\/preview\/pre\//, "");
@@ -214,6 +442,13 @@ function redlibPreviewToRedditUrl(value: string) {
   } catch {
     return null;
   }
+}
+
+function redlibListingBlockLooksLikeGallery(block: string) {
+  return (
+    /<span\b[^>]*>\s*gallery\s*<\/span>/i.test(block) ||
+    /post_type:\s*gallery/i.test(block)
+  );
 }
 
 function redlibOrigins() {
@@ -229,6 +464,21 @@ function redlibLooksBlocked(html: string) {
     /just a moment/i.test(html) ||
     /making sure you(?:'|&#39;)?re not a bot/i.test(html) ||
     /blocked by network security/i.test(html)
+  );
+}
+
+function redlibListingHtmlLooksUsable(html: string) {
+  return (
+    /<div\b[^>]*id=["']posts["'][^>]*>/i.test(html) &&
+    /<div\b[^>]*class=["'][^"']*\bpost\b[^"']*["'][^>]*>/i.test(html)
+  );
+}
+
+function redlibPostHtmlLooksUsable(html: string) {
+  return (
+    /<h[12]\b[^>]*class=["'][^"']*\bpost_title\b[^"']*["'][^>]*>/i.test(html) ||
+    /<div\b[^>]*class=["'][^"']*\bgallery\b[^"']*["'][^>]*>/i.test(html) ||
+    /<video\b/i.test(html)
   );
 }
 

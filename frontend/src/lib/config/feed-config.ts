@@ -4,6 +4,7 @@ import {
   normalizeUrlSourceUrl,
   urlResolverHintSchema,
 } from "@/lib/url-source/validation";
+import { splitRedditSourceUrlInput } from "@/lib/reddit/source";
 
 export const DEFAULT_FEED_TIMER_SECONDS = 10;
 const MAX_REDDIT_SOURCE_URLS = 100;
@@ -86,10 +87,7 @@ function splitUrlInput(value: unknown): unknown {
 
   if (typeof value !== "string") return value;
 
-  return value
-    .split(/[\n,]+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  return splitRedditSourceUrlInput(value);
 }
 
 function normalizeRedditSourceUrl(value: string) {

@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { oldRedditGalleryHtmlToMedia } from "./oldreddit-gallery";
+import {
+  fetchOldRedditGalleryPost,
+  oldRedditGalleryHtmlToMedia,
+} from "./oldreddit-gallery";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("oldRedditGalleryHtmlToMedia", () => {
   it("extracts gallery images from collapsed old Reddit cached HTML", () => {
@@ -40,5 +47,32 @@ describe("oldRedditGalleryHtmlToMedia", () => {
         galleryIndex: 1,
       },
     ]);
+  });
+
+  it("fetches compact old Reddit post pages for gallery fallback", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      text: async (): Promise<string> => "<html></html>",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchOldRedditGalleryPost({
+      allowNsfw: true,
+      permalink:
+        "https://www.reddit.com/r/kpop/comments/1txlgk7/way2_x_profile_photos/",
+      postId: "1txlgk7",
+      userAgent: "test-agent",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://old.reddit.com/r/kpop/comments/1txlgk7/way2_x_profile_photos/.compact",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          Cookie: "over18=1",
+          "User-Agent": "test-agent",
+        }),
+      }),
+    );
   });
 });

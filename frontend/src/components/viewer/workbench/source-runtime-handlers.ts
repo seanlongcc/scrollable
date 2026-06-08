@@ -30,6 +30,10 @@ import {
   hydrateRuntimeSessionsAction,
 } from "./runtime-hydration-actions";
 import {
+  showRuntimeActionNotice,
+  showRuntimeNotice,
+} from "./runtime-notice-toast";
+import {
   applyEditedRedditSourceToSession,
   applyEditedUrlSourceToSession,
   withSessionRuntimeLoading,
@@ -175,7 +179,7 @@ export function useSourceRuntimeHandlers({
       });
 
       if (result.status !== "ready") {
-        toast.error(result.error);
+        showRuntimeActionNotice(result);
         return;
       }
 
@@ -197,7 +201,7 @@ export function useSourceRuntimeHandlers({
       });
 
       if (result.status !== "ready") {
-        toast.error(result.error);
+        showRuntimeActionNotice(result);
         return;
       }
 
@@ -287,7 +291,7 @@ export function useSourceRuntimeHandlers({
       });
 
       if (result.status !== "ready") {
-        toast.error(result.error);
+        showRuntimeActionNotice(result);
         return;
       }
 
@@ -490,7 +494,7 @@ export function useSourceRuntimeHandlers({
 
     if (result.status !== "ready") {
       updateSession(id, (session) => withSessionRuntimeLoading(session, false));
-      toast.error(result.error);
+      showRuntimeActionNotice(result);
       return;
     }
 
@@ -522,7 +526,7 @@ export function useSourceRuntimeHandlers({
 
     if (result.status !== "ready") {
       updateSession(id, (session) => withSessionRuntimeLoading(session, false));
-      toast.error(result.error);
+      showRuntimeActionNotice(result);
       return;
     }
 
@@ -553,7 +557,7 @@ export function useSourceRuntimeHandlers({
 
     if (result.status !== "ready") {
       updateSession(id, (session) => ({ ...session, isRuntimeLoading: false }));
-      toast.error(result.error);
+      showRuntimeActionNotice(result);
       return;
     }
 
@@ -586,7 +590,7 @@ export function useSourceRuntimeHandlers({
         visibleFixedCells,
       },
       createLocalRuntimeItems,
-      onError: (message) => toast.error(message),
+      onError: showRuntimeNotice,
     });
 
     if (result.status === "empty") return;

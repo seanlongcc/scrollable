@@ -128,6 +128,7 @@ function oldRedditGalleryUrl(permalink: string | null, postId: string) {
   url.search = "";
   url.hash = "";
   if (!url.pathname.endsWith("/")) url.pathname += "/";
+  url.pathname += ".compact";
 
   return url.toString();
 }

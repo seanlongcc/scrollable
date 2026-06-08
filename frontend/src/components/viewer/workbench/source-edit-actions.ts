@@ -5,12 +5,16 @@ import {
   normalizeVideoTimeRange,
   type VideoTimeRange,
 } from "@/lib/viewer/video-time-range";
-import { normalizeRedditLimit } from "./helpers";
+import { normalizeRedditLimit, splitRedditUrls } from "./helpers";
 import { getUploadableFiles } from "./local-sources";
 import {
   fetchEditedRedditSource,
   fetchEditedUrlSource,
 } from "./runtime-sources";
+import {
+  runtimeSourceNotice,
+  type RuntimeNotice,
+} from "./runtime-source-notices";
 import { splitUrlValues } from "./source-add-state";
 import type {
   EditedRedditSourceState,
@@ -26,6 +30,7 @@ type SourceEditValidationError = {
 type SourceEditActionError = {
   status: "error";
   error: string;
+  notice: RuntimeNotice;
 };
 
 export type PreparedRedditSourceEdit = {
@@ -82,7 +87,8 @@ export function prepareRedditSourceEditAction({
   urls: string[];
   limit: number;
 }): PreparedRedditSourceEdit | SourceEditValidationError {
-  if (!urls.length) {
+  const parsedUrls = urls.flatMap(splitRedditUrls);
+  if (!parsedUrls.length) {
     return {
       status: "validation-error",
       error: "Keep at least one Reddit source",
@@ -91,7 +97,7 @@ export function prepareRedditSourceEditAction({
 
   return {
     status: "ready",
-    urls,
+    urls: parsedUrls,
     limit: normalizeRedditLimit(limit),
   };
 }
@@ -178,9 +184,13 @@ export async function editPreparedRedditSourceAction({
       }),
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "Reddit fetch failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "Reddit fetch failed"),
+      error: notice.message,
+      notice,
     };
   }
 }
@@ -207,9 +217,13 @@ export async function editUrlSourceAction({
       }),
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "URL source failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "URL source failed"),
+      error: notice.message,
+      notice,
     };
   }
 }
@@ -260,9 +274,13 @@ export async function editPreparedLocalSourceAction({
       videoTimeRanges,
     };
   } catch (error) {
+    const notice = runtimeSourceNotice(error, {
+      fallback: "Local file cache failed",
+    });
     return {
       status: "error",
-      error: errorMessage(error, "Local file cache failed"),
+      error: notice.message,
+      notice,
     };
   }
 }
