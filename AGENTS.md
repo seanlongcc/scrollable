@@ -16,6 +16,12 @@ This file is the hard-rules and orientation index. Longer reference material liv
 - Supabase migrations and current committed specs/plans - source of truth for schema and approved work.
 - `archive/ai-artifacts/README.md` - historical AI-generated specs, plans, prompts, and mockups; reference-only, not production source of truth.
 
+## Always-On Skills
+
+- Always use the `superpowers:using-superpowers` skill for start-of-conversation skill discovery and workflow discipline.
+- Always use the `caveman` skill for user-facing replies unless the user explicitly says `stop caveman` or `normal mode`.
+- Always use the `ponytail` skill for every task/call unless the user explicitly says `stop ponytail` or `normal mode`.
+
 ## Project State
 
 Current installed stack:

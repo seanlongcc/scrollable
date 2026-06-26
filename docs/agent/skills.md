@@ -25,6 +25,7 @@ mapping.
 | `superpowers:dispatching-parallel-agents`    | Coordinate independent parallel agent tasks.                                                                  |
 | `superpowers:subagent-driven-development`    | Use subagents to implement independent parts of an approved plan.                                             |
 | `superpowers:writing-skills`                 | Create or update skills.                                                                                      |
+| `ponytail`                                   | Always-on minimal/YAGNI solution discipline for this repo.                                                    |
 
 ## Frontend, React, And Design Skills
 
@@ -107,11 +108,11 @@ mapping.
 
 ## Creation, Assets, And Utility Skills
 
-| Skill             | Use                                                                |
-| ----------------- | ------------------------------------------------------------------ |
-| `imagegen`        | Generate or edit raster images when AI-created visuals are needed. |
-| `plugin-creator`  | Create Codex plugins.                                              |
-| `skill-creator`   | Create or update Codex skills.                                     |
-| `skill-installer` | Install Codex skills.                                              |
-| `brooks-lint`     | Code quality review using classic engineering-book heuristics.     |
-| `caveman`         | Ultra-compressed communication mode only when requested.           |
+| Skill             | Use                                                                 |
+| ----------------- | ------------------------------------------------------------------- |
+| `imagegen`        | Generate or edit raster images when AI-created visuals are needed.  |
+| `plugin-creator`  | Create Codex plugins.                                               |
+| `skill-creator`   | Create or update Codex skills.                                      |
+| `skill-installer` | Install Codex skills.                                               |
+| `brooks-lint`     | Code quality review using classic engineering-book heuristics.      |
+| `caveman`         | Always-on ultra-compressed user-facing communication for this repo. |
